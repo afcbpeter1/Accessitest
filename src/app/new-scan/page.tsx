@@ -41,7 +41,6 @@ interface DiscoveredPage {
 export default function NewScan() {
   const [url, setUrl] = useState('')
   const [includeSubdomains, setIncludeSubdomains] = useState(true)
-  const [scanType, setScanType] = useState('single')
   const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('AA')
   const [selectedTags, setSelectedTags] = useState<string[]>(['wcag22a', 'wcag22aa', 'best-practice'])
   const [isScanning, setIsScanning] = useState(false)
@@ -60,13 +59,8 @@ export default function NewScan() {
     
     if (!url) return
 
-    if (scanType === 'discover') {
-      // Step 1: Discover pages
-      await discoverPages()
-    } else {
-      // Step 2: Scan selected pages (or single page)
-      await scanSelectedPages()
-    }
+    // Always start with page discovery
+    await discoverPages()
   }
 
   // Clear discovered pages when URL changes
@@ -161,8 +155,8 @@ export default function NewScan() {
         body: JSON.stringify({
           url: normalizedUrl,
           includeSubdomains,
-          deepCrawl: scanType === 'discover',
-          maxPages: scanType === 'discover' ? 200 : 1
+          deepCrawl: true,
+          maxPages: 200
         })
       })
 
@@ -208,7 +202,7 @@ export default function NewScan() {
     setScanResults([])
 
     try {
-      const pagesToScan = scanType === 'single' ? [url] : selectedPages
+      const pagesToScan = selectedPages
       
       if (pagesToScan.length === 0) {
         throw new Error('No pages selected for scanning')
@@ -291,29 +285,25 @@ export default function NewScan() {
             <div className="card">
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Discovery Options */}
-                {scanType === 'discover' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Discovery Options
-                    </label>
-                    <div className="space-y-3">
-                      <div className="flex items-center">
-                        <input
-                          id="includeSubdomains"
-                          type="checkbox"
-                          checked={includeSubdomains}
-                          onChange={(e) => setIncludeSubdomains(e.target.checked)}
-                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="includeSubdomains" className="ml-2 block text-sm text-gray-700">
-                          Include subdomains
-                        </label>
-                      </div>
-                      
-
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Discovery Options
+                  </label>
+                  <div className="space-y-3">
+                    <div className="flex items-center">
+                      <input
+                        id="includeSubdomains"
+                        type="checkbox"
+                        checked={includeSubdomains}
+                        onChange={(e) => setIncludeSubdomains(e.target.checked)}
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="includeSubdomains" className="ml-2 block text-sm text-gray-700">
+                        Include subdomains
+                      </label>
                     </div>
                   </div>
-                )}
+                </div>
 
                 {/* URL Input */}
                 <div>
@@ -348,70 +338,54 @@ export default function NewScan() {
                   </p>
                 </div>
 
-                {/* Page Discovery */}
+                {/* Stage 1: Page Discovery */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Page Discovery
-                  </label>
-                  <div className="space-y-3">
-                    <div className="flex items-center">
-                      <input
-                        id="single-page"
-                        type="radio"
-                        name="scanType"
-                        value="single"
-                        checked={scanType === 'single'}
-                        onChange={(e) => setScanType(e.target.value)}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
-                      />
-                      <label htmlFor="single-page" className="ml-3">
-                        <span className="block text-sm font-medium text-gray-700">Single Page</span>
-                        <span className="block text-sm text-gray-500">Scan only the homepage</span>
-                      </label>
+                  <div className="flex items-center mb-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-blue-600 font-semibold text-sm">1</span>
                     </div>
-                    <div className="flex items-center">
-                      <input
-                        id="discover-pages"
-                        type="radio"
-                        name="scanType"
-                        value="discover"
-                        checked={scanType === 'discover'}
-                        onChange={(e) => setScanType(e.target.value)}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
-                      />
-                      <label htmlFor="discover-pages" className="ml-3">
-                        <span className="block text-sm font-medium text-gray-700">Discover Pages</span>
-                        <span className="block text-sm text-gray-500">Find all pages first, then choose which to scan</span>
-                      </label>
-                    </div>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Stage 1: Page Discovery
+                    </label>
                   </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    First, let's discover all pages on your website so you can choose which ones to scan for accessibility issues.
+                  </p>
                   
                   {/* Discover Pages Button */}
-                  {scanType === 'discover' && (
-                    <div className="mt-4">
-                      <button
-                        type="button"
-                        onClick={discoverPages}
-                        disabled={isScanning || !url}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                      >
-                        <Search className="h-4 w-4" />
-                        <span>
-                          {isScanning 
-                            ? 'Discovering Pages...' 
-                            : 'Discover Pages'
-                          }
-                        </span>
-                      </button>
-                                         </div>
-                   )}
-                 </div>
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={discoverPages}
+                      disabled={isScanning || !url}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 font-medium"
+                    >
+                      <Search className="h-5 w-5" />
+                      <span>
+                        {isScanning 
+                          ? 'Discovering Pages...' 
+                          : 'Start Page Discovery'
+                        }
+                      </span>
+                    </button>
+                  </div>
+                </div>
 
-                                  {/* Select Pages to Scan */}
+                                  {/* Stage 2: Select Pages to Scan */}
                  {discoveredPages.length > 0 && (
                    <div className="space-y-4">
+                     <div className="flex items-center mb-4">
+                       <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                         <span className="text-green-600 font-semibold text-sm">2</span>
+                       </div>
+                       <div>
+                         <h3 className="text-lg font-semibold text-gray-900">Stage 2: Select Pages to Scan</h3>
+                         <p className="text-sm text-gray-600">Choose which pages to scan for WCAG 2.2 accessibility issues</p>
+                       </div>
+                     </div>
+                     
                      <div className="flex items-center justify-between">
-                       <h3 className="text-lg font-semibold text-gray-900">Select Pages to Scan</h3>
+                       <span className="text-sm font-medium text-gray-700">Page Selection</span>
                        <div className="flex space-x-2">
                          <button
                            type="button"
@@ -427,8 +401,8 @@ export default function NewScan() {
                          >
                            Clear All
                          </button>
-                  </div>
-                </div>
+                       </div>
+                     </div>
 
                      {/* Category Filters */}
                      <div className="flex flex-wrap gap-2">
@@ -569,9 +543,19 @@ export default function NewScan() {
                          type="button"
                          onClick={scanSelectedPages}
                          disabled={selectedPages.length === 0 || isScanning}
-                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                         className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
                        >
-                         {isScanning ? 'Scanning...' : `Scan ${selectedPages.length} Selected Pages`}
+                         {isScanning ? (
+                           <>
+                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                             <span>Scanning...</span>
+                           </>
+                         ) : (
+                           <>
+                             <Search className="h-5 w-5" />
+                             <span>Start WCAG 2.2 Scan ({selectedPages.length} pages)</span>
+                           </>
+                         )}
                        </button>
                      </div>
                    </div>
@@ -842,28 +826,7 @@ export default function NewScan() {
                   </div>
                 )}
 
-                {/* Submit Button for Single Page Scans */}
-                {scanType === 'single' && (
-                  <div className="flex justify-end pt-4">
-                  <button
-                    type="submit"
-                    disabled={isScanning || !url}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 font-medium"
-                    >
-                      {isScanning ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Scanning...</span>
-                        </>
-                      ) : (
-                        <>
-                    <Search className="h-4 w-4" />
-                          <span>Start Scan</span>
-                        </>
-                      )}
-                  </button>
-                </div>
-                )}
+
 
               </form>
             </div>
