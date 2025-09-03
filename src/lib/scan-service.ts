@@ -19,7 +19,7 @@ export interface ScanProgress {
 
 export class ScanService {
   private scanner: AccessibilityScanner;
-  private browser: puppeteer.Browser | null = null;
+  private browser: any = null;
 
   constructor() {
     this.scanner = new AccessibilityScanner();
@@ -268,6 +268,11 @@ export class ScanService {
       await page.goto(url, { 
         waitUntil: 'networkidle2',
         timeout: 30000 
+      });
+
+      // Inject axe-core into the page
+      await page.addScriptTag({
+        url: 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.3/axe.min.js'
       });
 
       // Use our accessibility scanner with WCAG 2.2

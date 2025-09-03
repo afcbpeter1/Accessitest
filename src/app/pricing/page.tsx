@@ -1,159 +1,315 @@
-import PricingSection from '@/components/PricingSection'
+'use client'
+
+import { useState } from 'react'
+import { Check, CreditCard, Zap, Shield, FileText, Globe } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
-import { CheckCircle, Shield, Zap, Users, Globe, ArrowRight } from 'lucide-react'
 
-export default function PricingPage() {
-  const features = [
+interface PricingPlan {
+  name: string
+  description: string
+  price: number
+  yearlyPrice: number
+  features: string[]
+  popular?: boolean
+  credits?: number
+  unlimited?: boolean
+}
+
+interface CreditPackage {
+  name: string
+  credits: number
+  price: number
+  pricePerCredit: number
+  savings?: string
+}
+
+export default function Pricing() {
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
+  const [selectedCredits, setSelectedCredits] = useState<string | null>(null)
+
+  const subscriptionPlans: PricingPlan[] = [
     {
-      title: 'WCAG 2.2 Compliance',
-      description: 'Test against the latest accessibility standards including Level A, AA, and AAA compliance',
-      icon: Shield
+      name: 'Web Scan Only',
+      description: 'Unlimited website accessibility scans',
+      price: 29,
+      yearlyPrice: 278, // $29 × 12 × 0.8 = $278.40/year
+      features: [
+        'Unlimited website scans',
+        'WCAG 2.2 compliance testing',
+        'Detailed accessibility reports',
+        'AI-powered recommendations',
+        'Multi-page scanning'
+      ],
+      unlimited: true
     },
     {
-      title: 'AI-Powered Fixes',
-      description: 'Get intelligent, contextual suggestions for fixing accessibility issues with code examples',
-      icon: Zap
+      name: 'Document Scan Only',
+      description: 'Unlimited document accessibility scans',
+      price: 39,
+      yearlyPrice: 374, // $39 × 12 × 0.8 = $374.40/year
+      features: [
+        'Unlimited document scans',
+        'Section 508 compliance testing',
+        'PDF, Word, PowerPoint support',
+        'AI-powered recommendations',
+        'Detailed issue breakdowns'
+      ],
+      unlimited: true
     },
     {
-      title: 'Multi-Page Scanning',
-      description: 'Scan entire websites, not just single pages, with configurable depth and scope',
-      icon: Globe
-    },
-    {
-      title: 'Team Collaboration',
-      description: 'Share reports, track progress, and collaborate with your team on accessibility improvements',
-      icon: Users
+      name: 'Complete Access',
+      description: 'Both web and document scanning',
+      price: 59,
+      yearlyPrice: 566, // $59 × 12 × 0.8 = $566.40/year
+      features: [
+        'Unlimited website scans',
+        'Unlimited document scans',
+        'WCAG 2.2 + Section 508 compliance',
+        'AI-powered recommendations',
+        'Multi-page scanning',
+        'Detailed issue breakdowns'
+      ],
+      popular: true,
+      unlimited: true
     }
   ]
 
-  const faqs = [
+  const creditPackages: CreditPackage[] = [
     {
-      question: 'What is included in the free trial?',
-      answer: 'The 7-day free trial includes all features of the Professional plan, allowing you to test up to 50 websites with AI-powered remediation suggestions and detailed compliance reports.'
+      name: 'Starter Pack',
+      credits: 5,
+      price: 7.50,
+      pricePerCredit: 1.50
     },
     {
-      question: 'Can I cancel my subscription anytime?',
-      answer: 'Yes, you can cancel your subscription at any time. You\'ll continue to have access to your plan until the end of your current billing period.'
+      name: 'Professional Pack',
+      credits: 7,
+      price: 10.50,
+      pricePerCredit: 1.50
     },
     {
-      question: 'Do you offer refunds?',
-      answer: 'We offer a 30-day money-back guarantee. If you\'re not satisfied with our service, contact us within 30 days for a full refund.'
+      name: 'Business Pack',
+      credits: 9,
+      price: 13.50,
+      pricePerCredit: 1.50
     },
     {
-      question: 'What compliance standards do you support?',
-      answer: 'We support WCAG 2.2 (Web Content Accessibility Guidelines) including Level A, AA, and AAA compliance. We also support Section 508 and other international accessibility standards.'
-    },
-    {
-      question: 'Can I scan private or password-protected websites?',
-      answer: 'Currently, our scanning is limited to publicly accessible websites. We\'re working on adding support for authenticated scanning in future updates.'
-    },
-    {
-      question: 'How accurate are the AI suggestions?',
-      answer: 'Our AI-powered suggestions are trained on thousands of accessibility fixes and provide contextual, actionable recommendations with code examples. They achieve over 95% accuracy in identifying and suggesting fixes for common accessibility issues.'
-    },
-    {
-      question: 'What happens if I exceed my monthly scan limit?',
-      answer: 'If you exceed your monthly scan limit, you can either upgrade to a higher plan or purchase additional scans. We\'ll notify you when you\'re approaching your limit so you can plan accordingly.'
-    },
-    {
-      question: 'Can I carry over unused scans to the next month?',
-      answer: 'Currently, scans are reset monthly and don\'t carry over. This ensures fair usage and helps us maintain consistent service quality for all users.'
+      name: 'Enterprise Pack',
+      credits: 11,
+      price: 16.50,
+      pricePerCredit: 1.50
     }
   ]
+
+  const handleSubscribe = (plan: PricingPlan) => {
+    setSelectedPlan(plan.name)
+    // Here you would integrate with Stripe or your payment processor
+    console.log('Subscribing to:', plan.name, billingCycle)
+  }
+
+  const handleBuyCredits = (creditPackage: CreditPackage) => {
+    setSelectedCredits(creditPackage.name)
+    // Here you would integrate with Stripe or your payment processor
+    console.log('Buying credits:', creditPackage.name)
+  }
 
   return (
     <Sidebar>
       <div className="space-y-8">
-        {/* Hero Section */}
-        <div className="text-center py-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Simple, Transparent Pricing
-          </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Choose the perfect plan for your accessibility testing needs. All plans include a 30-day free trial with no credit card required.
+        {/* Header */}
+        <div className="text-center">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Choose Your Plan</h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Get comprehensive accessibility testing with flexible pricing options. 
+            Subscribe for unlimited access or pay per scan with credits.
           </p>
         </div>
 
-        {/* Pricing Section */}
-        <PricingSection />
+        {/* Billing Toggle */}
+        <div className="flex justify-center">
+          <div className="bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setBillingCycle('monthly')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                billingCycle === 'monthly'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingCycle('yearly')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                billingCycle === 'yearly'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Yearly
+              <span className="ml-1 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
+                Save 20%
+              </span>
+            </button>
+          </div>
+        </div>
 
-        {/* Features Section */}
-        <div className="py-16 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Why Choose Our Accessibility Testing Platform?
-              </h2>
-              <p className="text-xl text-gray-600">
-                Professional-grade tools that make accessibility testing simple and effective
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {features.map((feature, index) => {
-                const IconComponent = feature.icon
-                return (
-                  <div key={index} className="text-center">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-green-100 text-green-600 mb-4">
-                      <IconComponent className="h-6 w-6" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      {feature.title}
-                    </h3>
-                    <p className="text-gray-600 text-sm">
-                      {feature.description}
-                    </p>
+        {/* Subscription Plans */}
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Subscription Plans</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+            {subscriptionPlans.map((plan) => (
+              <div
+                key={plan.name}
+                className={`relative bg-white rounded-lg shadow-lg border-2 p-6 flex flex-col h-full ${
+                  plan.popular ? 'border-blue-500' : 'border-gray-200'
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                                      <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    Most Popular
+                  </span>
                   </div>
-                )
-              })}
+                )}
+
+                <div className="text-center mb-6">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{plan.name}</h3>
+                  <p className="text-gray-600 mb-4">{plan.description}</p>
+                  <div className="mb-2">
+                    <span className="text-4xl font-bold text-gray-900">
+                      ${billingCycle === 'monthly' ? plan.price : plan.yearlyPrice}
+                    </span>
+                    <span className="text-gray-600">/{billingCycle === 'monthly' ? 'month' : 'year'}</span>
+                  </div>
+                  {billingCycle === 'yearly' && (
+                    <div className="text-sm text-green-600">
+                      <p>Save ${((plan.price * 12) - plan.yearlyPrice).toFixed(0)} per year</p>
+                      <p className="text-xs text-gray-500 mt-1">Billed annually</p>
+                    </div>
+                  )}
+                </div>
+
+                <ul className="space-y-3 mb-6">
+                  {plan.features.map((feature, index) => (
+                    <li key={index} className="flex items-start">
+                      <Check className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                      <span className="text-gray-700">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={() => handleSubscribe(plan)}
+                  className={`w-full py-3 px-4 rounded-lg font-medium transition-colors mt-auto ${
+                    plan.popular
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-100 text-gray-900 hover:bg-blue-700'
+                  }`}
+                >
+                  Get Started
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Credit-Based Scanning */}
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Pay Per Scan</h2>
+          <p className="text-center text-gray-600 mb-8 max-w-2xl mx-auto">
+            Don't need unlimited access? Buy credits and scan only when you need to. 
+            Each scan costs $1.50 regardless of document size or complexity.
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {creditPackages.map((creditPackage) => (
+              <div
+                key={creditPackage.name}
+                className="bg-white rounded-lg border border-gray-200 p-6 text-center hover:shadow-lg transition-shadow"
+              >
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{creditPackage.name}</h3>
+                <div className="mb-4">
+                  <div className="text-3xl font-bold text-gray-900 mb-1">
+                    {creditPackage.credits}
+                  </div>
+                  <div className="text-sm text-gray-600">credits</div>
+                </div>
+                <div className="mb-4">
+                  <div className="text-2xl font-bold text-blue-600">
+                    ${creditPackage.price}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    ${creditPackage.pricePerCredit} per credit
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleBuyCredits(creditPackage)}
+                  className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Buy Credits
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Features Comparison */}
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">What's Included</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <div className="flex items-center mb-4">
+                <Globe className="h-6 w-6 text-blue-600 mr-3" />
+                <h3 className="text-lg font-semibold text-gray-900">Website Scans</h3>
+              </div>
+              <ul className="space-y-2 text-gray-600">
+                <li>• WCAG 2.2 Level AA compliance</li>
+                <li>• Automated accessibility testing</li>
+                <li>• Detailed issue reports</li>
+                <li>• AI-powered recommendations</li>
+                <li>• Multi-page scanning</li>
+              </ul>
+            </div>
+
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <div className="flex items-center mb-4">
+                <FileText className="h-6 w-6 text-green-600 mr-3" />
+                <h3 className="text-lg font-semibold text-gray-900">Document Scans</h3>
+              </div>
+              <ul className="space-y-2 text-gray-600">
+                <li>• Section 508 compliance testing</li>
+                <li>• PDF, Word, PowerPoint support</li>
+                <li>• AI-powered recommendations</li>
+                <li>• Detailed accessibility scores</li>
+                <li>• Issue categorization & prioritization</li>
+              </ul>
             </div>
           </div>
         </div>
 
-        {/* FAQ Section */}
-        <div className="py-16 bg-gray-50">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Frequently Asked Questions
-              </h2>
-              <p className="text-xl text-gray-600">
-                Everything you need to know about our accessibility testing platform
+        {/* FAQ */}
+        <div>
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Frequently Asked Questions</h2>
+          <div className="max-w-3xl mx-auto space-y-4">
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <h3 className="font-semibold text-gray-900 mb-2">How do credits work?</h3>
+              <p className="text-gray-600">
+                Each credit allows you to scan one document or website. Credits never expire and can be used for any type of scan.
               </p>
             </div>
-
-            <div className="space-y-6">
-              {faqs.map((faq, index) => (
-                <div key={index} className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {faq.question}
-                  </h3>
-                  <p className="text-gray-600">
-                    {faq.answer}
-                  </p>
-                </div>
-              ))}
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <h3 className="font-semibold text-gray-900 mb-2">Can I switch between plans?</h3>
+              <p className="text-gray-600">
+                Yes! You can upgrade, downgrade, or cancel your subscription at any time. Changes take effect at your next billing cycle.
+              </p>
             </div>
-          </div>
-        </div>
-
-        {/* CTA Section */}
-        <div className="py-16 bg-green-600">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-3xl font-bold text-white mb-4">
-              Ready to Improve Your Website's Accessibility?
-            </h2>
-            <p className="text-xl text-green-100 mb-8">
-              Start your free trial today and see how easy it is to make your website accessible to everyone.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="bg-white text-green-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors duration-200 flex items-center justify-center">
-                Start Free Trial
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </button>
-              <button className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-green-600 transition-colors duration-200">
-                Contact Sales
-              </button>
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
+              <h3 className="font-semibold text-gray-900 mb-2">What payment methods do you accept?</h3>
+              <p className="text-gray-600">
+                We use Stripe for secure payments and accept all major credit cards.
+              </p>
             </div>
           </div>
         </div>

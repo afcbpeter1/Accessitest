@@ -9,13 +9,15 @@ import {
   Settings,
   Bell,
   User,
-  DollarSign
+  DollarSign,
+  Upload
 } from 'lucide-react'
 import Link from 'next/link'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, current: true },
-  { name: 'New Scan', href: '/new-scan', icon: Plus, current: false },
+  { name: 'Web Scan', href: '/new-scan', icon: Plus, current: false },
+  { name: 'Document Scan', href: '/document-scan', icon: Upload, current: false },
   { name: 'Scan History', href: '/history', icon: Clock, current: false },
   { name: 'Reports', href: '/reports', icon: FileText, current: false },
   { name: 'Pricing', href: '/pricing', icon: DollarSign, current: false },

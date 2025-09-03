@@ -7,8 +7,10 @@ import {
   HelpCircle, 
   CheckCircle, 
   AlertTriangle,
-  Eye
+  Eye,
+  Upload
 } from 'lucide-react'
+import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import StatsCard from '@/components/StatsCard'
 
@@ -44,15 +46,60 @@ export default function Dashboard() {
       <div className="space-y-6">
 
 
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Website Scans
+              </h2>
+              <Link href="/new-scan" className="text-primary-600 hover:text-primary-700 font-medium">
+                New scan
+              </Link>
+            </div>
+            <p className="text-gray-600 mb-4">
+              Scan websites for WCAG 2.2 accessibility compliance and get detailed reports.
+            </p>
+            <Link 
+              href="/new-scan"
+              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              <Globe className="h-4 w-4 mr-2" />
+              Start Website Scan
+            </Link>
+          </div>
+
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                Document Scans
+              </h2>
+              <Link href="/document-scan" className="text-primary-600 hover:text-primary-700 font-medium">
+                New scan
+              </Link>
+            </div>
+            <p className="text-gray-600 mb-4">
+              Upload documents to check for Section 508 compliance and accessibility issues.
+            </p>
+            <Link 
+              href="/document-scan"
+              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Start Document Scan
+            </Link>
+          </div>
+        </div>
+
         {/* Recent Scan Results */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900">
               Recent Scan Results
             </h2>
-            <button className="text-primary-600 hover:text-primary-700 font-medium">
+            <Link href="/history" className="text-primary-600 hover:text-primary-700 font-medium">
               View all scans
-            </button>
+            </Link>
           </div>
 
           {scans.length === 0 ? (

@@ -80,18 +80,18 @@ export default function DetailedReport({
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
             <h3 className="text-lg font-semibold text-gray-900">{ruleName}</h3>
-            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getImpactColor(impact)}`}>
-              {impact.toUpperCase()}
+            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getImpactColor(impact || 'minor')}`}>
+              {(impact || 'minor').toUpperCase()}
             </span>
             <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full border border-purple-200">
-              WCAG 2.2 {wcag22Level}
+              WCAG 2.2 {wcag22Level || 'A'}
             </span>
-            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(priority)} bg-opacity-10`}>
-              {priority.toUpperCase()} PRIORITY
+            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(priority || 'medium')} bg-opacity-10`}>
+              {(priority || 'medium').toUpperCase()} PRIORITY
             </span>
           </div>
-          <p className="text-gray-600 mb-2">{description}</p>
-          <p className="text-sm text-gray-500 mb-3">{help}</p>
+          <p className="text-gray-600 mb-2">{description || 'No description available'}</p>
+          <p className="text-sm text-gray-500 mb-3">{help || 'No help text available'}</p>
           <div className="flex items-center gap-4 text-sm text-gray-500">
             <span className="flex items-center gap-1">
               <FileText className="h-4 w-4" />

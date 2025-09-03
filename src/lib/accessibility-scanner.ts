@@ -64,6 +64,7 @@ export interface ScanResult {
 export class AccessibilityScanner {
   private config: typeof axeConfig;
   private claudeAPI: ClaudeAPI;
+  private aiResponseCache: Map<string, string> = new Map();
 
   constructor() {
     this.config = { ...axeConfig };
@@ -84,7 +85,11 @@ export class AccessibilityScanner {
       
       // Run axe-core analysis directly in the browser context
       const results = await page.evaluate(async (tags: string[]) => {
-        // @ts-ignore - axe is available in browser context
+        // Check if axe is available in the browser context
+        if (typeof window.axe === 'undefined') {
+          throw new Error('axe-core is not loaded in the browser context');
+        }
+        
         const axe = window.axe;
         
         // Configure axe with basic settings
@@ -143,6 +148,39 @@ export class AccessibilityScanner {
       // Check WCAG 2.2 compliance
       const wcag22Compliance = this.checkWCAG22Compliance(issues, results);
 
+      // Generate AI-enhanced suggestions for each issue with rate limiting
+      console.log(`🔍 Generating AI suggestions for ${issues.length} accessibility issues...`);
+      
+      // Process issues sequentially to avoid overwhelming the API
+      for (let i = 0; i < issues.length; i++) {
+        const issue = issues[i];
+        try {
+          console.log(`🤖 Processing AI suggestion ${i + 1}/${issues.length} for issue: ${issue.id}`);
+          
+          const suggestions = await this.generateContextualSuggestions(issue);
+          if (suggestions.length > 0) {
+            // Add suggestions to the issue object
+            (issue as any).suggestions = suggestions;
+            console.log(`✅ AI suggestions generated for issue: ${issue.id}`);
+          }
+          
+          // Add delay between issues to prevent rate limiting (2 seconds)
+          if (i < issues.length - 1) {
+            console.log('⏳ Waiting 2 seconds before processing next issue...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+          
+        } catch (error) {
+          console.error(`❌ Failed to generate AI suggestions for issue ${issue.id}:`, error);
+          
+          // Even on error, wait before continuing to prevent rate limiting
+          if (i < issues.length - 1) {
+            console.log('⏳ Waiting 2 seconds after error before processing next issue...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+        }
+      }
+
       return {
         url: currentUrl,
         timestamp: new Date(),
@@ -152,7 +190,7 @@ export class AccessibilityScanner {
       };
     } catch (error) {
       console.error('Error scanning page for accessibility issues:', error);
-      throw new Error(`Failed to scan ${url}: ${error.message}`);
+      throw new Error(`Failed to scan ${currentUrl}: ${error.message}`);
     }
   }
 
@@ -356,6 +394,40 @@ export class AccessibilityScanner {
 
     // Try to get AI-powered suggestion first (most valuable)
     try {
+      // Create a cache key based on issue type and HTML content
+      const cacheKey = `${issue.id}-${html.substring(0, 200)}`;
+      
+      // Check if we already have a cached response for this issue
+      if (this.aiResponseCache.has(cacheKey)) {
+        console.log('💾 Using cached AI response for:', issue.id);
+        const aiSuggestion = this.aiResponseCache.get(cacheKey)!;
+        console.log('🤖 Cached Claude API response:', aiSuggestion.substring(0, 200) + '...');
+        
+        // Extract code example from AI response if it contains markdown code blocks
+        const codeBlockMatch = aiSuggestion.match(/```(?:html|css|js|javascript)?\s*\n([\s\S]*?)```/);
+        let description = aiSuggestion;
+        let codeExample: string | undefined;
+
+        if (codeBlockMatch) {
+          // Remove the code block from description and extract it
+          description = aiSuggestion.replace(/```(?:html|css|js|javascript)?\s*\n[\s\S]*?```/g, '').trim();
+          codeExample = codeBlockMatch[1].trim();
+        }
+
+        // Clean up the description by removing markdown headers and extra formatting
+        description = description
+          .replace(/^#+\s*Accessibility Fix:\s*/i, '') // Remove "# Accessibility Fix:" headers
+          .replace(/^#+\s*/g, '') // Remove any other markdown headers
+          .trim();
+
+        return [{
+          type: 'fix',
+          description: description,
+          codeExample: codeExample,
+          priority: this.getPriorityForImpact(issue.impact)
+        }];
+      }
+
       console.log('🔍 Calling Claude API for:', issue.id, 'with HTML:', html.substring(0, 100) + '...');
       
       const aiSuggestion = await this.claudeAPI.generateAccessibilitySuggestion(
@@ -364,6 +436,10 @@ export class AccessibilityScanner {
         failureSummary,
         target
       );
+
+      // Cache the response for future use
+      this.aiResponseCache.set(cacheKey, aiSuggestion);
+      console.log('💾 Cached AI response for:', issue.id);
 
       console.log('🤖 Claude API response:', aiSuggestion.substring(0, 200) + '...');
 
