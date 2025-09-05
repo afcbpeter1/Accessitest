@@ -11,7 +11,8 @@ import {
   ArrowRight,
   Search,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  Code
 } from 'lucide-react'
 import Link from 'next/link'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -43,6 +44,36 @@ interface ScanResults {
   screenshots?: {
     fullPage?: string
     viewport?: string
+    elements?: Array<{
+      selector: string
+      issueId: string
+      severity: string
+      screenshot: string
+      boundingBox?: {
+        x: number
+        y: number
+        width: number
+        height: number
+      }
+    }>
+  }
+  codeAnalysis?: {
+    fixes: Array<{
+      issueId: string
+      selector: string
+      originalCode: string
+      fixedCode: string
+      explanation: string
+      wcagGuideline: string
+      severity: 'critical' | 'serious' | 'moderate' | 'minor'
+    }>
+    summary: {
+      totalFixes: number
+      criticalFixes: number
+      seriousFixes: number
+      moderateFixes: number
+      minorFixes: number
+    }
   }
   requiresSignup: boolean
   message: string
@@ -53,9 +84,11 @@ export default function HomePage() {
   const [scanUrl, setScanUrl] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState(0)
+  const [scanStage, setScanStage] = useState('')
   const [scanResults, setScanResults] = useState<ScanResults | null>(null)
   const [showSignupForm, setShowSignupForm] = useState(false)
   const [showIssuesModal, setShowIssuesModal] = useState(false)
+  const [showCodeFixes, setShowCodeFixes] = useState(false)
   
   // Accessibility hooks
   const modalRef = useFocusTrap(showIssuesModal)
@@ -127,13 +160,23 @@ export default function HomePage() {
     setScanResults(null)
     setSignupError('')
     
-    // Simulate progress updates
+    // Realistic progress updates based on scan stages
+    const progressStages = [
+      { stage: 'Connecting to website...', progress: 20 },
+      { stage: 'Loading page content...', progress: 40 },
+      { stage: 'Running accessibility tests...', progress: 70 },
+      { stage: 'Capturing screenshots...', progress: 85 },
+      { stage: 'Processing results...', progress: 95 }
+    ]
+    
+    let currentStage = 0
     const progressInterval = setInterval(() => {
-      setScanProgress(prev => {
-        if (prev >= 90) return prev // Stop at 90% until scan completes
-        return prev + Math.random() * 15
-      })
-    }, 200)
+      if (currentStage < progressStages.length) {
+        setScanProgress(progressStages[currentStage].progress)
+        setScanStage(progressStages[currentStage].stage)
+        currentStage++
+      }
+    }, 800) // Update every 800ms for realistic timing
     
     try {
       const response = await fetch('/api/free-scan', {
@@ -163,7 +206,7 @@ export default function HomePage() {
       setTimeout(() => {
         setIsScanning(false)
         setScanProgress(0)
-      }, 500) // Keep progress bar visible for a moment
+      }, 1000) // Keep progress bar visible for a moment
     }
   }
 
@@ -583,7 +626,7 @@ export default function HomePage() {
                               <LoadingSpinner message="Scanning website..." size="sm" />
                               <div className="ml-3">
                                 <p className="text-sm text-blue-800">
-                                  <strong>Scan in progress...</strong> This may take a few moments.
+                                  <strong>{scanStage || 'Starting scan...'}</strong>
                                 </p>
                                 <p className="text-xs text-blue-600 mt-1">
                                   You can navigate away and come back - your scan will continue.
@@ -691,6 +734,16 @@ export default function HomePage() {
                             <Search className="h-4 w-4 mr-2" />
                             View {scanResults.summary.totalIssues} Issues Found
                           </button>
+                          
+                          {scanResults.codeAnalysis && (
+                            <button
+                              onClick={() => setShowCodeFixes(true)}
+                              className="w-full bg-[#06B6D4] text-white py-2 px-4 rounded-md font-medium hover:bg-[#0891B2] flex items-center justify-center"
+                            >
+                              <Code className="h-4 w-4 mr-2" />
+                              View Code Fixes ({scanResults.codeAnalysis.summary.totalFixes})
+                            </button>
+                          )}
                           
                           <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                             <div className="flex items-start">
@@ -1142,7 +1195,30 @@ export default function HomePage() {
                       {issue.description}
                     </p>
                     
-                    {/* Screenshot functionality temporarily disabled */}
+                    {/* Element Screenshot */}
+                    {scanResults.screenshots?.elements && (() => {
+                      const elementScreenshot = scanResults.screenshots.elements.find(
+                        el => el.issueId === issue.id
+                      )
+                      return elementScreenshot ? (
+                        <div className="mb-3">
+                          <div className="text-xs text-gray-500 mb-2">Affected Element:</div>
+                          <div className="border border-gray-200 rounded-lg overflow-hidden">
+                            <img
+                              src={`data:image/png;base64,${elementScreenshot.screenshot}`}
+                              alt={`Screenshot showing ${issue.title} issue`}
+                              className="w-full h-auto max-h-32 object-contain"
+                            />
+                          </div>
+                          {elementScreenshot.boundingBox && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Position: {Math.round(elementScreenshot.boundingBox.x)}, {Math.round(elementScreenshot.boundingBox.y)}
+                              ({Math.round(elementScreenshot.boundingBox.width)}×{Math.round(elementScreenshot.boundingBox.height)}px)
+                            </div>
+                          )}
+                        </div>
+                      ) : null
+                    })()}
                     
                     <div className="flex items-center justify-between">
                       <div className="flex flex-wrap gap-1">
@@ -1194,6 +1270,117 @@ export default function HomePage() {
                 className="bg-blue-600 text-white px-8 py-3 rounded-md font-medium hover:bg-blue-700"
               >
                 Get Detailed Fixes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Code Fixes Modal */}
+      {showCodeFixes && scanResults?.codeAnalysis && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div 
+            ref={modalRef}
+            className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="code-modal-title"
+            aria-describedby="code-modal-description"
+          >
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h3 id="code-modal-title" className="text-xl font-semibold text-gray-900">
+                  Code Fixes for {scanResults.url}
+                </h3>
+                <p id="code-modal-description" className="text-sm text-gray-600 mt-1">
+                  Before and after code examples with specific fixes for accessibility issues
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCodeFixes(false)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close code fixes modal"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              <div className="space-y-6">
+                {scanResults.codeAnalysis.fixes.map((fix, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          fix.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                          fix.severity === 'serious' ? 'bg-orange-100 text-orange-800' :
+                          fix.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          {fix.severity.toUpperCase()}
+                        </span>
+                        <span className="text-sm text-gray-600">Selector: {fix.selector}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="mb-3">
+                      <p className="text-sm text-gray-700 mb-2">{fix.explanation}</p>
+                      <p className="text-xs text-gray-500">WCAG Guideline: {fix.wcagGuideline}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Before Code */}
+                      <div>
+                        <h4 className="text-sm font-medium text-red-700 mb-2 flex items-center">
+                          <AlertTriangle className="h-4 w-4 mr-1" />
+                          Before (Current Code)
+                        </h4>
+                        <div className="bg-red-50 border border-red-200 rounded p-3">
+                          <pre className="text-xs text-red-800 whitespace-pre-wrap overflow-x-auto">
+                            {fix.originalCode}
+                          </pre>
+                        </div>
+                      </div>
+                      
+                      {/* After Code */}
+                      <div>
+                        <h4 className="text-sm font-medium text-green-700 mb-2 flex items-center">
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          After (Fixed Code)
+                        </h4>
+                        <div className="bg-green-50 border border-green-200 rounded p-3">
+                          <pre className="text-xs text-green-800 whitespace-pre-wrap overflow-x-auto">
+                            {fix.fixedCode}
+                          </pre>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(fix.fixedCode)
+                          // You could add a toast notification here
+                        }}
+                        className="text-xs bg-[#06B6D4] text-white px-3 py-1 rounded hover:bg-[#0891B2]"
+                      >
+                        Copy Fixed Code
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+              <div className="text-sm text-gray-600">
+                {scanResults.codeAnalysis.summary.totalFixes} fixes available
+              </div>
+              <button
+                onClick={() => setShowCodeFixes(false)}
+                className="bg-[#0B1220] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800"
+              >
+                Close
               </button>
             </div>
           </div>

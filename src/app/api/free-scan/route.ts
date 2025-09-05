@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import puppeteer from 'puppeteer'
 import { query } from '@/lib/database'
 import { VPNDetector } from '@/lib/vpn-detector'
+import { CodeAnalysisService } from '@/lib/code-analysis-service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -133,8 +134,11 @@ export async function POST(request: NextRequest) {
       const minorIssues = results.violations.filter((v: any) => v.impact === 'minor').length
       const totalIssues = results.violations.length
 
-      // Capture basic screenshots using the existing page instance
+      // Capture basic screenshots and HTML source using the existing page instance
       let screenshots = null
+      let htmlSource = null
+      let elementScreenshots = null
+      
       try {
         // Take a full page screenshot
         const fullPageScreenshot = await page.screenshot({
@@ -148,14 +152,57 @@ export async function POST(request: NextRequest) {
           encoding: 'base64'
         }) as string
 
+        // Get the HTML source code
+        htmlSource = await page.content()
+
+        // Capture screenshots of elements with issues
+        elementScreenshots = []
+        for (const violation of results.violations.slice(0, 5)) {
+          for (const node of violation.nodes || []) {
+            const selector = node.target?.[0]
+            if (selector) {
+              try {
+                // Try to find and screenshot the element
+                const element = await page.$(selector)
+                if (element) {
+                  const elementScreenshot = await element.screenshot({
+                    encoding: 'base64'
+                  }) as string
+                  
+                  elementScreenshots.push({
+                    selector,
+                    issueId: violation.id,
+                    severity: violation.impact,
+                    screenshot: elementScreenshot,
+                    boundingBox: await element.boundingBox()
+                  })
+                }
+              } catch (elementError) {
+                console.warn(`Failed to screenshot element ${selector}:`, elementError)
+              }
+            }
+          }
+        }
+
         screenshots = {
           fullPage: fullPageScreenshot,
           viewport: viewportScreenshot,
-          elements: []
+          elements: elementScreenshots
         }
       } catch (screenshotError) {
-        console.warn('Failed to capture screenshots:', screenshotError)
+        console.warn('Failed to capture screenshots or HTML:', screenshotError)
         // Continue without screenshots
+      }
+
+      // Generate code fixes if we have HTML source
+      let codeAnalysis = null
+      if (htmlSource && results.violations.length > 0) {
+        try {
+          const codeService = new CodeAnalysisService(htmlSource)
+          codeAnalysis = codeService.generateFixes(results.violations.slice(0, 5))
+        } catch (error) {
+          console.warn('Failed to generate code analysis:', error)
+        }
       }
 
       // Log the free scan usage
@@ -190,8 +237,13 @@ export async function POST(request: NextRequest) {
         })),
         screenshots: {
           fullPage: screenshots?.fullPage || null,
-          viewport: screenshots?.viewport || null
+          viewport: screenshots?.viewport || null,
+          elements: screenshots?.elements || []
         },
+        codeAnalysis: codeAnalysis ? {
+          fixes: codeAnalysis.fixes,
+          summary: codeAnalysis.summary
+        } : null,
         requiresSignup: true,
         message: 'Sign up to see detailed recommendations and remediation steps'
       })
