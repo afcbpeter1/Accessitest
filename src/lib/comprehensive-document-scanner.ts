@@ -115,12 +115,17 @@ export class ComprehensiveDocumentScanner {
     fileBuffer: Buffer,
     fileName: string,
     fileType: string,
-    selectedTags?: string[]
+    selectedTags?: string[],
+    isCancelled?: () => boolean
   ): Promise<ComprehensiveScanResult> {
     const startTime = Date.now()
     console.log(`🚀 Starting COMPREHENSIVE document scan for: ${fileName}`)
 
     try {
+      // Check for cancellation at the very start
+      if (isCancelled && isCancelled()) {
+        throw new Error('Scan was cancelled by user')
+      }
       let documentContent: string
       let documentType: string
       let pagesAnalyzed: number
@@ -156,6 +161,11 @@ export class ComprehensiveDocumentScanner {
         linkCount = pdfResult.linkCount || 0
         imageAnalysis = pdfResult.imageAnalysis || imageAnalysis
         pageAnalysis = pdfResult.pageAnalysis || []
+        
+        // Check for cancellation after PDF parsing
+        if (isCancelled && isCancelled()) {
+          throw new Error('Scan was cancelled by user')
+        }
       } else if (fileType.includes('word') || fileType.includes('document')) {
         const wordResult = await this.parseWordComprehensive(fileBuffer)
         documentContent = wordResult.text
@@ -168,6 +178,11 @@ export class ComprehensiveDocumentScanner {
         linkCount = wordResult.linkCount || 0
         imageAnalysis = wordResult.imageAnalysis || imageAnalysis
         pageAnalysis = wordResult.pageAnalysis || []
+        
+        // Check for cancellation after Word parsing
+        if (isCancelled && isCancelled()) {
+          throw new Error('Scan was cancelled by user')
+        }
       } else if (fileType.includes('powerpoint') || fileType.includes('presentation')) {
         const pptResult = await this.parsePowerPointComprehensive(fileBuffer)
         documentContent = pptResult.text
@@ -180,6 +195,11 @@ export class ComprehensiveDocumentScanner {
         linkCount = pptResult.linkCount || 0
         imageAnalysis = pptResult.imageAnalysis || imageAnalysis
         pageAnalysis = pptResult.pageAnalysis || []
+        
+        // Check for cancellation after PowerPoint parsing
+        if (isCancelled && isCancelled()) {
+          throw new Error('Scan was cancelled by user')
+        }
       } else if (fileType.includes('html')) {
         documentContent = fileBuffer.toString('utf-8')
         documentType = 'HTML'
@@ -189,6 +209,11 @@ export class ComprehensiveDocumentScanner {
         imageCount = 0
         tableCount = 0
         linkCount = 0
+        
+        // Check for cancellation after HTML parsing
+        if (isCancelled && isCancelled()) {
+          throw new Error('Scan was cancelled by user')
+        }
       } else {
         documentContent = fileBuffer.toString('utf-8')
         documentType = 'Text'
@@ -198,6 +223,11 @@ export class ComprehensiveDocumentScanner {
         imageCount = 0
         tableCount = 0
         linkCount = 0
+        
+        // Check for cancellation after text parsing
+        if (isCancelled && isCancelled()) {
+          throw new Error('Scan was cancelled by user')
+        }
       }
 
       // Analyze document structure
@@ -210,12 +240,17 @@ export class ComprehensiveDocumentScanner {
         pageAnalysis = this.createBasicPageAnalysis(documentContent, pagesAnalyzed)
       }
 
+      // Check for cancellation after document parsing
+      if (isCancelled && isCancelled()) {
+        throw new Error('Scan was cancelled by user')
+      }
+
       console.log(`📄 Document parsed: ${documentType}, ${pagesAnalyzed} pages, ${wordCount} words, ${characterCount} characters`)
       console.log(`🖼️ Images detected: ${imageCount} total images (${imageAnalysis.complexImages} complex, ${imageAnalysis.decorativeImages} decorative, ${imageAnalysis.informativeImages} informative)`)
       console.log(`📋 Content elements: ${tableCount} tables, ${linkCount} links, ${headingCount} headings, ${paragraphCount} paragraphs`)
 
       // Run comprehensive accessibility analysis with selected tags
-      const allIssues = await this.analyzeComprehensive(documentContent, documentType, pagesAnalyzed, imageAnalysis, pageAnalysis, selectedTags)
+      const allIssues = await this.analyzeComprehensive(documentContent, documentType, pagesAnalyzed, imageAnalysis, pageAnalysis, selectedTags, isCancelled)
       
       // Deduplicate issues to group similar ones together
       const deduplicatedIssues = this.deduplicateIssues(allIssues)
@@ -741,24 +776,49 @@ export class ComprehensiveDocumentScanner {
     pagesAnalyzed: number,
     imageAnalysis: ImageAnalysis,
     pageAnalysis: PageAnalysis[],
-    selectedTags?: string[]
+    selectedTags?: string[],
+    isCancelled?: () => boolean
   ): Promise<ComprehensiveDocumentIssue[]> {
     const issues: ComprehensiveDocumentIssue[] = []
 
+    // Always run general WCAG compliance checks
+    console.log(`🔍 Running general WCAG compliance checks (always enabled)`)
+    
     // Text analysis
     const textIssues = this.analyzeTextAccessibility(documentContent, documentType, pagesAnalyzed)
     issues.push(...textIssues)
+
+    // Check for cancellation after text analysis
+    if (isCancelled && isCancelled()) {
+      throw new Error('Scan was cancelled by user')
+    }
 
     // Structure analysis
     const structureIssues = this.analyzeStructureAccessibility(documentContent, documentType, pagesAnalyzed)
     issues.push(...structureIssues)
 
+    // Check for cancellation after structure analysis
+    if (isCancelled && isCancelled()) {
+      throw new Error('Scan was cancelled by user')
+    }
+
     // Image analysis
     const imageIssues = this.analyzeImageAccessibility(imageAnalysis, documentType, pagesAnalyzed)
     issues.push(...imageIssues)
 
-    // Comprehensive Section 508 compliance testing with selected tags
-    const section508Issues = await this.testSection508Compliance(documentContent, documentType, pagesAnalyzed, selectedTags)
+    // Check for cancellation after image analysis
+    if (isCancelled && isCancelled()) {
+      throw new Error('Scan was cancelled by user')
+    }
+
+    // Section 508 compliance testing (only if tags are selected)
+    if (selectedTags && selectedTags.length > 0) {
+      console.log(`🔍 Running Section 508 compliance tests for selected tags: ${selectedTags.join(', ')}`)
+    } else {
+      console.log(`⏭️ No Section 508 tests selected - skipping Section 508 compliance testing`)
+    }
+    
+    const section508Issues = await this.testSection508Compliance(documentContent, documentType, pagesAnalyzed, selectedTags, isCancelled)
     issues.push(...section508Issues)
 
     return issues
@@ -1320,7 +1380,7 @@ export class ComprehensiveDocumentScanner {
    * Comprehensive Section 508 compliance testing
    * Tests all 16 subsections of 36 CFR § 1194.22
    */
-  private async testSection508Compliance(documentContent: string, documentType: string, pagesAnalyzed: number, selectedTags?: string[]): Promise<ComprehensiveDocumentIssue[]> {
+  private async testSection508Compliance(documentContent: string, documentType: string, pagesAnalyzed: number, selectedTags?: string[], isCancelled?: () => boolean): Promise<ComprehensiveDocumentIssue[]> {
     const issues: ComprehensiveDocumentIssue[] = []
     
     // Define all available Section 508 tests
@@ -1346,7 +1406,12 @@ export class ComprehensiveDocumentScanner {
     // Determine which tests to run
     const testsToRun = selectedTags && selectedTags.length > 0 
       ? section508Tests.filter(test => selectedTags.includes(test.tag))
-      : section508Tests
+      : [] // Run NO tests if none selected
+    
+    if (testsToRun.length === 0) {
+      console.log(`⏭️ No Section 508 tests selected - skipping compliance testing`)
+      return issues
+    }
     
     console.log(`🔍 Testing Section 508 compliance for ${testsToRun.length} subsections: ${testsToRun.map(t => t.tag).join(', ')}`)
     
@@ -1355,6 +1420,11 @@ export class ComprehensiveDocumentScanner {
       const testIssues = test.test()
       issues.push(...testIssues)
       console.log(`✅ ${test.name} (${test.tag}): ${testIssues.length} issues`)
+      
+      // Check for cancellation after each test
+      if (isCancelled && isCancelled()) {
+        throw new Error('Scan was cancelled by user')
+      }
     }
     
     console.log(`✅ Section 508 compliance testing complete: ${issues.length} issues found`)

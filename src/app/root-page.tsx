@@ -27,7 +27,11 @@ export default function RootPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center">
       <div className="text-center">
-        <Shield className="h-16 w-16 text-blue-600 mx-auto mb-4" />
+        <img 
+          src="/allytest.png" 
+          alt="AccessiTest Logo" 
+          className="h-16 w-auto object-contain mx-auto mb-4" 
+        />
         <Loader2 className="h-8 w-8 text-blue-600 mx-auto animate-spin" />
         <p className="mt-4 text-gray-600">Redirecting...</p>
       </div>

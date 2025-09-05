@@ -64,12 +64,45 @@ export async function POST(request: NextRequest) {
     // Initialize the COMPREHENSIVE document scanner with selected tags
     const scanner = new ComprehensiveDocumentScanner()
     
-    // Perform COMPREHENSIVE document accessibility scan
-    const scanResult = await scanner.scanDocument(fileBuffer, body.fileName, body.fileType, body.selectedTags)
+    // Perform COMPREHENSIVE document accessibility scan with cancellation support
+    const scanResult = await Promise.race([
+      scanner.scanDocument(
+        fileBuffer, 
+        body.fileName, 
+        body.fileType, 
+        body.selectedTags,
+        () => activeScans.get(scanId)?.cancelled || false // Cancellation check function
+      ) as Promise<any>,
+      // Add a cancellation check every 100ms
+      new Promise<never>((_, reject) => {
+        const checkInterval = setInterval(() => {
+          if (activeScans.get(scanId)?.cancelled) {
+            clearInterval(checkInterval)
+            reject(new Error('Scan was cancelled by user'))
+          }
+        }, 100)
+        
+        // Clean up interval after 5 minutes (safety timeout)
+        setTimeout(() => clearInterval(checkInterval), 300000)
+      })
+    ])
     
     // Check if scan was cancelled
     const scanStatus = activeScans.get(scanId)
     if (scanStatus?.cancelled) {
+      activeScans.delete(scanId)
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Scan was cancelled by user',
+          cancelled: true
+        },
+        { status: 200 }
+      )
+    }
+    
+    // Check if scan was cancelled during execution
+    if (scanResult instanceof Error && scanResult.message === 'Scan was cancelled by user') {
       activeScans.delete(scanId)
       return NextResponse.json(
         { 
@@ -288,12 +321,10 @@ async function enhanceWithAI(scanResult: any, request: DocumentScanRequest, scan
   try {
     const claudeAPI = new ClaudeAPI()
     
-    // Only enhance critical and serious issues to reduce processing time
-    const issuesToEnhance = scanResult.issues.filter((issue: any) => 
-      issue.type === 'critical' || issue.type === 'serious'
-    )
+    // Enhance ALL issues with AI for comprehensive recommendations
+    const issuesToEnhance = scanResult.issues
     
-    console.log(`🤖 Starting AI enhancement for ${issuesToEnhance.length}/${scanResult.issues.length} issues (critical/serious only)`)
+    console.log(`🤖 Starting AI enhancement for ${issuesToEnhance.length}/${scanResult.issues.length} issues (all issues)`)
     
     // Process issues sequentially instead of concurrently to avoid rate limiting
     const enhancedIssues = []

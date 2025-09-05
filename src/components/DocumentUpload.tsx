@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Upload, FileText, AlertTriangle, CheckCircle, X, Download, Eye, Sparkles, CreditCard } from 'lucide-react'
 import Link from 'next/link'
+import ScanHistory from './ScanHistory'
 
 interface UploadedDocument {
   id: string
@@ -10,7 +11,8 @@ interface UploadedDocument {
   size: number
   type: string
   uploadDate: Date
-  status: 'uploading' | 'scanning' | 'completed' | 'error'
+  status: 'uploading' | 'uploaded' | 'scanning' | 'completed' | 'error'
+  fileContent?: string // Base64 encoded file content for scanning
   scanResults?: {
     is508Compliant: boolean
     overallScore?: number
@@ -90,9 +92,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
   const [currentScanId, setCurrentScanId] = useState<string | null>(null)
   const [scanLogs, setScanLogs] = useState<string[]>([])
   const [showLogs, setShowLogs] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
-  const [scanHistory, setScanHistory] = useState<any[]>([])
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+
   const [userCredits, setUserCredits] = useState<number>(10)
   const [canScan, setCanScan] = useState<boolean>(true)
   const [isCheckingCredits, setIsCheckingCredits] = useState<boolean>(false)
@@ -147,9 +147,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
           setIsScanning(false)
           localStorage.removeItem('currentScanId')
           localStorage.removeItem('isScanning')
-          addScanLog('🔄 Scan completed while page was refreshed')
-          // Refresh history to show completed scan
-          loadScanHistory()
+                     addScanLog('🔄 Scan completed while page was refreshed')
         }
       }
     } catch (error) {
@@ -157,32 +155,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     }
   }
 
-  // Load scan history from database
-  const loadScanHistory = async () => {
-    setIsLoadingHistory(true)
-    try {
-      const response = await fetch('/api/document-scan')
-      if (response.ok) {
-        const history = await response.json()
-        setScanHistory(history.scans || [])
-        // Also save to localStorage as backup
-        localStorage.setItem('scanHistory', JSON.stringify(history.scans || []))
-      }
-    } catch (error) {
-      console.error('Failed to load scan history:', error)
-      // Fallback to localStorage if API fails
-      const savedHistory = localStorage.getItem('scanHistory')
-      if (savedHistory) {
-        setScanHistory(JSON.parse(savedHistory))
-      }
-    } finally {
-      setIsLoadingHistory(false)
-    }
-  }
-
-  // Load history and check credits on component mount
+  // Load credits on component mount
   useEffect(() => {
-    loadScanHistory()
     checkUserCredits()
   }, [])
 
@@ -269,24 +243,22 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       addScanLog(`📁 Processing file: ${file.name} (${formatFileSize(file.size)})`)
 
       try {
-        // Simulate file upload
-        addScanLog('⏳ Uploading file to server...')
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        // Process file locally (no server upload yet)
+        addScanLog('📁 Processing file locally...')
+        await new Promise(resolve => setTimeout(resolve, 500)) // Reduced delay
         
-        // Update status to scanning
+        // Update status to uploaded (not scanning yet)
         setUploadedDocuments(prev => 
           prev.map(doc => 
             doc.id === documentId 
-              ? { ...doc, status: 'scanning' }
+              ? { ...doc, status: 'uploaded' }
               : doc
           )
         )
-        addScanLog('✅ File uploaded successfully')
-        addScanLog('🔍 Starting Section 508 compliance scan...')
-        addScanLog('⚡ AI enhancements will be applied to critical/serious issues only for faster processing')
-        addScanLog('🔄 Duplicate issues will be grouped together for cleaner reporting')
-
-        // Read file content as base64
+        addScanLog('✅ File processed successfully')
+        addScanLog('📋 Document ready for scanning - select tests and click "Start Scan"')
+        
+        // Store file content for later scanning
         const fileContent = await new Promise<string>((resolve) => {
           const reader = new FileReader()
           reader.onload = () => {
@@ -297,102 +269,17 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
           }
           reader.readAsDataURL(file)
         })
-
-        // Generate scan ID for cancellation support
-        const scanId = `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-        setCurrentScanId(scanId)
-        setIsScanning(true)
-        addScanLog('🔄 Initializing scan engine...')
-
-        // Add initial scan progress
-        addScanLog('📄 Parsing document structure...')
-        addScanLog('🔍 Analyzing text accessibility...')
-        addScanLog('🖼️ Checking image alternatives...')
-
-        // Call the API for 508 compliance scan
-        addScanLog('📡 Sending document to compliance scanner...')
-        addScanLog('⏱️ This may take a few minutes for large documents...')
-        const response = await fetch('/api/document-scan', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            fileName: file.name,
-            fileType: file.type,
-            fileSize: file.size,
-            fileContent: fileContent,
-            selectedTags: selectedTags.length > 0 ? selectedTags : undefined,
-            scanId: scanId
-          })
-        })
-
-        if (!response.ok) {
-          throw new Error('Scan failed')
-        }
-
-        const result = await response.json()
         
-        // Scan completed
-        if (result.cancelled) {
-          addScanLog('🚫 Scan was cancelled by user')
-          return
-        }
-        
-        const scanResults = result.result
-        addScanLog(`✅ Scan completed! Found ${scanResults.issues.length} accessibility issues`)
-        
-        const completedDocument: UploadedDocument = {
-          ...newDocument,
-          status: 'completed',
-          scanResults
-        }
-
+        // Store file content in the document object for later scanning
         setUploadedDocuments(prev => 
           prev.map(doc => 
             doc.id === documentId 
-              ? completedDocument
+              ? { ...doc, fileContent }
               : doc
           )
         )
 
-        // Deduct credits for the scan
-        try {
-          const creditResponse = await fetch('/api/credits', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              userId: 'demo-user',
-              scanType: 'document',
-              scanId: scanId,
-              fileName: file.name
-            })
-          })
-          
-          if (creditResponse.ok) {
-            const creditData = await creditResponse.json()
-            setUserCredits(creditData.credits)
-            addScanLog(`💳 Scan completed! Credits remaining: ${creditData.credits}`)
-          }
-        } catch (error) {
-          console.error('Failed to deduct credits:', error)
-          addScanLog('⚠️ Scan completed but credit deduction failed')
-        }
-
-        // Reset scanning state
-        setCurrentScanId(null)
-        setIsScanning(false)
-        addScanLog('🎉 Document processing complete!')
-
-        // Refresh scan history and credits
-        loadScanHistory()
-        checkUserCredits()
-
-        if (onScanComplete) {
-          onScanComplete(completedDocument)
-        }
+        addScanLog('🎉 Document upload complete!')
 
       } catch (error) {
         addScanLog(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`)
@@ -413,6 +300,13 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
   }
 
   const removeDocument = (documentId: string) => {
+    // Clear any scan state if this was the current document being scanned
+    if (currentScanId && uploadedDocuments.find(doc => doc.id === documentId)?.status === 'scanning') {
+      setCurrentScanId(null)
+      setIsScanning(false)
+      addScanLog('🚫 Document removed - scan cancelled')
+    }
+    
     setUploadedDocuments(prev => prev.filter(doc => doc.id !== documentId))
   }
 
@@ -439,6 +333,146 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
   const clearScanLogs = () => {
     setScanLogs([])
+  }
+
+  const startScan = async (documentId: string) => {
+    const document = uploadedDocuments.find(doc => doc.id === documentId)
+    if (!document) {
+      addScanLog('❌ Document not found')
+      return
+    }
+
+    if (!document.fileContent) {
+      addScanLog('❌ Document content is missing - please re-upload the document')
+      return
+    }
+
+    if (selectedTags.length === 0) {
+      addScanLog('❌ Please select at least one Section 508 test to run')
+      return
+    }
+
+    // Update status to scanning
+    setUploadedDocuments(prev => 
+      prev.map(doc => 
+        doc.id === documentId 
+          ? { ...doc, status: 'scanning' }
+          : doc
+      )
+    )
+
+    addScanLog('🔍 Starting Section 508 compliance scan...')
+    addScanLog(`📋 Selected tests: ${selectedTags.join(', ')}`)
+
+    // Generate scan ID for cancellation support
+    const scanId = `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    setCurrentScanId(scanId)
+    setIsScanning(true)
+    addScanLog('🔄 Initializing scan engine...')
+
+    try {
+      // Call the API for 508 compliance scan
+      const response = await fetch('/api/document-scan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: document.name,
+          fileType: document.type,
+          fileSize: document.size,
+          fileContent: document.fileContent,
+          selectedTags: selectedTags,
+          scanId: scanId
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Scan failed')
+      }
+
+      const result = await response.json()
+      
+      // Scan completed
+      if (result.cancelled) {
+        addScanLog('🚫 Scan was cancelled by user')
+        setUploadedDocuments(prev => 
+          prev.map(doc => 
+            doc.id === documentId 
+              ? { ...doc, status: 'uploaded' }
+              : doc
+          )
+        )
+        return
+      }
+      
+      const scanResults = result.result
+      addScanLog(`✅ Scan completed! Found ${scanResults.issues.length} accessibility issues`)
+      
+      const completedDocument: UploadedDocument = {
+        ...document,
+        status: 'completed',
+        scanResults
+      }
+
+      setUploadedDocuments(prev => 
+        prev.map(doc => 
+          doc.id === documentId 
+            ? completedDocument
+            : doc
+        )
+      )
+
+      // Deduct credits for the scan
+      try {
+        const creditResponse = await fetch('/api/credits', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: 'demo-user',
+            scanType: 'document',
+            scanId: scanId,
+            fileName: document.name
+          })
+        })
+        
+        if (creditResponse.ok) {
+          const creditData = await creditResponse.json()
+          setUserCredits(creditData.credits)
+          addScanLog(`💳 Scan completed! Credits remaining: ${creditData.credits}`)
+        }
+      } catch (error) {
+        console.error('Failed to deduct credits:', error)
+        addScanLog('⚠️ Scan completed but credit deduction failed')
+      }
+
+             // Reset scanning state
+       setCurrentScanId(null)
+       setIsScanning(false)
+       addScanLog('🎉 Document processing complete!')
+
+       // Refresh credits
+       checkUserCredits()
+
+      if (onScanComplete) {
+        onScanComplete(completedDocument)
+      }
+
+    } catch (error) {
+      addScanLog(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`)
+      setUploadedDocuments(prev => 
+        prev.map(doc => 
+          doc.id === documentId 
+            ? { ...doc, status: 'error', error: 'Scan failed' }
+            : doc
+        )
+      )
+      // Reset scanning state on error
+      setCurrentScanId(null)
+      setIsScanning(false)
+    }
   }
 
   const cancelScan = async () => {
@@ -470,6 +504,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     switch (status) {
       case 'uploading':
         return <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+      case 'uploaded':
+        return <FileText className="h-4 w-4 text-blue-600" />
       case 'scanning':
         return <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
       case 'completed':
@@ -485,6 +521,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     switch (status) {
       case 'uploading':
         return 'Uploading...'
+      case 'uploaded':
+        return 'Ready to Scan'
       case 'scanning':
         return 'Scanning...'
       case 'completed':
@@ -503,6 +541,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
           <p className="text-sm text-gray-600">
             Upload documents to check for Section 508 compliance. Supported formats: PDF, Word, PowerPoint, HTML, and text files.
           </p>
+
         </div>
 
         {/* Credit Display */}
@@ -535,50 +574,52 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
           )}
         </div>
 
-        {/* Section 508 Tag Selector */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-md font-medium text-gray-800">Section 508 Compliance Tests</h4>
-            <div className="flex space-x-2">
-              <button
-                onClick={selectAllTags}
-                className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-              >
-                Select All
-              </button>
-              <button
-                onClick={clearAllTags}
-                className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-              >
-                Clear All
-              </button>
-              <button
-                onClick={() => setShowTagSelector(!showTagSelector)}
-                className="px-3 py-1 text-xs bg-primary-100 text-primary-700 rounded hover:bg-primary-200 transition-colors"
-              >
-                {showTagSelector ? 'Hide' : 'Show'} Tests
-              </button>
-            </div>
-          </div>
+                 {/* Section 508 Tag Selector */}
+         <div className="mb-6">
+           <div className="flex items-center justify-between mb-3">
+             <h4 className="text-md font-medium text-gray-800">Section 508 Compliance Tests</h4>
+             <div className="flex space-x-2">
+               <button
+                 onClick={selectAllTags}
+                 disabled={uploadedDocuments.length === 0}
+                 className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+               >
+                 Select All
+               </button>
+               <button
+                 onClick={clearAllTags}
+                 disabled={uploadedDocuments.length === 0}
+                 className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+               >
+                 Clear All
+               </button>
+             </div>
+           </div>
           
-          {showTagSelector && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4 bg-gray-50 rounded-lg">
-              {availableTags.map((tag) => (
-                <label key={tag.tag} className="flex items-start space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedTags.includes(tag.tag)}
-                    onChange={() => toggleTag(tag.tag)}
-                    className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-gray-900">{tag.name}</div>
-                    <div className="text-xs text-gray-600">{tag.description}</div>
-                  </div>
-                </label>
-              ))}
-            </div>
-          )}
+                     {uploadedDocuments.length === 0 ? (
+             <div className="text-center py-8 p-4 bg-gray-50 rounded-lg">
+               <FileText className="mx-auto h-12 w-12 text-gray-300 mb-2" />
+               <p className="text-gray-500 mb-2">No documents uploaded</p>
+               <p className="text-sm text-gray-400">Upload a document first to select compliance tests</p>
+             </div>
+           ) : (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4 bg-gray-50 rounded-lg">
+               {availableTags.map((tag) => (
+                 <label key={tag.tag} className="flex items-start space-x-2 cursor-pointer">
+                   <input
+                     type="checkbox"
+                     checked={selectedTags.includes(tag.tag)}
+                     onChange={() => toggleTag(tag.tag)}
+                     className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                   />
+                   <div className="flex-1">
+                     <div className="text-sm font-medium text-gray-900">{tag.name}</div>
+                     <div className="text-xs text-gray-600">{tag.description}</div>
+                   </div>
+                 </label>
+               ))}
+             </div>
+           )}
           
           {selectedTags.length > 0 && (
             <div className="mt-3">
@@ -696,150 +737,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         </div>
       </div>
 
-      {/* Scan History */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Scan History</h3>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-            >
-              {showHistory ? 'Hide' : 'Show'} History
-            </button>
-            <button
-              onClick={loadScanHistory}
-              disabled={isLoadingHistory}
-              className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
-            >
-              {isLoadingHistory ? 'Loading...' : 'Refresh'}
-            </button>
-          </div>
-        </div>
-
-        {showHistory && (
-          <div className="space-y-4">
-            {isLoadingHistory ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                <p className="text-gray-500">Loading scan history...</p>
-              </div>
-            ) : scanHistory.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <FileText className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                <p>No scan history yet</p>
-                <p className="text-sm">Upload a document to start scanning</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {scanHistory.map((scan) => (
-                  <div key={scan.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-3">
-                        <FileText className="h-5 w-5 text-gray-400" />
-                        <div>
-                          <p className="font-medium text-gray-900">{scan.fileName}</p>
-                          <p className="text-sm text-gray-500">
-                            {new Date(scan.scanDate).toLocaleDateString()} • {scan.fileType} • {formatFileSize(scan.fileSize)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <div className={`px-2 py-1 text-xs rounded-full ${
-                          scan.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          scan.status === 'scanning' ? 'bg-yellow-100 text-yellow-800' :
-                          scan.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {scan.status === 'completed' ? 'Completed' :
-                           scan.status === 'scanning' ? 'In Progress' :
-                           scan.status === 'cancelled' ? 'Cancelled' :
-                           scan.status}
-                        </div>
-                        {scan.is508Compliant !== undefined && (
-                          <div className={`px-2 py-1 text-xs rounded-full ${
-                            scan.is508Compliant ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
-                            {scan.is508Compliant ? '508 Compliant' : 'Non-Compliant'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Scan Results Summary */}
-                    {scan.status === 'completed' && scan.scanResults && (
-                      <div className="grid grid-cols-4 gap-2 mb-3">
-                        <div className="text-center p-2 bg-red-50 rounded">
-                          <div className="text-sm font-semibold text-red-800">
-                            {scan.scanResults.summary?.critical || 0}
-                          </div>
-                          <div className="text-xs text-red-600">Critical</div>
-                        </div>
-                        <div className="text-center p-2 bg-orange-50 rounded">
-                          <div className="text-sm font-semibold text-orange-800">
-                            {scan.scanResults.summary?.serious || 0}
-                          </div>
-                          <div className="text-xs text-orange-600">Serious</div>
-                        </div>
-                        <div className="text-center p-2 bg-yellow-50 rounded">
-                          <div className="text-sm font-semibold text-yellow-800">
-                            {scan.scanResults.summary?.moderate || 0}
-                          </div>
-                          <div className="text-xs text-yellow-600">Moderate</div>
-                        </div>
-                        <div className="text-center p-2 bg-blue-50 rounded">
-                          <div className="text-sm font-semibold text-blue-800">
-                            {scan.scanResults.summary?.minor || 0}
-                          </div>
-                          <div className="text-xs text-blue-600">Minor</div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Scan Metadata */}
-                    <div className="text-xs text-gray-500 space-y-1">
-                      <div className="flex justify-between">
-                        <span>Scan ID: {scan.scanId}</span>
-                        <span>Duration: {scan.scanDuration ? Math.round(scan.scanDuration / 1000) + 's' : 'N/A'}</span>
-                      </div>
-                      {scan.pagesAnalyzed && (
-                        <div>Pages Analyzed: {scan.pagesAnalyzed}</div>
-                      )}
-                      {scan.overallScore && (
-                        <div>Score: {scan.overallScore}/100</div>
-                      )}
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex space-x-2 mt-3">
-                      <button
-                        onClick={() => {
-                          // Show detailed results in a modal or navigate to detailed view
-                          console.log('View detailed results for:', scan.id)
-                        }}
-                        className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                      >
-                        View Details
-                      </button>
-                      {scan.status === 'scanning' && (
-                        <button
-                          onClick={() => {
-                            // Cancel scan
-                            console.log('Cancel scan:', scan.scanId)
-                          }}
-                          className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+                    {/* Scan History */}
+       <ScanHistory type="document" />
 
       {/* Uploaded Documents */}
       {uploadedDocuments.length > 0 && (
@@ -863,6 +762,23 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                       {getStatusIcon(document.status)}
                       <span className="text-sm text-gray-600">{getStatusText(document.status)}</span>
                     </div>
+                    
+                                         {/* Show scan button for uploaded documents */}
+                     {document.status === 'uploaded' && (
+                       <button
+                         onClick={() => startScan(document.id)}
+                         disabled={selectedTags.length === 0 || !document.fileContent}
+                         className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                         title={
+                           !document.fileContent ? 'No document content available' :
+                           selectedTags.length === 0 ? 'Select at least one test to start scanning' : 
+                           'Start Section 508 compliance scan'
+                         }
+                       >
+                         Start Scan
+                       </button>
+                     )}
+                    
                     <button
                       onClick={() => removeDocument(document.id)}
                       className="text-gray-400 hover:text-red-600 transition-colors"
@@ -1095,19 +1011,28 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                   </div>
                 )}
 
-                {/* AI Recommendation */}
-                <div>
-                  <h5 className="font-medium text-gray-900 mb-2">Recommendation</h5>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="prose prose-sm max-w-none">
-                      {selectedIssue.recommendation.split('\n').map((line: string, index: number) => (
-                        <p key={index} className="text-gray-700 mb-2 last:mb-0">
-                          {line}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                                 {/* AI Recommendation */}
+                 {selectedIssue.recommendation ? (
+                   <div>
+                     <h5 className="font-medium text-gray-900 mb-2">Recommendation</h5>
+                     <div className="bg-gray-50 rounded-lg p-4">
+                       <div className="prose prose-sm max-w-none">
+                         {selectedIssue.recommendation.split('\n').map((line: string, index: number) => (
+                           <p key={index} className="text-gray-700 mb-2 last:mb-0">
+                             {line}
+                           </p>
+                         ))}
+                       </div>
+                     </div>
+                   </div>
+                 ) : (
+                   <div>
+                     <h5 className="font-medium text-gray-700 mb-2">Recommendation</h5>
+                     <div className="bg-gray-50 rounded-lg p-4">
+                       <p className="text-gray-500 italic">No AI recommendation available for this issue.</p>
+                     </div>
+                   </div>
+                 )}
 
                 {/* Action Buttons */}
                 <div className="flex space-x-3 pt-4">

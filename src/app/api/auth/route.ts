@@ -1,56 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { queryOne, query } from '@/lib/database'
+import { VPNDetector } from '@/lib/vpn-detector'
 
-// Simple in-memory user database
-// In production, this would be replaced with a real database like PostgreSQL, MongoDB, etc.
+// Database user interface
 interface User {
   id: string
   email: string
-  password: string
-  name: string
+  first_name: string
+  last_name: string
   company?: string
-  role: 'user' | 'admin'
-  plan: 'free' | 'web-only' | 'document-only' | 'complete'
-  credits: number
-  createdAt: string
-  lastLogin: string
+  plan_type: 'free' | 'web_only' | 'document_only' | 'complete_access'
+  is_active: boolean
+  email_verified: boolean
+  created_at: string
+  last_login?: string
 }
-
-const users = new Map<string, User>()
-
-// Initialize some demo users
-const demoUsers: User[] = [
-  {
-    id: '1',
-    email: 'demo@accessitest.com',
-    password: '$2a$10$demo.hash.for.demo.user.123456789012345678901234567890123456789012345678901234567890',
-    name: 'Demo User',
-    company: 'Demo Company',
-    role: 'user',
-    plan: 'complete',
-    credits: 999999, // Unlimited
-    createdAt: new Date().toISOString(),
-    lastLogin: new Date().toISOString()
-  },
-  {
-    id: '2',
-    email: 'admin@accessitest.com',
-    password: '$2a$10$admin.hash.for.admin.user.123456789012345678901234567890123456789012345678901234567890',
-    name: 'Admin User',
-    company: 'AccessiTest',
-    role: 'admin',
-    plan: 'complete',
-    credits: 999999, // Unlimited
-    createdAt: new Date().toISOString(),
-    lastLogin: new Date().toISOString()
-  }
-]
-
-// Add demo users to the map
-demoUsers.forEach(user => {
-  users.set(user.email, user)
-})
 
 // JWT secret (in production, use environment variable)
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
@@ -63,7 +29,7 @@ export async function POST(request: NextRequest) {
     if (action === 'login') {
       return await handleLogin(email, password)
     } else if (action === 'register') {
-      return await handleRegister(email, password, name, company)
+      return await handleRegister(email, password, name, company, request)
     } else {
       return NextResponse.json(
         { success: false, error: 'Invalid action' },
@@ -87,59 +53,88 @@ async function handleLogin(email: string, password: string) {
     )
   }
 
-  const user = users.get(email)
-  if (!user) {
+  try {
+    // Get user from database
+    const user = await queryOne(
+      'SELECT * FROM users WHERE email = $1 AND is_active = true',
+      [email]
+    )
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
+
+    // Get password from separate table
+    const passwordData = await queryOne(
+      'SELECT * FROM user_passwords WHERE user_id = $1',
+      [user.id]
+    )
+
+    if (!passwordData) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, passwordData.password_hash)
+
+    if (!isValidPassword) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
+
+    // Update last login
+    await query(
+      'UPDATE users SET last_login = NOW() WHERE id = $1',
+      [user.id]
+    )
+
+    // Get user credits
+    const creditData = await queryOne(
+      'SELECT * FROM user_credits WHERE user_id = $1',
+      [user.id]
+    )
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        email: user.email, 
+        plan: user.plan_type
+      },
+      JWT_SECRET,
+      { expiresIn: '15m' }
+    )
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: `${user.first_name} ${user.last_name}`,
+        company: user.company,
+        plan: user.plan_type,
+        credits: creditData?.credits_remaining || 0
+      },
+      token
+    })
+  } catch (error) {
+    console.error('Login error:', error)
     return NextResponse.json(
-      { success: false, error: 'Invalid email or password' },
-      { status: 401 }
+      { success: false, error: 'Login failed' },
+      { status: 500 }
     )
   }
-
-  // For demo users, allow login with any password
-  // In production, verify with bcrypt.compare(password, user.password)
-  const isValidPassword = user.email.includes('demo') || user.email.includes('admin') 
-    ? true 
-    : await bcrypt.compare(password, user.password)
-
-  if (!isValidPassword) {
-    return NextResponse.json(
-      { success: false, error: 'Invalid email or password' },
-      { status: 401 }
-    )
-  }
-
-  // Update last login
-  user.lastLogin = new Date().toISOString()
-  users.set(email, user)
-
-  // Generate JWT token
-  const token = jwt.sign(
-    { 
-      userId: user.id, 
-      email: user.email, 
-      role: user.role,
-      plan: user.plan 
-    },
-    JWT_SECRET,
-    { expiresIn: '7d' }
-  )
-
-  return NextResponse.json({
-    success: true,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      company: user.company,
-      role: user.role,
-      plan: user.plan,
-      credits: user.credits
-    },
-    token
-  })
 }
 
-async function handleRegister(email: string, password: string, name: string, company?: string) {
+async function handleRegister(email: string, password: string, name: string, company?: string, request?: NextRequest) {
   if (!email || !password || !name) {
     return NextResponse.json(
       { success: false, error: 'Email, password, and name are required' },
@@ -147,57 +142,133 @@ async function handleRegister(email: string, password: string, name: string, com
     )
   }
 
-  if (users.has(email)) {
+  // Get client IP address
+  const clientIP = request?.headers.get('x-forwarded-for') || 
+                   request?.headers.get('x-real-ip') || 
+                   'unknown'
+
+  // Check for VPN/Proxy usage
+  const vpnDetector = VPNDetector.getInstance()
+  const vpnResult = await vpnDetector.checkVPN(clientIP, {
+    logToDatabase: true,
+    actionType: 'registration'
+  })
+  
+  if (vpnDetector.shouldBlockIP(vpnResult)) {
     return NextResponse.json(
-      { success: false, error: 'User already exists' },
-      { status: 409 }
+      { success: false, error: `${vpnDetector.getBlockReason(vpnResult)}. Please disable VPN/proxy to continue.` },
+      { status: 403 }
     )
   }
 
-  // Hash password
-  const hashedPassword = await bcrypt.hash(password, 12)
-
-  // Create new user
-  const newUser: User = {
-    id: Date.now().toString(),
-    email,
-    password: hashedPassword,
-    name,
-    company,
-    role: 'user',
-    plan: 'free',
-    credits: 5, // Start with 5 free credits
-    createdAt: new Date().toISOString(),
-    lastLogin: new Date().toISOString()
-  }
-
-  users.set(email, newUser)
-
-  // Generate JWT token
-  const token = jwt.sign(
-    { 
-      userId: newUser.id, 
-      email: newUser.email, 
-      role: newUser.role,
-      plan: newUser.plan 
-    },
-    JWT_SECRET,
-    { expiresIn: '7d' }
+  // Check for recent registrations from same IP (last 24 hours)
+  const recentRegistrations = await query(
+    `SELECT COUNT(*) as count FROM users 
+     WHERE created_at > NOW() - INTERVAL '24 hours' 
+     AND last_ip = $1`,
+    [clientIP]
   )
 
-  return NextResponse.json({
-    success: true,
-    user: {
-      id: newUser.id,
-      email: newUser.email,
-      name: newUser.name,
-      company: newUser.company,
-      role: newUser.role,
-      plan: newUser.plan,
-      credits: newUser.credits
-    },
-    token
-  })
+  if (recentRegistrations.rows[0].count > 2) {
+    return NextResponse.json(
+      { success: false, error: 'Too many registrations from this location. Please try again later.' },
+      { status: 429 }
+    )
+  }
+
+  try {
+    // Check if user already exists
+    const existingUser = await queryOne(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    )
+
+    if (existingUser) {
+      return NextResponse.json(
+        { success: false, error: 'User already exists' },
+        { status: 409 }
+      )
+    }
+
+    // Split name into first and last
+    const nameParts = name.trim().split(' ')
+    const firstName = nameParts[0] || ''
+    const lastName = nameParts.slice(1).join(' ') || ''
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12)
+    const salt = 'default-salt' // In production, generate unique salt per user
+
+    // Start transaction
+    await query('BEGIN')
+
+    try {
+      // Create new user
+      const userResult = await queryOne(
+        `INSERT INTO users (email, first_name, last_name, company, plan_type, is_active, email_verified, last_ip)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [email, firstName, lastName, company, 'free', true, false, clientIP]
+      )
+
+      // Log registration attempt
+      await query(
+        `INSERT INTO registration_attempts (ip_address, email, success, user_id)
+         VALUES ($1, $2, $3, $4)`,
+        [clientIP, email, true, userResult.id]
+      )
+
+      // Store password separately
+      await query(
+        `INSERT INTO user_passwords (user_id, password_hash, salt)
+         VALUES ($1, $2, $3)`,
+        [userResult.id, hashedPassword, salt]
+      )
+
+      // Initialize user credits
+      await query(
+        `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
+         VALUES ($1, $2, $3, $4)`,
+        [userResult.id, 5, 0, false]
+      )
+
+      // Commit transaction
+      await query('COMMIT')
+
+      // Generate JWT token
+      const token = jwt.sign(
+        { 
+          userId: userResult.id, 
+          email: userResult.email, 
+          plan: userResult.plan_type
+        },
+        JWT_SECRET,
+        { expiresIn: '15m' }
+      )
+
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: userResult.id,
+          email: userResult.email,
+          name: `${userResult.first_name} ${userResult.last_name}`,
+          company: userResult.company,
+          plan: userResult.plan_type,
+          credits: 5
+        },
+        token
+      })
+    } catch (error) {
+      await query('ROLLBACK')
+      throw error
+    }
+  } catch (error) {
+    console.error('Registration error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Registration failed' },
+      { status: 500 }
+    )
+  }
 }
 
 // Verify JWT token
@@ -211,21 +282,37 @@ export function verifyToken(token: string) {
 }
 
 // Get user by email
-export function getUserByEmail(email: string) {
-  return users.get(email)
+export async function getUserByEmail(email: string) {
+  try {
+    return await queryOne(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    )
+  } catch (error) {
+    console.error('Error getting user by email:', error)
+    return null
+  }
 }
 
 // Update user plan
-export function updateUserPlan(email: string, plan: string) {
-  const user = users.get(email)
-  if (user) {
-    user.plan = plan as any
-    if (plan === 'complete') {
-      user.credits = 999999 // Unlimited
+export async function updateUserPlan(email: string, plan: string) {
+  try {
+    const result = await query(
+      'UPDATE users SET plan_type = $1 WHERE email = $2',
+      [plan, email]
+    )
+    
+    if (plan === 'complete_access') {
+      await query(
+        'UPDATE user_credits SET unlimited_credits = true WHERE user_id = (SELECT id FROM users WHERE email = $1)',
+        [email]
+      )
     }
-    users.set(email, user)
-    return true
+    
+    return result.rowCount > 0
+  } catch (error) {
+    console.error('Error updating user plan:', error)
+    return false
   }
-  return false
 }
 

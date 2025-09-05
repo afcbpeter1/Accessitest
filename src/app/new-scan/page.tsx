@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { Search, Globe, HelpCircle, Settings, AlertTriangle, CheckCircle, FileText, X } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import DetailedReport from '@/components/DetailedReport'
+import ScanHistory from '@/components/ScanHistory'
 
 interface ScanProgress {
   currentPage: number;
@@ -1117,6 +1118,9 @@ export default function NewScan() {
             </div>
           </div>
         )}
+
+        {/* Scan History */}
+        <ScanHistory type="web" />
       </div>
     </Sidebar>
   )

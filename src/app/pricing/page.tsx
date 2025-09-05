@@ -153,7 +153,7 @@ export default function Pricing() {
               </span>
             </button>
           </div>
-        </div>
+            </div>
 
         {/* Subscription Plans */}
         <div>
@@ -250,7 +250,7 @@ export default function Pricing() {
                 >
                   Buy Credits
                 </button>
-              </div>
+            </div>
             ))}
           </div>
         </div>
@@ -277,7 +277,7 @@ export default function Pricing() {
               <div className="flex items-center mb-4">
                 <FileText className="h-6 w-6 text-green-600 mr-3" />
                 <h3 className="text-lg font-semibold text-gray-900">Document Scans</h3>
-              </div>
+                </div>
               <ul className="space-y-2 text-gray-600">
                 <li>• Section 508 compliance testing</li>
                 <li>• PDF, Word, PowerPoint support</li>
