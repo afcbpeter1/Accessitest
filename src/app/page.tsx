@@ -7,17 +7,8 @@ export default function RootPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Check if user is authenticated
-    const accessToken = localStorage.getItem('accessToken')
-    const user = localStorage.getItem('user')
-
-    if (accessToken && user) {
-      // User is authenticated, redirect to dashboard
-      router.push('/dashboard')
-    } else {
-      // User is not authenticated, redirect to home page
-      router.push('/home')
-    }
+    // Always redirect to home page first
+    router.push('/home')
   }, [router])
 
   // Show loading while redirecting

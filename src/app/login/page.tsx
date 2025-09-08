@@ -41,7 +41,12 @@ export default function LoginPage() {
         // Redirect to dashboard
         router.push('/dashboard')
       } else {
-        setError(data.error || 'Login failed')
+        if (data.requiresVerification) {
+          // Redirect to signup page for verification
+          router.push(`/signup?email=${encodeURIComponent(data.email)}&verification=true`)
+        } else {
+          setError(data.error || 'Login failed')
+        }
       }
     } catch (error) {
       setError('Network error. Please try again.')
@@ -50,15 +55,6 @@ export default function LoginPage() {
     }
   }
 
-  const handleDemoLogin = async () => {
-    setEmail('demo@accessitest.com')
-    setPassword('demo123')
-    
-    // Auto-submit after setting demo credentials
-    setTimeout(() => {
-      handleSubmit(new Event('submit') as any)
-    }, 100)
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -139,16 +135,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Demo Login Button */}
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={handleDemoLogin}
-              className="text-sm text-blue-600 hover:text-blue-500 underline"
-            >
-              Try Demo Account
-            </button>
-          </div>
 
           {/* Submit Button */}
           <div>
@@ -177,17 +163,6 @@ export default function LoginPage() {
           </div>
         </form>
 
-        {/* Demo Account Info */}
-        <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-          <h3 className="text-sm font-medium text-blue-900 mb-2">Demo Account</h3>
-          <p className="text-xs text-blue-700 mb-2">
-            Use these credentials to explore the platform:
-          </p>
-          <div className="text-xs text-blue-600 space-y-1">
-            <div><strong>Email:</strong> demo@accessitest.com</div>
-            <div><strong>Password:</strong> Any password (demo mode)</div>
-          </div>
-        </div>
       </div>
     </div>
   )

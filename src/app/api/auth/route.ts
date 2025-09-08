@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { queryOne, query } from '@/lib/database'
 import { VPNDetector } from '@/lib/vpn-detector'
+import { EmailService } from '@/lib/email-service'
 
 // Database user interface
 interface User {
@@ -90,6 +91,19 @@ async function handleLogin(email: string, password: string) {
       )
     }
 
+    // Check if email is verified
+    if (!user.email_verified) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Please verify your email address before logging in. Check your inbox for a verification code.',
+          requiresVerification: true,
+          email: user.email
+        },
+        { status: 403 }
+      )
+    }
+
     // Update last login
     await query(
       'UPDATE users SET last_login = NOW() WHERE id = $1',
@@ -107,7 +121,8 @@ async function handleLogin(email: string, password: string) {
       { 
         userId: user.id, 
         email: user.email, 
-        plan: user.plan_type
+        plan: user.plan_type,
+        emailVerified: user.email_verified
       },
       JWT_SECRET,
       { expiresIn: '15m' }
@@ -121,7 +136,8 @@ async function handleLogin(email: string, password: string) {
         name: `${user.first_name} ${user.last_name}`,
         company: user.company,
         plan: user.plan_type,
-        credits: creditData?.credits_remaining || 0
+        credits: creditData?.credits_remaining || 0,
+        emailVerified: user.email_verified
       },
       token
     })
@@ -199,16 +215,20 @@ async function handleRegister(email: string, password: string, name: string, com
     const hashedPassword = await bcrypt.hash(password, 12)
     const salt = 'default-salt' // In production, generate unique salt per user
 
+    // Generate verification code
+    const verificationCode = EmailService.generateVerificationCode()
+    const verificationExpires = new Date(Date.now() + 15 * 60 * 1000) // 15 minutes from now
+
     // Start transaction
     await query('BEGIN')
 
     try {
-      // Create new user
+      // Create new user with verification code
       const userResult = await queryOne(
-        `INSERT INTO users (email, first_name, last_name, company, plan_type, is_active, email_verified, last_ip)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO users (email, first_name, last_name, company, plan_type, is_active, email_verified, last_ip, verification_code, verification_code_expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
-        [email, firstName, lastName, company, 'free', true, false, clientIP]
+        [email, firstName, lastName, company, 'free', false, false, clientIP, verificationCode, verificationExpires]
       )
 
       // Log registration attempt
@@ -235,28 +255,29 @@ async function handleRegister(email: string, password: string, name: string, com
       // Commit transaction
       await query('COMMIT')
 
-      // Generate JWT token
-      const token = jwt.sign(
-        { 
-          userId: userResult.id, 
-          email: userResult.email, 
-          plan: userResult.plan_type
-        },
-        JWT_SECRET,
-        { expiresIn: '15m' }
-      )
+      // Send verification email
+      const emailSent = await EmailService.sendVerificationEmail({
+        email: userResult.email,
+        verificationCode,
+        firstName: userResult.first_name
+      })
+
+      if (!emailSent) {
+        console.warn('Failed to send verification email, but user was created')
+      }
 
       return NextResponse.json({
         success: true,
+        message: 'Registration successful! Please check your email for a verification code.',
+        requiresVerification: true,
         user: {
           id: userResult.id,
           email: userResult.email,
           name: `${userResult.first_name} ${userResult.last_name}`,
           company: userResult.company,
           plan: userResult.plan_type,
-          credits: 5
-        },
-        token
+          emailVerified: false
+        }
       })
     } catch (error) {
       await query('ROLLBACK')

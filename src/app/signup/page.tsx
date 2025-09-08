@@ -13,20 +13,24 @@ export default function SignupPage() {
     confirmPassword: '',
     company: ''
   })
+  const [verificationCode, setVerificationCode] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [step, setStep] = useState<'signup' | 'verification'>('signup')
+  const [userEmail, setUserEmail] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Pre-fill form data from URL parameters (from free scan)
+  // Pre-fill form data from URL parameters (from free scan or login redirect)
   useEffect(() => {
     const firstName = searchParams.get('firstName')
     const lastName = searchParams.get('lastName')
     const email = searchParams.get('email')
     const company = searchParams.get('company')
+    const verification = searchParams.get('verification')
 
     if (firstName || lastName || email || company) {
       setFormData(prev => ({
@@ -35,6 +39,12 @@ export default function SignupPage() {
         email: email || prev.email,
         company: company || prev.company
       }))
+    }
+
+    // If coming from login with verification requirement, go directly to verification step
+    if (verification === 'true' && email) {
+      setUserEmail(email)
+      setStep('verification')
     }
   }, [searchParams])
 
@@ -94,7 +104,61 @@ export default function SignupPage() {
       const data = await response.json()
 
       if (data.success) {
-        setSuccess('Account created successfully! Redirecting to login...')
+        if (data.requiresVerification) {
+          setUserEmail(formData.email)
+          setStep('verification')
+          setSuccess('Registration successful! Please check your email for a verification code.')
+        } else {
+          setSuccess('Account created successfully! Redirecting to login...')
+          
+          // Store token and user data
+          localStorage.setItem('accessToken', data.token)
+          localStorage.setItem('user', JSON.stringify(data.user))
+          
+          // Redirect to dashboard after a short delay
+          setTimeout(() => {
+            router.push('/dashboard')
+          }, 2000)
+        }
+      } else {
+        setError(data.error || 'Registration failed')
+      }
+    } catch (error) {
+      setError('Network error. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleVerification = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setError('')
+    setSuccess('')
+
+    if (!verificationCode || verificationCode.length !== 6) {
+      setError('Please enter a valid 6-digit verification code')
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const response = await fetch('/api/verify-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'verify',
+          email: userEmail,
+          verificationCode: verificationCode
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setSuccess('Email verified successfully! Redirecting to dashboard...')
         
         // Store token and user data
         localStorage.setItem('accessToken', data.token)
@@ -105,7 +169,38 @@ export default function SignupPage() {
           router.push('/dashboard')
         }, 2000)
       } else {
-        setError(data.error || 'Registration failed')
+        setError(data.error || 'Verification failed')
+      }
+    } catch (error) {
+      setError('Network error. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleResendCode = async () => {
+    setIsLoading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const response = await fetch('/api/verify-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'resend',
+          email: userEmail
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setSuccess('New verification code sent to your email.')
+      } else {
+        setError(data.error || 'Failed to resend verification code')
       }
     } catch (error) {
       setError('Network error. Please try again.')
@@ -134,8 +229,10 @@ export default function SignupPage() {
           </p>
         </div>
 
-        {/* Signup Form */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        {/* Conditional Form Rendering */}
+        {step === 'signup' ? (
+          /* Signup Form */
+          <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-medium text-gray-700">
@@ -288,6 +385,73 @@ export default function SignupPage() {
             </div>
           </div>
         </form>
+        ) : (
+          /* Email Verification Form */
+          <form className="mt-8 space-y-6" onSubmit={handleVerification}>
+            <div className="text-center mb-6">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
+                <CheckCircle className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">
+                Verify your email address
+              </h3>
+              <p className="mt-2 text-sm text-gray-600">
+                We've sent a 6-digit verification code to <strong>{userEmail}</strong>
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                Check your inbox and spam folder. The code expires in 15 minutes.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700">
+                Verification Code *
+              </label>
+              <input
+                id="verificationCode"
+                name="verificationCode"
+                type="text"
+                maxLength={6}
+                required
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center text-lg tracking-widest"
+                placeholder="000000"
+              />
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={isLoading || verificationCode.length !== 6}
+                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Verifying...' : 'Verify Email'}
+              </button>
+            </div>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={handleResendCode}
+                disabled={isLoading}
+                className="text-sm text-blue-600 hover:text-blue-500 disabled:opacity-50"
+              >
+                Didn't receive the code? Resend
+              </button>
+            </div>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setStep('signup')}
+                className="text-sm text-gray-600 hover:text-gray-500"
+              >
+                ← Back to signup
+              </button>
+            </div>
+          </form>
+        )}
 
         {/* Benefits */}
         <div className="mt-8 p-4 bg-blue-50 rounded-lg">

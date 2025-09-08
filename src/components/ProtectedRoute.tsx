@@ -2,34 +2,60 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { CheckCircle, AlertCircle } from 'lucide-react'
 
 interface ProtectedRouteProps {
   children: React.ReactNode
 }
 
+interface User {
+  id: string
+  email: string
+  name: string
+  company?: string
+  plan: string
+  emailVerified: boolean
+}
+
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unverified' | 'unauthenticated'>('loading')
+  const [user, setUser] = useState<User | null>(null)
   const router = useRouter()
 
   useEffect(() => {
     const checkAuth = () => {
       const accessToken = localStorage.getItem('accessToken')
-      const user = localStorage.getItem('user')
+      const userData = localStorage.getItem('user')
 
-      if (accessToken && user) {
-        setIsAuthenticated(true)
-      } else {
-        // Redirect to login if not authenticated
+      if (!accessToken || !userData) {
+        setAuthStatus('unauthenticated')
+        router.push('/login')
+        return
+      }
+
+      try {
+        const parsedUser: User = JSON.parse(userData)
+        
+        if (!parsedUser.emailVerified) {
+          setUser(parsedUser)
+          setAuthStatus('unverified')
+        } else {
+          setUser(parsedUser)
+          setAuthStatus('authenticated')
+        }
+      } catch (error) {
+        console.error('Error parsing user data:', error)
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('user')
+        setAuthStatus('unauthenticated')
         router.push('/login')
       }
-      setIsLoading(false)
     }
 
     checkAuth()
   }, [router])
 
-  if (isLoading) {
+  if (authStatus === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -40,8 +66,70 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     )
   }
 
-  if (!isAuthenticated) {
+  if (authStatus === 'unauthenticated') {
     return null // Will redirect to login
+  }
+
+  if (authStatus === 'unverified') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center">
+            <div className="flex justify-center">
+              <img 
+                src="/allytest.png" 
+                alt="AccessiTest Logo" 
+                className="h-12 w-auto object-contain" 
+              />
+            </div>
+            <h2 className="mt-6 text-3xl font-bold text-gray-900">
+              Email Verification Required
+            </h2>
+          </div>
+
+          <div className="bg-white py-8 px-6 shadow rounded-lg">
+            <div className="text-center mb-6">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-yellow-100">
+                <AlertCircle className="h-6 w-6 text-yellow-600" />
+              </div>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">
+                Please verify your email address
+              </h3>
+              <p className="mt-2 text-sm text-gray-600">
+                We've sent a verification code to <strong>{user?.email}</strong>
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-4">
+                  You must verify your email address before accessing the dashboard.
+                </p>
+                <button
+                  onClick={() => router.push('/signup')}
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Complete Email Verification
+                </button>
+              </div>
+
+              <div className="text-center">
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('accessToken')
+                    localStorage.removeItem('user')
+                    router.push('/login')
+                  }}
+                  className="text-sm text-gray-600 hover:text-gray-500"
+                >
+                  Sign out and try again
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return <>{children}</>
