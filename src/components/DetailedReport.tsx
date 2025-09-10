@@ -56,20 +56,20 @@ interface DetailedReportProps {
 
 const getImpactColor = (impact: string) => {
   switch (impact) {
-    case 'critical': return 'text-red-600 bg-red-50 border-red-200';
-    case 'serious': return 'text-orange-600 bg-orange-50 border-orange-200';
-    case 'moderate': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-    case 'minor': return 'text-blue-600 bg-blue-50 border-blue-200';
-    default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    case 'critical': return 'text-red-800 bg-red-50 border-red-200';
+    case 'serious': return 'text-orange-800 bg-orange-50 border-orange-200';
+    case 'moderate': return 'text-yellow-800 bg-yellow-50 border-yellow-200';
+    case 'minor': return 'text-blue-800 bg-blue-50 border-blue-200';
+    default: return 'text-gray-800 bg-gray-50 border-gray-200';
   }
 };
 
 const getPriorityColor = (priority: string) => {
   switch (priority) {
-    case 'high': return 'text-red-600';
-    case 'medium': return 'text-yellow-600';
-    case 'low': return 'text-blue-600';
-    default: return 'text-gray-600';
+    case 'high': return 'text-red-800';
+    case 'medium': return 'text-yellow-800';
+    case 'low': return 'text-blue-800';
+    default: return 'text-gray-800';
   }
 };
 
@@ -280,7 +280,7 @@ export default function DetailedReport({
                           <Code className="h-4 w-4" />
                           {isAISuggestion ? 'Specific Code Fix:' : 'Code Example:'}
                         </p>
-                        <pre className="rounded p-3 text-sm overflow-x-auto bg-gray-900 text-green-400">
+                        <pre className="rounded p-3 text-sm overflow-x-auto bg-gray-900 text-white">
                           <code>{suggestion.codeExample}</code>
                         </pre>
                       </div>

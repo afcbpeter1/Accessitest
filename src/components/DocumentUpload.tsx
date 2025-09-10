@@ -671,7 +671,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
             </div>
             
             {showLogs && (
-              <div className="max-h-48 overflow-y-auto bg-gray-900 text-green-400 p-3 rounded-lg font-mono text-xs">
+              <div className="max-h-48 overflow-y-auto bg-gray-900 text-white p-3 rounded-lg font-mono text-xs">
                 {scanLogs.map((log, index) => (
                   <div key={index} className="mb-1">
                     {log}

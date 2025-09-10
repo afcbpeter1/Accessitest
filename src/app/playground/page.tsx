@@ -194,11 +194,11 @@ export default function AccessibilityPlayground() {
 
   const getImpactColor = (impact: string) => {
     switch (impact) {
-      case 'critical': return 'text-red-600 bg-red-50 border-red-200'
-      case 'serious': return 'text-orange-600 bg-orange-50 border-orange-200'
-      case 'moderate': return 'text-yellow-600 bg-yellow-50 border-yellow-200'
-      case 'minor': return 'text-blue-600 bg-blue-50 border-blue-200'
-      default: return 'text-gray-600 bg-gray-50 border-gray-200'
+      case 'critical': return 'text-red-800 bg-red-50 border-red-200'
+      case 'serious': return 'text-orange-800 bg-orange-50 border-orange-200'
+      case 'moderate': return 'text-yellow-800 bg-yellow-50 border-yellow-200'
+      case 'minor': return 'text-blue-800 bg-blue-50 border-blue-200'
+      default: return 'text-gray-800 bg-gray-50 border-gray-200'
     }
   }
 
@@ -325,8 +325,8 @@ export default function AccessibilityPlayground() {
 
                   {showHints && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <h3 className="font-medium text-yellow-800 mb-2">💡 Hint</h3>
-                      <p className="text-yellow-700">{selectedIssue.hint}</p>
+                      <h3 className="font-medium text-yellow-900 mb-2">💡 Hint</h3>
+                      <p className="text-yellow-900">{selectedIssue.hint}</p>
                     </div>
                   )}
 
@@ -351,7 +351,7 @@ export default function AccessibilityPlayground() {
                     <textarea
                       value={userCode}
                       onChange={(e) => handleCodeChange(e.target.value)}
-                      className="w-full h-40 bg-gray-800 text-green-400 font-mono text-sm p-3 rounded border border-gray-700 focus:border-blue-500 focus:outline-none resize-none"
+                      className="w-full h-40 bg-gray-800 text-white font-mono text-sm p-3 rounded border border-gray-700 focus:border-blue-500 focus:outline-none resize-none"
                       placeholder="Edit the HTML code to fix the accessibility issue..."
                     />
                   </div>
@@ -367,8 +367,8 @@ export default function AccessibilityPlayground() {
                   )}
 
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h3 className="font-medium text-blue-800 mb-2">📚 Explanation</h3>
-                    <p className="text-blue-700">{selectedIssue.explanation}</p>
+                    <h3 className="font-medium text-blue-900 mb-2">📚 Explanation</h3>
+                    <p className="text-blue-900">{selectedIssue.explanation}</p>
                   </div>
                 </>
               ) : (
