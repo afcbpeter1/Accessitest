@@ -102,7 +102,7 @@ async function handleEmailVerification(email: string, verificationCode: string) 
         company: user.company,
         plan: user.plan_type,
         emailVerified: true,
-        credits: 5
+        credits: 2
       },
       token
     })

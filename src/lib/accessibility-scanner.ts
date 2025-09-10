@@ -59,6 +59,22 @@ export interface ScanResult {
     levelAA: boolean;
     levelAAA: boolean;
   };
+  screenshots?: {
+    fullPage?: string;
+    viewport?: string;
+    elements?: Array<{
+      selector: string;
+      issueId: string;
+      severity: string;
+      screenshot: string;
+      boundingBox?: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      };
+    }>;
+  };
 }
 
 export class AccessibilityScanner {
@@ -148,6 +164,64 @@ export class AccessibilityScanner {
       // Check WCAG 2.2 compliance
       const wcag22Compliance = this.checkWCAG22Compliance(issues, results);
 
+      // Capture screenshots
+      let screenshots = null;
+      try {
+        console.log('📸 Capturing screenshots...');
+        
+        // Take a full page screenshot
+        const fullPageScreenshot = await page.screenshot({
+          fullPage: true,
+          encoding: 'base64'
+        }) as string;
+
+        // Take a viewport screenshot
+        const viewportScreenshot = await page.screenshot({
+          fullPage: false,
+          encoding: 'base64'
+        }) as string;
+
+        // Capture screenshots of elements with issues
+        const elementScreenshots = [];
+        for (const issue of issues.slice(0, 5)) { // Limit to first 5 issues
+          for (const node of issue.nodes || []) {
+            const selector = node.target?.[0];
+            if (selector) {
+              try {
+                // Try to find and screenshot the element
+                const element = await page.$(selector);
+                if (element) {
+                  const elementScreenshot = await element.screenshot({
+                    encoding: 'base64'
+                  }) as string;
+                  
+                  elementScreenshots.push({
+                    selector,
+                    issueId: issue.id,
+                    severity: issue.impact,
+                    screenshot: elementScreenshot,
+                    boundingBox: await element.boundingBox()
+                  });
+                }
+              } catch (elementError) {
+                console.warn(`Failed to screenshot element ${selector}:`, elementError);
+              }
+            }
+          }
+        }
+
+        screenshots = {
+          fullPage: fullPageScreenshot,
+          viewport: viewportScreenshot,
+          elements: elementScreenshots
+        };
+        
+        console.log(`📸 Screenshots captured: ${elementScreenshots.length} elements`);
+      } catch (screenshotError) {
+        console.warn('Failed to capture screenshots:', screenshotError);
+        // Continue without screenshots
+      }
+
       // Generate AI-enhanced suggestions for each issue with rate limiting
       console.log(`🔍 Generating AI suggestions for ${issues.length} accessibility issues...`);
       
@@ -186,7 +260,8 @@ export class AccessibilityScanner {
         timestamp: new Date(),
         issues,
         summary,
-        wcag22Compliance
+        wcag22Compliance,
+        screenshots
       };
     } catch (error) {
       console.error('Error scanning page for accessibility issues:', error);

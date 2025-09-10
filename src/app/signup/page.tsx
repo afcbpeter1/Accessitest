@@ -457,7 +457,7 @@ export default function SignupPage() {
         <div className="mt-8 p-4 bg-blue-50 rounded-lg">
           <h3 className="text-sm font-medium text-blue-900 mb-2">What you get:</h3>
           <ul className="text-xs text-blue-700 space-y-1">
-            <li>• 5 free credits to start testing</li>
+            <li>• 2 free scans to start testing</li>
             <li>• Section 508 compliance testing</li>
             <li>• WCAG 2.2 accessibility testing</li>
             <li>• AI-powered recommendations</li>

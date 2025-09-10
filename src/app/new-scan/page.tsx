@@ -218,7 +218,8 @@ export default function NewScan() {
         message: 'Scanning pages for accessibility issues...'
       })
 
-      const response = await fetch('/api/scan', {
+      // Use streaming API for real-time progress updates
+      const response = await fetch('/api/scan-progress', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -237,31 +238,86 @@ export default function NewScan() {
         throw new Error(errorData.error || 'Scan failed')
       }
 
-      const result = await response.json()
-      
-      // Update progress to complete
-      setScanProgress({
-        currentPage: result.pagesScanned,
-        totalPages: result.pagesScanned,
-        currentUrl: '',
-        status: 'complete',
-        message: `Scan completed successfully! Scanned ${result.pagesScanned} pages.`
-      })
+      // Handle streaming response for real-time progress
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
 
-      // Store the results
-      setScanResults(result.results)
-      setRemediationReport(result.remediationReport || [])
-      
-      // Show professional success notification
-      const totalIssues = result.complianceSummary.totalIssues
-      const criticalIssues = result.complianceSummary.criticalIssues
-      const seriousIssues = result.complianceSummary.seriousIssues
-      
-      setSuccessMessage(`Scan completed successfully! 📊\n\n• Pages scanned: ${result.pagesScanned}\n• Total issues: ${totalIssues}\n• Critical issues: ${criticalIssues}\n• Serious issues: ${seriousIssues}\n\nCheck the results below for detailed analysis.`)
-      setShowSuccessNotification(true)
-      
-      // Auto-hide notification after 8 seconds
-      setTimeout(() => setShowSuccessNotification(false), 8000)
+      if (!reader) {
+        throw new Error('No response body')
+      }
+
+      while (true) {
+        const { done, value } = await reader.read()
+        
+        if (done) break
+
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n')
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6))
+              
+              // Update progress based on message type
+              if (data.type === 'start') {
+                setScanProgress({
+                  currentPage: 0,
+                  totalPages: data.totalPages,
+                  currentUrl: '',
+                  status: 'scanning',
+                  message: data.message
+                })
+              } else if (data.type === 'page_start' || data.type === 'progress') {
+                setScanProgress({
+                  currentPage: data.currentPage,
+                  totalPages: data.totalPages,
+                  currentUrl: data.currentUrl,
+                  status: data.status,
+                  message: data.message
+                })
+              } else if (data.type === 'page_complete') {
+                setScanProgress({
+                  currentPage: data.currentPage,
+                  totalPages: data.totalPages,
+                  currentUrl: data.currentUrl,
+                  status: data.status,
+                  message: data.message
+                })
+              } else if (data.type === 'complete') {
+                setScanProgress({
+                  currentPage: data.currentPage,
+                  totalPages: data.totalPages,
+                  currentUrl: '',
+                  status: 'complete',
+                  message: data.message
+                })
+                
+                // Store the results
+                if (data.results) {
+                  setScanResults(data.results.results)
+                  setRemediationReport(data.results.remediationReport || [])
+                  
+                  // Show professional success notification
+                  const totalIssues = data.results.complianceSummary.totalIssues
+                  const criticalIssues = data.results.complianceSummary.criticalIssues
+                  const seriousIssues = data.results.complianceSummary.seriousIssues
+                  
+                  setSuccessMessage(`Scan completed successfully! 📊\n\n• Pages scanned: ${data.results.pagesScanned}\n• Total issues: ${totalIssues}\n• Critical issues: ${criticalIssues}\n• Serious issues: ${seriousIssues}\n\nCheck the results below for detailed analysis.`)
+                  setShowSuccessNotification(true)
+                  
+                  // Auto-hide notification after 8 seconds
+                  setTimeout(() => setShowSuccessNotification(false), 8000)
+                }
+              } else if (data.type === 'error') {
+                throw new Error(data.message)
+              }
+            } catch (parseError) {
+              console.error('Error parsing SSE data:', parseError)
+            }
+          }
+        }
+      }
       
     } catch (error) {
       console.error('Scan failed:', error)
@@ -734,7 +790,11 @@ export default function NewScan() {
                         style={{ 
                           width: scanProgress.totalPages > 0 
                             ? `${(scanProgress.currentPage / scanProgress.totalPages) * 100}%` 
-                            : scanProgress.status === 'crawling' ? '50%' : '0%' 
+                            : scanProgress.status === 'crawling' ? '50%' 
+                            : scanProgress.status === 'scanning' ? '75%'
+                            : scanProgress.status === 'analyzing' ? '90%'
+                            : scanProgress.status === 'complete' ? '100%'
+                            : '0%' 
                         }}
                       ></div>
                     </div>
@@ -771,6 +831,32 @@ export default function NewScan() {
                             </div>
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* Scanning Progress Details */}
+                    {(scanProgress.status === 'scanning' || scanProgress.status === 'analyzing') && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-green-800 font-semibold">🔍 Live Scanning Progress</span>
+                          <span className="text-green-600 font-medium">
+                            {scanProgress.currentPage} / {scanProgress.totalPages}
+                          </span>
+                        </div>
+                        <div className="bg-white rounded-lg p-3 border border-green-100">
+                          <div className="text-sm text-green-800 font-medium mb-1">Current Activity:</div>
+                          <div className="text-sm text-green-700 leading-relaxed">
+                            {scanProgress.message}
+                          </div>
+                          {scanProgress.currentUrl && (
+                            <div className="text-xs text-green-600 mt-2">
+                              📄 Scanning: {scanProgress.currentUrl}
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-3 text-xs text-green-600">
+                          💡 The system is actively scanning each page for accessibility issues. This may take a few minutes.
+                        </div>
                       </div>
                     )}
                     

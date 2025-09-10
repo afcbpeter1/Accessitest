@@ -249,7 +249,7 @@ async function handleRegister(email: string, password: string, name: string, com
       await query(
         `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
          VALUES ($1, $2, $3, $4)`,
-        [userResult.id, 5, 0, false]
+        [userResult.id, 2, 0, false]
       )
 
       // Commit transaction

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import puppeteer from 'puppeteer'
 import { query } from '@/lib/database'
 import { VPNDetector } from '@/lib/vpn-detector'
-import { CodeAnalysisService } from '@/lib/code-analysis-service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -85,7 +84,8 @@ export async function POST(request: NextRequest) {
       // Set user agent to avoid blocking
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
       
-      // Navigate to the URL
+      // Navigate to the URL with fallback for www/non-www
+      let finalUrl = normalizedUrl
       try {
         console.log(`Attempting to navigate to: ${normalizedUrl}`)
         await page.goto(normalizedUrl, { 
@@ -93,12 +93,33 @@ export async function POST(request: NextRequest) {
           timeout: 30000 
         })
         console.log(`Successfully navigated to: ${normalizedUrl}`)
+        finalUrl = normalizedUrl
       } catch (navigationError) {
         console.error('Navigation error:', navigationError)
-        return NextResponse.json(
-          { success: false, error: `Cannot access ${normalizedUrl}. Please check the URL is correct and the website is online. Error: ${navigationError.message}` },
-          { status: 400 }
-        )
+        
+        // Try alternative URL (www vs non-www)
+        let alternativeUrl = normalizedUrl
+        if (normalizedUrl.includes('www.')) {
+          alternativeUrl = normalizedUrl.replace('www.', '')
+        } else {
+          alternativeUrl = normalizedUrl.replace('://', '://www.')
+        }
+        
+        try {
+          console.log(`Trying alternative URL: ${alternativeUrl}`)
+          await page.goto(alternativeUrl, { 
+            waitUntil: 'domcontentloaded',
+            timeout: 30000 
+          })
+          console.log(`Successfully navigated to: ${alternativeUrl}`)
+          finalUrl = alternativeUrl
+        } catch (alternativeError) {
+          console.error('Alternative navigation error:', alternativeError)
+          return NextResponse.json(
+            { success: false, error: `Cannot access ${normalizedUrl} or ${alternativeUrl}. Please check the URL is correct and the website is online.` },
+            { status: 400 }
+          )
+        }
       }
 
       // Load axe-core into the page
@@ -194,28 +215,19 @@ export async function POST(request: NextRequest) {
         // Continue without screenshots
       }
 
-      // Generate code fixes if we have HTML source
-      let codeAnalysis = null
-      if (htmlSource && results.violations.length > 0) {
-        try {
-          const codeService = new CodeAnalysisService(htmlSource)
-          codeAnalysis = codeService.generateFixes(results.violations.slice(0, 5))
-        } catch (error) {
-          console.warn('Failed to generate code analysis:', error)
-        }
-      }
+      // Code analysis is not available for free scans - requires paid subscription
 
       // Log the free scan usage
       await query(
         `INSERT INTO free_scan_usage (ip_address, url_scanned)
          VALUES ($1, $2)`,
-        [clientIP, normalizedUrl]
+        [clientIP, finalUrl]
       )
 
       // Return limited results (no AI enhancements, basic issue info)
       return NextResponse.json({
         success: true,
-        url: normalizedUrl,
+        url: finalUrl,
         scanDate: new Date().toISOString(),
         summary: {
           totalIssues,
@@ -233,17 +245,13 @@ export async function POST(request: NextRequest) {
           helpUrl: violation.helpUrl,
           tags: violation.tags,
           nodes: violation.nodes?.length || 0,
-          page: normalizedUrl
+          page: finalUrl
         })),
         screenshots: {
           fullPage: screenshots?.fullPage || null,
           viewport: screenshots?.viewport || null,
           elements: screenshots?.elements || []
         },
-        codeAnalysis: codeAnalysis ? {
-          fixes: codeAnalysis.fixes,
-          summary: codeAnalysis.summary
-        } : null,
         requiresSignup: true,
         message: 'Sign up to see detailed recommendations and remediation steps'
       })

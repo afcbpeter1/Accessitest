@@ -265,11 +265,11 @@ export default function SettingsPage() {
 
   const getPlanDescription = (plan: string) => {
     switch (plan) {
-      case 'free': return '5 free credits to get started'
+      case 'free': return '2 free credits to get started'
       case 'web_only': return 'Unlimited web accessibility scans'
       case 'document_only': return 'Unlimited document accessibility scans'
       case 'complete_access': return 'Unlimited scans for all content types'
-      default: return '5 free credits to get started'
+      default: return '2 free credits to get started'
     }
   }
 
@@ -409,7 +409,7 @@ export default function SettingsPage() {
                           {user ? getPlanDisplayName(user.plan) : 'Free Trial'}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {user ? getPlanDescription(user.plan) : '5 free credits to get started'}
+                          {user ? getPlanDescription(user.plan) : '2 free credits to get started'}
                         </p>
                       </div>
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">

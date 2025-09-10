@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { 
   LayoutDashboard, 
   Plus, 
@@ -15,9 +15,8 @@ import Link from 'next/link'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, current: true },
-              { name: 'Web Scan', href: '/new-scan', icon: Plus, current: false },
-            { name: 'Document Scan', href: '/document-scan', icon: Upload, current: false },
-
+  { name: 'Web Scan', href: '/new-scan', icon: Plus, current: false },
+  { name: 'Document Scan', href: '/document-scan', icon: Upload, current: false },
   { name: 'Pricing', href: '/pricing', icon: DollarSign, current: false },
   { name: 'Settings', href: '/settings', icon: Settings, current: false },
 ]
@@ -27,7 +26,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ children }: SidebarProps) {
-  const [currentPath, setCurrentPath] = useState('/')
+  const pathname = usePathname()
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -47,13 +46,12 @@ export default function Sidebar({ children }: SidebarProps) {
         <nav className="mt-6 px-3">
           <div className="space-y-1">
             {navigation.map((item) => {
-              const isActive = currentPath === item.href
+              const isActive = pathname === item.href
               
               return (
                 <Link
                   key={item.name}
                   href={item.href}
-                  onClick={() => setCurrentPath(item.href)}
                   className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
                     isActive
                       ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-600'
@@ -80,10 +78,16 @@ export default function Sidebar({ children }: SidebarProps) {
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
             <div className="flex items-center space-x-4">
-              <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+              <button 
+                className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Notifications"
+              >
                 <Bell className="h-5 w-5" />
               </button>
-              <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+              <button 
+                className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="User menu"
+              >
                 <User className="h-5 w-5" />
               </button>
             </div>

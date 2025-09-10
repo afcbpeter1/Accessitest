@@ -12,7 +12,8 @@ import {
   Search,
   AlertTriangle,
   ExternalLink,
-  Code
+  Code,
+  X
 } from 'lucide-react'
 import Link from 'next/link'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -89,6 +90,7 @@ export default function HomePage() {
   const [showSignupForm, setShowSignupForm] = useState(false)
   const [showIssuesModal, setShowIssuesModal] = useState(false)
   const [showCodeFixes, setShowCodeFixes] = useState(false)
+  const [showSignupInModal, setShowSignupInModal] = useState(false)
   
   // Accessibility hooks
   const modalRef = useFocusTrap(showIssuesModal)
@@ -288,6 +290,14 @@ export default function HomePage() {
       bgColor: 'bg-green-50'
     },
     {
+      icon: Code,
+      title: 'Accessibility Playground',
+      description: 'Interactive learning tool to practice fixing accessibility issues with real code examples',
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      link: '/playground'
+    },
+    {
       icon: Zap,
       title: 'AI-Powered Analysis',
       description: 'Advanced artificial intelligence for intelligent issue detection and automated remediation recommendations',
@@ -387,6 +397,13 @@ export default function HomePage() {
             >
               Get Started
               <ArrowRight className="ml-2 h-5 w-5" />
+            </Link>
+            <Link 
+              href="/playground" 
+              className="bg-orange-500 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-orange-600 transition-colors flex items-center justify-center"
+            >
+              🎓 Try Playground
+              <Code className="ml-2 h-5 w-5" />
             </Link>
           </div>
         </div>
@@ -517,9 +534,27 @@ export default function HomePage() {
                 <h2 className="text-3xl font-bold text-gray-900 mb-4">
                   Comprehensive Accessibility Testing for Modern Organizations
                 </h2>
-                <p className="text-lg text-gray-600 max-w-4xl mx-auto">
+                <p className="text-lg text-gray-600 max-w-4xl mx-auto mb-8">
                   AccessiTest revolutionizes accessibility compliance by combining advanced artificial intelligence with comprehensive testing methodologies. Our platform addresses the critical need for organizations to ensure their digital content is accessible to all users, including those with disabilities. Whether you're a government agency requiring Section 508 compliance, a business seeking WCAG 2.2 AA certification, or an educational institution needing accessible document standards, AccessiTest provides the tools and expertise to achieve full accessibility compliance.
                 </p>
+                
+                {/* Accessibility Playground CTA */}
+                <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-lg max-w-2xl mx-auto mb-8">
+                  <div className="flex items-center justify-center space-x-3 mb-3">
+                    <Code className="h-8 w-8" />
+                    <h3 className="text-2xl font-bold">🎓 Learn Accessibility Hands-On</h3>
+                  </div>
+                  <p className="text-orange-100 mb-4">
+                    Practice fixing real accessibility issues with our interactive playground. Perfect for developers, designers, and content creators!
+                  </p>
+                  <Link 
+                    href="/playground"
+                    className="inline-flex items-center px-6 py-3 bg-white text-orange-600 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                  >
+                    Try the Playground
+                    <ArrowRight className="h-5 w-5 ml-2" />
+                  </Link>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -735,7 +770,7 @@ export default function HomePage() {
                             View {scanResults.summary.totalIssues} Issues Found
                           </button>
                           
-                          {scanResults.codeAnalysis && (
+                          {scanResults.codeAnalysis && !scanResults.requiresSignup && (
                             <button
                               onClick={() => setShowCodeFixes(true)}
                               className="w-full bg-[#06B6D4] text-white py-2 px-4 rounded-md font-medium hover:bg-[#0891B2] flex items-center justify-center"
@@ -923,13 +958,29 @@ export default function HomePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {features.map((feature, index) => {
                   const IconComponent = feature.icon
-                  return (
-                    <div key={index} className="bg-white rounded-lg p-6 border border-gray-200">
+                  const content = (
+                    <div className="bg-white rounded-lg p-6 border border-gray-200">
                       <div className="flex items-center space-x-3 mb-4">
                         <IconComponent className={`h-8 w-8 ${feature.color}`} />
                         <h3 className="text-xl font-semibold text-gray-900">{feature.title}</h3>
                       </div>
                       <p className="text-gray-600">{feature.description}</p>
+                      {feature.link && (
+                        <div className="mt-4 flex items-center text-blue-600 text-sm font-medium">
+                          Try it now
+                          <ArrowRight className="h-4 w-4 ml-1" />
+                        </div>
+                      )}
+                    </div>
+                  )
+                  
+                  return feature.link ? (
+                    <Link key={index} href={feature.link} className="block hover:scale-105 transition-transform">
+                      {content}
+                    </Link>
+                  ) : (
+                    <div key={index}>
+                      {content}
                     </div>
                   )
                 })}
@@ -1161,39 +1212,41 @@ export default function HomePage() {
             </div>
             
             <div id="modal-description" className="p-8 overflow-y-auto flex-1">
-              <div className="mb-4">
-                <p className="text-sm text-gray-600">
-                  Found <strong>{scanResults.summary.totalIssues}</strong> accessibility violations on{' '}
-                  <strong>{scanResults.url}</strong>
-                </p>
-              </div>
-              
-              <div className="space-y-4">
-                {scanResults.topIssues.map((issue, index) => (
-                  <div key={issue.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          issue.severity === 'critical' ? 'bg-red-100 text-red-800' :
-                          issue.severity === 'serious' ? 'bg-orange-100 text-orange-800' :
-                          issue.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-blue-100 text-blue-800'
-                        }`}>
-                          {issue.severity.toUpperCase()}
-                        </span>
-                        <span className="text-sm text-gray-500">
-                          {issue.nodes} occurrence{issue.nodes !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <h4 className="font-medium text-gray-900 mb-2">
-                      {issue.title}
-                    </h4>
-                    
-                    <p className="text-sm text-gray-600 mb-3">
-                      {issue.description}
+              {!showSignupInModal ? (
+                <>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600">
+                      Found <strong>{scanResults.summary.totalIssues}</strong> accessibility violations on{' '}
+                      <strong>{scanResults.url}</strong>
                     </p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {scanResults.topIssues.map((issue, index) => (
+                      <div key={issue.id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              issue.severity === 'critical' ? 'bg-red-100 text-red-800' :
+                              issue.severity === 'serious' ? 'bg-orange-100 text-orange-800' :
+                              issue.severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-blue-100 text-blue-800'
+                            }`}>
+                              {issue.severity.toUpperCase()}
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              {issue.nodes} occurrence{issue.nodes !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <h4 className="font-medium text-gray-900 mb-2">
+                          {issue.title}
+                        </h4>
+                        
+                        <p className="text-sm text-gray-600 mb-3">
+                          {issue.description}
+                        </p>
                     
                     {/* Element Screenshot */}
                     {scanResults.screenshots?.elements && (() => {
@@ -1245,32 +1298,175 @@ export default function HomePage() {
                 ))}
               </div>
               
-              <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div className="flex items-start">
-                  <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
-                  <div className="text-sm text-yellow-800">
-                    <strong>Sign up required</strong> to see detailed remediation steps and AI-powered recommendations for fixing these issues.
+                  <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-start">
+                      <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+                      <div className="text-sm text-yellow-800">
+                        <strong>Sign up required</strong> to see detailed remediation steps and AI-powered recommendations for fixing these issues.
+                      </div>
+                    </div>
                   </div>
+                </>
+              ) : (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Get Detailed Fixes</h3>
+                    <p className="text-sm text-gray-600">
+                      Sign up to see step-by-step code fixes and detailed remediation steps for all accessibility issues.
+                    </p>
+                  </div>
+                  
+                  <form onSubmit={handleSignup} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                          First Name
+                        </label>
+                        <input
+                          type="text"
+                          id="firstName"
+                          value={signupData.firstName}
+                          onChange={(e) => setSignupData(prev => ({ ...prev, firstName: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                          Last Name
+                        </label>
+                        <input
+                          type="text"
+                          id="lastName"
+                          value={signupData.lastName}
+                          onChange={(e) => setSignupData(prev => ({ ...prev, lastName: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        value={signupData.email}
+                        onChange={(e) => setSignupData(prev => ({ ...prev, email: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
+                        Company (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        id="company"
+                        value={signupData.company}
+                        onChange={(e) => setSignupData(prev => ({ ...prev, company: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        id="password"
+                        value={signupData.password}
+                        onChange={(e) => setSignupData(prev => ({ ...prev, password: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                        minLength={8}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                        Confirm Password
+                      </label>
+                      <input
+                        type="password"
+                        id="confirmPassword"
+                        value={signupData.confirmPassword}
+                        onChange={(e) => setSignupData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        required
+                        minLength={8}
+                      />
+                    </div>
+                    
+                    {signupError && (
+                      <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                        <p className="text-sm text-red-600">{signupError}</p>
+                      </div>
+                    )}
+                    
+                    {signupSuccess && (
+                      <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                        <p className="text-sm text-green-600">{signupSuccess}</p>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center justify-between pt-4">
+                      <Link 
+                        href="/login" 
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      >
+                        Already have an account? Sign in
+                      </Link>
+                      <button
+                        type="submit"
+                        disabled={isSigningUp}
+                        className="bg-blue-600 text-white px-6 py-2 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isSigningUp ? 'Creating Account...' : 'Create Account'}
+                      </button>
+                    </div>
+                  </form>
                 </div>
-              </div>
+              )}
             </div>
             
             <div className="flex items-center justify-between p-6 border-t bg-gray-50 flex-shrink-0">
-              <button
-                onClick={() => setShowIssuesModal(false)}
-                className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  setShowIssuesModal(false)
-                  setShowSignupForm(true)
-                }}
-                className="bg-blue-600 text-white px-8 py-3 rounded-md font-medium hover:bg-blue-700"
-              >
-                Get Detailed Fixes
-              </button>
+              {!showSignupInModal ? (
+                <>
+                  <button
+                    onClick={() => setShowIssuesModal(false)}
+                    className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={() => setShowSignupInModal(true)}
+                    className="bg-blue-600 text-white px-8 py-3 rounded-md font-medium hover:bg-blue-700"
+                  >
+                    Get Detailed Fixes
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setShowSignupInModal(false)}
+                    className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium"
+                  >
+                    Back to Issues
+                  </button>
+                  <button
+                    onClick={() => setShowIssuesModal(false)}
+                    className="px-6 py-3 text-gray-600 hover:text-gray-800 font-medium"
+                  >
+                    Close
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

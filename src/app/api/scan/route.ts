@@ -59,12 +59,54 @@ export async function POST(request: NextRequest) {
       pagesScanned: results.length
     }
 
+    // Process AI suggestions into remediation report format
+    const remediationReport = []
+    for (const result of results) {
+      if (result.issues && result.issues.length > 0) {
+        for (const issue of result.issues) {
+          // Check if this issue has AI suggestions
+          if (issue.suggestions && issue.suggestions.length > 0) {
+            // Transform the issue into DetailedReport format
+            const report = {
+              issueId: issue.id,
+              ruleName: issue.description || issue.id,
+              description: issue.description || 'Accessibility issue detected',
+              impact: issue.impact || 'moderate',
+              wcag22Level: 'A', // Default to A, could be enhanced to detect actual level
+              help: issue.help || 'Please review and fix this accessibility issue',
+              helpUrl: issue.helpUrl || 'https://www.w3.org/WAI/WCAG21/quickref/',
+              totalOccurrences: issue.nodes?.length || 1,
+              affectedUrls: [result.url],
+              offendingElements: issue.nodes?.map((node: any) => ({
+                html: node.html || `<${node.target?.[0] || 'element'}>`,
+                target: node.target || [],
+                failureSummary: node.failureSummary || issue.description,
+                impact: issue.impact || 'moderate',
+                url: result.url,
+                screenshot: node.screenshot,
+                boundingBox: node.boundingBox
+              })) || [],
+              suggestions: issue.suggestions.map((suggestion: any) => ({
+                type: 'fix',
+                description: suggestion.description || suggestion.text || 'AI-generated accessibility fix',
+                codeExample: suggestion.codeExample || suggestion.code || '',
+                priority: suggestion.priority || 'medium'
+              })),
+              priority: issue.priority || 'medium',
+              screenshots: result.screenshots || null
+            }
+            remediationReport.push(report)
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       url,
       pagesScanned: results.length,
       results,
       complianceSummary,
-      remediationReport: [] // Will be populated with AI suggestions later
+      remediationReport
     })
 
   } catch (error) {

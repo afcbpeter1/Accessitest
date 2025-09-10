@@ -7,6 +7,13 @@ interface OffendingElement {
   failureSummary: string;
   impact: string;
   url: string;
+  screenshot?: string; // Base64 encoded screenshot of the element
+  boundingBox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 interface RemediationSuggestion {
@@ -29,6 +36,22 @@ interface DetailedReportProps {
   offendingElements: OffendingElement[];
   suggestions: RemediationSuggestion[];
   priority: 'high' | 'medium' | 'low';
+  screenshots?: {
+    fullPage?: string;
+    viewport?: string;
+    elements?: Array<{
+      selector: string;
+      issueId: string;
+      severity: string;
+      screenshot: string;
+      boundingBox?: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      };
+    }>;
+  };
 }
 
 const getImpactColor = (impact: string) => {
@@ -71,7 +94,8 @@ export default function DetailedReport({
   affectedUrls,
   offendingElements,
   suggestions,
-  priority
+  priority,
+  screenshots
 }: DetailedReportProps) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
@@ -113,6 +137,56 @@ export default function DetailedReport({
           <ExternalLink className="h-4 w-4" />
         </a>
       </div>
+
+      {/* Screenshots */}
+      {screenshots && (
+        <div className="mb-6">
+          <h4 className="text-md font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-blue-600" />
+            Visual Context
+          </h4>
+          
+          {/* Website Screenshot */}
+          {screenshots.viewport && (
+            <div className="mb-4">
+              <div className="text-sm text-gray-600 mb-2">Website Screenshot:</div>
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <img 
+                  src={`data:image/png;base64,${screenshots.viewport}`}
+                  alt={`Screenshot of ${affectedUrls[0]}`}
+                  className="w-full h-auto max-h-48 object-contain"
+                />
+              </div>
+            </div>
+          )}
+          
+          {/* Element Screenshots */}
+          {screenshots.elements && screenshots.elements.length > 0 && (
+            <div>
+              <div className="text-sm text-gray-600 mb-2">Affected Elements:</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {screenshots.elements
+                  .filter(el => el.issueId === issueId)
+                  .map((element, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
+                      <img
+                        src={`data:image/png;base64,${element.screenshot}`}
+                        alt={`Screenshot showing ${ruleName} issue`}
+                        className="w-full h-auto max-h-32 object-contain"
+                      />
+                      {element.boundingBox && (
+                        <div className="p-2 bg-gray-50 text-xs text-gray-500">
+                          Position: {Math.round(element.boundingBox.x)}, {Math.round(element.boundingBox.y)}
+                          ({Math.round(element.boundingBox.width)}×{Math.round(element.boundingBox.height)}px)
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Offending Elements */}
       <div className="mb-6">
