@@ -1,6 +1,12 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Check if RESEND_API_KEY is loaded
+const resendApiKey = process.env.RESEND_API_KEY
+if (!resendApiKey) {
+  console.warn('RESEND_API_KEY not found in environment variables')
+}
+
+const resend = new Resend(resendApiKey || 'dummy-key-for-development')
 
 export interface EmailVerificationData {
   email: string

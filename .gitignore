@@ -9,7 +9,7 @@ yarn-error.log*
 out/
 build/
 
-# Environment variables
+Environment variables
 .env
 .env.local
 .env.development.local

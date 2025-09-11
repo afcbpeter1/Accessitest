@@ -1,11 +1,20 @@
 import { Pool } from 'pg'
 
+// Debug database URL (without password)
+const dbUrl = process.env.DATABASE_URL
+if (dbUrl) {
+  const urlParts = new URL(dbUrl)
+  console.log('🔗 Database URL:', `${urlParts.protocol}//${urlParts.hostname}:${urlParts.port}${urlParts.pathname}`)
+} else {
+  console.error('❌ DATABASE_URL not found in environment variables')
+}
+
 // Database connection pool
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
+  connectionString: dbUrl,
+  ssl: process.env.NODE_ENV === 'production' ? {
     rejectUnauthorized: false
-  }
+  } : false
 })
 
 // Test database connection

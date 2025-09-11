@@ -27,9 +27,9 @@ const initialIssues: AccessibilityIssue[] = [
     impact: 'serious',
     category: 'color',
     html: '<p style="color: #999999; background: white;">This text has poor contrast</p>',
-    fixedHtml: '<p style="color: #333333; background: white;">This text has good contrast</p>',
-    explanation: 'Text must have a contrast ratio of at least 4.5:1 for normal text and 3:1 for large text to meet WCAG AA standards.',
-    hint: 'Try changing the text color to a darker shade',
+    fixedHtml: '<p style="color: #000000; background: white;">This text has good contrast</p>',
+    explanation: 'Text must have a contrast ratio of at least 4.5:1 for normal text and 3:1 for large text to meet WCAG AA standards. Black (#000000) on white provides 21:1 contrast ratio.',
+    hint: 'Try changing the text color to black (#000000) or another dark color',
     isFixed: false
   },
   {
@@ -59,7 +59,7 @@ const initialIssues: AccessibilityIssue[] = [
     isFixed: false
   },
   {
-    id: 'button-no-label',
+    id: 'missing-button-name',
     title: 'Button Without Accessible Name',
     description: 'Button only contains an icon without text or aria-label',
     wcagLevel: 'A',
@@ -72,7 +72,7 @@ const initialIssues: AccessibilityIssue[] = [
     isFixed: false
   },
   {
-    id: 'form-no-label',
+    id: 'missing-label',
     title: 'Form Input Without Label',
     description: 'Input field is missing an associated label',
     wcagLevel: 'A',
@@ -85,7 +85,7 @@ const initialIssues: AccessibilityIssue[] = [
     isFixed: false
   },
   {
-    id: 'link-no-text',
+    id: 'missing-link-name',
     title: 'Link Without Accessible Text',
     description: 'Link only contains an image without descriptive text',
     wcagLevel: 'A',
@@ -98,7 +98,7 @@ const initialIssues: AccessibilityIssue[] = [
     isFixed: false
   },
   {
-    id: 'small-touch-target',
+    id: 'insufficient-touch-target',
     title: 'Touch Target Too Small',
     description: 'Interactive element is too small for easy touch interaction',
     wcagLevel: 'AA',
@@ -121,6 +121,123 @@ const initialIssues: AccessibilityIssue[] = [
     fixedHtml: '<button style="outline: 2px solid #0066cc; outline-offset: 2px;">Click me</button>',
     explanation: 'Interactive elements must have visible focus indicators for keyboard navigation.',
     hint: 'Add a visible outline or border when the element is focused',
+    isFixed: false
+  },
+  {
+    id: 'missing-page-title',
+    title: 'Missing Page Title',
+    description: 'Page is missing a descriptive title element',
+    wcagLevel: 'A',
+    impact: 'serious',
+    category: 'structure',
+    html: '<html><head></head><body><h1>Welcome</h1></body></html>',
+    fixedHtml: '<html><head><title>Welcome to Our Website</title></head><body><h1>Welcome</h1></body></html>',
+    explanation: 'Every page must have a descriptive title that clearly indicates the page content.',
+    hint: 'Add a title element inside the head section',
+    isFixed: false
+  },
+  {
+    id: 'missing-lang-attribute',
+    title: 'Missing Language Attribute',
+    description: 'HTML document is missing language declaration',
+    wcagLevel: 'A',
+    impact: 'serious',
+    category: 'structure',
+    html: '<html><head><title>Page</title></head><body><p>Hello world</p></body></html>',
+    fixedHtml: '<html lang="en"><head><title>Page</title></head><body><p>Hello world</p></body></html>',
+    explanation: 'The HTML element must have a lang attribute to specify the page language for screen readers.',
+    hint: 'Add lang="en" (or appropriate language) to the html element',
+    isFixed: false
+  },
+  {
+    id: 'empty-heading',
+    title: 'Empty Heading Element',
+    description: 'Heading element contains no text content',
+    wcagLevel: 'A',
+    impact: 'moderate',
+    category: 'structure',
+    html: '<h2></h2><p>Some content here</p>',
+    fixedHtml: '<h2>Section Title</h2><p>Some content here</p>',
+    explanation: 'Headings must contain text content to provide structure and navigation for screen readers.',
+    hint: 'Add descriptive text content to the heading element',
+    isFixed: false
+  },
+  {
+    id: 'duplicate-id',
+    title: 'Duplicate ID Values',
+    description: 'Multiple elements share the same ID value',
+    wcagLevel: 'A',
+    impact: 'serious',
+    category: 'structure',
+    html: '<input id="email" type="email"><input id="email" type="text">',
+    fixedHtml: '<input id="email" type="email"><input id="username" type="text">',
+    explanation: 'ID attributes must be unique within a page to ensure proper element identification.',
+    hint: 'Change one of the duplicate ID values to something unique',
+    isFixed: false
+  },
+  {
+    id: 'missing-table-headers',
+    title: 'Missing Table Headers',
+    description: 'Data table is missing header cells',
+    wcagLevel: 'A',
+    impact: 'serious',
+    category: 'structure',
+    html: '<table><tr><td>Name</td><td>Age</td></tr><tr><td>John</td><td>25</td></tr></table>',
+    fixedHtml: '<table><tr><th>Name</th><th>Age</th></tr><tr><td>John</td><td>25</td></tr></table>',
+    explanation: 'Data tables must have header cells to provide context for screen reader users.',
+    hint: 'Replace td elements in the header row with th elements',
+    isFixed: false
+  },
+  {
+    id: 'missing-skip-link',
+    title: 'Missing Skip Link',
+    description: 'Page lacks a skip link for keyboard navigation',
+    wcagLevel: 'A',
+    impact: 'moderate',
+    category: 'navigation',
+    html: '<body><nav>Navigation menu</nav><main>Main content</main></body>',
+    fixedHtml: '<body><a href="#main" class="skip-link">Skip to main content</a><nav>Navigation menu</nav><main id="main">Main content</main></body>',
+    explanation: 'Skip links allow keyboard users to bypass repetitive navigation and jump to main content.',
+    hint: 'Add a skip link that targets the main content area',
+    isFixed: false
+  },
+  {
+    id: 'insufficient-color-contrast-2',
+    title: 'Insufficient Color Contrast (Link)',
+    description: 'Link text has poor contrast against background',
+    wcagLevel: 'AA',
+    impact: 'serious',
+    category: 'color',
+    html: '<a href="#" style="color: #999999; background: white;">Visit our website</a>',
+    fixedHtml: '<a href="#" style="color: #0066cc; background: white;">Visit our website</a>',
+    explanation: 'Link text must have sufficient contrast ratio (4.5:1) for normal text to meet WCAG AA standards.',
+    hint: 'Change the link color to a darker shade like #0066cc',
+    isFixed: false
+  },
+  {
+    id: 'missing-form-validation',
+    title: 'Missing Form Validation',
+    description: 'Form input lacks proper validation and error messaging',
+    wcagLevel: 'A',
+    impact: 'serious',
+    category: 'forms',
+    html: '<form><input type="email" required><button type="submit">Submit</button></form>',
+    fixedHtml: '<form><input type="email" required aria-describedby="email-error"><div id="email-error" role="alert">Please enter a valid email address</div><button type="submit">Submit</button></form>',
+    explanation: 'Form inputs must have proper validation and clear error messages for users.',
+    hint: 'Add aria-describedby and error message elements',
+    isFixed: false
+  },
+  {
+    id: 'missing-landmark',
+    title: 'Missing Main Landmark',
+    description: 'Page lacks a main landmark for primary content',
+    wcagLevel: 'A',
+    impact: 'moderate',
+    category: 'structure',
+    html: '<body><header>Header content</header><div>Main content here</div><footer>Footer</footer></body>',
+    fixedHtml: '<body><header>Header content</header><main>Main content here</main><footer>Footer</footer></body>',
+    explanation: 'Pages should have a main landmark to identify the primary content area for screen readers.',
+    hint: 'Replace the div with a main element',
     isFixed: false
   }
 ]
@@ -146,16 +263,98 @@ export default function AccessibilityPlayground() {
   const checkSolution = () => {
     if (!selectedIssue) return
 
-    // Simple check - in a real implementation, you'd want more sophisticated validation
-    const isCorrect = userCode.includes(selectedIssue.fixedHtml.split('>')[0].split('<')[1]) ||
-                     userCode.includes('alt=') ||
-                     userCode.includes('aria-label') ||
-                     userCode.includes('label') ||
-                     userCode.includes('h1') ||
-                     userCode.includes('h2') ||
-                     userCode.includes('h3') ||
-                     userCode.includes('outline') ||
-                     userCode.includes('44px')
+    let isCorrect = false
+
+    // Check based on issue type using Axe standards
+    switch (selectedIssue.id) {
+      case 'color-contrast-1':
+        // Check for dark colors that meet WCAG AA contrast (4.5:1 ratio)
+        // Black (#000000), dark gray (#333333), etc. on white background
+        isCorrect = userCode.includes('#000000') || 
+                   userCode.includes('#333333') || 
+                   userCode.includes('#222222') ||
+                   userCode.includes('#111111') ||
+                   userCode.includes('color: black') ||
+                   userCode.includes('color: #000')
+        break
+      
+      case 'missing-alt-text':
+        isCorrect = userCode.includes('alt=')
+        break
+      
+      case 'missing-heading':
+        isCorrect = userCode.includes('<h1') || userCode.includes('<h2') || userCode.includes('<h3')
+        break
+      
+      case 'missing-label':
+        isCorrect = userCode.includes('label') || userCode.includes('aria-label')
+        break
+      
+      case 'missing-button-name':
+        isCorrect = userCode.includes('aria-label') || userCode.includes('>Click me<')
+        break
+      
+      case 'missing-link-name':
+        isCorrect = userCode.includes('alt=') || userCode.includes('>Home<') || userCode.includes('>Go to')
+        break
+      
+      case 'insufficient-touch-target':
+        // Check for 44px minimum touch target (WCAG 2.2 AAA standard)
+        isCorrect = userCode.includes('44px') || userCode.includes('min-height: 44px') || userCode.includes('min-width: 44px')
+        break
+      
+      case 'missing-focus-indicator':
+        isCorrect = userCode.includes('outline') || userCode.includes('focus:') || userCode.includes('box-shadow')
+        break
+      
+      case 'missing-page-title':
+        isCorrect = userCode.includes('<title>') && userCode.includes('</title>')
+        break
+      
+      case 'missing-lang-attribute':
+        isCorrect = userCode.includes('lang=') || userCode.includes('lang="en"')
+        break
+      
+      case 'empty-heading':
+        isCorrect = userCode.includes('<h2>') && userCode.includes('</h2>') && !userCode.includes('<h2></h2>')
+        break
+      
+      case 'duplicate-id':
+        isCorrect = userCode.includes('id="username"') || userCode.includes('id="name"') || userCode.includes('id="user"')
+        break
+      
+      case 'missing-table-headers':
+        isCorrect = userCode.includes('<th>') && userCode.includes('</th>')
+        break
+      
+      case 'missing-skip-link':
+        isCorrect = userCode.includes('skip') || userCode.includes('Skip') || userCode.includes('#main')
+        break
+      
+      case 'insufficient-color-contrast-2':
+        isCorrect = userCode.includes('#0066cc') || userCode.includes('#0000ff') || userCode.includes('#000080')
+        break
+      
+      case 'missing-form-validation':
+        isCorrect = userCode.includes('aria-describedby') || userCode.includes('role="alert"')
+        break
+      
+      case 'missing-landmark':
+        isCorrect = userCode.includes('<main>') && userCode.includes('</main>')
+        break
+      
+      default:
+        // Fallback to simple string matching
+        isCorrect = userCode.includes(selectedIssue.fixedHtml.split('>')[0].split('<')[1]) ||
+                   userCode.includes('alt=') ||
+                   userCode.includes('aria-label') ||
+                   userCode.includes('label') ||
+                   userCode.includes('h1') ||
+                   userCode.includes('h2') ||
+                   userCode.includes('h3') ||
+                   userCode.includes('outline') ||
+                   userCode.includes('44px')
+    }
 
     if (isCorrect) {
       const updatedIssues = issues.map(issue => 
@@ -207,7 +406,7 @@ export default function AccessibilityPlayground() {
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-12">
             <div className="flex items-center space-x-4">
               <Link href="/" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
                 <ArrowLeft className="h-5 w-5" />
@@ -218,50 +417,50 @@ export default function AccessibilityPlayground() {
             </div>
             <div className="flex items-center space-x-4">
               <Link href="/login" className="text-gray-600 hover:text-gray-900">Sign In</Link>
-              <Link href="/signup" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Get Started</Link>
+              <Link href="/signup" className="bg-[#0B1220] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800">Get Started</Link>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="space-y-4">
           {/* Hero Section */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-8 rounded-lg">
-            <h1 className="text-4xl font-bold mb-4">🎓 Accessibility Playground</h1>
-            <p className="text-blue-100 text-xl mb-6">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-lg">
+            <h1 className="text-2xl font-bold mb-2">🎓 Accessibility Playground</h1>
+            <p className="text-blue-100 text-sm mb-3">
               Learn accessibility by fixing real issues! Practice makes perfect.
             </p>
-            <div className="flex items-center space-x-6">
-              <div className="bg-white/20 rounded-lg px-4 py-2">
-                <span className="text-sm font-medium">Progress: {completedIssues.length}/{issues.length}</span>
+            <div className="flex items-center space-x-3">
+              <div className="bg-white/20 rounded px-2 py-1">
+                <span className="text-xs font-medium">Progress: {completedIssues.length}/{issues.length}</span>
               </div>
-              <div className="bg-white/20 rounded-lg px-4 py-2">
-                <span className="text-sm font-medium">{getProgressPercentage()}% Complete</span>
+              <div className="bg-white/20 rounded px-2 py-1">
+                <span className="text-xs font-medium">{getProgressPercentage()}% Complete</span>
               </div>
-              <div className="bg-white/20 rounded-lg px-4 py-2">
-                <span className="text-sm font-medium">Free Learning Tool</span>
+              <div className="bg-white/20 rounded px-2 py-1">
+                <span className="text-xs font-medium">Free Learning Tool</span>
               </div>
             </div>
           </div>
 
           {/* Progress Bar */}
-          <div className="w-full bg-gray-200 rounded-full h-4">
+          <div className="w-full bg-gray-200 rounded-full h-2">
             <div 
-              className="bg-gradient-to-r from-green-500 to-blue-500 h-4 rounded-full transition-all duration-500"
+              className="bg-gradient-to-r from-green-500 to-blue-500 h-2 rounded-full transition-all duration-500"
               style={{ width: `${getProgressPercentage()}%` }}
             ></div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Issues List */}
-            <div className="space-y-4">
-              <h2 className="text-2xl font-semibold text-gray-900">Accessibility Issues</h2>
-              <div className="space-y-3">
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold text-gray-900">Accessibility Issues</h2>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
                 {issues.map((issue) => (
                   <div
                     key={issue.id}
-                    className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                    className={`p-3 border rounded-lg cursor-pointer transition-all ${
                       selectedIssue?.id === issue.id
                         ? 'border-blue-500 bg-blue-50'
                         : issue.isFixed
@@ -278,9 +477,9 @@ export default function AccessibilityPlayground() {
                           <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
                         )}
                         <div>
-                          <h3 className="font-medium text-gray-900">{issue.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1">{issue.description}</p>
-                          <div className="flex items-center space-x-2 mt-2">
+                          <h3 className="font-medium text-gray-900 text-sm">{issue.title}</h3>
+                          <p className="text-xs text-gray-600 mt-1">{issue.description}</p>
+                          <div className="flex items-center space-x-1 mt-1">
                             <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getImpactColor(issue.impact)}`}>
                               {issue.impact.toUpperCase()}
                             </span>
@@ -301,11 +500,11 @@ export default function AccessibilityPlayground() {
             </div>
 
             {/* Code Editor */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               {selectedIssue ? (
                 <>
                   <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-semibold text-gray-900">Fix the Code</h2>
+                    <h2 className="text-lg font-semibold text-gray-900">Fix the Code</h2>
                     <div className="flex space-x-2">
                       <button
                         onClick={() => setShowHints(!showHints)}
@@ -351,24 +550,24 @@ export default function AccessibilityPlayground() {
                     <textarea
                       value={userCode}
                       onChange={(e) => handleCodeChange(e.target.value)}
-                      className="w-full h-40 bg-gray-800 text-white font-mono text-sm p-3 rounded border border-gray-700 focus:border-blue-500 focus:outline-none resize-none"
+                      className="w-full h-32 bg-gray-800 text-white font-mono text-sm p-3 rounded border border-gray-700 focus:border-blue-500 focus:outline-none resize-none"
                       placeholder="Edit the HTML code to fix the accessibility issue..."
                     />
                   </div>
 
                   {showPreview && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-medium text-gray-900 mb-3">Preview</h3>
+                    <div className="bg-white border border-gray-200 rounded-lg p-3">
+                      <h3 className="font-medium text-gray-900 mb-2 text-sm">Preview</h3>
                       <div 
-                        className="border border-gray-300 rounded p-3 min-h-[100px]"
+                        className="border border-gray-300 rounded p-2 min-h-[80px]"
                         dangerouslySetInnerHTML={{ __html: userCode }}
                       />
                     </div>
                   )}
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h3 className="font-medium text-blue-900 mb-2">📚 Explanation</h3>
-                    <p className="text-blue-900">{selectedIssue.explanation}</p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <h3 className="font-medium text-blue-900 mb-1 text-sm">📚 Explanation</h3>
+                    <p className="text-blue-900 text-sm">{selectedIssue.explanation}</p>
                   </div>
                 </>
               ) : (

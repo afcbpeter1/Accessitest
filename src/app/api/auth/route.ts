@@ -330,7 +330,7 @@ export async function updateUserPlan(email: string, plan: string) {
       )
     }
     
-    return result.rowCount > 0
+    return (result.rowCount ?? 0) > 0
   } catch (error) {
     console.error('Error updating user plan:', error)
     return false

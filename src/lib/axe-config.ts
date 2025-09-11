@@ -3,13 +3,10 @@ import { Spec } from 'axe-core';
 export const axeConfig: Spec = {
   // WCAG 2.2 AA compliance
   standards: {
-    wcag2a: 'wcag2a',
     wcag2aa: 'wcag2aa',
     wcag2aaa: 'wcag2aaa',
-    wcag21a: 'wcag21a',
     wcag21aa: 'wcag21aa',
     wcag21aaa: 'wcag21aaa',
-    wcag22a: 'wcag22a',
     wcag22aa: 'wcag22aa',
     wcag22aaa: 'wcag22aaa'
   },

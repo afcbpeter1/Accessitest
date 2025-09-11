@@ -400,7 +400,7 @@ export default function HomePage() {
             </Link>
             <Link 
               href="/playground" 
-              className="bg-orange-500 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-orange-600 transition-colors flex items-center justify-center"
+              className="bg-[#0B1220] text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-800 transition-colors flex items-center justify-center"
             >
               🎓 Try Playground
               <Code className="ml-2 h-5 w-5" />
@@ -539,17 +539,17 @@ export default function HomePage() {
                 </p>
                 
                 {/* Accessibility Playground CTA */}
-                <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-lg max-w-2xl mx-auto mb-8">
+                <div className="bg-[#0B1220] text-white p-6 rounded-lg max-w-2xl mx-auto mb-8">
                   <div className="flex items-center justify-center space-x-3 mb-3">
                     <Code className="h-8 w-8" />
                     <h3 className="text-2xl font-bold">🎓 Learn Accessibility Hands-On</h3>
                   </div>
-                  <p className="text-orange-100 mb-4">
+                  <p className="text-gray-200 mb-4">
                     Practice fixing real accessibility issues with our interactive playground. Perfect for developers, designers, and content creators!
                   </p>
                   <Link 
                     href="/playground"
-                    className="inline-flex items-center px-6 py-3 bg-white text-orange-600 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                    className="inline-flex items-center px-6 py-3 bg-white text-[#0B1220] rounded-lg font-semibold hover:bg-gray-100 transition-colors"
                   >
                     Try the Playground
                     <ArrowRight className="h-5 w-5 ml-2" />

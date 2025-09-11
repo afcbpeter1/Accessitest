@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Check, CreditCard, Zap, Shield, FileText, Globe } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
+import { STRIPE_PRICE_IDS } from '@/lib/stripe-config'
 
 interface PricingPlan {
   name: string
@@ -102,16 +103,98 @@ export default function Pricing() {
     }
   ]
 
-  const handleSubscribe = (plan: PricingPlan) => {
+  const handleSubscribe = async (plan: PricingPlan) => {
     setSelectedPlan(plan.name)
-    // Here you would integrate with Stripe or your payment processor
-    console.log('Subscribing to:', plan.name, billingCycle)
+    
+    try {
+      // Determine the correct price ID based on plan and billing cycle
+      let priceId = ''
+      
+      if (plan.name === 'Web Scan Only') {
+        priceId = billingCycle === 'monthly' 
+          ? STRIPE_PRICE_IDS.subscriptions.webScanMonthly
+          : STRIPE_PRICE_IDS.subscriptions.webScanYearly
+      } else if (plan.name === 'Document Scan Only') {
+        priceId = billingCycle === 'monthly'
+          ? STRIPE_PRICE_IDS.subscriptions.documentScanMonthly
+          : STRIPE_PRICE_IDS.subscriptions.documentScanYearly
+      } else if (plan.name === 'Complete Access') {
+        priceId = billingCycle === 'monthly'
+          ? STRIPE_PRICE_IDS.subscriptions.completeAccessMonthly
+          : STRIPE_PRICE_IDS.subscriptions.completeAccessYearly
+      }
+
+      // Create checkout session
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          priceId,
+          successUrl: `${window.location.origin}/thank-you?success=true`,
+          cancelUrl: `${window.location.origin}/pricing?canceled=true`,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.url) {
+        // Redirect to Stripe checkout
+        window.location.href = data.url
+      } else {
+        console.error('Failed to create checkout session:', data.error)
+        alert('Failed to start checkout process. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error creating checkout session:', error)
+      alert('An error occurred. Please try again.')
+    }
   }
 
-  const handleBuyCredits = (creditPackage: CreditPackage) => {
+  const handleBuyCredits = async (creditPackage: CreditPackage) => {
     setSelectedCredits(creditPackage.name)
-    // Here you would integrate with Stripe or your payment processor
-    console.log('Buying credits:', creditPackage.name)
+    
+    try {
+      // Determine the correct price ID based on credit package
+      let priceId = ''
+      
+      if (creditPackage.name === 'Starter Pack') {
+        priceId = STRIPE_PRICE_IDS.credits.starterPack
+      } else if (creditPackage.name === 'Professional Pack') {
+        priceId = STRIPE_PRICE_IDS.credits.professionalPack
+      } else if (creditPackage.name === 'Business Pack') {
+        priceId = STRIPE_PRICE_IDS.credits.businessPack
+      } else if (creditPackage.name === 'Enterprise Pack') {
+        priceId = STRIPE_PRICE_IDS.credits.enterprisePack
+      }
+
+      // Create checkout session
+      const response = await fetch('/api/create-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          priceId,
+          successUrl: `${window.location.origin}/thank-you?success=true`,
+          cancelUrl: `${window.location.origin}/pricing?canceled=true`,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success && data.url) {
+        // Redirect to Stripe checkout
+        window.location.href = data.url
+      } else {
+        console.error('Failed to create checkout session:', data.error)
+        alert('Failed to start checkout process. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error creating checkout session:', error)
+      alert('An error occurred. Please try again.')
+    }
   }
 
   return (
