@@ -14,6 +14,7 @@ import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import StatsCard from '@/components/StatsCard'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import CreditDisplay from '@/components/CreditDisplay'
 
 
 export default function Dashboard() {
@@ -75,6 +76,17 @@ function DashboardContent() {
   return (
     <Sidebar>
       <div className="space-y-6">
+        {/* Credit Status */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">Your Credits</h2>
+              <p className="text-gray-600">Manage your scanning credits and subscription</p>
+            </div>
+            <CreditDisplay showBuyButton={true} />
+          </div>
+        </div>
+
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="card">

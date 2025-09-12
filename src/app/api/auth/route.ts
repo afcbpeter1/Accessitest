@@ -245,11 +245,11 @@ async function handleRegister(email: string, password: string, name: string, com
         [userResult.id, hashedPassword, salt]
       )
 
-      // Initialize user credits
+      // Initialize user credits (3 free credits for trial)
       await query(
         `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
          VALUES ($1, $2, $3, $4)`,
-        [userResult.id, 2, 0, false]
+        [userResult.id, 3, 0, false]
       )
 
       // Commit transaction

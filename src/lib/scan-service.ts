@@ -145,6 +145,24 @@ export class ScanService {
   }
 
   /**
+   * Normalize URL to remove duplicates (anchors, trailing slashes, etc.)
+   */
+  private normalizeUrl(url: string): string {
+    try {
+      const urlObj = new URL(url);
+      // Remove hash fragments (anchors)
+      urlObj.hash = '';
+      // Remove trailing slash for root paths
+      if (urlObj.pathname === '/' && url.endsWith('/')) {
+        urlObj.pathname = '';
+      }
+      return urlObj.href;
+    } catch (error) {
+      return url;
+    }
+  }
+
+  /**
    * Crawl website to discover all pages
    */
   private async crawlWebsite(
@@ -157,7 +175,7 @@ export class ScanService {
 
     const page = await this.browser.newPage();
     const visited = new Set<string>();
-    const toVisit = [options.url];
+    const toVisit = [this.normalizeUrl(options.url)];
     const discoveredUrls: string[] = [];
     const startTime = Date.now();
 
@@ -181,9 +199,10 @@ export class ScanService {
 
     while (toVisit.length > 0 && discoveredUrls.length < options.maxPages) {
       const currentUrl = toVisit.shift()!;
+      const normalizedUrl = this.normalizeUrl(currentUrl);
       
-      if (visited.has(currentUrl)) continue;
-      visited.add(currentUrl);
+      if (visited.has(normalizedUrl)) continue;
+      visited.add(normalizedUrl);
 
       // Update progress every 2 seconds or when we discover a new page
       const now = Date.now();
@@ -212,8 +231,8 @@ export class ScanService {
           timeout: 30000 
         });
 
-        // Add to discovered URLs
-        discoveredUrls.push(currentUrl);
+        // Add to discovered URLs (use normalized URL)
+        discoveredUrls.push(normalizedUrl);
 
         // If deep crawl is enabled, discover more links
         if (options.deepCrawl) {
@@ -224,18 +243,24 @@ export class ScanService {
 
           // Process discovered links
           for (const link of links) {
-            const absoluteUrl = new URL(link, currentUrl).href;
-            
-            // Check if URL is within the same domain
-            const currentDomain = new URL(currentUrl).hostname;
-            const linkDomain = new URL(absoluteUrl).hostname;
-            
-            if (linkDomain === currentDomain || 
-                (options.includeSubdomains && linkDomain.endsWith(currentDomain))) {
+            try {
+              const absoluteUrl = new URL(link, currentUrl).href;
+              const normalizedLinkUrl = this.normalizeUrl(absoluteUrl);
               
-              if (!visited.has(absoluteUrl) && !toVisit.includes(absoluteUrl)) {
-                toVisit.push(absoluteUrl);
+              // Check if URL is within the same domain
+              const currentDomain = new URL(currentUrl).hostname;
+              const linkDomain = new URL(absoluteUrl).hostname;
+              
+              if (linkDomain === currentDomain || 
+                  (options.includeSubdomains && linkDomain.endsWith(currentDomain))) {
+                
+                if (!visited.has(normalizedLinkUrl) && !toVisit.includes(normalizedLinkUrl)) {
+                  toVisit.push(normalizedLinkUrl);
+                }
               }
+            } catch (error) {
+              // Skip invalid URLs
+              continue;
             }
           }
         }
@@ -250,7 +275,12 @@ export class ScanService {
     }
 
     await page.close();
-    return discoveredUrls;
+    
+    // Final deduplication to ensure no duplicates remain
+    const uniqueUrls = Array.from(new Set(discoveredUrls));
+    console.log(`🔍 Page discovery completed: ${discoveredUrls.length} URLs found, ${uniqueUrls.length} unique after deduplication`);
+    
+    return uniqueUrls;
   }
 
   /**

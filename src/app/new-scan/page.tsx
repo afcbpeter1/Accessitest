@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Search, Globe, HelpCircle, Settings, AlertTriangle, CheckCircle, FileText, X } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import DetailedReport from '@/components/DetailedReport'
@@ -48,11 +48,62 @@ export default function NewScan() {
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null)
   const [discoveredPages, setDiscoveredPages] = useState<DiscoveredPage[]>([])
   const [selectedPages, setSelectedPages] = useState<string[]>([])
+  const [activeScanId, setActiveScanId] = useState<string | null>(null)
   const [scanResults, setScanResults] = useState<ScanResult[]>([])
   const [remediationReport, setRemediationReport] = useState<any[]>([])
   const [scanError, setScanError] = useState<string | null>(null)
   const [showSuccessNotification, setShowSuccessNotification] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+
+  // Check for active scans when component mounts
+  useEffect(() => {
+    checkForActiveScans()
+  }, [])
+
+  const checkForActiveScans = async () => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      const response = await fetch('/api/active-scans', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.scans && data.scans.length > 0) {
+          // Find the most recent active scan
+          const activeScan = data.scans[0]
+          if (activeScan.status === 'running') {
+            setActiveScanId(activeScan.scanId)
+            setIsScanning(true)
+            
+            // Restore scan progress if available
+            if (activeScan.progress) {
+              setScanProgress({
+                currentPage: activeScan.progress.currentPage || 0,
+                totalPages: activeScan.progress.totalPages || 0,
+                currentUrl: activeScan.progress.currentUrl || '',
+                status: activeScan.progress.status || 'scanning',
+                message: activeScan.progress.message || 'Scan in progress...'
+              })
+            }
+            
+            // Restore URL if available
+            if (activeScan.url) {
+              setUrl(activeScan.url)
+            }
+            
+            console.log('Resumed active scan:', activeScan.scanId)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check for active scans:', error)
+    }
+  }
   const [discoveryLog, setDiscoveryLog] = useState<string[]>([])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -219,10 +270,13 @@ export default function NewScan() {
       })
 
       // Use streaming API for real-time progress updates
+      const token = localStorage.getItem('accessToken')
+      console.log('Sending scan request with token:', token ? 'Token present' : 'No token') // Debug log
       const response = await fetch('/api/scan-progress', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           url,
@@ -246,18 +300,30 @@ export default function NewScan() {
         throw new Error('No response body')
       }
 
+      // Generate a scanId for tracking (this should match what the backend generates)
+      const scanId = `web_scan_${Date.now()}`
+      setActiveScanId(scanId)
+
+      let buffer = ''
+      
       while (true) {
         const { done, value } = await reader.read()
         
         if (done) break
 
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        
+        // Keep the last line in buffer as it might be incomplete
+        buffer = lines.pop() || ''
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
-              const data = JSON.parse(line.slice(6))
+              const jsonStr = line.slice(6).trim()
+              if (!jsonStr) continue // Skip empty data lines
+              
+              const data = JSON.parse(jsonStr)
               
               // Update progress based on message type
               if (data.type === 'start') {
@@ -285,6 +351,7 @@ export default function NewScan() {
                   message: data.message
                 })
               } else if (data.type === 'complete') {
+                console.log('Scan complete data received:', data) // Debug log
                 setScanProgress({
                   currentPage: data.currentPage,
                   totalPages: data.totalPages,
@@ -293,8 +360,12 @@ export default function NewScan() {
                   message: data.message
                 })
                 
+                // Clear active scan ID since scan is complete
+                setActiveScanId(null)
+                
                 // Store the results
                 if (data.results) {
+                  console.log('Setting scan results:', data.results) // Debug log
                   setScanResults(data.results.results)
                   setRemediationReport(data.results.remediationReport || [])
                   
@@ -308,12 +379,65 @@ export default function NewScan() {
                   
                   // Auto-hide notification after 8 seconds
                   setTimeout(() => setShowSuccessNotification(false), 8000)
+                } else {
+                  console.log('No results in complete data') // Debug log
                 }
               } else if (data.type === 'error') {
+                // Clear active scan ID on error
+                setActiveScanId(null)
                 throw new Error(data.message)
               }
             } catch (parseError) {
               console.error('Error parsing SSE data:', parseError)
+              console.error('Problematic line:', line)
+              // Continue processing other lines even if one fails
+            }
+          }
+        }
+      }
+      
+      // Process any remaining data in buffer
+      if (buffer.trim()) {
+        const lines = buffer.split('\n')
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const jsonStr = line.slice(6).trim()
+              if (!jsonStr) continue
+              
+              const data = JSON.parse(jsonStr)
+              
+              // Handle the final data
+              if (data.type === 'complete') {
+                setScanProgress({
+                  currentPage: data.currentPage,
+                  totalPages: data.totalPages,
+                  currentUrl: '',
+                  status: 'complete',
+                  message: data.message
+                })
+                
+                setActiveScanId(null)
+                
+                if (data.results) {
+                  setScanResults(data.results.results)
+                  setRemediationReport(data.results.remediationReport)
+                  
+                  const totalIssues = data.results.complianceSummary.totalIssues
+                  const criticalIssues = data.results.complianceSummary.criticalIssues
+                  const seriousIssues = data.results.complianceSummary.seriousIssues
+                  
+                  setSuccessMessage(`Scan completed successfully! 📊\n\n• Pages scanned: ${data.results.pagesScanned}\n• Total issues: ${totalIssues}\n• Critical issues: ${criticalIssues}\n• Serious issues: ${seriousIssues}\n\nCheck the results below for detailed analysis.`)
+                  setShowSuccessNotification(true)
+                  
+                  // Refresh user data to update credits
+                  window.dispatchEvent(new CustomEvent('refreshUserData'))
+                  
+                  setTimeout(() => setShowSuccessNotification(false), 8000)
+                }
+              }
+            } catch (parseError) {
+              console.error('Error parsing final SSE data:', parseError)
             }
           }
         }
@@ -322,6 +446,8 @@ export default function NewScan() {
     } catch (error) {
       console.error('Scan failed:', error)
       setScanError(error instanceof Error ? error.message : 'Scan failed')
+      // Clear active scan ID on error
+      setActiveScanId(null)
     } finally {
       setIsScanning(false)
       setTimeout(() => setScanProgress(null), 2000)

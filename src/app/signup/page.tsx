@@ -319,7 +319,7 @@ export default function SignupPage() {
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirm Password *
+                Retype Password *
               </label>
               <div className="mt-1 relative">
                 <input
@@ -330,8 +330,16 @@ export default function SignupPage() {
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 pr-10"
-                  placeholder="Confirm your password"
+                  onPaste={(e) => {
+                    e.preventDefault()
+                    setError('Please type your password instead of pasting it')
+                  }}
+                  className={`block w-full px-3 py-2 border rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 pr-10 ${
+                    formData.confirmPassword && formData.password !== formData.confirmPassword
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                      : 'border-gray-300'
+                  }`}
+                  placeholder="Retype your password"
                 />
                 <button
                   type="button"
@@ -345,6 +353,19 @@ export default function SignupPage() {
                   )}
                 </button>
               </div>
+              {formData.confirmPassword && formData.password !== formData.confirmPassword && (
+                <p className="mt-1 text-xs text-red-600">
+                  Passwords do not match
+                </p>
+              )}
+              {formData.confirmPassword && formData.password === formData.confirmPassword && formData.password.length >= 8 && (
+                <p className="mt-1 text-xs text-green-600">
+                  ✓ Passwords match
+                </p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                Please type your password again (copy-paste is disabled for security)
+              </p>
             </div>
           </div>
 
@@ -457,7 +478,7 @@ export default function SignupPage() {
         <div className="mt-8 p-4 bg-blue-50 rounded-lg">
           <h3 className="text-sm font-medium text-blue-900 mb-2">What you get:</h3>
           <ul className="text-xs text-blue-700 space-y-1">
-            <li>• 2 free scans to start testing</li>
+            <li>• 3 free scans to start testing</li>
             <li>• Section 508 compliance testing</li>
             <li>• WCAG 2.2 accessibility testing</li>
             <li>• AI-powered recommendations</li>

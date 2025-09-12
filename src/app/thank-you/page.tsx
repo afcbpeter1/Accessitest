@@ -12,20 +12,24 @@ export default function ThankYouPage() {
     amount?: string
     email?: string
     type?: 'subscription' | 'credits'
+    billingPeriod?: string
   }>({})
 
   useEffect(() => {
     // Get purchase details from URL parameters
-    const planName = searchParams.get('plan')
-    const amount = searchParams.get('amount')
-    const email = searchParams.get('email')
+    const planName = searchParams.get('plan') || searchParams.get('plan_name')
+    const amount = searchParams.get('amount') || searchParams.get('total')
+    const email = searchParams.get('email') || searchParams.get('customer_email')
     const type = searchParams.get('type') as 'subscription' | 'credits'
+    const billingPeriod = searchParams.get('billing')
+    const sessionId = searchParams.get('session_id')
 
     setPurchaseDetails({
-      planName: planName || 'Your Plan',
-      amount: amount || '$0',
+      planName: planName || 'Web Scan Only - Monthly',
+      amount: amount || '$29.00',
       email: email || '',
-      type: type || 'subscription'
+      type: type || 'subscription',
+      billingPeriod: billingPeriod || undefined
     })
   }, [searchParams])
 
@@ -65,6 +69,12 @@ export default function ThankYouPage() {
                 {purchaseDetails.type === 'subscription' ? 'Subscription' : 'Credit Package'}
               </span>
             </div>
+            {purchaseDetails.billingPeriod && (
+              <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                <span className="text-gray-600">Billing Period:</span>
+                <span className="font-medium text-gray-900">{purchaseDetails.billingPeriod}</span>
+              </div>
+            )}
             {purchaseDetails.email && (
               <div className="flex justify-between items-center py-2">
                 <span className="text-gray-600">Email:</span>

@@ -1,14 +1,119 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ScanService, ScanOptions } from '@/lib/scan-service'
+import { getAuthenticatedUser } from '@/lib/auth-middleware'
+import { queryOne, query } from '@/lib/database'
+import { NotificationService } from '@/lib/notification-service'
 
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const user = await getAuthenticatedUser(request)
+    
     const { url, pagesToScan, includeSubdomains, scanType, wcagLevel, selectedTags } = await request.json()
 
     console.log('Scan API received:', { url, pagesToScan, pagesToScanLength: pagesToScan?.length })
 
     if (!url || !pagesToScan || pagesToScan.length === 0) {
       return NextResponse.json({ error: 'URL and pages to scan are required' }, { status: 400 })
+    }
+
+    // Check and deduct credits before starting scan
+    const scanId = `web_scan_${Date.now()}`
+    
+    // Get user's current credit information
+    const creditData = await queryOne(
+      'SELECT * FROM user_credits WHERE user_id = $1',
+      [user.userId]
+    )
+
+    if (!creditData) {
+      return NextResponse.json(
+        { error: 'User credit data not found' },
+        { status: 404 }
+      )
+    }
+    
+    // Check if user has unlimited credits
+    if (creditData.unlimited_credits) {
+      // Unlimited user, log the scan but don't deduct credits
+      try {
+        await query(
+          `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
+           VALUES ($1, $2, $3, $4)`,
+          [user.userId, 'usage', 0, `Web scan: ${url}`]
+        )
+      } catch (error) {
+        // If amount column doesn't exist, try without it
+        if (error.message.includes('amount')) {
+          console.log('Amount column missing, trying without it...')
+          await query(
+            `INSERT INTO credit_transactions (user_id, transaction_type, description)
+             VALUES ($1, $2, $3)`,
+            [user.userId, 'usage', `Web scan: ${url}`]
+          )
+        } else {
+          throw error
+        }
+      }
+    } else {
+      // Check if user has enough credits
+      if (creditData.credits_remaining < 1) {
+        // Create notification for insufficient credits
+        await NotificationService.notifyInsufficientCredits(user.userId)
+        
+        return NextResponse.json(
+          { error: 'Insufficient credits', canScan: false },
+          { status: 402 }
+        )
+      }
+      
+      // Start transaction to deduct credit and log usage
+      await query('BEGIN')
+      
+      try {
+        // Deduct 1 credit for the scan
+        await query(
+          `UPDATE user_credits 
+           SET credits_remaining = credits_remaining - 1, 
+               credits_used = credits_used + 1,
+               updated_at = NOW()
+           WHERE user_id = $1`,
+          [user.userId]
+        )
+        
+        // Log the scan transaction (with fallback for missing columns)
+        try {
+          await query(
+            `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
+             VALUES ($1, $2, $3, $4)`,
+            [user.userId, 'usage', -1, `Web scan: ${url}`]
+          )
+        } catch (error) {
+          // If amount column doesn't exist, try with credits_amount column
+          if (error.message.includes('amount')) {
+            console.log('Amount column missing, trying with credits_amount...')
+            await query(
+              `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+               VALUES ($1, $2, $3, $4)`,
+              [user.userId, 'usage', -1, `Web scan: ${url}`]
+            )
+          } else {
+            throw error
+          }
+        }
+        
+        await query('COMMIT')
+        
+        const newCredits = creditData.credits_remaining - 1
+        
+        // Create notification for low credits if remaining credits are low
+        if (newCredits <= 1 && newCredits > 0) {
+          await NotificationService.notifyLowCredits(user.userId, newCredits)
+        }
+      } catch (error) {
+        await query('ROLLBACK')
+        throw error
+      }
     }
 
     // Create scan options

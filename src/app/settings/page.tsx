@@ -265,11 +265,11 @@ export default function SettingsPage() {
 
   const getPlanDescription = (plan: string) => {
     switch (plan) {
-      case 'free': return '2 free credits to get started'
+      case 'free': return '3 free credits to get started'
       case 'web_only': return 'Unlimited web accessibility scans'
       case 'document_only': return 'Unlimited document accessibility scans'
       case 'complete_access': return 'Unlimited scans for all content types'
-      default: return '2 free credits to get started'
+      default: return '3 free credits to get started'
     }
   }
 
@@ -409,7 +409,7 @@ export default function SettingsPage() {
                           {user ? getPlanDisplayName(user.plan) : 'Free Trial'}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {user ? getPlanDescription(user.plan) : '2 free credits to get started'}
+                          {user ? getPlanDescription(user.plan) : '3 free credits to get started'}
                         </p>
                       </div>
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -457,7 +457,7 @@ export default function SettingsPage() {
                         <div className="border border-primary-200 rounded-lg p-4 bg-primary-50">
                           <h5 className="font-medium text-gray-900">Complete Access</h5>
                           <p className="text-sm text-gray-600 mt-1">All features included</p>
-                          <p className="text-lg font-semibold text-primary-600 mt-2">$49/month</p>
+                          <p className="text-lg font-semibold text-primary-600 mt-2">$59/month</p>
                         </div>
                       </div>
                     </div>

@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { query } from '@/lib/database'
 import { getPlanTypeFromPriceId, getCreditAmountFromPriceId } from '@/lib/stripe-config'
 import { sendReceiptEmail, ReceiptData } from '@/lib/receipt-email-service'
+import { NotificationService } from '@/lib/notification-service'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -92,17 +93,37 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   }
 
   try {
-    // Update user's plan in database
-    await query(
-      `UPDATE users SET plan_type = $1, stripe_subscription_id = $2, updated_at = NOW() 
-       WHERE id = $3`,
-      [planType, subscription.id, userId]
-    )
+    // Start transaction to update user plan and set unlimited credits
+    await query('BEGIN')
+    
+    try {
+      // Update user's plan in database
+      await query(
+        `UPDATE users SET plan_type = $1, stripe_subscription_id = $2, updated_at = NOW() 
+         WHERE id = $3`,
+        [planType, subscription.id, userId]
+      )
 
-    console.log(`Updated user ${userId} to plan ${planType}`)
+      // Set unlimited credits for subscription users
+      await query(
+        `UPDATE user_credits 
+         SET unlimited_credits = true, updated_at = NOW() 
+         WHERE user_id = $1`,
+        [userId]
+      )
 
-    // Send receipt email for subscription
-    await sendReceiptEmailFromSubscription(subscription)
+      await query('COMMIT')
+      console.log(`Updated user ${userId} to plan ${planType} with unlimited credits`)
+
+      // Create notification for subscription activation
+      await NotificationService.notifySubscriptionActivated(userId, planType)
+
+      // Send receipt email for subscription
+      await sendReceiptEmailFromSubscription(subscription)
+    } catch (error) {
+      await query('ROLLBACK')
+      throw error
+    }
   } catch (error) {
     console.error('Error updating user subscription:', error)
   }
@@ -136,14 +157,34 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   console.log('Processing subscription deleted:', subscription.id)
   
   try {
-    // Set user back to free plan
-    await query(
-      `UPDATE users SET plan_type = 'free', stripe_subscription_id = NULL, updated_at = NOW() 
-       WHERE stripe_subscription_id = $1`,
-      [subscription.id]
-    )
+    // Start transaction to set user back to free plan and remove unlimited credits
+    await query('BEGIN')
+    
+    try {
+      // Set user back to free plan
+      await query(
+        `UPDATE users SET plan_type = 'free', stripe_subscription_id = NULL, updated_at = NOW() 
+         WHERE stripe_subscription_id = $1`,
+        [subscription.id]
+      )
 
-    console.log(`Set user with subscription ${subscription.id} back to free plan`)
+      // Remove unlimited credits and give 3 free credits
+      await query(
+        `UPDATE user_credits 
+         SET unlimited_credits = false, credits_remaining = 3, updated_at = NOW() 
+         WHERE user_id = (SELECT id FROM users WHERE stripe_subscription_id = $1)`,
+        [subscription.id]
+      )
+
+      await query('COMMIT')
+      console.log(`Set user with subscription ${subscription.id} back to free plan with 3 credits`)
+
+      // Create notification for subscription cancellation
+      await NotificationService.notifySubscriptionCancelled(userId)
+    } catch (error) {
+      await query('ROLLBACK')
+      throw error
+    }
   } catch (error) {
     console.error('Error handling subscription deletion:', error)
   }
@@ -168,15 +209,49 @@ async function handleCreditPurchase(userId: string, priceId: string, creditAmoun
       return
     }
 
-    // Add credits to user's account
-    await query(
-      `UPDATE user_credits 
-       SET credits_remaining = credits_remaining + $1, updated_at = NOW() 
-       WHERE user_id = $2`,
-      [credits, userId]
-    )
+    // Start transaction to add credits and log purchase
+    await query('BEGIN')
+    
+    try {
+      // Add credits to user's account
+      await query(
+        `UPDATE user_credits 
+         SET credits_remaining = credits_remaining + $1, updated_at = NOW() 
+         WHERE user_id = $2`,
+        [credits, userId]
+      )
 
-    console.log(`Added ${credits} credits to user ${userId}`)
+      // Log the credit purchase transaction (with fallback for missing columns)
+      const packageName = getPlanNameFromPriceId(priceId)
+      try {
+        await query(
+          `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
+           VALUES ($1, $2, $3, $4)`,
+          [userId, 'purchase', credits, `Credit purchase: ${packageName}`]
+        )
+      } catch (error) {
+        // If amount column doesn't exist, try with credits_amount column
+        if (error.message.includes('amount')) {
+          console.log('Amount column missing, trying with credits_amount...')
+          await query(
+            `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+             VALUES ($1, $2, $3, $4)`,
+            [userId, 'purchase', credits, `Credit purchase: ${packageName}`]
+          )
+        } else {
+          throw error
+        }
+      }
+
+      await query('COMMIT')
+      console.log(`Added ${credits} credits to user ${userId}`)
+
+      // Create notification for credit purchase
+      await NotificationService.notifyCreditPurchase(userId, credits, packageName)
+    } catch (error) {
+      await query('ROLLBACK')
+      throw error
+    }
   } catch (error) {
     console.error('Error adding credits to user:', error)
   }

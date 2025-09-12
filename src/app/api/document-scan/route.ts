@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ClaudeAPI } from '@/lib/claude-api'
 import { ComprehensiveDocumentScanner } from '@/lib/comprehensive-document-scanner'
+import { getAuthenticatedUser } from '@/lib/auth-middleware'
+import { queryOne, query } from '@/lib/database'
+import { NotificationService } from '@/lib/notification-service'
 
 interface DocumentScanRequest {
   fileName: string
@@ -48,12 +51,119 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now()
   
   try {
+    // Require authentication
+    const user = await getAuthenticatedUser(request)
+    
     const body: DocumentScanRequest = await request.json()
     
     console.log('🔍 Starting document scan for:', body.fileName)
-    
-    // Generate scan ID if not provided
+
+    // Check and deduct credits before starting scan
     const scanId = body.scanId || `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+    // Get user's current credit information
+    let creditData = await queryOne(
+      'SELECT * FROM user_credits WHERE user_id = $1',
+      [user.userId]
+    )
+
+    // If user doesn't have credit data, create it with 3 free credits
+    if (!creditData) {
+      await query(
+        `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
+         VALUES ($1, $2, $3, $4)`,
+        [user.userId, 3, 0, false]
+      )
+      
+      // Get the newly created credit data
+      creditData = await queryOne(
+        'SELECT * FROM user_credits WHERE user_id = $1',
+        [user.userId]
+      )
+    }
+    
+    // Check if user has unlimited credits
+    if (creditData.unlimited_credits) {
+      // Unlimited user, log the scan but don't deduct credits
+      try {
+        await query(
+          `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
+           VALUES ($1, $2, $3, $4)`,
+          [user.userId, 'usage', 0, `Document scan: ${body.fileName}`]
+        )
+        } catch (error) {
+          // If amount column doesn't exist, try with credits_amount column
+          if (error.message.includes('amount')) {
+            console.log('Amount column missing, trying with credits_amount...')
+            await query(
+              `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+               VALUES ($1, $2, $3, $4)`,
+              [user.userId, 'usage', -1, `Document scan: ${body.fileName}`]
+            )
+          } else {
+            throw error
+          }
+        }
+    } else {
+      // Check if user has enough credits
+      if (creditData.credits_remaining < 1) {
+        // Create notification for insufficient credits
+        await NotificationService.notifyInsufficientCredits(user.userId)
+        
+        return NextResponse.json(
+          { error: 'Insufficient credits', canScan: false },
+          { status: 402 }
+        )
+      }
+      
+      // Start transaction to deduct credit and log usage
+      await query('BEGIN')
+      
+      try {
+        // Deduct 1 credit for the scan
+        await query(
+          `UPDATE user_credits 
+           SET credits_remaining = credits_remaining - 1, 
+               credits_used = credits_used + 1,
+               updated_at = NOW()
+           WHERE user_id = $1`,
+          [user.userId]
+        )
+        
+        // Log the scan transaction (with fallback for missing columns)
+        try {
+          await query(
+            `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
+             VALUES ($1, $2, $3, $4)`,
+            [user.userId, 'usage', -1, `Document scan: ${body.fileName}`]
+          )
+        } catch (error) {
+          // If amount column doesn't exist, try with credits_amount column
+          if (error.message.includes('amount')) {
+            console.log('Amount column missing, trying with credits_amount...')
+            await query(
+              `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+               VALUES ($1, $2, $3, $4)`,
+              [user.userId, 'usage', 0, `Document scan: ${body.fileName}`]
+            )
+          } else {
+            throw error
+          }
+        }
+        
+        await query('COMMIT')
+        
+        const newCredits = creditData.credits_remaining - 1
+        
+        // Create notification for low credits if remaining credits are low
+        if (newCredits <= 1 && newCredits > 0) {
+          await NotificationService.notifyLowCredits(user.userId, newCredits)
+        }
+      } catch (error) {
+        await query('ROLLBACK')
+        throw error
+      }
+    }
     
     // Register this scan as active
     activeScans.set(scanId, { cancelled: false })
@@ -164,6 +274,37 @@ export async function POST(request: NextRequest) {
       // Clean up scan record
       activeScans.delete(scanId)
       
+      // Store scan results in history (with error handling)
+      try {
+        const { ScanHistoryService } = await import('@/lib/scan-history-service')
+        await ScanHistoryService.storeScanResult(user.userId, 'document', {
+          scanTitle: `Document Scan: ${body.fileName}`,
+          fileName: body.fileName,
+          fileType: body.fileType,
+          scanResults: enhancedResult,
+          complianceSummary: {
+            totalIssues: enhancedResult.summary.total,
+            criticalIssues: enhancedResult.summary.critical,
+            seriousIssues: enhancedResult.summary.serious,
+            moderateIssues: enhancedResult.summary.moderate,
+            minorIssues: enhancedResult.summary.minor
+          },
+          remediationReport: enhancedResult.remediationReport,
+          totalIssues: enhancedResult.summary.total,
+          criticalIssues: enhancedResult.summary.critical,
+          seriousIssues: enhancedResult.summary.serious,
+          moderateIssues: enhancedResult.summary.moderate,
+          minorIssues: enhancedResult.summary.minor,
+          pagesAnalyzed: enhancedResult.metadata.pagesAnalyzed,
+          overallScore: enhancedResult.overallScore,
+          is508Compliant: enhancedResult.is508Compliant,
+          scanDurationSeconds: Math.round(totalDuration / 1000)
+        })
+        console.log('✅ Document scan results stored in history')
+      } catch (error) {
+        console.error('Failed to store document scan results in history:', error)
+      }
+      
       return NextResponse.json({
         success: true,
         result: enhancedResult,
@@ -200,6 +341,37 @@ export async function POST(request: NextRequest) {
     
     // Clean up scan record
     activeScans.delete(scanId)
+    
+    // Store scan results in history (with error handling)
+    try {
+      const { ScanHistoryService } = await import('@/lib/scan-history-service')
+      await ScanHistoryService.storeScanResult(user.userId, 'document', {
+        scanTitle: `Document Scan: ${body.fileName}`,
+        fileName: body.fileName,
+        fileType: body.fileType,
+        scanResults: scanResult,
+        complianceSummary: {
+          totalIssues: scanResult.summary.total,
+          criticalIssues: scanResult.summary.critical,
+          seriousIssues: scanResult.summary.serious,
+          moderateIssues: scanResult.summary.moderate,
+          minorIssues: scanResult.summary.minor
+        },
+        remediationReport: null, // No AI enhancement for this path
+        totalIssues: scanResult.summary.total,
+        criticalIssues: scanResult.summary.critical,
+        seriousIssues: scanResult.summary.serious,
+        moderateIssues: scanResult.summary.moderate,
+        minorIssues: scanResult.summary.minor,
+        pagesAnalyzed: scanResult.metadata.pagesAnalyzed,
+        overallScore: scanResult.overallScore,
+        is508Compliant: scanResult.is508Compliant,
+        scanDurationSeconds: Math.round(totalDuration / 1000)
+      })
+      console.log('✅ Document scan results stored in history')
+    } catch (error) {
+      console.error('Failed to store document scan results in history:', error)
+    }
     
     return NextResponse.json({
       success: true,

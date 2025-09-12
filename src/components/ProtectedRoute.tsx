@@ -23,7 +23,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter()
 
   useEffect(() => {
-    const checkAuth = () => {
+    const checkAuth = async () => {
       const accessToken = localStorage.getItem('accessToken')
       const userData = localStorage.getItem('user')
 
@@ -36,6 +36,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       try {
         const parsedUser: User = JSON.parse(userData)
         
+        // Check email verification
         if (!parsedUser.emailVerified) {
           setUser(parsedUser)
           setAuthStatus('unverified')
@@ -44,7 +45,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           setAuthStatus('authenticated')
         }
       } catch (error) {
-        console.error('Error parsing user data:', error)
+        console.error('Error checking authentication:', error)
         localStorage.removeItem('accessToken')
         localStorage.removeItem('user')
         setAuthStatus('unauthenticated')

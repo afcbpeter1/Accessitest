@@ -3,6 +3,24 @@ import Stripe from 'stripe'
 import { STRIPE_PRICE_IDS, getPlanTypeFromPriceId, getCreditAmountFromPriceId, isSubscriptionPriceId, isCreditPriceId } from '@/lib/stripe-config'
 import { query } from '@/lib/database'
 
+function getPlanNameFromPriceId(priceId: string): string {
+  // Map price IDs to plan names
+  const planNames: Record<string, string> = {
+    'price_1S696uDlESHKijI24XIbzGdH': 'Web Scan Only - Monthly',
+    'price_1S698gDlESHKijI2hVtPhtvZ': 'Web Scan Only - Yearly',
+    'price_1S69A4DlESHKijI2LNv4j2SI': 'Document Scan Only - Monthly',
+    'price_1S69CADlESHKijI2SMX0XF1k': 'Document Scan Only - Yearly',
+    'price_1S69D4DlESHKijI2LG4FvwyO': 'Complete Access - Monthly',
+    'price_1S69DvDlESHKijI2p2FIcY5a': 'Complete Access - Yearly',
+    'price_1S69FNDlESHKijI2GkCApIWQ': 'Starter Pack',
+    'price_1S69G7DlESHKijI2Eb3uIxHZ': 'Professional Pack',
+    'price_1S69GqDlESHKijI2PsvK4k4o': 'Business Pack',
+    'price_1S69HzDlESHKijI2K9H4o4FV': 'Enterprise Pack',
+  }
+  
+  return planNames[priceId] || 'Unknown Plan'
+}
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
 })
@@ -61,6 +79,18 @@ export async function POST(request: NextRequest) {
     const isSubscription = isSubscriptionPriceId(priceId)
     const isCredit = isCreditPriceId(priceId)
 
+    // Get price details for success URL
+    const price = await stripe.prices.retrieve(priceId)
+    const planName = getPlanNameFromPriceId(priceId)
+    const amount = `$${(price.unit_amount || 0) / 100}`
+    const billingPeriod = price.recurring ? 
+      (price.recurring.interval === 'month' ? 'Monthly' : 'Yearly') : 
+      undefined
+
+    // Create success URL with purchase details
+    const successUrlWithDetails = successUrl || 
+      `${process.env.NEXT_PUBLIC_BASE_URL}/thank-you?success=true&plan=${encodeURIComponent(planName)}&amount=${encodeURIComponent(amount)}&type=${isSubscription ? 'subscription' : isCredit ? 'credits' : 'one-time'}${billingPeriod ? `&billing=${encodeURIComponent(billingPeriod)}` : ''}`
+
     // Create checkout session
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: isSubscription ? 'subscription' : 'payment',
@@ -71,7 +101,7 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: successUrl || `${process.env.NEXT_PUBLIC_BASE_URL}/thank-you?success=true`,
+      success_url: successUrlWithDetails,
       cancel_url: cancelUrl || `${process.env.NEXT_PUBLIC_BASE_URL}/pricing?canceled=true`,
       metadata: {
         userId: userId || '',
