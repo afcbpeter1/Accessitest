@@ -454,34 +454,45 @@ export async function DELETE(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const scanId = searchParams.get('scanId')
-  
-  if (scanId) {
-    // Get specific scan status
-    const scan = activeScans.get(scanId)
-    if (!scan) {
-      return NextResponse.json(
-        { success: false, error: 'Scan not found' },
-        { status: 404 }
-      )
+  try {
+    // Require authentication
+    const user = await getAuthenticatedUser(request)
+    
+    const { searchParams } = new URL(request.url)
+    const scanId = searchParams.get('scanId')
+    
+    if (scanId) {
+      // Get specific scan status
+      const scan = activeScans.get(scanId)
+      if (!scan) {
+        return NextResponse.json(
+          { success: false, error: 'Scan not found' },
+          { status: 404 }
+        )
+      }
+      
+      return NextResponse.json({
+        success: true,
+        scanId,
+        status: scan.cancelled ? 'cancelled' : 'active',
+        cancelled: scan.cancelled
+      })
+    } else {
+      // Get scan history
+      const scans = Array.from(scanDatabase.values())
+        .sort((a, b) => new Date(b.scanDate).getTime() - new Date(a.scanDate).getTime())
+      
+      return NextResponse.json({
+        success: true,
+        scans
+      })
     }
-    
-    return NextResponse.json({
-      success: true,
-      scanId,
-      status: scan.cancelled ? 'cancelled' : 'active',
-      cancelled: scan.cancelled
-    })
-  } else {
-    // Get scan history
-    const scans = Array.from(scanDatabase.values())
-      .sort((a, b) => new Date(b.scanDate).getTime() - new Date(a.scanDate).getTime())
-    
-    return NextResponse.json({
-      success: true,
-      scans
-    })
+  } catch (error) {
+    console.error('Document scan GET error:', error)
+    return NextResponse.json(
+      { success: false, error: 'Authentication required' },
+      { status: 401 }
+    )
   }
 }
 

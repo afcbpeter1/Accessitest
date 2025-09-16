@@ -29,27 +29,55 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
       if (!accessToken || !userData) {
         setAuthStatus('unauthenticated')
-        router.push('/login')
+        router.push('/home')
         return
       }
 
       try {
         const parsedUser: User = JSON.parse(userData)
         
-        // Check email verification
-        if (!parsedUser.emailVerified) {
-          setUser(parsedUser)
-          setAuthStatus('unverified')
+        // Validate token with server
+        const response = await fetch('/api/user', {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        })
+
+        if (!response.ok) {
+          // Token is invalid or expired
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('user')
+          setAuthStatus('unauthenticated')
+          router.push('/home')
+          return
+        }
+
+        const userResponse = await response.json()
+        if (userResponse.success) {
+          // Update user data with fresh data from server
+          const freshUser = userResponse.user
+          
+          // Check email verification
+          if (!freshUser.emailVerified) {
+            setUser(freshUser)
+            setAuthStatus('unverified')
+          } else {
+            setUser(freshUser)
+            setAuthStatus('authenticated')
+          }
         } else {
-          setUser(parsedUser)
-          setAuthStatus('authenticated')
+          // Server returned error
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('user')
+          setAuthStatus('unauthenticated')
+          router.push('/home')
         }
       } catch (error) {
         console.error('Error checking authentication:', error)
         localStorage.removeItem('accessToken')
         localStorage.removeItem('user')
         setAuthStatus('unauthenticated')
-        router.push('/login')
+        router.push('/home')
       }
     }
 
@@ -119,7 +147,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
                   onClick={() => {
                     localStorage.removeItem('accessToken')
                     localStorage.removeItem('user')
-                    router.push('/login')
+                    router.push('/home')
                   }}
                   className="text-sm text-gray-600 hover:text-gray-500"
                 >

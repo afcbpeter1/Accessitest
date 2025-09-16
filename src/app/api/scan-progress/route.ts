@@ -283,7 +283,8 @@ export async function POST(request: NextRequest) {
                 includeSubdomains: includeSubdomains ?? true,
                 deepCrawl: false,
                 maxPages: 1,
-                scanType: 'full'
+                scanType: 'full',
+                selectedTags: selectedTags || ['wcag22a', 'wcag22aa'] // WCAG 2.2 AA default
               }
               
               try {

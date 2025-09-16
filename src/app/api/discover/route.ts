@@ -10,11 +10,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Create scan options for discovery only
+    // Enforce maximum of 200 pages for web crawling (free service)
+    const requestedMaxPages = maxPages ?? 50
+    const enforcedMaxPages = Math.min(requestedMaxPages, 200)
+    
     const scanOptions: ScanOptions = {
       url,
       includeSubdomains: includeSubdomains ?? true,
       deepCrawl: deepCrawl ?? false,
-      maxPages: maxPages ?? 50,
+      maxPages: enforcedMaxPages,
       scanType: 'discover',
       wcagLevel: 'AA',
       selectedTags: ['wcag22a', 'wcag22aa']

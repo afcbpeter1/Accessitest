@@ -751,13 +751,15 @@ export default function HomePage() {
                         {scanResults.screenshots?.viewport && (
                           <div className="mb-4">
                             <div className="text-sm text-gray-600 mb-2">Website Screenshot:</div>
-                            <div className="border border-gray-200 rounded-lg overflow-hidden">
+                            <div className="border border-gray-200 rounded-lg overflow-hidden max-w-full">
                               <img 
                                 src={`data:image/png;base64,${scanResults.screenshots.viewport}`}
                                 alt={`Screenshot of ${scanResults.url}`}
-                                className="w-full h-auto max-h-48 object-contain"
+                                className="w-full h-auto max-h-32 sm:max-h-40 md:max-h-48 lg:max-h-56 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => window.open(`data:image/png;base64,${scanResults.screenshots?.viewport}`, '_blank')}
                               />
                             </div>
+                            <div className="text-xs text-gray-500 mt-1">Click to view full size</div>
                           </div>
                         )}
 
@@ -1256,19 +1258,20 @@ export default function HomePage() {
                       return elementScreenshot ? (
                         <div className="mb-3">
                           <div className="text-xs text-gray-500 mb-2">Affected Element:</div>
-                          <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50 max-w-sm">
                             <img
                               src={`data:image/png;base64,${elementScreenshot.screenshot}`}
                               alt={`Screenshot showing ${issue.title} issue`}
-                              className="w-full h-auto max-h-32 object-contain"
+                              className="w-full h-auto max-h-24 sm:max-h-28 md:max-h-32 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => window.open(`data:image/png;base64,${elementScreenshot.screenshot}`, '_blank')}
                             />
+                            {elementScreenshot.boundingBox && (
+                              <div className="px-2 py-1 bg-gray-100 text-xs text-gray-600">
+                                {Math.round(elementScreenshot.boundingBox.width)}×{Math.round(elementScreenshot.boundingBox.height)}px
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-400 px-2 py-1 text-center">Click to enlarge</div>
                           </div>
-                          {elementScreenshot.boundingBox && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              Position: {Math.round(elementScreenshot.boundingBox.x)}, {Math.round(elementScreenshot.boundingBox.y)}
-                              ({Math.round(elementScreenshot.boundingBox.width)}×{Math.round(elementScreenshot.boundingBox.height)}px)
-                            </div>
-                          )}
                         </div>
                       ) : null
                     })()}
@@ -1532,7 +1535,7 @@ export default function HomePage() {
                           Before (Current Code)
                         </h4>
                         <div className="bg-red-50 border border-red-200 rounded p-3">
-                          <pre className="text-xs text-red-800 whitespace-pre-wrap overflow-x-auto">
+                          <pre className="text-xs text-red-800 whitespace-pre-wrap break-words max-w-full">
                             {fix.originalCode}
                           </pre>
                         </div>
@@ -1545,7 +1548,7 @@ export default function HomePage() {
                           After (Fixed Code)
                         </h4>
                         <div className="bg-green-50 border border-green-200 rounded p-3">
-                          <pre className="text-xs text-green-800 whitespace-pre-wrap overflow-x-auto">
+                          <pre className="text-xs text-green-800 whitespace-pre-wrap break-words max-w-full">
                             {fix.fixedCode}
                           </pre>
                         </div>

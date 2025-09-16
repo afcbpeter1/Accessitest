@@ -185,7 +185,7 @@ function ScanDetailsContent() {
 
   return (
     <Sidebar>
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -328,35 +328,38 @@ function ScanDetailsContent() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="bg-white rounded-lg border border-gray-200">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6" aria-label="Tabs">
-              {[
-                { id: 'overview', name: 'Overview', icon: Eye },
-                { id: 'issues', name: 'Issues', icon: AlertTriangle },
-                { id: 'remediation', name: 'Remediation', icon: Code }
-              ].map((tab) => {
-                const IconComponent = tab.icon
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id as any)}
-                    className={`${
-                      activeTab === tab.id
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-                  >
-                    <IconComponent className="h-4 w-4 mr-2" />
-                    {tab.name}
-                  </button>
-                )
-              })}
-            </nav>
-          </div>
+        {/* Main Content Container */}
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+          <div className="xl:col-span-3">
+            {/* Tab Navigation */}
+            <div className="bg-white rounded-lg border border-gray-200">
+              <div className="border-b border-gray-200">
+                <nav className="flex space-x-8 px-6" aria-label="Tabs">
+                  {[
+                    { id: 'overview', name: 'Overview', icon: Eye },
+                    { id: 'issues', name: 'Issues', icon: AlertTriangle },
+                    { id: 'remediation', name: 'Remediation', icon: Code }
+                  ].map((tab) => {
+                    const IconComponent = tab.icon
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as any)}
+                        className={`${
+                          activeTab === tab.id
+                            ? 'border-blue-500 text-blue-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                      >
+                        <IconComponent className="h-4 w-4 mr-2" />
+                        {tab.name}
+                      </button>
+                    )
+                  })}
+                </nav>
+              </div>
 
-          <div className="p-6">
+              <div className="p-6">
             {activeTab === 'overview' && (
               <div className="space-y-6">
                 <div>
@@ -434,7 +437,8 @@ function ScanDetailsContent() {
                             <img 
                               src={`data:image/png;base64,${screenshot}`} 
                               alt={`Screenshot: ${key}`}
-                              className="w-full h-auto rounded border"
+                              className="w-full h-auto max-h-32 sm:max-h-40 md:max-h-48 lg:max-h-56 object-contain rounded border cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => window.open(`data:image/png;base64,${screenshot}`, '_blank')}
                             />
                           )}
                         </div>
@@ -523,10 +527,16 @@ function ScanDetailsContent() {
                                   priority: (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
                                 };
 
+                                // Find matching AI response from remediation report
+                                const matchingAIResponse = scan.remediationReport?.find((report: any) => 
+                                  report.issueId === (issue.id || `issue-${resultIndex}-${issueIndex}`)
+                                );
+
                                 return (
                                   <DetailedReport
                                     key={`${resultIndex}-${issueIndex}`}
                                     {...detailedReport}
+                                    savedAIResponses={matchingAIResponse?.suggestions}
                                   />
                                 );
                               })}
@@ -574,6 +584,8 @@ function ScanDetailsContent() {
                 })()}
               </div>
             )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

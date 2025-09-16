@@ -292,7 +292,7 @@ function ScanHistoryContent() {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Total Issues</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {scans.reduce((sum, s) => sum + s.totalIssues, 0)}
+                  {scans.reduce((sum, s) => sum + (s.criticalIssues || 0) + (s.seriousIssues || 0) + (s.moderateIssues || 0) + (s.minorIssues || 0), 0)}
                 </p>
               </div>
             </div>
@@ -304,7 +304,10 @@ function ScanHistoryContent() {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-500">Compliant Scans</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {scans.filter(s => s.scanType === 'document' && s.is508Compliant === true).length}
+                  {scans.filter(s => {
+                    const totalIssues = (s.criticalIssues || 0) + (s.seriousIssues || 0) + (s.moderateIssues || 0) + (s.minorIssues || 0)
+                    return totalIssues === 0
+                  }).length}
                 </p>
               </div>
             </div>
@@ -392,7 +395,9 @@ function ScanHistoryContent() {
                           <div className="flex items-center space-x-4">
                             <div className="flex items-center space-x-2">
                               <span className="text-sm font-medium text-gray-700">Issues:</span>
-                              <span className="text-sm text-gray-600">{scan.totalIssues}</span>
+                              <span className="text-sm text-gray-600">
+                                {(scan.criticalIssues || 0) + (scan.seriousIssues || 0) + (scan.moderateIssues || 0) + (scan.minorIssues || 0)}
+                              </span>
                             </div>
                             
                             {scan.criticalIssues > 0 && (

@@ -7,6 +7,7 @@ export interface ScanOptions {
   deepCrawl: boolean;
   maxPages: number;
   scanType: 'quick' | 'full';
+  selectedTags?: string[];
 }
 
 export interface ScanProgress {
@@ -117,7 +118,7 @@ export class ScanService {
         });
 
         try {
-          const result = await this.scanPage(url);
+          const result = await this.scanPage(url, options.selectedTags);
           results.push(result);
         } catch (error) {
           console.error(`Failed to scan ${url}:`, error);
@@ -286,7 +287,7 @@ export class ScanService {
   /**
    * Scan a single page for accessibility issues
    */
-  private async scanPage(url: string): Promise<ScanResult> {
+  private async scanPage(url: string, selectedTags?: string[]): Promise<ScanResult> {
     if (!this.browser) {
       throw new Error('Browser not initialized');
     }
@@ -305,8 +306,10 @@ export class ScanService {
         url: 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.3/axe.min.js'
       });
 
-      // Use our accessibility scanner with WCAG 2.2
-      const result = await this.scanner.scanPageInBrowser(page, ['wcag22a', 'wcag22aa']);
+      // Use our accessibility scanner with selected tags
+      // CRITICAL: Default to WCAG 2.2 AA (includes both A and AA levels)
+      const tagsToUse = selectedTags || ['wcag22a', 'wcag22aa'];
+      const result = await this.scanner.scanPageInBrowser(page, tagsToUse);
       
       return result;
     } finally {

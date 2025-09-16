@@ -94,7 +94,24 @@ export class AccessibilityScanner {
   async scanPageInBrowser(page: any, selectedTags?: string[]): Promise<ScanResult> {
     try {
       // Use selected tags or default to WCAG 2.2 AA
-      const tagsToCheck = selectedTags || ['wcag2a', 'wcag2aa', 'wcag22a', 'wcag22aa'];
+      // CRITICAL: Must include both wcag22a AND wcag22aa for AA compliance
+      let tagsToCheck = selectedTags || ['wcag22a', 'wcag22aa'];
+      
+      // CRITICAL: Fix the fundamental WCAG tag mapping issue
+      // The problem: wcag22aa/wcag22aaa tags don't include all the rules they should!
+      // Solution: Include the actual WCAG 2.0/2.1 tags that have the complete rule sets
+      if (tagsToCheck.some(tag => tag.includes('aa') || tag.includes('AAA'))) {
+        // Add wcag2aa for complete AA rule set (includes color-contrast)
+        if (!tagsToCheck.includes('wcag2aa')) {
+          tagsToCheck.push('wcag2aa');
+          console.log('🔍 Added wcag2aa tag for complete WCAG 2.0 AA rule set');
+        }
+        // Add wcag2aaa for complete AAA rule set (includes color-contrast-enhanced)
+        if (tagsToCheck.some(tag => tag.includes('AAA')) && !tagsToCheck.includes('wcag2aaa')) {
+          tagsToCheck.push('wcag2aaa');
+          console.log('🔍 Added wcag2aaa tag for complete WCAG 2.0 AAA rule set');
+        }
+      }
       
       // Get the current URL from the page
       const currentUrl = await page.url();
@@ -120,14 +137,90 @@ export class AccessibilityScanner {
           }
         });
         
-        // Run axe-core analysis with custom tag selection
-        return await axe.run({
-          runOnly: {
-            type: 'tag',
-            values: tags
-          },
-          resultTypes: ['violations', 'passes', 'incomplete', 'inapplicable']
-        });
+      // Debug: Log the tags being used
+      console.log('🔍 Axe-core scanning with tags:', tags);
+      
+      // Debug: Log available rules and their tags
+      const allRules = axe.getRules();
+      const colorContrastRule = allRules.find(rule => rule.ruleId === 'color-contrast');
+      const colorContrastEnhancedRule = allRules.find(rule => rule.ruleId === 'color-contrast-enhanced');
+      
+      if (colorContrastRule) {
+        console.log('🔍 Color-contrast rule tags:', colorContrastRule.tags);
+        console.log('🔍 Color-contrast rule enabled:', colorContrastRule.enabled);
+      }
+      
+      if (colorContrastEnhancedRule) {
+        console.log('🔍 Color-contrast-enhanced rule tags:', colorContrastEnhancedRule.tags);
+        console.log('🔍 Color-contrast-enhanced rule enabled:', colorContrastEnhancedRule.enabled);
+      }
+      
+      // Debug: Show all disabled rules that might be relevant
+      const disabledRules = allRules.filter(rule => !rule.enabled);
+      console.log('🔍 Disabled rules that might be relevant:', disabledRules.map(rule => ({
+        id: rule.ruleId,
+        description: rule.description,
+        tags: rule.tags,
+        enabled: rule.enabled
+      })));
+      
+      // Debug: Log best-practice rules
+      const bestPracticeRules = allRules.filter(rule => rule.tags.includes('best-practice'));
+      console.log('🔍 Best-practice rules:', bestPracticeRules.map(rule => ({
+        id: rule.ruleId,
+        description: rule.description,
+        tags: rule.tags
+      })));
+      
+      // Debug: Log Section 508 rules
+      const section508Rules = allRules.filter(rule => rule.tags.includes('section508'));
+      console.log('🔍 Section 508 rules:', section508Rules.map(rule => ({
+        id: rule.ruleId,
+        description: rule.description,
+        tags: rule.tags
+      })));
+      
+      // Debug: Log EN 301 549 rules
+      const en301549Rules = allRules.filter(rule => rule.tags.includes('EN-301-549'));
+      console.log('🔍 EN 301 549 rules:', en301549Rules.map(rule => ({
+        id: rule.ruleId,
+        description: rule.description,
+        tags: rule.tags
+      })));
+      
+      // Run axe-core analysis with custom tag selection
+      // CRITICAL: Enable all rules that should be active for the selected tags
+      const results = await axe.run({
+        runOnly: {
+          type: 'tag',
+          values: tags
+        },
+        resultTypes: ['violations', 'passes', 'incomplete', 'inapplicable'],
+        // Enable rules that are disabled by default but should be active
+        rules: {
+          'color-contrast-enhanced': { enabled: true },
+          'target-size': { enabled: true }
+        }
+      });
+      
+      // Debug: Log the results
+      console.log('🔍 Axe-core results:', {
+        violations: results.violations.length,
+        passes: results.passes.length,
+        violationIds: results.violations.map(v => v.id),
+        colorContrastViolations: results.violations.filter(v => v.id === 'color-contrast').length,
+        colorContrastEnhancedViolations: results.violations.filter(v => v.id === 'color-contrast-enhanced').length,
+        section508Violations: results.violations.filter(v => v.tags.includes('section508')).length,
+        en301549Violations: results.violations.filter(v => v.tags.includes('EN-301-549')).length,
+        bestPracticeViolations: results.violations.filter(v => v.tags.includes('best-practice')).length
+      });
+      
+      // Debug: Show which rules were actually executed
+      const executedRules = [...results.violations, ...results.passes].map(r => r.id);
+      console.log('🔍 Rules executed:', executedRules);
+      console.log('🔍 Color contrast rules executed:', executedRules.filter(id => id.includes('color-contrast')));
+      
+      return results;
       }, tagsToCheck);
 
       // Process results

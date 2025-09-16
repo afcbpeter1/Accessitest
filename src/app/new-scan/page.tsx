@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import { Search, Globe, HelpCircle, Settings, AlertTriangle, CheckCircle, FileText, X } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import DetailedReport from '@/components/DetailedReport'
-import ScanHistory from '@/components/ScanHistory'
 
 interface ScanProgress {
   currentPage: number;
@@ -43,7 +42,7 @@ export default function NewScan() {
   const [url, setUrl] = useState('')
   const [includeSubdomains, setIncludeSubdomains] = useState(true)
   const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('AA')
-  const [selectedTags, setSelectedTags] = useState<string[]>(['wcag22a', 'wcag22aa', 'best-practice'])
+  const [selectedTags, setSelectedTags] = useState<string[]>(['wcag22a', 'wcag22aa']) // WCAG 2.2 AA default
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null)
   const [discoveredPages, setDiscoveredPages] = useState<DiscoveredPage[]>([])
@@ -59,6 +58,30 @@ export default function NewScan() {
   useEffect(() => {
     checkForActiveScans()
   }, [])
+
+  // Update selectedTags when wcagLevel changes
+  // CRITICAL: Tags are NOT hierarchical - must include ALL levels explicitly
+  useEffect(() => {
+    if (wcagLevel === 'A') {
+      // WCAG 2.2 Level A only
+      setSelectedTags(['wcag22a'])
+    } else if (wcagLevel === 'AA') {
+      // WCAG 2.2 Level AA includes A + AA (must include both explicitly)
+      setSelectedTags(['wcag22a', 'wcag22aa'])
+    } else if (wcagLevel === 'AAA') {
+      // WCAG 2.2 Level AAA includes A + AA + AAA (must include all explicitly)
+      setSelectedTags(['wcag22a', 'wcag22aa', 'wcag22aaa'])
+    }
+  }, [wcagLevel])
+
+  // Update selectedTags when checkboxes change
+  const updateSelectedTags = (tag: string, checked: boolean) => {
+    if (checked) {
+      setSelectedTags(prev => [...prev, tag])
+    } else {
+      setSelectedTags(prev => prev.filter(t => t !== tag))
+    }
+  }
 
   const checkForActiveScans = async () => {
     try {
@@ -456,23 +479,23 @@ export default function NewScan() {
 
   return (
     <Sidebar>
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">New Accessibility Scan</h1>
           <p className="text-gray-600 mt-1">Configure and start a new accessibility scan for your website</p>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
           {/* Main Form */}
           <div className="xl:col-span-3">
             <div className="card">
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Discovery Options */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Discovery Options
                   </label>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div className="flex items-center">
                       <input
                         id="includeSubdomains"
@@ -490,7 +513,7 @@ export default function NewScan() {
 
                 {/* URL Input */}
                 <div>
-                  <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-1">
                     Website URL
                   </label>
                   <div className="relative">
@@ -523,20 +546,20 @@ export default function NewScan() {
 
                 {/* Stage 1: Page Discovery */}
                 <div>
-                  <div className="flex items-center mb-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                      <span className="text-blue-600 font-semibold text-sm">1</span>
+                  <div className="flex items-center mb-2">
+                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center mr-2">
+                      <span className="text-blue-600 font-semibold text-xs">1</span>
                     </div>
                     <label className="block text-sm font-medium text-gray-700">
                       Stage 1: Page Discovery
                     </label>
                   </div>
-                  <p className="text-sm text-gray-600 mb-4">
+                  <p className="text-sm text-gray-600 mb-3">
                     First, let's discover all pages on your website so you can choose which ones to scan for accessibility issues.
                   </p>
                   
                   {/* Discover Pages Button */}
-                  <div className="mt-4">
+                  <div className="mt-3">
                     <button
                       type="button"
                       onClick={discoverPages}
@@ -556,13 +579,13 @@ export default function NewScan() {
 
                                   {/* Stage 2: Select Pages to Scan */}
                  {discoveredPages.length > 0 && (
-                   <div className="space-y-4">
-                     <div className="flex items-center mb-4">
-                       <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                         <span className="text-green-600 font-semibold text-sm">2</span>
+                   <div className="space-y-3">
+                     <div className="flex items-center mb-2">
+                       <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-2">
+                         <span className="text-green-600 font-semibold text-xs">2</span>
                        </div>
                        <div>
-                         <h3 className="text-lg font-semibold text-gray-900">Stage 2: Select Pages to Scan</h3>
+                         <h3 className="text-base font-semibold text-gray-900">Stage 2: Select Pages to Scan</h3>
                          <p className="text-sm text-gray-600">Choose which pages to scan for WCAG 2.2 accessibility issues</p>
                        </div>
                      </div>
@@ -746,10 +769,10 @@ export default function NewScan() {
 
                  {/* WCAG 2.2 Compliance Level */}
                  <div className={`${discoveredPages.length === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
-                   <label className="block text-sm font-medium text-gray-700 mb-3">
+                   <label className="block text-sm font-medium text-gray-700 mb-2">
                      WCAG 2.2 Compliance Level
                    </label>
-                   <div className="space-y-3">
+                   <div className="space-y-2">
                      <div className="flex items-center">
                        <input
                          id="wcag-a"
@@ -813,22 +836,141 @@ export default function NewScan() {
                  {/* Additional Standards */}
                  {discoveredPages.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                        Additional Standards
                   </label>
-                  <div className="space-y-3">
+                  <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-sm font-medium text-blue-800">
+                          Current Scan Tags
+                        </h3>
+                        <div className="mt-2 text-sm text-blue-700">
+                          <p className="mb-2">
+                            <strong>Standards:</strong> {selectedTags.filter(tag => tag.startsWith('wcag')).map(tag => {
+                              switch(tag) {
+                                case 'wcag22a': return 'WCAG 2.2 Level A';
+                                case 'wcag22aa': return 'WCAG 2.2 Level AA';
+                                case 'wcag22aaa': return 'WCAG 2.2 Level AAA';
+                                case 'wcag21a': return 'WCAG 2.1 Level A';
+                                case 'wcag21aa': return 'WCAG 2.1 Level AA';
+                                case 'wcag21aaa': return 'WCAG 2.1 Level AAA';
+                                case 'wcag2a': return 'WCAG 2.0 Level A';
+                                case 'wcag2aa': return 'WCAG 2.0 Level AA';
+                                case 'wcag2aaa': return 'WCAG 2.0 Level AAA';
+                                default: return tag;
+                              }
+                            }).join(', ')}
+                            {selectedTags.filter(tag => !tag.startsWith('wcag')).length > 0 && (
+                              <span>, {selectedTags.filter(tag => !tag.startsWith('wcag')).map(tag => {
+                                switch(tag) {
+                                  case 'best-practice': return 'Best Practices';
+                                  case 'section508': return 'Section 508';
+                                  case 'EN-301-549': return 'EN 301 549';
+                                  case 'ACT': return 'W3C ACT';
+                                  case 'experimental': return 'Experimental';
+                                  default: return tag;
+                                }
+                              }).join(', ')}</span>
+                            )}
+                          </p>
+                          <div className="text-xs">
+                            <p className="mb-1"><strong>Includes checks for:</strong></p>
+                            <div className="flex gap-x-4 text-blue-600">
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>Color contrast</span>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>Form labels</span>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>Keyboard navigation</span>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>Semantic HTML</span>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>Table structure</span>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>Heading structure</span>
+                                </div>
+                                {selectedTags.includes('wcag22aaa') && (
+                                  <>
+                                    <div className="flex items-start">
+                                      <span className="mr-1">•</span>
+                                      <span>Enhanced contrast</span>
+                                    </div>
+                                    <div className="flex items-start">
+                                      <span className="mr-1">•</span>
+                                      <span>Enhanced focus</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>Alt text</span>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>ARIA attributes</span>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>Button accessibility</span>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>Focus indicators</span>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>Link accessibility</span>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>Language attributes</span>
+                                </div>
+                                {selectedTags.includes('wcag22aaa') && (
+                                  <>
+                                    <div className="flex items-start">
+                                      <span className="mr-1">•</span>
+                                      <span>Larger touch targets</span>
+                                    </div>
+                                    <div className="flex items-start">
+                                      <span className="mr-1">•</span>
+                                      <span>Stricter requirements</span>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
                     <div className="flex items-center">
                       <input
                            id="best-practice"
                         type="checkbox"
                            checked={selectedTags.includes('best-practice')}
-                           onChange={(e) => {
-                             if (e.target.checked) {
-                               setSelectedTags([...selectedTags, 'best-practice'])
-                             } else {
-                               setSelectedTags(selectedTags.filter(t => t !== 'best-practice'))
-                             }
-                           }}
+                           onChange={(e) => updateSelectedTags('best-practice', e.target.checked)}
                         className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                       />
                          <label htmlFor="best-practice" className="ml-2 block text-sm text-gray-700">
@@ -840,17 +982,23 @@ export default function NewScan() {
                            id="section508"
                         type="checkbox"
                            checked={selectedTags.includes('section508')}
-                           onChange={(e) => {
-                             if (e.target.checked) {
-                               setSelectedTags([...selectedTags, 'section508'])
-                             } else {
-                               setSelectedTags(selectedTags.filter(t => t !== 'section508'))
-                             }
-                           }}
+                           onChange={(e) => updateSelectedTags('section508', e.target.checked)}
                         className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                       />
                          <label htmlFor="section508" className="ml-2 block text-sm text-gray-700">
                            Section 508 (US Federal)
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                           id="en-301-549"
+                        type="checkbox"
+                           checked={selectedTags.includes('EN-301-549')}
+                           onChange={(e) => updateSelectedTags('EN-301-549', e.target.checked)}
+                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                      />
+                         <label htmlFor="en-301-549" className="ml-2 block text-sm text-gray-700">
+                           EN 301 549 (EU Standard)
                       </label>
                     </div>
                      </div>
@@ -1169,12 +1317,14 @@ export default function NewScan() {
         {/* Detailed Scan Results */}
         {scanResults.length > 0 && (
           <div className="mt-8">
-            <div className="mb-6">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2">Detailed Accessibility Report</h2>
-              <p className="text-gray-600">
-                Comprehensive analysis with specific fixes for each accessibility issue found.
-              </p>
-            </div>
+            <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+              <div className="xl:col-span-3">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-semibold text-gray-900 mb-2">Detailed Accessibility Report</h2>
+                  <p className="text-gray-600">
+                    Comprehensive analysis with specific fixes for each accessibility issue found.
+                  </p>
+                </div>
 
             {/* Summary Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
@@ -1257,7 +1407,7 @@ export default function NewScan() {
             </div>
 
             {/* Detailed Reports */}
-            <div className="space-y-6">
+            <div className="space-y-4">
               {remediationReport.length > 0 ? (
                 // Use the real remediation report with Claude API suggestions
                 remediationReport.map((report, index) => (
@@ -1269,12 +1419,12 @@ export default function NewScan() {
               ) : (
                 // Fallback to scan results if no remediation report
                 scanResults.map((result, resultIndex) => (
-                  <div key={resultIndex} className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  <div key={resultIndex} className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+                    <div className="mb-3">
+                      <h3 className="text-base font-semibold text-gray-900 mb-1 break-words">
                         {result.url}
                       </h3>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs text-gray-500">
                         Scanned on {new Date(result.timestamp).toLocaleString()}
                       </p>
                     </div>
@@ -1315,10 +1465,16 @@ export default function NewScan() {
                             priority: (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
                           };
 
+                          // Find matching AI response from remediation report
+                          const matchingAIResponse = remediationReport.find((report: any) => 
+                            report.issueId === issue.id
+                          );
+
                           return (
                             <DetailedReport
                               key={`${resultIndex}-${issueIndex}`}
                               {...detailedReport}
+                              savedAIResponses={matchingAIResponse?.suggestions}
                             />
                           );
                         })}
@@ -1328,11 +1484,11 @@ export default function NewScan() {
                 ))
               )}
             </div>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Scan History */}
-        <ScanHistory type="web" />
       </div>
     </Sidebar>
   )
