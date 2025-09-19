@@ -415,7 +415,13 @@ export async function POST(request: NextRequest) {
                  seriousIssues: complianceSummary.seriousIssues,
                  moderateIssues: complianceSummary.moderateIssues,
                  minorIssues: complianceSummary.minorIssues,
-                 pagesScanned: results.length
+                 pagesScanned: results.length,
+                 scanSettings: {
+                   pagesToScan: pagesToScan,
+                   includeSubdomains: includeSubdomains,
+                   wcagLevel: wcagLevel,
+                   selectedTags: selectedTags
+                 }
                })
                console.log('✅ Scan results stored in history')
              } catch (error) {

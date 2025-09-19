@@ -205,13 +205,22 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // For free scans, keep screenshots as base64 data URLs for immediate display
+        // No need to upload to Cloudinary since these are temporary
+        console.log('📸 Preparing screenshots for free scan display...')
+        
         screenshots = {
-          fullPage: fullPageScreenshot,
-          viewport: viewportScreenshot,
-          elements: elementScreenshots
+          fullPage: fullPageScreenshot ? `data:image/png;base64,${fullPageScreenshot}` : null,
+          viewport: viewportScreenshot ? `data:image/png;base64,${viewportScreenshot}` : null,
+          elements: elementScreenshots.map((element) => ({
+            ...element,
+            screenshot: `data:image/png;base64,${element.screenshot}`
+          }))
         }
+        
+        console.log(`📸 Screenshots prepared for display: ${elementScreenshots.length + 2} images`)
       } catch (screenshotError) {
-        console.warn('Failed to capture screenshots or HTML:', screenshotError)
+        console.warn('Failed to capture or upload screenshots:', screenshotError)
         // Continue without screenshots
       }
 

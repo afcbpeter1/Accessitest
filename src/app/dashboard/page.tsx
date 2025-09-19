@@ -20,6 +20,7 @@ import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import StatsCard from '@/components/StatsCard'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import { authenticatedFetch } from '@/lib/auth-utils'
 import CreditDisplay from '@/components/CreditDisplay'
 
 
@@ -46,19 +47,8 @@ function DashboardContent() {
 
   const loadDashboardData = async () => {
     try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) {
-        console.error('No access token found')
-        setIsLoading(false)
-        return
-      }
-
       // Load scan history
-      const historyResponse = await fetch('/api/scan-history', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      const historyResponse = await authenticatedFetch('/api/scan-history')
       
       if (historyResponse.ok) {
         const historyData = await historyResponse.json()
@@ -101,10 +91,6 @@ function DashboardContent() {
         // Calculate analytics
         const analyticsData = calculateAnalytics(webScans, selectedWebsite, timeRange)
         setAnalytics(analyticsData)
-      } else if (historyResponse.status === 401) {
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
       }
     } catch (error) {
       console.error('Failed to load dashboard data:', error)

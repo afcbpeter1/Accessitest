@@ -11,11 +11,18 @@ import {
   Clock,
   Trash2,
   Eye,
-  ExternalLink
+  ExternalLink,
+  RotateCcw,
+  Repeat,
+  Settings,
+  Plus
 } from 'lucide-react'
 import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import { authenticatedFetch } from '@/lib/auth-utils'
+import { AlertModal, ConfirmationModal } from '@/components/AccessibleModal'
+import { useModal } from '@/hooks/useModal'
 
 interface ScanHistoryItem {
   id: string
@@ -38,6 +45,23 @@ interface ScanHistoryItem {
   updatedAt: string
 }
 
+interface PeriodicScan {
+  id: string
+  scanType: 'web' | 'document'
+  scanTitle: string
+  url?: string
+  fileName?: string
+  fileType?: string
+  scanSettings: any
+  frequency: 'daily' | 'weekly' | 'monthly'
+  nextRunAt: string
+  lastRunAt?: string
+  lastScanId?: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export default function ScanHistory() {
   return (
     <ProtectedRoute>
@@ -48,40 +72,75 @@ export default function ScanHistory() {
 
 function ScanHistoryContent() {
   const [scans, setScans] = useState<ScanHistoryItem[]>([])
+  const [periodicScans, setPeriodicScans] = useState<PeriodicScan[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [rerunningId, setRerunningId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'history' | 'periodic'>('history')
+  const [showCreatePeriodic, setShowCreatePeriodic] = useState(false)
+  const [selectedScanForPeriodic, setSelectedScanForPeriodic] = useState<ScanHistoryItem | null>(null)
+  const [showCreateNewPeriodic, setShowCreateNewPeriodic] = useState(false)
+  
+  // Modal management
+  const { modalState, showAlert, showConfirm, closeModal, handleConfirm } = useModal()
+
+  // Calculate next run time based on frequency
+  const calculateNextRun = (frequency: string): string => {
+    const now = new Date()
+    switch (frequency) {
+      case 'daily':
+        now.setDate(now.getDate() + 1)
+        break
+      case 'weekly':
+        now.setDate(now.getDate() + 7)
+        break
+      case 'monthly':
+        now.setMonth(now.getMonth() + 1)
+        break
+      default:
+        now.setDate(now.getDate() + 1)
+    }
+    return now.toISOString()
+  }
 
   useEffect(() => {
     loadScanHistory()
+    loadPeriodicScans()
+    
+    // Check if we have scan settings from the new-scan page
+    const lastScanSettings = localStorage.getItem('lastScanSettings')
+    if (lastScanSettings) {
+      try {
+        const settings = JSON.parse(lastScanSettings)
+        setSelectedScanForPeriodic({
+          id: 'temp',
+          scanType: 'web',
+          scanTitle: `Scan of ${settings.url}`,
+          url: settings.url,
+          totalIssues: 0,
+          criticalIssues: 0,
+          seriousIssues: 0,
+          moderateIssues: 0,
+          minorIssues: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        })
+        setShowCreatePeriodic(true)
+        // Clear the settings after using them
+        localStorage.removeItem('lastScanSettings')
+      } catch (error) {
+        console.error('Error parsing last scan settings:', error)
+      }
+    }
   }, [])
 
   const loadScanHistory = async () => {
     try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) {
-        setError('Authentication required')
-        setLoading(false)
-        return
-      }
-
-      const response = await fetch('/api/scan-history', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      const response = await authenticatedFetch('/api/scan-history')
       
       if (!response.ok) {
-        if (response.status === 401) {
-          setError('Your session has expired. Please log in again.')
-          // Redirect to login after a short delay
-          setTimeout(() => {
-            localStorage.removeItem('accessToken')
-            localStorage.removeItem('user')
-            window.location.href = '/login'
-          }, 2000)
-          return
-        } else if (response.status === 503) {
+        if (response.status === 503) {
           setError('Service temporarily unavailable. Please try again in a moment.')
           return
         }
@@ -111,18 +170,102 @@ function ScanHistoryContent() {
     }
   }
 
-  const deleteScan = async (scanId: string) => {
-    if (!confirm('Are you sure you want to delete this scan? This action cannot be undone.')) {
-      return
+  const loadPeriodicScans = async () => {
+    try {
+      const response = await authenticatedFetch('/api/periodic-scans')
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setPeriodicScans(data.scans)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading periodic scans:', error)
     }
+  }
 
-    setDeletingId(scanId)
+  const rerunScan = async (scanId: string) => {
+    setRerunningId(scanId)
     try {
       const token = localStorage.getItem('accessToken')
       if (!token) {
-        alert('Authentication required')
+        showAlert('Authentication Required', 'Please log in to rerun scans.', 'warning')
         return
       }
+
+      const response = await fetch('/api/rerun-scan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ scanId })
+      })
+      
+      const data = await response.json()
+      
+      if (response.status === 402) {
+        // Insufficient credits - show popup with payment page redirect
+        showConfirm(
+          'Insufficient Credits',
+          'You don\'t have enough credits to run this scan. Would you like to purchase more credits?',
+          () => {
+            window.location.href = '/pricing'
+          },
+          'warning',
+          'Buy Credits',
+          'Cancel'
+        )
+        return
+      }
+      
+      if (data.success) {
+        if (data.scanType === 'web') {
+          // For web scans, navigate to new-scan page with pre-filled settings
+          const settings = data.settings
+          const queryParams = new URLSearchParams({
+            url: settings.url,
+            includeSubdomains: settings.includeSubdomains.toString(),
+            wcagLevel: settings.wcagLevel,
+            selectedTags: settings.selectedTags.join(','),
+            pagesToScan: settings.pagesToScan.join(',')
+          })
+          window.location.href = `/new-scan?${queryParams.toString()}`
+        } else if (data.scanType === 'document') {
+          // For document scans, navigate to document-scan page
+          showAlert('Document Scan Settings Retrieved', 'Please go to the document scan page and upload the document again with these settings.', 'info')
+          setTimeout(() => {
+            window.location.href = '/document-scan'
+          }, 2000)
+        } else {
+          showAlert('Scan Rerun Initiated', 'Your scan has been successfully rerun!', 'success')
+          // Reload scan history to show the new scan
+          loadScanHistory()
+        }
+      } else {
+        showAlert('Rerun Failed', data.error || 'Failed to rerun scan', 'error')
+      }
+    } catch (error) {
+      console.error('Error rerunning scan:', error)
+      showAlert('Rerun Failed', 'An error occurred while rerunning the scan. Please try again.', 'error')
+    } finally {
+      setRerunningId(null)
+    }
+  }
+
+  const deleteScan = async (scanId: string) => {
+    showConfirm(
+      'Delete Scan',
+      'Are you sure you want to delete this scan? This action cannot be undone.',
+      async () => {
+        setDeletingId(scanId)
+        try {
+          const token = localStorage.getItem('accessToken')
+          if (!token) {
+            showAlert('Authentication Required', 'Please log in to delete scans.', 'warning')
+            return
+          }
 
       const response = await fetch('/api/scan-history', {
         method: 'DELETE',
@@ -135,17 +278,23 @@ function ScanHistoryContent() {
       
       const data = await response.json()
       
-      if (data.success) {
-        setScans(scans.filter(scan => scan.id !== scanId))
-      } else {
-        alert(data.error || 'Failed to delete scan')
-      }
-    } catch (error) {
-      console.error('Error deleting scan:', error)
-      alert('Failed to delete scan')
-    } finally {
-      setDeletingId(null)
-    }
+          if (data.success) {
+            setScans(scans.filter(scan => scan.id !== scanId))
+            showAlert('Scan Deleted', 'The scan has been successfully deleted.', 'success')
+          } else {
+            showAlert('Delete Failed', data.error || 'Failed to delete scan', 'error')
+          }
+        } catch (error) {
+          console.error('Error deleting scan:', error)
+          showAlert('Delete Failed', 'An error occurred while deleting the scan. Please try again.', 'error')
+        } finally {
+          setDeletingId(null)
+        }
+      },
+      'error',
+      'Delete',
+      'Cancel'
+    )
   }
 
   const formatDate = (dateString: string) => {
@@ -168,11 +317,11 @@ function ScanHistoryContent() {
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'text-red-600 bg-red-100'
-      case 'serious': return 'text-orange-600 bg-orange-100'
-      case 'moderate': return 'text-yellow-600 bg-yellow-100'
-      case 'minor': return 'text-blue-600 bg-blue-100'
-      default: return 'text-gray-600 bg-gray-100'
+      case 'critical': return 'text-red-800 bg-red-200 border border-red-300'
+      case 'serious': return 'text-orange-800 bg-orange-200 border border-orange-300'
+      case 'moderate': return 'text-yellow-800 bg-yellow-200 border border-yellow-300'
+      case 'minor': return 'text-blue-800 bg-blue-200 border border-blue-300'
+      default: return 'text-gray-800 bg-gray-200 border border-gray-300'
     }
   }
 
@@ -249,15 +398,46 @@ function ScanHistoryContent() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center">
               <History className="h-6 w-6 mr-3" />
-              Scan History
+              Scan Management
             </h1>
             <p className="text-gray-600 mt-1">
-              View and manage your completed accessibility scans
+              View, manage, and schedule your accessibility scans
             </p>
           </div>
           <div className="text-sm text-gray-500">
-            {scans.length} scan{scans.length !== 1 ? 's' : ''} total
+            {activeTab === 'history' 
+              ? `${scans.length} scan${scans.length !== 1 ? 's' : ''} total`
+              : `${periodicScans.length} scheduled scan${periodicScans.length !== 1 ? 's' : ''}`
+            }
           </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab('history')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'history'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <History className="h-4 w-4 inline mr-2" />
+              Scan History
+            </button>
+            <button
+              onClick={() => setActiveTab('periodic')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'periodic'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Repeat className="h-4 w-4 inline mr-2" />
+              Periodic Scans
+            </button>
+          </nav>
         </div>
 
         {/* Stats Cards */}
@@ -314,8 +494,12 @@ function ScanHistoryContent() {
           </div>
         </div>
 
-        {/* Scan List */}
-        {scans.length === 0 ? (
+        {/* Content based on active tab */}
+        {activeTab === 'history' ? (
+          /* Scan History Tab */
+          <>
+            {/* Scan List */}
+            {scans.length === 0 ? (
           <div className="text-center py-12">
             <History className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No scans yet</h3>
@@ -441,6 +625,28 @@ function ScanHistoryContent() {
                           View
                         </Link>
                         <button
+                          onClick={() => rerunScan(scan.id)}
+                          disabled={rerunningId === scan.id}
+                          className="inline-flex items-center px-3 py-1 text-sm text-green-600 hover:text-green-800 disabled:opacity-50"
+                        >
+                          {rerunningId === scan.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                          ) : (
+                            <RotateCcw className="h-4 w-4 mr-1" />
+                          )}
+                          Rerun
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedScanForPeriodic(scan)
+                            setShowCreatePeriodic(true)
+                          }}
+                          className="inline-flex items-center px-3 py-1 text-sm text-purple-600 hover:text-purple-800"
+                        >
+                          <Repeat className="h-4 w-4 mr-1" />
+                          Schedule
+                        </button>
+                        <button
                           onClick={() => deleteScan(scan.id)}
                           disabled={deletingId === scan.id}
                           className="inline-flex items-center px-3 py-1 text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
@@ -460,6 +666,408 @@ function ScanHistoryContent() {
             </div>
           </div>
         )}
+          </>
+        ) : (
+          /* Periodic Scans Tab */
+          <>
+            {/* Periodic Scans Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-medium text-gray-900">Scheduled Scans</h2>
+                <p className="text-sm text-gray-500">
+                  Automatically run scans on a schedule
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreatePeriodic(true)}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Schedule Scan
+              </button>
+            </div>
+
+            {/* Periodic Scans List */}
+            {periodicScans.length === 0 ? (
+              <div className="text-center py-12">
+                <Repeat className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No scheduled scans</h3>
+                <p className="text-gray-500 mb-6">
+                  Create periodic scans to automatically monitor your websites
+                </p>
+                <button
+                  onClick={() => setShowCreatePeriodic(true)}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Schedule Your First Scan
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg border border-gray-200">
+                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                  <h2 className="text-lg font-medium text-gray-900">Active Schedules</h2>
+                  <button
+                    onClick={() => setShowCreateNewPeriodic(true)}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    aria-label="Create new periodic scan schedule"
+                  >
+                    <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
+                    Create New Schedule
+                  </button>
+                </div>
+                <div className="divide-y divide-gray-200">
+                  {periodicScans.map((scan) => {
+                    const IconComponent = scan.scanType === 'web' ? Globe : FileText
+                    return (
+                      <div key={scan.id} className="p-6 hover:bg-gray-50">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start space-x-4">
+                            <div className="flex-shrink-0">
+                              <div className={`p-2 rounded-lg ${
+                                scan.scanType === 'web' ? 'bg-blue-100' : 'bg-green-100'
+                              }`}>
+                                <IconComponent className={`h-5 w-5 ${
+                                  scan.scanType === 'web' ? 'text-blue-600' : 'text-green-600'
+                                }`} />
+                              </div>
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <h3 className="text-lg font-medium text-gray-900 truncate">
+                                  {scan.scanTitle}
+                                </h3>
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  scan.isActive 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {scan.isActive ? 'Active' : 'Paused'}
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
+                                <div className="flex items-center">
+                                  <Repeat className="h-4 w-4 mr-1" />
+                                  {scan.frequency.charAt(0).toUpperCase() + scan.frequency.slice(1)}
+                                </div>
+                                <div className="flex items-center">
+                                  <Calendar className="h-4 w-4 mr-1" />
+                                  Next: {new Date(scan.nextRunAt).toLocaleDateString()}
+                                </div>
+                                {scan.lastRunAt && (
+                                  <div className="flex items-center">
+                                    <Clock className="h-4 w-4 mr-1" />
+                                    Last: {new Date(scan.lastRunAt).toLocaleDateString()}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="text-sm text-gray-600">
+                                {scan.scanType === 'web' ? (
+                                  <span>URL: {scan.url}</span>
+                                ) : (
+                                  <span>File: {scan.fileName}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => {
+                                // Toggle active status
+                                const newStatus = !scan.isActive
+                                // TODO: Implement toggle functionality
+                                console.log('Toggle scan status:', scan.id, newStatus)
+                              }}
+                              className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
+                            >
+                              <Settings className="h-4 w-4 mr-1" />
+                              {scan.isActive ? 'Pause' : 'Resume'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm('Are you sure you want to delete this scheduled scan?')) {
+                                  // TODO: Implement delete functionality
+                                  console.log('Delete periodic scan:', scan.id)
+                                }
+                              }}
+                              className="inline-flex items-center px-3 py-1 text-sm text-red-600 hover:text-red-800"
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Create Periodic Scan Modal */}
+        {showCreatePeriodic && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Schedule Periodic Scan
+              </h3>
+              
+              {selectedScanForPeriodic && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">
+                    <strong>Scan:</strong> {selectedScanForPeriodic.scanTitle}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Type:</strong> {selectedScanForPeriodic.scanType}
+                  </p>
+                  {selectedScanForPeriodic.url && (
+                    <p className="text-sm text-gray-600">
+                      <strong>URL:</strong> {selectedScanForPeriodic.url}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Frequency
+                  </label>
+                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Scan Title
+                  </label>
+                  <input
+                    type="text"
+                    defaultValue={selectedScanForPeriodic?.scanTitle || ''}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter scan title"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowCreatePeriodic(false)
+                    setSelectedScanForPeriodic(null)
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const frequency = (document.getElementById('frequency') as HTMLSelectElement)?.value || 'daily'
+                    const scanTitle = (document.getElementById('scanTitle') as HTMLInputElement)?.value || selectedScanForPeriodic?.scanTitle || ''
+                    
+                    if (!selectedScanForPeriodic) {
+                      showAlert('Error', 'No scan selected for scheduling.', 'error')
+                      return
+                    }
+
+                    try {
+                      const response = await authenticatedFetch('/api/periodic-scans', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          scanType: selectedScanForPeriodic.scanType,
+                          scanTitle: scanTitle,
+                          url: selectedScanForPeriodic.url,
+                          fileName: selectedScanForPeriodic.fileName,
+                          fileType: selectedScanForPeriodic.fileType,
+                          scanSettings: {
+                            // Store the original scan settings
+                            wcagLevel: 'AA', // Default, could be made configurable
+                            selectedTags: ['wcag22a', 'wcag22aa', 'wcag22aaa'] // Default, could be made configurable
+                          },
+                          frequency: frequency,
+                          nextRunAt: calculateNextRun(frequency)
+                        })
+                      })
+
+                      const data = await response.json()
+                      
+                      if (data.success) {
+                        showAlert('Periodic Scan Scheduled', 'Your periodic scan has been successfully scheduled!', 'success')
+                        setShowCreatePeriodic(false)
+                        setSelectedScanForPeriodic(null)
+                        loadPeriodicScans() // Refresh the periodic scans list
+                      } else {
+                        showAlert('Scheduling Failed', data.error || 'Failed to schedule periodic scan', 'error')
+                      }
+                    } catch (error) {
+                      console.error('Error creating periodic scan:', error)
+                      showAlert('Scheduling Failed', 'An error occurred while scheduling the periodic scan.', 'error')
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Schedule Scan
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Create New Periodic Scan Modal */}
+        {showCreateNewPeriodic && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                Create New Periodic Scan
+              </h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Scan Type
+                  </label>
+                  <select 
+                    id="newScanType"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="web">Web Scan</option>
+                    <option value="document">Document Scan</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    URL (for web scans)
+                  </label>
+                  <input
+                    type="url"
+                    id="newScanUrl"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="https://example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Frequency
+                  </label>
+                  <select 
+                    id="newFrequency"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Scan Title
+                  </label>
+                  <input
+                    type="text"
+                    id="newScanTitle"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter scan title"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setShowCreateNewPeriodic(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    const scanType = (document.getElementById('newScanType') as HTMLSelectElement)?.value || 'web'
+                    const url = (document.getElementById('newScanUrl') as HTMLInputElement)?.value || ''
+                    const frequency = (document.getElementById('newFrequency') as HTMLSelectElement)?.value || 'daily'
+                    const scanTitle = (document.getElementById('newScanTitle') as HTMLInputElement)?.value || ''
+                    
+                    if (!url.trim() && scanType === 'web') {
+                      showAlert('URL Required', 'Please enter a URL for web scans.', 'warning')
+                      return
+                    }
+
+                    if (!scanTitle.trim()) {
+                      showAlert('Title Required', 'Please enter a scan title.', 'warning')
+                      return
+                    }
+
+                    try {
+                      const response = await authenticatedFetch('/api/periodic-scans', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          scanType: scanType,
+                          scanTitle: scanTitle,
+                          url: scanType === 'web' ? url : null,
+                          fileName: null,
+                          fileType: null,
+                          scanSettings: {
+                            wcagLevel: 'AA',
+                            selectedTags: ['wcag22a', 'wcag22aa', 'wcag22aaa']
+                          },
+                          frequency: frequency,
+                          nextRunAt: calculateNextRun(frequency)
+                        })
+                      })
+
+                      const data = await response.json()
+                      
+                      if (data.success) {
+                        showAlert('Periodic Scan Created', 'Your new periodic scan has been successfully created!', 'success')
+                        setShowCreateNewPeriodic(false)
+                        loadPeriodicScans() // Refresh the periodic scans list
+                      } else {
+                        showAlert('Creation Failed', data.error || 'Failed to create periodic scan', 'error')
+                      }
+                    } catch (error) {
+                      console.error('Error creating periodic scan:', error)
+                      showAlert('Creation Failed', 'An error occurred while creating the periodic scan.', 'error')
+                    }
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Create Scan
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* User-friendly Modals */}
+        <AlertModal
+          isOpen={modalState.isOpen && !modalState.onConfirm}
+          onClose={closeModal}
+          title={modalState.title}
+          message={modalState.message}
+          type={modalState.type}
+        />
+
+        <ConfirmationModal
+          isOpen={modalState.isOpen && !!modalState.onConfirm}
+          onClose={closeModal}
+          onConfirm={handleConfirm}
+          title={modalState.title}
+          message={modalState.message}
+          confirmText={modalState.confirmText}
+          cancelText={modalState.cancelText}
+          type={modalState.type}
+          isLoading={modalState.isLoading}
+        />
       </div>
     </Sidebar>
   )

@@ -298,7 +298,11 @@ export async function POST(request: NextRequest) {
           pagesAnalyzed: enhancedResult.metadata.pagesAnalyzed,
           overallScore: enhancedResult.overallScore,
           is508Compliant: enhancedResult.is508Compliant,
-          scanDurationSeconds: Math.round(totalDuration / 1000)
+          scanDurationSeconds: Math.round(totalDuration / 1000),
+          scanSettings: {
+            wcagLevel: body.wcagLevel || 'AA',
+            selectedTags: body.selectedTags || ['wcag22a', 'wcag22aa', 'wcag22aaa']
+          }
         })
         console.log('✅ Document scan results stored in history')
       } catch (error) {
@@ -366,7 +370,11 @@ export async function POST(request: NextRequest) {
         pagesAnalyzed: scanResult.metadata.pagesAnalyzed,
         overallScore: scanResult.overallScore,
         is508Compliant: scanResult.is508Compliant,
-        scanDurationSeconds: Math.round(totalDuration / 1000)
+        scanDurationSeconds: Math.round(totalDuration / 1000),
+        scanSettings: {
+          wcagLevel: body.wcagLevel || 'AA',
+          selectedTags: body.selectedTags || ['wcag22a', 'wcag22aa', 'wcag22aaa']
+        }
       })
       console.log('✅ Document scan results stored in history')
     } catch (error) {

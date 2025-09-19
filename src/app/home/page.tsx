@@ -144,6 +144,31 @@ export default function HomePage() {
     localStorage.setItem('freeScanState', JSON.stringify(scanState))
   }, [scanUrl, isScanning, scanResults, showSignupForm])
 
+  // Cleanup free scan data when user leaves the page
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Clear free scan state when user leaves the page
+      if (scanResults?.requiresSignup) {
+        localStorage.removeItem('freeScanState')
+      }
+    }
+
+    const handleVisibilityChange = () => {
+      // Clear free scan state when tab becomes hidden (user switches tabs)
+      if (document.hidden && scanResults?.requiresSignup) {
+        localStorage.removeItem('freeScanState')
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [scanResults])
+
   const clearScanState = () => {
     setScanUrl('')
     setIsScanning(false)
@@ -298,6 +323,14 @@ export default function HomePage() {
       link: '/playground'
     },
     {
+      icon: AlertTriangle,
+      title: 'Issues Demo',
+      description: 'See real accessibility issues in action and understand how they affect users with disabilities',
+      color: 'text-[#0B1220]',
+      bgColor: 'bg-gray-50',
+      link: '/accessibility-issues'
+    },
+    {
       icon: Zap,
       title: 'AI-Powered Analysis',
       description: 'Advanced artificial intelligence for intelligent issue detection and automated remediation recommendations',
@@ -404,6 +437,13 @@ export default function HomePage() {
             >
               🎓 Try Playground
               <Code className="ml-2 h-5 w-5" />
+            </Link>
+            <Link 
+              href="/accessibility-issues" 
+              className="bg-white text-[#0B1220] px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
+            >
+              🔍 See Issues Demo
+              <AlertTriangle className="ml-2 h-5 w-5" />
             </Link>
           </div>
         </div>
@@ -547,13 +587,22 @@ export default function HomePage() {
                   <p className="text-gray-200 mb-4">
                     Practice fixing real accessibility issues with our interactive playground. Perfect for developers, designers, and content creators!
                   </p>
-                  <Link 
-                    href="/playground"
-                    className="inline-flex items-center px-6 py-3 bg-white text-[#0B1220] rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-                  >
-                    Try the Playground
-                    <ArrowRight className="h-5 w-5 ml-2" />
-                  </Link>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Link 
+                      href="/playground"
+                      className="inline-flex items-center px-6 py-3 bg-white text-[#0B1220] rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                    >
+                      Try the Playground
+                      <ArrowRight className="h-5 w-5 ml-2" />
+                    </Link>
+                    <Link 
+                      href="/accessibility-issues"
+                      className="inline-flex items-center px-6 py-3 bg-white text-[#0B1220] rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                    >
+                      See Issues Demo
+                      <AlertTriangle className="h-5 w-5 ml-2" />
+                    </Link>
+                  </div>
                 </div>
               </div>
 
@@ -753,10 +802,10 @@ export default function HomePage() {
                             <div className="text-sm text-gray-600 mb-2">Website Screenshot:</div>
                             <div className="border border-gray-200 rounded-lg overflow-hidden max-w-full">
                               <img 
-                                src={`data:image/png;base64,${scanResults.screenshots.viewport}`}
+                                src={scanResults.screenshots.viewport}
                                 alt={`Screenshot of ${scanResults.url}`}
                                 className="w-full h-auto max-h-32 sm:max-h-40 md:max-h-48 lg:max-h-56 object-contain cursor-pointer hover:opacity-90 transition-opacity"
-                                onClick={() => window.open(`data:image/png;base64,${scanResults.screenshots?.viewport}`, '_blank')}
+                                onClick={() => window.open(scanResults.screenshots?.viewport, '_blank')}
                               />
                             </div>
                             <div className="text-xs text-gray-500 mt-1">Click to view full size</div>
@@ -1260,10 +1309,10 @@ export default function HomePage() {
                           <div className="text-xs text-gray-500 mb-2">Affected Element:</div>
                           <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50 max-w-sm">
                             <img
-                              src={`data:image/png;base64,${elementScreenshot.screenshot}`}
+                              src={elementScreenshot.screenshot}
                               alt={`Screenshot showing ${issue.title} issue`}
                               className="w-full h-auto max-h-24 sm:max-h-28 md:max-h-32 object-contain cursor-pointer hover:opacity-90 transition-opacity"
-                              onClick={() => window.open(`data:image/png;base64,${elementScreenshot.screenshot}`, '_blank')}
+                              onClick={() => window.open(elementScreenshot.screenshot, '_blank')}
                             />
                             {elementScreenshot.boundingBox && (
                               <div className="px-2 py-1 bg-gray-100 text-xs text-gray-600">

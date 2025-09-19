@@ -2,6 +2,7 @@ import * as axe from 'axe-core';
 import { JSDOM } from 'jsdom';
 import { axeConfig, wcag22Rules } from './axe-config';
 import { ClaudeAPI } from './claude-api';
+import { CloudinaryService } from './cloudinary-service';
 
 export interface AccessibilityIssue {
   id: string;
@@ -257,7 +258,7 @@ export class AccessibilityScanner {
       // Check WCAG 2.2 compliance
       const wcag22Compliance = this.checkWCAG22Compliance(issues, results);
 
-      // Capture screenshots
+      // Capture screenshots and upload to Cloudinary
       let screenshots = null;
       try {
         console.log('📸 Capturing screenshots...');
@@ -303,15 +304,64 @@ export class AccessibilityScanner {
           }
         }
 
+        // Upload screenshots to Cloudinary
+        console.log('☁️ Uploading screenshots to Cloudinary...');
+        const timestamp = Date.now();
+        const scanId = `scan_${timestamp}`;
+        
+        const uploadPromises = [];
+        
+        // Upload full page screenshot
+        if (fullPageScreenshot) {
+          uploadPromises.push(
+            CloudinaryService.uploadBase64Image(
+              fullPageScreenshot,
+              'accessitest/screenshots',
+              { public_id: `${scanId}_fullpage` }
+            )
+          );
+        }
+        
+        // Upload viewport screenshot
+        if (viewportScreenshot) {
+          uploadPromises.push(
+            CloudinaryService.uploadBase64Image(
+              viewportScreenshot,
+              'accessitest/screenshots',
+              { public_id: `${scanId}_viewport` }
+            )
+          );
+        }
+        
+        // Upload element screenshots
+        for (let i = 0; i < elementScreenshots.length; i++) {
+          const element = elementScreenshots[i];
+          uploadPromises.push(
+            CloudinaryService.uploadBase64Image(
+              element.screenshot,
+              'accessitest/screenshots',
+              { public_id: `${scanId}_element_${i}` }
+            )
+          );
+        }
+        
+        // Wait for all uploads to complete
+        const uploadResults = await Promise.all(uploadPromises);
+        
+        // Replace base64 data with Cloudinary URLs
         screenshots = {
-          fullPage: fullPageScreenshot,
-          viewport: viewportScreenshot,
-          elements: elementScreenshots
+          fullPage: uploadResults[0]?.secure_url || null,
+          viewport: uploadResults[1]?.secure_url || null,
+          elements: elementScreenshots.map((element, index) => ({
+            ...element,
+            screenshot: uploadResults[2 + index]?.secure_url || null,
+            cloudinaryId: uploadResults[2 + index]?.public_id || null
+          }))
         };
         
-        console.log(`📸 Screenshots captured: ${elementScreenshots.length} elements`);
+        console.log(`☁️ Screenshots uploaded to Cloudinary: ${uploadResults.length} images`);
       } catch (screenshotError) {
-        console.warn('Failed to capture screenshots:', screenshotError);
+        console.warn('Failed to capture or upload screenshots:', screenshotError);
         // Continue without screenshots
       }
 

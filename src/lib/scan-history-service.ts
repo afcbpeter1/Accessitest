@@ -25,6 +25,7 @@ export interface ScanHistoryDetails extends ScanHistoryItem {
   scanResults: any
   complianceSummary: any
   remediationReport: any
+  scanSettings?: any // Add scan settings for rerun functionality
 }
 
 export class ScanHistoryService {
@@ -52,6 +53,7 @@ export class ScanHistoryService {
       overallScore?: number
       is508Compliant?: boolean
       scanDurationSeconds?: number
+      scanSettings?: any // Add scan settings for rerun functionality
     }
   ): Promise<string> {
     const result = await queryOne(
@@ -59,8 +61,8 @@ export class ScanHistoryService {
         user_id, scan_type, scan_title, url, file_name, file_type,
         scan_results, compliance_summary, remediation_report,
         total_issues, critical_issues, serious_issues, moderate_issues, minor_issues,
-        pages_scanned, pages_analyzed, overall_score, is_508_compliant, scan_duration_seconds
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+        pages_scanned, pages_analyzed, overall_score, is_508_compliant, scan_duration_seconds, scan_settings
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING id`,
       [
         userId,
@@ -81,7 +83,8 @@ export class ScanHistoryService {
         scanData.pagesAnalyzed || null,
         scanData.overallScore || null,
         scanData.is508Compliant || null,
-        scanData.scanDurationSeconds || null
+        scanData.scanDurationSeconds || null,
+        scanData.scanSettings ? JSON.stringify(scanData.scanSettings) : null
       ]
     )
 
@@ -170,7 +173,8 @@ export class ScanHistoryService {
       updatedAt: result.updated_at,
       scanResults: result.scan_results,
       complianceSummary: result.compliance_summary,
-      remediationReport: result.remediation_report
+      remediationReport: result.remediation_report,
+      scanSettings: result.scan_settings
     }
   }
 

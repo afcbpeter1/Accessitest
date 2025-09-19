@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -11,7 +11,17 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [logoutMessage, setLogoutMessage] = useState('')
   const router = useRouter()
+
+  // Check for logout message from sessionStorage
+  useEffect(() => {
+    const message = sessionStorage.getItem('loginMessage')
+    if (message) {
+      setLogoutMessage(message)
+      sessionStorage.removeItem('loginMessage')
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -132,6 +142,16 @@ export default function LoginPage() {
             <div className="flex items-center space-x-2 text-red-600 text-sm">
               <AlertCircle className="h-4 w-4" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {/* Logout Message */}
+          {logoutMessage && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center space-x-2 text-blue-800 text-sm">
+                <Shield className="h-4 w-4" />
+                <span>{logoutMessage}</span>
+              </div>
             </div>
           )}
 

@@ -28,3 +28,18 @@
   }
 }
 
+/* Accessibility Issues Demo - Remove focus indicators */
+.accessibility-issues-demo *:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.accessibility-issues-demo button:focus,
+.accessibility-issues-demo input:focus,
+.accessibility-issues-demo textarea:focus,
+.accessibility-issues-demo select:focus,
+.accessibility-issues-demo a:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+

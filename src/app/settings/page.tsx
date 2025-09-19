@@ -249,7 +249,7 @@ export default function SettingsPage() {
       // Clear local storage and redirect
       localStorage.removeItem('accessToken')
       localStorage.removeItem('user')
-      router.push('/home')
+      router.push('/login')
     }
   }
 

@@ -1,9 +1,14 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Search, Globe, HelpCircle, Settings, AlertTriangle, CheckCircle, FileText, X } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import { Search, Globe, HelpCircle, Settings, AlertTriangle, CheckCircle, FileText, X, Repeat } from 'lucide-react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import DetailedReport from '@/components/DetailedReport'
+import { authenticatedFetch } from '@/lib/auth-utils'
+import { AlertModal, ConfirmationModal } from '@/components/AccessibleModal'
+import { useModal } from '@/hooks/useModal'
 
 interface ScanProgress {
   currentPage: number;
@@ -39,6 +44,7 @@ interface DiscoveredPage {
 }
 
 export default function NewScan() {
+  const searchParams = useSearchParams()
   const [url, setUrl] = useState('')
   const [includeSubdomains, setIncludeSubdomains] = useState(true)
   const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('AA')
@@ -53,11 +59,91 @@ export default function NewScan() {
   const [scanError, setScanError] = useState<string | null>(null)
   const [showSuccessNotification, setShowSuccessNotification] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+  const [currentScanId, setCurrentScanId] = useState<string | null>(null)
+  const hasAutoStartedRef = useRef(false)
+  
+  // Modal management
+  const { modalState, showAlert, showConfirm, closeModal, handleConfirm } = useModal()
 
   // Check for active scans when component mounts
   useEffect(() => {
-    checkForActiveScans()
-  }, [])
+    // Only check for active scans if we're not coming from a rerun
+    if (!searchParams || !searchParams.get('url')) {
+      checkForActiveScans()
+    }
+  }, [searchParams])
+
+  // Handle URL parameters for rerun functionality
+  useEffect(() => {
+    if (searchParams) {
+      const urlParam = searchParams.get('url')
+      const includeSubdomainsParam = searchParams.get('includeSubdomains')
+      const wcagLevelParam = searchParams.get('wcagLevel')
+      const selectedTagsParam = searchParams.get('selectedTags')
+      const pagesToScanParam = searchParams.get('pagesToScan')
+      
+      console.log('🔄 URL parameters detected:', {
+        url: urlParam,
+        includeSubdomains: includeSubdomainsParam,
+        wcagLevel: wcagLevelParam,
+        selectedTags: selectedTagsParam,
+        pagesToScan: pagesToScanParam
+      })
+
+      if (urlParam) {
+        // Ensure URL has protocol for proper validation
+        const normalizedUrl = urlParam.startsWith('http') ? urlParam : `https://${urlParam}`
+        setUrl(normalizedUrl)
+      }
+      if (includeSubdomainsParam) setIncludeSubdomains(includeSubdomainsParam === 'true')
+      if (wcagLevelParam && ['A', 'AA', 'AAA'].includes(wcagLevelParam)) {
+        setWcagLevel(wcagLevelParam as 'A' | 'AA' | 'AAA')
+      }
+      if (selectedTagsParam) {
+        setSelectedTags(selectedTagsParam.split(','))
+      }
+      if (pagesToScanParam) {
+        const pages = pagesToScanParam.split(',').map(page => {
+          // Ensure each page URL has protocol
+          return page.startsWith('http') ? page : `https://${page}`
+        })
+        setDiscoveredPages(pages.map((pageUrl, index) => ({
+          url: pageUrl,
+          title: `Page ${index + 1}`,
+          category: 'other' as const,
+          priority: 'medium' as const
+        })))
+        setSelectedPages(pages)
+        
+        // Clear any active scans when coming from rerun
+        setActiveScanId(null)
+        setScanProgress(null)
+        setScanResults([])
+        setScanError(null)
+        hasAutoStartedRef.current = false // Reset auto-start flag for new rerun
+        
+        // Mark that we should auto-start the scan
+        console.log('🚀 Rerun scan detected - will auto-start with settings:', {
+          url: urlParam,
+          includeSubdomains: includeSubdomainsParam === 'true',
+          wcagLevel: wcagLevelParam,
+          selectedTags: selectedTagsParam?.split(','),
+          pagesToScan: pages
+        })
+      }
+    }
+  }, [searchParams])
+
+  // Auto-start scan when coming from rerun
+  useEffect(() => {
+    if (searchParams && searchParams.get('url') && selectedPages.length > 0 && !isScanning && !hasAutoStartedRef.current) {
+      console.log('🚀 Auto-starting rerun scan now...')
+      hasAutoStartedRef.current = true // Prevent multiple auto-starts
+      setTimeout(() => {
+        scanSelectedPages()
+      }, 1500) // Give a bit more time for state to settle
+    }
+  }, [selectedPages, isScanning, searchParams])
 
   // Update selectedTags when wcagLevel changes
   // CRITICAL: Tags are NOT hierarchical - must include ALL levels explicitly
@@ -183,7 +269,33 @@ export default function NewScan() {
       // Clear previous log and update progress
       setDiscoveryLog([])
       
-      // Start progress simulation
+      // If includeSubdomains is false, skip discovery and just use the single URL
+      if (!includeSubdomains) {
+        setScanProgress({
+          currentPage: 1,
+          totalPages: 1,
+          currentUrl: normalizedUrl,
+          status: 'complete',
+          message: 'Single page scan ready. Click "Start WCAG 2.2 Scan" to begin.'
+        })
+        
+        // Create a single page entry
+        const singlePage: DiscoveredPage = {
+          url: normalizedUrl,
+          title: 'Homepage',
+          category: 'home',
+          priority: 'high'
+        }
+        
+        setDiscoveredPages([singlePage])
+        setSelectedPages([normalizedUrl])
+        
+        setIsScanning(false)
+        setTimeout(() => setScanProgress(null), 2000)
+        return
+      }
+      
+      // Start progress simulation for discovery
       const discoveryTips = [
         "🔍 Checking robots.txt and crawling policies...",
         "🌐 Discovering navigation links...",
@@ -222,11 +334,8 @@ export default function NewScan() {
         message: 'Discovering pages on website...'
       })
 
-      const response = await fetch('/api/discover', {
+      const response = await authenticatedFetch('/api/discover', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           url: normalizedUrl,
           includeSubdomains,
@@ -271,6 +380,7 @@ export default function NewScan() {
   }
 
   const scanSelectedPages = async () => {
+    console.log('🚀 Starting scan with selectedPages:', selectedPages)
     setIsScanning(true)
     setScanError(null)
     setScanProgress(null)
@@ -280,8 +390,11 @@ export default function NewScan() {
       const pagesToScan = selectedPages
       
       if (pagesToScan.length === 0) {
+        console.error('❌ No pages selected for scanning')
         throw new Error('No pages selected for scanning')
       }
+      
+      console.log('📄 Pages to scan:', pagesToScan)
 
       // Update progress
       setScanProgress({
@@ -293,14 +406,8 @@ export default function NewScan() {
       })
 
       // Use streaming API for real-time progress updates
-      const token = localStorage.getItem('accessToken')
-      console.log('Sending scan request with token:', token ? 'Token present' : 'No token') // Debug log
-      const response = await fetch('/api/scan-progress', {
+      const response = await authenticatedFetch('/api/scan-progress', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({
           url,
           pagesToScan,
@@ -311,6 +418,22 @@ export default function NewScan() {
       })
 
       if (!response.ok) {
+        if (response.status === 402) {
+          // Insufficient credits - show popup with payment page redirect
+          showConfirm(
+            'Insufficient Credits',
+            'You don\'t have enough credits to run this scan. Would you like to purchase more credits?',
+            () => {
+              window.location.href = '/pricing'
+            },
+            'warning',
+            'Buy Credits',
+            'Cancel'
+          )
+          setIsScanning(false)
+          return
+        }
+        
         const errorData = await response.json()
         throw new Error(errorData.error || 'Scan failed')
       }
@@ -320,8 +443,11 @@ export default function NewScan() {
       const decoder = new TextDecoder()
 
       if (!reader) {
+        console.error('❌ No response body from scan API')
         throw new Error('No response body')
       }
+      
+      console.log('📡 Starting to read scan response stream...')
 
       // Generate a scanId for tracking (this should match what the backend generates)
       const scanId = `web_scan_${Date.now()}`
@@ -358,6 +484,13 @@ export default function NewScan() {
                   message: data.message
                 })
               } else if (data.type === 'page_start' || data.type === 'progress') {
+                console.log('🔄 Scan progress update:', {
+                  type: data.type,
+                  currentPage: data.currentPage,
+                  totalPages: data.totalPages,
+                  status: data.status,
+                  message: data.message
+                })
                 setScanProgress({
                   currentPage: data.currentPage,
                   totalPages: data.totalPages,
@@ -374,7 +507,8 @@ export default function NewScan() {
                   message: data.message
                 })
               } else if (data.type === 'complete') {
-                console.log('Scan complete data received:', data) // Debug log
+                console.log('✅ Scan complete data received:', data)
+                console.log('📊 Scan results:', data.results)
                 setScanProgress({
                   currentPage: data.currentPage,
                   totalPages: data.totalPages,
@@ -388,9 +522,15 @@ export default function NewScan() {
                 
                 // Store the results
                 if (data.results) {
-                  console.log('Setting scan results:', data.results) // Debug log
+                  console.log('💾 Setting scan results:', data.results)
+                  console.log('📊 Results count:', data.results.results?.length || 0)
                   setScanResults(data.results.results)
                   setRemediationReport(data.results.remediationReport || [])
+                  
+                  // Set the scan ID for issue tracking
+                  if (data.scanId) {
+                    setCurrentScanId(data.scanId)
+                  }
                   
                   // Show professional success notification
                   const totalIssues = data.results.complianceSummary.totalIssues
@@ -445,6 +585,11 @@ export default function NewScan() {
                 if (data.results) {
                   setScanResults(data.results.results)
                   setRemediationReport(data.results.remediationReport)
+                  
+                  // Set the scan ID for issue tracking
+                  if (data.scanId) {
+                    setCurrentScanId(data.scanId)
+                  }
                   
                   const totalIssues = data.results.complianceSummary.totalIssues
                   const criticalIssues = data.results.complianceSummary.criticalIssues
@@ -505,9 +650,15 @@ export default function NewScan() {
                         className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
                       />
                       <label htmlFor="includeSubdomains" className="ml-2 block text-sm text-gray-700">
-                        Include subdomains
+                        Include subdomains (blog.example.com, shop.example.com, etc.)
                       </label>
                     </div>
+                    <p className="text-xs text-gray-500 ml-6">
+                      {includeSubdomains 
+                        ? "When discovering pages, also include pages from subdomains of your website"
+                        : "Only scan the exact URL you entered - no page discovery or subdomain crawling"
+                      }
+                    </p>
                   </div>
                 </div>
 
@@ -555,7 +706,10 @@ export default function NewScan() {
                     </label>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">
-                    First, let's discover all pages on your website so you can choose which ones to scan for accessibility issues.
+                    {includeSubdomains 
+                      ? "First, let's discover all pages on your website so you can choose which ones to scan for accessibility issues."
+                      : "Since subdomains are disabled, we'll only scan the exact URL you entered above."
+                    }
                   </p>
                   
                   {/* Discover Pages Button */}
@@ -569,8 +723,8 @@ export default function NewScan() {
                       <Search className="h-5 w-5" />
                       <span>
                         {isScanning 
-                          ? 'Discovering Pages...' 
-                          : 'Start Page Discovery'
+                          ? (includeSubdomains ? 'Discovering Pages...' : 'Preparing Single Page...')
+                          : (includeSubdomains ? 'Start Page Discovery' : 'Prepare Single Page Scan')
                         }
                       </span>
                     </button>
@@ -585,34 +739,44 @@ export default function NewScan() {
                          <span className="text-green-600 font-semibold text-xs">2</span>
                        </div>
                        <div>
-                         <h3 className="text-base font-semibold text-gray-900">Stage 2: Select Pages to Scan</h3>
-                         <p className="text-sm text-gray-600">Choose which pages to scan for WCAG 2.2 accessibility issues</p>
+                         <h3 className="text-base font-semibold text-gray-900">
+                           {includeSubdomains ? 'Stage 2: Select Pages to Scan' : 'Ready to Scan'}
+                         </h3>
+                         <p className="text-sm text-gray-600">
+                           {includeSubdomains 
+                             ? 'Choose which pages to scan for WCAG 2.2 accessibility issues'
+                             : 'Your single page is ready to scan for WCAG 2.2 accessibility issues'
+                           }
+                         </p>
                        </div>
                      </div>
                      
-                     <div className="flex items-center justify-between">
-                       <span className="text-sm font-medium text-gray-700">Page Selection</span>
-                       <div className="flex space-x-2">
-                         <button
-                           type="button"
-                           onClick={() => setSelectedPages(discoveredPages.map(page => page.url))}
-                           className="text-sm text-blue-600 hover:text-blue-800"
-                         >
-                           Select All
-                         </button>
-                         <button
-                           type="button"
-                           onClick={() => setSelectedPages([])}
-                           className="text-sm text-gray-600 hover:text-gray-800"
-                         >
-                           Clear All
-                         </button>
+                     {includeSubdomains && (
+                       <div className="flex items-center justify-between">
+                         <span className="text-sm font-medium text-gray-700">Page Selection</span>
+                         <div className="flex space-x-2">
+                           <button
+                             type="button"
+                             onClick={() => setSelectedPages(discoveredPages.map(page => page.url))}
+                             className="text-sm text-blue-600 hover:text-blue-800"
+                           >
+                             Select All
+                           </button>
+                           <button
+                             type="button"
+                             onClick={() => setSelectedPages([])}
+                             className="text-sm text-gray-600 hover:text-gray-800"
+                           >
+                             Clear All
+                           </button>
+                         </div>
                        </div>
-                     </div>
+                     )}
 
                      {/* Category Filters */}
-                     <div className="flex flex-wrap gap-2">
-                       {['home', 'content', 'forms', 'blog', 'legal', 'other'].map(category => {
+                     {includeSubdomains && (
+                       <div className="flex flex-wrap gap-2">
+                         {['home', 'content', 'forms', 'blog', 'legal', 'other'].map(category => {
                          const categoryPages = discoveredPages.filter(page => page.category === category)
                          const selectedInCategory = categoryPages.filter(page => selectedPages.includes(page.url))
                          
@@ -648,10 +812,12 @@ export default function NewScan() {
                          )
                        })}
                      </div>
+                     )}
 
                      {/* Priority Filters */}
-                     <div className="flex flex-wrap gap-2">
-                       {['high', 'medium', 'low'].map(priority => {
+                     {includeSubdomains && (
+                       <div className="flex flex-wrap gap-2">
+                         {['high', 'medium', 'low'].map(priority => {
                          const priorityPages = discoveredPages.filter(page => page.priority === priority)
                          const selectedInPriority = priorityPages.filter(page => selectedPages.includes(page.url))
                          
@@ -691,7 +857,8 @@ export default function NewScan() {
                            </button>
                          )
                        })}
-                     </div>
+                       </div>
+                     )}
 
                      {/* Page List */}
                      <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg">
@@ -1315,6 +1482,7 @@ export default function NewScan() {
         </div>
 
         {/* Detailed Scan Results */}
+        {console.log('🔍 Scan results state:', { length: scanResults.length, results: scanResults })}
         {scanResults.length > 0 && (
           <div className="mt-8">
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
@@ -1406,6 +1574,62 @@ export default function NewScan() {
               </div>
             </div>
 
+            {/* Action Buttons */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Next Steps</h3>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link
+                  href="/scan-history"
+                  className="inline-flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  View All Scans
+                </Link>
+                <button
+                  onClick={() => {
+                    // Navigate to scan history with this scan's details
+                    const scanData = {
+                      url,
+                      pagesToScan: selectedPages,
+                      includeSubdomains,
+                      wcagLevel,
+                      selectedTags
+                    }
+                    // Store in localStorage for the scan history page to use
+                    localStorage.setItem('lastScanSettings', JSON.stringify(scanData))
+                    window.location.href = '/scan-history'
+                  }}
+                  className="inline-flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  <Repeat className="h-4 w-4 mr-2" />
+                  Schedule Recurring Scan
+                </button>
+                <button
+                  onClick={() => {
+                    // Reset form for new scan
+                    setUrl('')
+                    setDiscoveredPages([])
+                    setSelectedPages([])
+                    setScanResults([])
+                    setRemediationReport([])
+                    setScanError(null)
+                    setScanProgress(null)
+                    setShowSuccessNotification(false)
+                    // Scroll to top
+                    window.scrollTo({ top: 0, behavior: 'smooth' })
+                  }}
+                  className="inline-flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  <Search className="h-4 w-4 mr-2" />
+                  Start New Scan
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 mt-3">
+                💡 <strong>Tip:</strong> You can schedule this scan to run automatically (daily, weekly, or monthly) 
+                to monitor your website's accessibility over time.
+              </p>
+            </div>
+
             {/* Detailed Reports */}
             <div className="space-y-4">
               {remediationReport.length > 0 ? (
@@ -1414,6 +1638,7 @@ export default function NewScan() {
                   <DetailedReport
                     key={index}
                     {...report}
+                    scanId={currentScanId}
                   />
                 ))
               ) : (
@@ -1475,6 +1700,7 @@ export default function NewScan() {
                               key={`${resultIndex}-${issueIndex}`}
                               {...detailedReport}
                               savedAIResponses={matchingAIResponse?.suggestions}
+                              scanId={currentScanId}
                             />
                           );
                         })}
@@ -1490,6 +1716,26 @@ export default function NewScan() {
         )}
 
       </div>
+      
+      {/* User-friendly Modals */}
+      <AlertModal
+        isOpen={modalState.isOpen && !modalState.onConfirm}
+        onClose={closeModal}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+      />
+      <ConfirmationModal
+        isOpen={modalState.isOpen && !!modalState.onConfirm}
+        onClose={closeModal}
+        onConfirm={handleConfirm}
+        title={modalState.title}
+        message={modalState.message}
+        type={modalState.type}
+        confirmText={modalState.confirmText}
+        cancelText={modalState.cancelText}
+        isLoading={modalState.isLoading}
+      />
     </Sidebar>
   )
 }
