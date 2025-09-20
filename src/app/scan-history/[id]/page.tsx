@@ -12,8 +12,6 @@ import {
   CheckCircle,
   Download,
   ExternalLink,
-  Code,
-  Eye,
   RotateCcw,
   Repeat,
   Settings
@@ -24,6 +22,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import { AlertModal } from '@/components/AccessibleModal'
 import { useModal } from '@/hooks/useModal'
 import DetailedReport from '@/components/DetailedReport'
+import CollapsibleIssue from '@/components/CollapsibleIssue'
 
 interface ScanHistoryDetails {
   id: string
@@ -63,7 +62,6 @@ function ScanDetailsContent() {
   const [scan, setScan] = useState<ScanHistoryDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'issues' | 'remediation'>('overview')
   const [showPeriodicModal, setShowPeriodicModal] = useState(false)
   const [rerunning, setRerunning] = useState(false)
   
@@ -493,129 +491,12 @@ function ScanDetailsContent() {
         {/* Main Content Container */}
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
           <div className="xl:col-span-3">
-            {/* Tab Navigation */}
+            {/* Scan Results */}
             <div className="bg-white rounded-lg border border-gray-200">
-              <div className="border-b border-gray-200">
-                <nav className="flex space-x-8 px-6" aria-label="Tabs">
-                  {[
-                    { id: 'overview', name: 'Overview', icon: Eye },
-                    { id: 'issues', name: 'Issues', icon: AlertTriangle },
-                    { id: 'remediation', name: 'Remediation', icon: Code }
-                  ].map((tab) => {
-                    const IconComponent = tab.icon
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id as any)}
-                        className={`${
-                          activeTab === tab.id
-                            ? 'border-blue-500 text-blue-600'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                        } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-                      >
-                        <IconComponent className="h-4 w-4 mr-2" />
-                        {tab.name}
-                      </button>
-                    )
-                  })}
-                </nav>
-              </div>
-
               <div className="p-6">
-            {activeTab === 'overview' && (
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Scan Summary</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Scan Details</h4>
-                      <dl className="space-y-2">
-                        <div className="flex justify-between">
-                          <dt className="text-sm text-gray-500">Scan Type:</dt>
-                          <dd className="text-sm text-gray-900 capitalize">{scan.scanType}</dd>
-                        </div>
-                        {scan.url && (
-                          <div className="flex justify-between">
-                            <dt className="text-sm text-gray-500">URL:</dt>
-                            <dd className="text-sm text-gray-900 truncate max-w-xs">{scan.url}</dd>
-                          </div>
-                        )}
-                        {scan.fileName && (
-                          <div className="flex justify-between">
-                            <dt className="text-sm text-gray-500">File:</dt>
-                            <dd className="text-sm text-gray-900">{scan.fileName}</dd>
-                          </div>
-                        )}
-                        {scan.fileType && (
-                          <div className="flex justify-between">
-                            <dt className="text-sm text-gray-500">Type:</dt>
-                            <dd className="text-sm text-gray-900 uppercase">{scan.fileType}</dd>
-                          </div>
-                        )}
-                        <div className="flex justify-between">
-                          <dt className="text-sm text-gray-500">Duration:</dt>
-                          <dd className="text-sm text-gray-900">{formatDuration(scan.scanDurationSeconds)}</dd>
-                        </div>
-                      </dl>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Issue Summary</h4>
-                      <dl className="space-y-2">
-                        <div className="flex justify-between">
-                          <dt className="text-sm text-gray-500">Total Issues:</dt>
-                          <dd className="text-sm text-gray-900">{scan.totalIssues}</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt className="text-sm text-gray-500">Critical:</dt>
-                          <dd className="text-sm text-red-600">{scan.criticalIssues}</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt className="text-sm text-gray-500">Serious:</dt>
-                          <dd className="text-sm text-orange-600">{scan.seriousIssues}</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt className="text-sm text-gray-500">Moderate:</dt>
-                          <dd className="text-sm text-yellow-600">{scan.moderateIssues}</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt className="text-sm text-gray-500">Minor:</dt>
-                          <dd className="text-sm text-blue-600">{scan.minorIssues}</dd>
-                        </div>
-                      </dl>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Screenshots Section */}
-                {scan.scanResults?.screenshots && (
-                  <div className="mt-6">
-                    <h4 className="font-medium text-gray-900 mb-4">Screenshots</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {Object.entries(scan.scanResults.screenshots).map(([key, screenshot]: [string, any]) => (
-                        <div key={key} className="border border-gray-200 rounded-lg p-4">
-                          <h5 className="font-medium text-gray-900 mb-2 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</h5>
-                          {screenshot && (
-                            <img 
-                              src={screenshot} 
-                              alt={`Screenshot: ${key}`}
-                              className="w-full h-auto max-h-32 sm:max-h-40 md:max-h-48 lg:max-h-56 object-contain rounded border cursor-pointer hover:opacity-90 transition-opacity"
-                              onClick={() => window.open(screenshot, '_blank')}
-                            />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {activeTab === 'issues' && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Accessibility Issues</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-6">Accessibility Issues</h3>
                 {(() => {
-                  // Handle different data structures for scan results - same as web scan
+                  // Handle different data structures for scan results
                   let scanResults = []
                   
                   if (scan.scanResults) {
@@ -641,16 +522,26 @@ function ScanDetailsContent() {
                   }
                   
                   return (
-                    <div className="space-y-6">
+                    <div className="space-y-8">
                       {scanResults.map((result: any, resultIndex: number) => (
-                        <div key={resultIndex} className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
-                          <div className="mb-4">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                              {result.url || scan.url || 'Scan Result'}
-                            </h3>
-                            <p className="text-sm text-gray-500">
-                              Scanned on {new Date(scan.createdAt).toLocaleString()}
-                            </p>
+                        <div key={resultIndex} className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                          <div className="mb-6">
+                            <div className="flex items-center justify-between mb-4">
+                              <div>
+                                <h4 className="text-lg font-semibold text-gray-900 mb-1">
+                                  {result.url || scan.url || 'Scan Result'}
+                                </h4>
+                                <p className="text-sm text-gray-500">
+                                  Scanned on {new Date(scan.createdAt).toLocaleString()}
+                                </p>
+                              </div>
+                              {result.issues && result.issues.length > 0 && (
+                                <div className="text-right">
+                                  <div className="text-2xl font-bold text-gray-900">{result.issues.length}</div>
+                                  <div className="text-sm text-gray-500">Issues Found</div>
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           {result.issues && result.issues.length === 0 ? (
@@ -661,8 +552,13 @@ function ScanDetailsContent() {
                           ) : (
                             <div className="space-y-6">
                               {result.issues && result.issues.map((issue: any, issueIndex: number) => {
-                                // Create a detailed report for each issue - same format as web scan
-                                const detailedReport = {
+                                // Find matching AI response from remediation report
+                                const matchingAIResponse = scan.remediationReport?.find((report: any) => 
+                                  report.issueId === (issue.id || `issue-${resultIndex}-${issueIndex}`)
+                                );
+
+                                // Create a collapsible issue for each issue
+                                const collapsibleIssue = {
                                   issueId: issue.id || `issue-${resultIndex}-${issueIndex}`,
                                   ruleName: issue.description || issue.help || 'Accessibility Issue',
                                   description: issue.description || issue.help || 'No description available',
@@ -679,7 +575,7 @@ function ScanDetailsContent() {
                                     impact: node.impact || issue.impact || 'minor',
                                     url: result.url || scan.url || ''
                                   })),
-                                  suggestions: [
+                                  suggestions: matchingAIResponse?.suggestions || [
                                     {
                                       type: 'fix' as const,
                                       description: issue.help || issue.description || 'Fix this accessibility issue',
@@ -689,17 +585,16 @@ function ScanDetailsContent() {
                                   priority: (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
                                 };
 
-                                // Find matching AI response from remediation report
-                                const matchingAIResponse = scan.remediationReport?.find((report: any) => 
-                                  report.issueId === (issue.id || `issue-${resultIndex}-${issueIndex}`)
-                                );
-
                                 return (
-                                  <DetailedReport
+                                  <CollapsibleIssue
                                     key={`${resultIndex}-${issueIndex}`}
-                                    {...detailedReport}
-                                    savedAIResponses={matchingAIResponse?.suggestions}
+                                    {...collapsibleIssue}
+                                    screenshots={result.screenshots}
                                     scanId={scan.id}
+                                    onStatusChange={(issueId, status) => {
+                                      // Handle status changes - could save to database
+                                      console.log('Issue status changed:', issueId, status)
+                                    }}
                                   />
                                 );
                               })}
@@ -710,44 +605,6 @@ function ScanDetailsContent() {
                     </div>
                   )
                 })()}
-              </div>
-            )}
-
-            {activeTab === 'remediation' && (
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Remediation Recommendations</h3>
-                {(() => {
-                  console.log('🔍 Remediation report:', scan.remediationReport)
-                  
-                  if (!scan.remediationReport || (Array.isArray(scan.remediationReport) && scan.remediationReport.length === 0)) {
-                    return (
-                      <div className="text-center py-8">
-                        <Code className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Remediation Report</h3>
-                        <p className="text-gray-500">
-                          No AI-generated remediation recommendations are available for this scan.
-                        </p>
-                      </div>
-                    )
-                  }
-                  
-                  // Use the same format as web scan - display DetailedReport components
-                  const remediationReports = Array.isArray(scan.remediationReport) ? scan.remediationReport : [scan.remediationReport]
-                  
-                  return (
-                    <div className="space-y-6">
-                      {remediationReports.map((report: any, index: number) => (
-                        <DetailedReport
-                          key={index}
-                          {...report}
-                          scanId={scan.id}
-                        />
-                      ))}
-                    </div>
-                  )
-                })()}
-              </div>
-            )}
               </div>
             </div>
           </div>

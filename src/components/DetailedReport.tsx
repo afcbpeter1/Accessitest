@@ -354,8 +354,8 @@ export default function DetailedReport({
   const generateDefectTicket = () => {
     const currentDate = new Date().toISOString().split('T')[0];
     const severity = impact === 'critical' ? 'Critical' : 
-                   impact === 'serious' ? 'High' : 
-                   impact === 'moderate' ? 'Medium' : 'Low';
+                   impact === 'serious' ? 'Serious' : 
+                   impact === 'moderate' ? 'Moderate' : 'Minor';
     
     // Use saved AI responses if available, otherwise fall back to suggestions
     const aiSuggestions = savedAIResponses || suggestions;

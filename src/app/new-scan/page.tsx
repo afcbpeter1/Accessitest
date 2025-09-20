@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import DetailedReport from '@/components/DetailedReport'
+import CollapsibleIssue from '@/components/CollapsibleIssue'
 import { authenticatedFetch } from '@/lib/auth-utils'
 import { AlertModal, ConfirmationModal } from '@/components/AccessibleModal'
 import { useModal } from '@/hooks/useModal'
@@ -1630,26 +1631,30 @@ export default function NewScan() {
               </p>
             </div>
 
-            {/* Detailed Reports */}
+            {/* Collapsible Issues */}
             <div className="space-y-4">
               {remediationReport.length > 0 ? (
                 // Use the real remediation report with Claude API suggestions
                 remediationReport.map((report, index) => (
-                  <DetailedReport
+                  <CollapsibleIssue
                     key={index}
                     {...report}
                     scanId={currentScanId}
+                    onStatusChange={(issueId, status) => {
+                      // Handle status changes - could save to database
+                      console.log('Issue status changed:', issueId, status)
+                    }}
                   />
                 ))
               ) : (
                 // Fallback to scan results if no remediation report
                 scanResults.map((result, resultIndex) => (
-                  <div key={resultIndex} className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
-                    <div className="mb-3">
-                      <h3 className="text-base font-semibold text-gray-900 mb-1 break-words">
+                  <div key={resultIndex} className="mb-6">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
                         {result.url}
                       </h3>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-sm text-gray-500">
                         Scanned on {new Date(result.timestamp).toLocaleString()}
                       </p>
                     </div>
@@ -1660,10 +1665,15 @@ export default function NewScan() {
                         <p className="text-gray-500">No accessibility issues found on this page!</p>
                       </div>
                     ) : (
-                      <div className="space-y-6">
+                      <div className="space-y-4">
                         {result.issues.map((issue, issueIndex) => {
-                          // Create a mock detailed report for each issue
-                          const detailedReport = {
+                          // Find matching AI response from remediation report
+                          const matchingAIResponse = remediationReport.find((report: any) => 
+                            report.issueId === issue.id
+                          );
+
+                          // Create a collapsible issue for each issue
+                          const collapsibleIssue = {
                             issueId: issue.id,
                             ruleName: issue.description,
                             description: issue.description,
@@ -1680,7 +1690,7 @@ export default function NewScan() {
                               impact: node.impact,
                               url: result.url
                             })),
-                            suggestions: [
+                            suggestions: matchingAIResponse?.suggestions || [
                               {
                                 type: 'fix' as const,
                                 description: issue.help,
@@ -1690,17 +1700,16 @@ export default function NewScan() {
                             priority: (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
                           };
 
-                          // Find matching AI response from remediation report
-                          const matchingAIResponse = remediationReport.find((report: any) => 
-                            report.issueId === issue.id
-                          );
-
                           return (
-                            <DetailedReport
+                            <CollapsibleIssue
                               key={`${resultIndex}-${issueIndex}`}
-                              {...detailedReport}
-                              savedAIResponses={matchingAIResponse?.suggestions}
+                              {...collapsibleIssue}
+                              screenshots={result.screenshots}
                               scanId={currentScanId}
+                              onStatusChange={(issueId, status) => {
+                                // Handle status changes - could save to database
+                                console.log('Issue status changed:', issueId, status)
+                              }}
                             />
                           );
                         })}

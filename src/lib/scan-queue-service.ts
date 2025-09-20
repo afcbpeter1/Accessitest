@@ -117,7 +117,7 @@ export class ScanQueueService {
 
     // Check daily limit
     const dailyScans = await query(
-      'SELECT COUNT(*) as count FROM scan_queue WHERE user_id = $1 AND created_at > NOW() - INTERVAL \1 day\'',
+      'SELECT COUNT(*) as count FROM scan_queue WHERE user_id = $1 AND created_at > NOW() - INTERVAL \'1 day\'',
       [userId]
     )
     

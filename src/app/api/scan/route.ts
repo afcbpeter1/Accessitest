@@ -3,6 +3,7 @@ import { ScanService, ScanOptions } from '@/lib/scan-service'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { queryOne, query } from '@/lib/database'
 import { NotificationService } from '@/lib/notification-service'
+import { ScanToIssuesIntegration } from '@/lib/scan-to-issues-integration'
 
 export async function POST(request: NextRequest) {
   try {
@@ -206,12 +207,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Integrate with issues board
+    let issuesBoardIntegration = null
+    try {
+      issuesBoardIntegration = await ScanToIssuesIntegration.processScanResults(scanId, {
+        results,
+        complianceSummary,
+        remediationReport
+      })
+      console.log('Issues board integration:', issuesBoardIntegration)
+    } catch (error) {
+      console.error('Issues board integration failed:', error)
+      // Don't fail the scan if issues board integration fails
+    }
+
     return NextResponse.json({
       url,
       pagesScanned: results.length,
       results,
       complianceSummary,
-      remediationReport
+      remediationReport,
+      issuesBoardIntegration
     })
 
   } catch (error) {
