@@ -145,19 +145,23 @@ export class IssuesBoardDataService {
    */
   static async updateIssueRanks(rankUpdates: Array<{ issueId: string; rank: number }>): Promise<void> {
     try {
+      console.log('🔄 Updating issue ranks:', rankUpdates)
       await pool.query('BEGIN')
       
       for (const update of rankUpdates) {
-        await pool.query(
+        console.log(`📝 Updating issue ${update.issueId} to rank ${update.rank}`)
+        const result = await pool.query(
           'UPDATE issues SET rank = $1, updated_at = NOW() WHERE id = $2',
           [update.rank, update.issueId]
         )
+        console.log(`✅ Updated ${result.rowCount} rows for issue ${update.issueId}`)
       }
       
       await pool.query('COMMIT')
+      console.log('✅ All ranks updated successfully')
     } catch (error) {
       await pool.query('ROLLBACK')
-      console.error('Error updating issue ranks:', error)
+      console.error('❌ Error updating issue ranks:', error)
       throw error
     }
   }

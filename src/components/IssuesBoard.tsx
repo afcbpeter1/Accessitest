@@ -54,11 +54,18 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
   const [draggedItem, setDraggedItem] = useState<string | null>(null)
   const [dragOverItem, setDragOverItem] = useState<string | null>(null)
   const [isReordering, setIsReordering] = useState(false)
+  const [renderKey, setRenderKey] = useState(0)
 
   useEffect(() => {
     console.log('IssuesBoard component mounted, fetching issues...')
     fetchIssues()
   }, [filters, pagination.page])
+
+  // Debug: Log when issues state changes
+  useEffect(() => {
+    console.log('🔄 Issues state changed:', issues.length, 'issues')
+    console.log('🔄 Issues order:', issues.map((i, idx) => `${idx + 1}. ${i.rule_name}`))
+  }, [issues])
 
   const fetchIssues = async () => {
     try {
@@ -80,7 +87,7 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
         setIssues(data.data.issues || [])
         setPagination(data.data.pagination || pagination)
         console.log('Issues set:', data.data.issues?.length || 0)
-        console.log('Current issues state:', issues)
+        console.log('New issues data:', data.data.issues)
       } else {
         console.error('API returned error:', data.error)
       }
@@ -92,28 +99,39 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
   }
 
   const handleDragStart = (e: React.DragEvent, issueId: string) => {
-    console.log('DRAG START:', issueId)
+    console.log('🚀 DRAG START:', issueId)
     setDraggedItem(issueId)
     setIsReordering(true)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', issueId)
   }
 
-  const handleDragOver = (e: React.DragEvent, issueId: string) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
-    setDragOverItem(issueId)
   }
 
-  const handleDragLeave = () => {
+  const handleDragEnter = (e: React.DragEvent, issueId: string) => {
+    e.preventDefault()
+    console.log('🎯 DRAG ENTER:', issueId, 'draggedItem:', draggedItem)
+    if (issueId !== draggedItem) {
+      setDragOverItem(issueId)
+      console.log('✅ Setting drag over item:', issueId)
+    }
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
     setDragOverItem(null)
   }
 
   const handleDrop = async (e: React.DragEvent, targetIssueId: string) => {
     e.preventDefault()
-    console.log('DROP:', draggedItem, 'onto:', targetIssueId)
+    console.log('🎯 DROP EVENT FIRED:', draggedItem, 'onto:', targetIssueId)
+    console.log('🎯 Current dragOverItem:', dragOverItem)
     
     if (!draggedItem || draggedItem === targetIssueId) {
+      console.log('❌ Same item or no dragged item')
       setDraggedItem(null)
       setDragOverItem(null)
       setIsReordering(false)
@@ -123,15 +141,36 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
     const draggedIndex = issues.findIndex(issue => issue.id === draggedItem)
     const targetIndex = issues.findIndex(issue => issue.id === targetIssueId)
     
-    if (draggedIndex === -1 || targetIndex === -1) return
+    console.log('📊 Indices:', { draggedIndex, targetIndex })
+    
+    if (draggedIndex === -1 || targetIndex === -1) {
+      console.log('❌ Invalid indices')
+      setDraggedItem(null)
+      setDragOverItem(null)
+      setIsReordering(false)
+      return
+    }
 
+    // Simple reordering - move dragged item to target position
     const newIssues = [...issues]
     const [draggedIssue] = newIssues.splice(draggedIndex, 1)
     newIssues.splice(targetIndex, 0, draggedIssue)
     
+    console.log('🔄 Reordering:', newIssues.map(i => i.rule_name))
+    console.log('📊 Before:', issues.map((i, idx) => `${idx + 1}. ${i.rule_name}`))
+    console.log('📊 After:', newIssues.map((i, idx) => `${idx + 1}. ${i.rule_name}`))
+    
+    // Update state with callback to ensure it happens
+    console.log('🔄 Before setIssues - current issues:', issues.length)
+    console.log('🔄 Before setIssues - new issues:', newIssues.length)
+    
+    // Batch state updates to prevent race conditions
     setIssues(newIssues)
+    setRenderKey(prev => prev + 1)
+    
+    console.log('🔄 State updates queued')
 
-    // Update ranks in database
+    // Update database
     try {
       const rankUpdates = newIssues.map((issue, index) => ({
         issueId: issue.id,
@@ -143,13 +182,17 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rankUpdates })
       })
+      
+      console.log('✅ Ranks updated successfully')
     } catch (error) {
-      console.error('Error updating ranks:', error)
+      console.error('❌ Error updating ranks:', error)
     }
 
+    // Reset drag state
     setDraggedItem(null)
     setDragOverItem(null)
     setIsReordering(false)
+    console.log('🔄 Drag state reset')
   }
 
   const getImpactColor = (impact: string) => {
@@ -378,25 +421,51 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
             <p className="mt-2 text-xs text-gray-400">Debug: Issues count = {issues.length}</p>
           </div>
         ) : (
-          <div role="list" aria-label="Accessibility issues list" className="space-y-4">
+          <div key={renderKey} role="list" aria-label="Accessibility issues list" className="space-y-4">
             {issues.map((issue, index) => (
               <article 
-                key={issue.id} 
+                key={`${issue.id}-${index}`} 
                 className={`bg-white rounded-xl border-2 border-gray-100 hover:border-blue-200 hover:shadow-lg transition-all duration-200 focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 relative ${
                   draggedItem === issue.id ? 'opacity-30 scale-95 rotate-2 shadow-2xl border-blue-400' : ''
                 } ${
-                  dragOverItem === issue.id ? 'border-blue-400 bg-blue-50 shadow-lg scale-105' : ''
+                  dragOverItem === issue.id ? 'border-blue-400 bg-blue-50 shadow-lg scale-105 border-dashed ring-2 ring-blue-300' : ''
                 } ${
-                  isReordering && draggedItem !== issue.id ? 'pointer-events-none' : ''
+                  isReordering && draggedItem !== issue.id ? 'pointer-events-auto' : ''
                 }`}
                 role="listitem"
                 tabIndex={0}
                 aria-label={`Issue ${index + 1}: ${issue.rule_name}`}
                 draggable={true}
-                onDragStart={(e) => handleDragStart(e, issue.id)}
-                onDragOver={(e) => handleDragOver(e, issue.id)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, issue.id)}
+                onDragStart={(e) => {
+                  console.log('🚀 DRAG START on issue:', issue.id)
+                  handleDragStart(e, issue.id)
+                }}
+                onDragOver={(e) => {
+                  console.log('🔄 DRAG OVER on issue:', issue.id)
+                  handleDragOver(e)
+                }}
+                onDragEnter={(e) => {
+                  console.log('🎯 DRAG ENTER on issue:', issue.id)
+                  handleDragEnter(e, issue.id)
+                }}
+                onDragLeave={(e) => {
+                  console.log('👋 DRAG LEAVE on issue:', issue.id)
+                  handleDragLeave(e)
+                }}
+                onDrop={(e) => {
+                  console.log('🎯 DROP on issue:', issue.id)
+                  handleDrop(e, issue.id)
+                }}
+                onDragEnd={() => {
+                  console.log('🏁 DRAG END')
+                  // Reset drag state with a small delay to ensure it happens
+                  setTimeout(() => {
+                    setDraggedItem(null)
+                    setDragOverItem(null)
+                    setIsReordering(false)
+                    console.log('🔄 Drag state reset on drag end')
+                  }, 100)
+                }}
               >
                 <div className="p-6">
                   <div className="flex items-start justify-between">

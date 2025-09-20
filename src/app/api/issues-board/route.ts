@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
         i.created_at,
         i.rank
       FROM issues i
-      ORDER BY i.rank ASC, i.created_at DESC
+      ORDER BY 
+        CASE WHEN i.rank IS NOT NULL THEN i.rank ELSE 999999 END ASC,
+        i.created_at DESC
       LIMIT 20
     `)
     
