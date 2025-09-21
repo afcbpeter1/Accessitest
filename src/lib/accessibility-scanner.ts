@@ -94,9 +94,16 @@ export class AccessibilityScanner {
    */
   async scanPageInBrowser(page: any, selectedTags?: string[]): Promise<ScanResult> {
     try {
-      // Use selected tags or default to WCAG 2.2 AA
-      // CRITICAL: Must include both wcag22a AND wcag22aa for AA compliance
-      let tagsToCheck = selectedTags || ['wcag22a', 'wcag22aa'];
+      // Use selected tags or default to comprehensive WCAG compliance
+      // CRITICAL: Include all relevant rule sets for comprehensive testing
+      let tagsToCheck = selectedTags || [
+        'wcag2a', 'wcag2aa',  // WCAG 2.0 A & AA (complete rule set)
+        'wcag21aa',           // WCAG 2.1 AA (additional rules)
+        'wcag22aa',           // WCAG 2.2 AA (additional rules)
+        'best-practice',      // Best practices
+        'section508',         // Section 508 compliance
+        'EN-301-549'          // European accessibility standard
+      ];
       
       // CRITICAL: Fix the fundamental WCAG tag mapping issue
       // The problem: wcag22aa/wcag22aaa tags don't include all the rules they should!
@@ -189,18 +196,55 @@ export class AccessibilityScanner {
         tags: rule.tags
       })));
       
-      // Run axe-core analysis with custom tag selection
-      // CRITICAL: Enable all rules that should be active for the selected tags
+      // Run axe-core analysis with comprehensive rule set
+      // CRITICAL: Enable all rules that should be active for comprehensive testing
       const results = await axe.run({
         runOnly: {
           type: 'tag',
           values: tags
         },
         resultTypes: ['violations', 'passes', 'incomplete', 'inapplicable'],
-        // Enable rules that are disabled by default but should be active
+        // Enable experimental rules for more comprehensive testing
         rules: {
-          'color-contrast-enhanced': { enabled: true },
-          'target-size': { enabled: true }
+          // Enable experimental rules that provide additional value
+          'css-orientation-lock': { enabled: true },
+          'focus-order-semantics': { enabled: true },
+          'hidden-content': { enabled: true },
+          'label-content-name-mismatch': { enabled: true },
+          'p-as-heading': { enabled: true },
+          'table-fake-caption': { enabled: true },
+          'td-has-header': { enabled: true },
+          // Enable WCAG 2.2 rules
+          'target-size': { enabled: true },
+          // Enable best practice rules
+          'accesskeys': { enabled: true },
+          'aria-allowed-role': { enabled: true },
+          'aria-dialog-name': { enabled: true },
+          'aria-text': { enabled: true },
+          'aria-treeitem-name': { enabled: true },
+          'empty-heading': { enabled: true },
+          'empty-table-header': { enabled: true },
+          'frame-tested': { enabled: true },
+          'heading-order': { enabled: true },
+          'image-redundant-alt': { enabled: true },
+          'label-title-only': { enabled: true },
+          'landmark-banner-is-top-level': { enabled: true },
+          'landmark-complementary-is-top-level': { enabled: true },
+          'landmark-contentinfo-is-top-level': { enabled: true },
+          'landmark-main-is-top-level': { enabled: true },
+          'landmark-no-duplicate-banner': { enabled: true },
+          'landmark-no-duplicate-contentinfo': { enabled: true },
+          'landmark-no-duplicate-main': { enabled: true },
+          'landmark-one-main': { enabled: true },
+          'landmark-unique': { enabled: true },
+          'meta-viewport-large': { enabled: true },
+          'page-has-heading-one': { enabled: true },
+          'presentation-role-conflict': { enabled: true },
+          'region': { enabled: true },
+          'scope-attr-valid': { enabled: true },
+          'skip-link': { enabled: true },
+          'tabindex': { enabled: true },
+          'table-duplicate-name': { enabled: true }
         }
       });
       

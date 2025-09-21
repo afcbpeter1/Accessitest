@@ -12,8 +12,10 @@ import {
   User, 
   Tag, 
   MoreHorizontal,
-  GripVertical
+  GripVertical,
+  Eye
 } from 'lucide-react'
+import IssueDetailsModal from './IssueDetailsModal'
 
 interface Issue {
   id: string
@@ -55,11 +57,28 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
   const [dragOverItem, setDragOverItem] = useState<string | null>(null)
   const [isReordering, setIsReordering] = useState(false)
   const [renderKey, setRenderKey] = useState(0)
+  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [sprints, setSprints] = useState<any[]>([])
+  const [showSprintMenu, setShowSprintMenu] = useState<string | null>(null)
 
   useEffect(() => {
     console.log('IssuesBoard component mounted, fetching issues...')
     fetchIssues()
+    fetchSprints()
   }, [filters, pagination.page])
+
+  // Close sprint menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowSprintMenu(null)
+    }
+    
+    if (showSprintMenu) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [showSprintMenu])
 
   // Debug: Log when issues state changes
   useEffect(() => {
@@ -95,6 +114,19 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
       console.error('Error fetching issues:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchSprints = async () => {
+    try {
+      const response = await fetch('/api/sprint-board/sprints')
+      const data = await response.json()
+      
+      if (data.success) {
+        setSprints(data.data.sprints || [])
+      }
+    } catch (error) {
+      console.error('Error fetching sprints:', error)
     }
   }
 
@@ -195,6 +227,63 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
     console.log('🔄 Drag state reset')
   }
 
+  const handleIssueClick = (issue: Issue) => {
+    setSelectedIssue(issue)
+    setIsModalOpen(true)
+  }
+
+  const handleModalClose = () => {
+    setIsModalOpen(false)
+    setSelectedIssue(null)
+  }
+
+  const handleIssueStatusChange = async (issueId: string, status: string, notes?: string, deferredReason?: string) => {
+    // Update the issue in the local state
+    setIssues(prevIssues => 
+      prevIssues.map(issue => 
+        issue.id === issueId 
+          ? { ...issue, status, notes, deferredReason }
+          : issue
+      )
+    )
+    
+    // Update in database
+    try {
+      await fetch('/api/issues-board/status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issueId, status, notes, deferredReason })
+      })
+    } catch (error) {
+      console.error('Failed to update issue status:', error)
+    }
+  }
+
+  const handleMoveToSprint = async (issueId: string, sprintId: string) => {
+    try {
+      const response = await fetch('/api/sprint-board/move-issue', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sprintId,
+          issueId,
+          columnId: null // Will be added to first column (To Do)
+        })
+      })
+
+      if (response.ok) {
+        console.log('✅ Issue moved to sprint successfully')
+        setShowSprintMenu(null)
+        // Optionally refresh the issues list
+        fetchIssues()
+      } else {
+        console.error('❌ Failed to move issue to sprint')
+      }
+    } catch (error) {
+      console.error('❌ Error moving issue to sprint:', error)
+    }
+  }
+
   const getImpactColor = (impact: string) => {
     switch (impact) {
       case 'critical': return 'text-red-800 bg-red-100 border-red-200'
@@ -243,7 +332,7 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
       <header className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-8 border border-blue-100">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Issues Board</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Product Backlog</h1>
             <p className="text-lg text-gray-600">Manage and prioritize accessibility issues across all scans</p>
             <div className="mt-4 flex items-center gap-2 text-sm text-blue-600">
               <div className="w-2 h-2 bg-blue-500 rounded-full" aria-hidden="true"></div>
@@ -485,9 +574,56 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-semibold text-gray-900 truncate">
-                              {issue.rule_name}
-                            </h3>
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="text-lg font-semibold text-gray-900 truncate">
+                                {issue.rule_name}
+                              </h3>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleIssueClick(issue)}
+                              className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              title="View details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setShowSprintMenu(showSprintMenu === issue.id ? null : issue.id)
+                                }}
+                                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                                title="Move to sprint"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </button>
+                              
+                              {showSprintMenu === issue.id && (
+                                <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
+                                  <div className="p-2">
+                                    <div className="text-xs font-medium text-gray-500 px-2 py-1">Move to Sprint</div>
+                                    {sprints.length > 0 ? (
+                                      sprints.map(sprint => (
+                                        <button
+                                          key={sprint.id}
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleMoveToSprint(issue.id, sprint.id)
+                                          }}
+                                          className="w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                                        >
+                                          {sprint.name}
+                                        </button>
+                                      ))
+                                    ) : (
+                                      <div className="px-2 py-2 text-sm text-gray-500">No sprints available</div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                            </div>
                             <p className="mt-1 text-sm text-gray-600 line-clamp-2">
                               {issue.description}
                             </p>
@@ -604,6 +740,14 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
           </div>
         </nav>
       )}
+
+      {/* Issue Details Modal */}
+      <IssueDetailsModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        issue={selectedIssue}
+        onStatusChange={handleIssueStatusChange}
+      />
     </div>
   )
 }

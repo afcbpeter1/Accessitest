@@ -31,163 +31,160 @@ export const axeConfig: Spec = {
 };
 
 export const wcag22Rules = {
-  // WCAG 2.2 Level A rules
-  levelA: [
-    'target-size',
-    'focus-indicator',
-    'page-title',
-    'landmark-one-main',
-    'landmark-unique',
-    'list',
-    'listitem',
+  // WCAG 2.0 Level A & AA Rules (Complete Deque List)
+  wcag20AA: [
+    // Text Alternatives
+    'area-alt',
+    'image-alt',
+    'input-image-alt',
+    'object-alt',
+    'role-img-alt',
+    'svg-img-alt',
+    
+    // ARIA
+    'aria-allowed-attr',
+    'aria-braille-equivalent',
+    'aria-command-name',
+    'aria-conditional-attr',
+    'aria-deprecated-role',
+    'aria-hidden-body',
+    'aria-hidden-focus',
+    'aria-input-field-name',
+    'aria-meter-name',
+    'aria-progressbar-name',
+    'aria-prohibited-attr',
+    'aria-required-attr',
+    'aria-required-children',
+    'aria-required-parent',
+    'aria-roles',
+    'aria-toggle-field-name',
+    'aria-tooltip-name',
+    'aria-valid-attr-value',
+    'aria-valid-attr',
+    
+    // Time and Media
+    'blink',
+    'marquee',
+    'meta-refresh',
+    'no-autoplay-audio',
+    'video-caption',
+    
+    // Keyboard
+    'bypass',
+    'frame-focusable-content',
+    'nested-interactive',
+    'scrollable-region-focusable',
+    
+    // Color
+    'color-contrast',
+    'link-in-text-block',
+    
+    // Structure
     'definition-list',
     'dlitem',
-    'table-duplicate-name',
-    'td-has-header',
-    'th-has-data-cells',
+    'list',
+    'listitem',
+    
+    // Language
     'html-has-lang',
     'html-lang-valid',
+    'html-xml-lang-mismatch',
     'valid-lang',
-    'meta-viewport',
-    'meta-refresh',
-    'meta-viewport-large'
-  ],
-  
-  // WCAG 2.2 Level AA rules (includes Level A)
-  levelAA: [
-    'color-contrast',
-    'image-alt',
-    'input-image-alt',
+    
+    // Forms
+    'form-field-multiple-labels',
     'label',
-    'label-title-only',
-    'aria-required-attr',
-    'aria-required-children',
-    'aria-required-parent',
-    'aria-roles',
-    'aria-valid-attr-value',
-    'aria-valid-attr',
-    'aria-allowed-attr',
-    'aria-allowed-role',
-    'aria-hidden-body',
-    'aria-hidden-focus',
-    'aria-input-field-name',
-    'aria-toggle-field-name',
-    'button-name',
-    'document-title',
+    'select-name',
+    
+    // Frames
     'frame-title',
     'frame-title-unique',
-    'heading-order',
-    'link-name',
-    'list-button',
-    'listbox',
-    'menu-button',
-    'radiogroup',
-    'region',
-    'scope-attr-valid',
     'server-side-image-map',
-    'skip-link',
-    'tabindex',
-    'table-fake-caption',
+    
+    // Tables
     'td-headers-attr',
     'th-has-data-cells',
-    'valid-lang'
+    
+    // Name, Role, Value
+    'button-name',
+    'input-button-name',
+    'link-name',
+    'summary-name',
+    
+    // Document Structure
+    'document-title',
+    'duplicate-id-aria',
+    
+    // Sensory and Visual Cues
+    'meta-viewport'
   ],
 
-  // WCAG 2.2 Level AAA rules (includes Level A and AA)
-  levelAAA: [
-    // Enhanced color contrast requirements
-    'color-contrast-enhanced',
-    
-    // Enhanced focus indicators
-    'focus-visible',
-    
-    // Enhanced keyboard navigation
-    'keyboard',
-    
-    // Enhanced text alternatives
-    'image-alt',
-    'input-image-alt',
-    
-    // Enhanced form labels
-    'label',
-    'label-title-only',
-    
-    // Enhanced heading structure
+  // WCAG 2.1 Level A & AA Rules (Additional)
+  wcag21AA: [
+    'autocomplete-valid',
+    'avoid-inline-spacing'
+  ],
+
+  // WCAG 2.2 Level A & AA Rules (Additional)
+  wcag22AA: [
+    'target-size'
+  ],
+
+  // Best Practices Rules
+  bestPractices: [
+    'accesskeys',
+    'aria-allowed-role',
+    'aria-dialog-name',
+    'aria-text',
+    'aria-treeitem-name',
+    'empty-heading',
+    'empty-table-header',
+    'frame-tested',
     'heading-order',
-    
-    // Enhanced link text
-    'link-name',
-    
-    // Enhanced language identification
-    'html-lang-valid',
-    'valid-lang',
-    
-    // Enhanced page titles
-    'document-title',
-    
-    // Enhanced frame titles
-    'frame-title',
-    'frame-title-unique',
-    
-    // Enhanced table structure
-    'table-duplicate-name',
-    'td-has-header',
-    'th-has-data-cells',
-    'table-fake-caption',
-    'td-headers-attr',
-    
-    // Enhanced list structure
-    'list',
-    'listitem',
-    'definition-list',
-    'dlitem',
-    
-    // Enhanced landmark structure
+    'image-redundant-alt',
+    'label-title-only',
+    'landmark-banner-is-top-level',
+    'landmark-complementary-is-top-level',
+    'landmark-contentinfo-is-top-level',
+    'landmark-main-is-top-level',
+    'landmark-no-duplicate-banner',
+    'landmark-no-duplicate-contentinfo',
+    'landmark-no-duplicate-main',
     'landmark-one-main',
     'landmark-unique',
-    
-    // Enhanced ARIA usage
-    'aria-required-attr',
-    'aria-required-children',
-    'aria-required-parent',
-    'aria-roles',
-    'aria-valid-attr-value',
-    'aria-valid-attr',
-    'aria-allowed-attr',
-    'aria-allowed-role',
-    'aria-hidden-body',
-    'aria-hidden-focus',
-    'aria-input-field-name',
-    'aria-toggle-field-name',
-    
-    // Enhanced button accessibility
-    'button-name',
-    
-    // Enhanced form controls
-    'list-button',
-    'listbox',
-    'menu-button',
-    'radiogroup',
-    
-    // Enhanced page structure
+    'meta-viewport-large',
+    'page-has-heading-one',
+    'presentation-role-conflict',
     'region',
     'scope-attr-valid',
-    'server-side-image-map',
     'skip-link',
     'tabindex',
-    
-    // Enhanced target size (AAA requires larger targets)
-    'target-size',
-    
-    // Enhanced focus indicators
-    'focus-indicator',
-    
-    // Enhanced page titles
-    'page-title',
-    
-    // Enhanced viewport settings
-    'meta-viewport',
-    'meta-refresh',
-    'meta-viewport-large'
+    'table-duplicate-name'
+  ],
+
+  // WCAG 2.x Level AAA Rules
+  wcag2AAA: [
+    'color-contrast-enhanced',
+    'identical-links-same-purpose',
+    'meta-refresh-no-exceptions'
+  ],
+
+  // Experimental Rules
+  experimental: [
+    'css-orientation-lock',
+    'focus-order-semantics',
+    'hidden-content',
+    'label-content-name-mismatch',
+    'p-as-heading',
+    'table-fake-caption',
+    'td-has-header'
+  ],
+
+  // Deprecated Rules (included for completeness but disabled by default)
+  deprecated: [
+    'aria-roledescription',
+    'audio-caption',
+    'duplicate-id-active',
+    'duplicate-id'
   ]
 };
