@@ -23,6 +23,7 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import { authenticatedFetch } from '@/lib/auth-utils'
 import { AlertModal, ConfirmationModal } from '@/components/AccessibleModal'
 import { useModal } from '@/hooks/useModal'
+import PeriodicScanModal from '@/components/PeriodicScanModal'
 
 interface ScanHistoryItem {
   id: string
@@ -810,117 +811,53 @@ function ScanHistoryContent() {
           </>
         )}
 
-        {/* Create Periodic Scan Modal */}
-        {showCreatePeriodic && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                Schedule Periodic Scan
-              </h3>
+        {/* Periodic Scan Modal */}
+        <PeriodicScanModal
+          isOpen={showCreatePeriodic}
+          onClose={() => {
+            setShowCreatePeriodic(false)
+            setSelectedScanForPeriodic(null)
+          }}
+          onSave={async (scanData) => {
+            if (!selectedScanForPeriodic) {
+              showAlert('Error', 'No scan selected for scheduling.', 'error')
+              return
+            }
+
+            try {
+              const response = await authenticatedFetch('/api/periodic-scans', {
+                method: 'POST',
+                body: JSON.stringify({
+                  ...scanData,
+                  url: selectedScanForPeriodic.url,
+                  fileName: selectedScanForPeriodic.fileName,
+                  fileType: selectedScanForPeriodic.fileType
+                })
+              })
+
+              const data = await response.json()
               
-              {selectedScanForPeriodic && (
-                <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-600">
-                    <strong>Scan:</strong> {selectedScanForPeriodic.scanTitle}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <strong>Type:</strong> {selectedScanForPeriodic.scanType}
-                  </p>
-                  {selectedScanForPeriodic.url && (
-                    <p className="text-sm text-gray-600">
-                      <strong>URL:</strong> {selectedScanForPeriodic.url}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Frequency
-                  </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly</option>
-                    <option value="monthly">Monthly</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Scan Title
-                  </label>
-                  <input
-                    type="text"
-                    defaultValue={selectedScanForPeriodic?.scanTitle || ''}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter scan title"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowCreatePeriodic(false)
-                    setSelectedScanForPeriodic(null)
-                  }}
-                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={async () => {
-                    const frequency = (document.getElementById('frequency') as HTMLSelectElement)?.value || 'daily'
-                    const scanTitle = (document.getElementById('scanTitle') as HTMLInputElement)?.value || selectedScanForPeriodic?.scanTitle || ''
-                    
-                    if (!selectedScanForPeriodic) {
-                      showAlert('Error', 'No scan selected for scheduling.', 'error')
-                      return
-                    }
-
-                    try {
-                      const response = await authenticatedFetch('/api/periodic-scans', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                          scanType: selectedScanForPeriodic.scanType,
-                          scanTitle: scanTitle,
-                          url: selectedScanForPeriodic.url,
-                          fileName: selectedScanForPeriodic.fileName,
-                          fileType: selectedScanForPeriodic.fileType,
-                          scanSettings: {
-                            // Store the original scan settings
-                            wcagLevel: 'AA', // Default, could be made configurable
-                            selectedTags: ['wcag22a', 'wcag22aa', 'wcag22aaa'] // Default, could be made configurable
-                          },
-                          frequency: frequency,
-                          nextRunAt: calculateNextRun(frequency)
-                        })
-                      })
-
-                      const data = await response.json()
-                      
-                      if (data.success) {
-                        showAlert('Periodic Scan Scheduled', 'Your periodic scan has been successfully scheduled!', 'success')
-                        setShowCreatePeriodic(false)
-                        setSelectedScanForPeriodic(null)
-                        loadPeriodicScans() // Refresh the periodic scans list
-                      } else {
-                        showAlert('Scheduling Failed', data.error || 'Failed to schedule periodic scan', 'error')
-                      }
-                    } catch (error) {
-                      console.error('Error creating periodic scan:', error)
-                      showAlert('Scheduling Failed', 'An error occurred while scheduling the periodic scan.', 'error')
-                    }
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Schedule Scan
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+              if (data.success) {
+                showAlert('Periodic Scan Scheduled', 'Your periodic scan has been successfully scheduled!', 'success')
+                setShowCreatePeriodic(false)
+                setSelectedScanForPeriodic(null)
+                loadPeriodicScans() // Refresh the periodic scans list
+              } else {
+                showAlert('Scheduling Failed', data.error || 'Failed to schedule periodic scan', 'error')
+              }
+            } catch (error) {
+              console.error('Error creating periodic scan:', error)
+              showAlert('Scheduling Failed', 'An error occurred while scheduling the periodic scan.', 'error')
+            }
+          }}
+          initialData={selectedScanForPeriodic ? {
+            scanType: selectedScanForPeriodic.scanType,
+            scanTitle: selectedScanForPeriodic.scanTitle,
+            url: selectedScanForPeriodic.url,
+            fileName: selectedScanForPeriodic.fileName,
+            fileType: selectedScanForPeriodic.fileType
+          } : undefined}
+        />
 
         {/* Create New Periodic Scan Modal */}
         {showCreateNewPeriodic && (

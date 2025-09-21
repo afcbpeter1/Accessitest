@@ -1,3 +1,6 @@
+-- Periodic Scans Database Setup
+-- Run this SQL script in your PostgreSQL database
+
 -- Create periodic_scans table for scheduling recurring accessibility scans
 CREATE TABLE IF NOT EXISTS periodic_scans (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -43,12 +46,6 @@ CREATE TABLE IF NOT EXISTS periodic_scans (
     notes TEXT -- Optional notes
 );
 
--- Create indexes for better performance
-CREATE INDEX IF NOT EXISTS idx_periodic_scans_user_id ON periodic_scans(user_id);
-CREATE INDEX IF NOT EXISTS idx_periodic_scans_status ON periodic_scans(status);
-CREATE INDEX IF NOT EXISTS idx_periodic_scans_next_run ON periodic_scans(next_run_at);
-CREATE INDEX IF NOT EXISTS idx_periodic_scans_scheduled_date ON periodic_scans(scheduled_date);
-
 -- Create periodic_scan_executions table to track individual scan runs
 CREATE TABLE IF NOT EXISTS periodic_scan_executions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -78,6 +75,12 @@ CREATE TABLE IF NOT EXISTS periodic_scan_executions (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_periodic_scans_user_id ON periodic_scans(user_id);
+CREATE INDEX IF NOT EXISTS idx_periodic_scans_status ON periodic_scans(status);
+CREATE INDEX IF NOT EXISTS idx_periodic_scans_next_run ON periodic_scans(next_run_at);
+CREATE INDEX IF NOT EXISTS idx_periodic_scans_scheduled_date ON periodic_scans(scheduled_date);
+
 -- Create indexes for scan executions
 CREATE INDEX IF NOT EXISTS idx_scan_executions_periodic_scan_id ON periodic_scan_executions(periodic_scan_id);
 CREATE INDEX IF NOT EXISTS idx_scan_executions_status ON periodic_scan_executions(status);
@@ -99,9 +102,6 @@ CREATE TRIGGER update_periodic_scans_updated_at
 CREATE TRIGGER update_periodic_scan_executions_updated_at 
     BEFORE UPDATE ON periodic_scan_executions 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
--- Add comments for documentation
-COMMENT ON TABLE periodic_scans IS 'Stores scheduled periodic scan configurations';
-COMMENT ON COLUMN periodic_scans.scan_settings IS 'Complete scan configuration including pages, WCAG level, tags, etc.';
-COMMENT ON COLUMN periodic_scans.frequency IS 'How often the scan should run: daily, weekly, or monthly';
-COMMENT ON COLUMN periodic_scans.next_run_at IS 'When the next scan should be executed';
-COMMENT ON COLUMN periodic_scans.last_scan_id IS 'Reference to the most recent scan result';
+
+-- Success message
+SELECT 'Periodic scans tables created successfully!' as message;

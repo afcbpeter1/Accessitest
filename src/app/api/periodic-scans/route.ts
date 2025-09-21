@@ -1,51 +1,208 @@
 import { NextRequest, NextResponse } from 'next/server'
+import pool from '@/lib/database'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
-import { query, queryOne } from '@/lib/database'
 
 export async function GET(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
-    
-    const periodicScans = await query(
-      `SELECT 
-        id, scan_type, scan_title, url, file_name, file_type,
-        scan_settings, frequency, next_run_at, last_run_at, last_scan_id,
-        is_active, created_at, updated_at
-      FROM periodic_scans 
-      WHERE user_id = $1 
-      ORDER BY created_at DESC`,
-      [user.userId]
-    )
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    return NextResponse.json({
-      success: true,
-      scans: periodicScans.rows
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status')
+    const limit = parseInt(searchParams.get('limit') || '50')
+
+    let query = `
+      SELECT 
+        ps.*,
+        COUNT(pse.id) as execution_count,
+        MAX(pse.completed_at) as last_completed_at
+      FROM periodic_scans ps
+      LEFT JOIN periodic_scan_executions pse ON ps.id = pse.periodic_scan_id
+      WHERE ps.user_id = $1
+    `
+    
+    const params: any[] = [user.userId]
+    
+    if (status) {
+      query += ' AND ps.status = $2'
+      params.push(status)
+    }
+    
+    query += `
+      GROUP BY ps.id
+      ORDER BY ps.created_at DESC
+      LIMIT $${params.length + 1}
+    `
+    params.push(limit)
+
+    const result = await pool.query(query, params)
+
+    return NextResponse.json({ 
+      success: true, 
+      data: { 
+        periodicScans: result.rows,
+        total: result.rows.length
+      } 
     })
   } catch (error) {
     console.error('Error fetching periodic scans:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch periodic scans' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to fetch periodic scans' }, { status: 500 })
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
-    const body = await request.json()
-    
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const {
       scanType,
       scanTitle,
       url,
       fileName,
       fileType,
-      scanSettings,
-      frequency
-    } = body
+      frequency,
+      scheduledDate,
+      scheduledTime,
+      timezone,
+      daysOfWeek,
+      dayOfMonth,
+      endDate,
+      maxRuns,
+      notifyOnCompletion,
+      notifyOnFailure,
+      emailNotifications,
+      notes
+    } = await request.json()
 
     // Validate required fields
+    if (!scanTitle || !frequency || !scheduledDate || !scheduledTime) {
+      return NextResponse.json({ 
+        error: 'Missing required fields' 
+      }, { status: 400 })
+    }
+
+    if (scanType === 'web' && !url) {
+      return NextResponse.json({ 
+        error: 'URL is required for web scans' 
+      }, { status: 400 })
+    }
+
+    if (scanType === 'document' && !fileName) {
+      return NextResponse.json({ 
+        error: 'File name is required for document scans' 
+      }, { status: 400 })
+    }
+
+    // Calculate next run time
+    const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`)
+    const nextRunAt = calculateNextRunTime({
+      frequency,
+      scheduledDateTime,
+      daysOfWeek: daysOfWeek || [],
+      dayOfMonth: dayOfMonth || 1,
+      timezone: timezone || 'UTC'
+    })
+
+    const result = await pool.query(`
+      INSERT INTO periodic_scans (
+        user_id, scan_type, scan_title, url, file_name, file_type,
+        frequency, scheduled_date, scheduled_time, timezone,
+        days_of_week, day_of_month, end_date, max_runs,
+        notify_on_completion, notify_on_failure, email_notifications,
+        notes, next_run_at, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      RETURNING *
+    `, [
+      user.userId,
+      scanType,
+      scanTitle,
+      url || null,
+      fileName || null,
+      fileType || null,
+      frequency,
+      scheduledDate,
+      scheduledTime,
+      timezone || 'UTC',
+      daysOfWeek || null,
+      dayOfMonth || null,
+      endDate || null,
+      maxRuns || null,
+      notifyOnCompletion !== false,
+      notifyOnFailure !== false,
+      emailNotifications !== false,
+      notes || null,
+      nextRunAt,
+      'scheduled'
+    ])
+
+    return NextResponse.json({ 
+      success: true, 
+      data: { periodicScan: result.rows[0] } 
+    }, { status: 201 })
+  } catch (error) {
+    console.error('Error creating periodic scan:', error)
+    return NextResponse.json({ error: 'Failed to create periodic scan' }, { status: 500 })
+  }
+}
+
+function calculateNextRunTime({
+  frequency,
+  scheduledDateTime,
+  daysOfWeek,
+  dayOfMonth,
+  timezone
+}: {
+  frequency: string
+  scheduledDateTime: Date
+  daysOfWeek: number[]
+  dayOfMonth: number
+  timezone: string
+}): Date {
+  const now = new Date()
+  
+  if (frequency === 'once') {
+    return scheduledDateTime
+  }
+  
+  if (frequency === 'daily') {
+    // Next occurrence at the same time
+    const next = new Date(scheduledDateTime)
+    while (next <= now) {
+      next.setDate(next.getDate() + 1)
+    }
+    return next
+  }
+  
+  if (frequency === 'weekly' && daysOfWeek.length > 0) {
+    // Find next occurrence on one of the specified days
+    const next = new Date(scheduledDateTime)
+    const targetDay = daysOfWeek[0] // Use first selected day for simplicity
+    
+    // Find next occurrence of this day
+    while (next <= now || next.getDay() !== targetDay) {
+      next.setDate(next.getDate() + 1)
+    }
+    return next
+  }
+  
+  if (frequency === 'monthly') {
+    // Next occurrence on the same day of next month
+    const next = new Date(scheduledDateTime)
+    next.setMonth(next.getMonth() + 1)
+    while (next <= now) {
+      next.setMonth(next.getMonth() + 1)
+    }
+    return next
+  }
+  
+  // Default to scheduled time if in the future, otherwise tomorrow
+  return scheduledDateTime > now ? scheduledDateTime : new Date(now.getTime() + 24 * 60 * 60 * 1000)
+}
     if (!scanType || !scanTitle || !scanSettings || !frequency) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
