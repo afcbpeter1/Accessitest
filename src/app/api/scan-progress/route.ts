@@ -5,6 +5,139 @@ import { queryOne, query } from '@/lib/database'
 import { NotificationService } from '@/lib/notification-service'
 import { ScanStateService } from '@/lib/scan-state-service'
 
+// Generate a unique issue ID based on rule, element, and URL
+function generateIssueId(ruleName: string, elementSelector: string, url: string): string {
+  const crypto = require('crypto')
+  const content = `${ruleName}|${elementSelector || ''}|${url}`
+  return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16)
+}
+
+// Auto-create backlog items for unique issues
+async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId: string, scanType: string) {
+  const addedItems = []
+  const reopenedItems = []
+  const skippedItems = []
+
+  for (const result of scanResults) {
+    if (!result.issues) continue
+    
+    for (const issue of result.issues) {
+      try {
+        // Generate unique issue ID based on rule, element, and URL
+        const issueId = generateIssueId(issue.id, issue.nodes?.[0]?.target?.[0], result.url)
+        const domain = new URL(result.url).hostname
+
+        // Check if this exact issue already exists for this domain
+        const existingItem = await queryOne(`
+          SELECT id, status, created_at, last_scan_at 
+          FROM product_backlog 
+          WHERE user_id = $1 AND issue_id = $2 AND domain = $3
+        `, [userId, issueId, domain])
+
+        if (existingItem) {
+          // Update last_scan_at and check if we should reopen
+          const now = new Date()
+          const lastSeen = new Date(existingItem.last_scan_at)
+          const daysSinceLastSeen = Math.floor((now.getTime() - lastSeen.getTime()) / (1000 * 60 * 60 * 24))
+
+          // If issue was closed/done and it's been more than 7 days, reopen it
+          if ((existingItem.status === 'done' || existingItem.status === 'cancelled') && daysSinceLastSeen > 7) {
+            await query(`
+              UPDATE product_backlog 
+              SET status = 'backlog', 
+                  last_scan_at = NOW(), 
+                  updated_at = NOW(),
+                  priority_rank = (
+                    SELECT COALESCE(MAX(priority_rank), 0) + 1 
+                    FROM product_backlog 
+                    WHERE user_id = $1
+                  )
+              WHERE id = $2
+            `, [userId, existingItem.id])
+
+            reopenedItems.push({
+              id: existingItem.id,
+              issueId: issueId,
+              ruleName: issue.id,
+              impact: issue.impact,
+              reason: `Reopened after ${daysSinceLastSeen} days (was ${existingItem.status})`
+            })
+          } else {
+            // Just update last seen time
+            await query(`
+              UPDATE product_backlog 
+              SET last_scan_at = NOW(), updated_at = NOW()
+              WHERE id = $1
+            `, [existingItem.id])
+
+            skippedItems.push({
+              issueId: issueId,
+              ruleName: issue.id,
+              reason: `Already exists (status: ${existingItem.status})`
+            })
+          }
+          continue
+        }
+
+        // Get the next priority rank
+        const maxRank = await queryOne(`
+          SELECT COALESCE(MAX(priority_rank), 0) as max_rank 
+          FROM product_backlog 
+          WHERE user_id = $1
+        `, [userId])
+
+        const nextRank = (maxRank?.max_rank || 0) + 1
+
+        // Insert new backlog item
+        const newItem = await queryOne(`
+          INSERT INTO product_backlog (
+            user_id, issue_id, rule_name, description, impact, wcag_level,
+            element_selector, element_html, failure_summary, url, domain,
+            priority_rank, status, last_scan_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          RETURNING *
+        `, [
+          userId, 
+          issueId, 
+          issue.id, 
+          issue.description, 
+          issue.impact, 
+          issue.tags?.find((tag: string) => tag.startsWith('wcag')) || 'AA',
+          issue.nodes?.[0]?.target?.[0], 
+          issue.nodes?.[0]?.html, 
+          issue.nodes?.[0]?.failureSummary, 
+          result.url, 
+          domain,
+          nextRank, 
+          'backlog',
+          new Date()
+        ])
+
+        addedItems.push({
+          id: newItem.id,
+          issueId: issueId,
+          ruleName: issue.id,
+          impact: issue.impact
+        })
+      } catch (error) {
+        console.error(`Error processing issue ${issue.id}:`, error)
+        skippedItems.push({
+          issueId: issue.id,
+          ruleName: issue.id,
+          reason: 'Error processing issue'
+        })
+      }
+    }
+  }
+
+  console.log('✅ Backlog auto-creation result:', {
+    total: scanResults.reduce((sum, result) => sum + (result.issues?.length || 0), 0),
+    added: addedItems.length,
+    reopened: reopenedItems.length,
+    skipped: skippedItems.length
+  })
+}
+
 /**
  * Deduplicate issues across multiple pages to avoid counting the same issue multiple times
  */
@@ -190,26 +323,12 @@ export async function POST(request: NextRequest) {
           [user.userId]
         )
         
-        // Log the scan transaction (with fallback for missing columns)
-        try {
-          await query(
-            `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
-             VALUES ($1, $2, $3, $4)`,
-            [user.userId, 'usage', -1, `Web scan: ${url}`]
-          )
-        } catch (error) {
-          // If amount column doesn't exist, try with credits_amount column
-          if (error.message.includes('amount')) {
-            console.log('Amount column missing, trying with credits_amount...')
-            await query(
-              `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-               VALUES ($1, $2, $3, $4)`,
-              [user.userId, 'usage', -1, `Web scan: ${url}`]
-            )
-          } else {
-            throw error
-          }
-        }
+        // Log the scan transaction
+        await query(
+          `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+           VALUES ($1, $2, $3, $4)`,
+          [user.userId, 'usage', -1, `Web scan: ${url}`]
+        )
         
         await query('COMMIT')
         
@@ -284,23 +403,28 @@ export async function POST(request: NextRequest) {
                 deepCrawl: false,
                 maxPages: 1,
                 scanType: 'full',
-                selectedTags: selectedTags || ['wcag22a', 'wcag22aa'] // WCAG 2.2 AA default
+                selectedTags: selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508'] // Comprehensive WCAG compliance
               }
               
               try {
-                const pageResults = await scanService.startScan(pageScanOptions, (progress) => {
-                  // Send real-time progress updates
-                  sendProgress({
-                    type: 'progress',
-                    message: progress.message,
-                    currentPage: i + 1,
-                    totalPages: pagesToScan.length,
-                    currentUrl: pageUrl,
-                    status: progress.status
-                  })
+                console.log(`🔍 Starting scan for ${pageUrl}`)
+                
+                // Initialize browser if not already done
+                if (!scanService.browser) {
+                  console.log('🌐 Initializing browser...')
+                  await scanService.initializeBrowser()
+                }
+                
+                // Scan the specific page directly
+                console.log(`🧪 Scanning page with tags: ${selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508']}`)
+                const pageResult = await scanService.scanPage(pageUrl, selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508'])
+                
+                console.log(`✅ Scan completed for ${pageUrl}:`, {
+                  issues: pageResult.issues?.length || 0,
+                  summary: pageResult.summary
                 })
                 
-                results.push(...pageResults)
+                results.push(pageResult)
                 
                 // Send page completion
                 sendProgress({
@@ -376,29 +500,43 @@ export async function POST(request: NextRequest) {
               minorIssues: deduplicatedResults.reduce((sum, r) => sum + (r.summary?.minor || 0), 0)
             }
 
-             // Send final results
-             const finalResults = {
-               url,
-               pagesScanned: results.length,
-               results: deduplicatedResults,
-               complianceSummary,
-               remediationReport
-             }
-             
-             await sendProgress({
-               type: 'complete',
-               message: `Scan completed successfully! Scanned ${results.length} pages.`,
-               currentPage: results.length,
-               totalPages: pagesToScan.length,
-               status: 'complete',
-               results: finalResults
-             })
+            // Send final results
+            const finalResults = {
+              url,
+              pagesScanned: results.length,
+              results: deduplicatedResults,
+              complianceSummary,
+              remediationReport
+            }
+            
+            await sendProgress({
+              type: 'complete',
+              message: `Scan completed successfully! Scanned ${results.length} pages.`,
+              currentPage: results.length,
+              totalPages: pagesToScan.length,
+              status: 'complete',
+              results: finalResults
+            })
+
+            // Clean up browser
+            if (scanService.browser) {
+              await scanService.browser.close()
+              scanService.browser = null
+            }
 
              // Mark scan as completed in database (with error handling)
              try {
                await ScanStateService.markCompleted(scanId, finalResults)
              } catch (error) {
                console.error('Failed to mark scan as completed:', error)
+             }
+
+             // Auto-create backlog items for unique issues
+             try {
+               console.log('🎫 Auto-creating backlog items for unique issues...')
+               await autoCreateBacklogItems(user.userId, finalResults, scanId, 'web')
+             } catch (error) {
+               console.error('❌ Error auto-creating backlog items:', error)
              }
 
              // Store scan results in history (with error handling)

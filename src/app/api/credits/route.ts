@@ -100,25 +100,11 @@ export async function POST(request: NextRequest) {
     // Check if user has unlimited credits
     if (creditData.unlimited_credits) {
       // Unlimited user, log the scan but don't deduct credits
-      try {
-        await query(
-          `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
-           VALUES ($1, $2, $3, $4)`,
-          [user.userId, 'usage', 0, `${scanType} scan: ${fileName || scanId}`]
-        )
-      } catch (error) {
-          // If amount column doesn't exist, try with credits_amount column
-          if (error.message.includes('amount')) {
-            console.log('Amount column missing, trying with credits_amount...')
-            await query(
-              `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-               VALUES ($1, $2, $3, $4)`,
-              [user.userId, 'usage', -1, `${scanType} scan: ${fileName || scanId}`]
-            )
-        } else {
-          throw error
-        }
-      }
+      await query(
+        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+         VALUES ($1, $2, $3, $4)`,
+        [user.userId, 'usage', 0, `${scanType} scan: ${fileName || scanId}`]
+      )
       
       return NextResponse.json({
         success: true,
@@ -154,26 +140,12 @@ export async function POST(request: NextRequest) {
         [user.userId]
       )
       
-      // Log the scan transaction (with fallback for missing columns)
-      try {
-        await query(
-          `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
-           VALUES ($1, $2, $3, $4)`,
-          [user.userId, 'usage', -1, `${scanType} scan: ${fileName || scanId}`]
-        )
-      } catch (error) {
-          // If amount column doesn't exist, try with credits_amount column
-          if (error.message.includes('amount')) {
-            console.log('Amount column missing, trying with credits_amount...')
-            await query(
-              `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-               VALUES ($1, $2, $3, $4)`,
-              [user.userId, 'usage', -1, `${scanType} scan: ${fileName || scanId}`]
-            )
-        } else {
-          throw error
-        }
-      }
+      // Log the scan transaction
+      await query(
+        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+         VALUES ($1, $2, $3, $4)`,
+        [user.userId, 'usage', -1, `${scanType} scan: ${fileName || scanId}`]
+      )
       
       await query('COMMIT')
       
@@ -232,26 +204,12 @@ export async function PUT(request: NextRequest) {
         [creditsToAdd, user.userId]
       )
       
-      // Log the credit purchase transaction (with fallback for missing columns)
-      try {
-        await query(
-          `INSERT INTO credit_transactions (user_id, transaction_type, amount, description, stripe_payment_intent_id)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [user.userId, 'purchase', creditsToAdd, `Credit purchase: ${packageName || 'Unknown Package'}`, stripePaymentIntentId]
-        )
-      } catch (error) {
-          // If amount column doesn't exist, try with credits_amount column
-          if (error.message.includes('amount')) {
-            console.log('Amount column missing, trying with credits_amount...')
-            await query(
-              `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description, stripe_payment_intent_id)
-               VALUES ($1, $2, $3, $4, $5)`,
-              [user.userId, 'purchase', creditsToAdd, `Credit purchase: ${packageName || 'Unknown Package'}`, stripePaymentIntentId]
-            )
-        } else {
-          throw error
-        }
-      }
+      // Log the credit purchase transaction
+      await query(
+        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description, stripe_payment_intent_id)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [user.userId, 'purchase', creditsToAdd, `Credit purchase: ${packageName || 'Unknown Package'}`, stripePaymentIntentId]
+      )
       
       await query('COMMIT')
       

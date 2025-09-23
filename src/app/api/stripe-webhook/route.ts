@@ -65,14 +65,17 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-  console.log('Processing checkout session completed:', session.id)
+  console.log('🛒 Processing checkout session completed:', session.id)
+  console.log('📋 Session metadata:', session.metadata)
   
   const { userId, priceId, type } = session.metadata || {}
   
   if (!userId || !priceId) {
-    console.error('Missing metadata in checkout session')
+    console.error('❌ Missing metadata in checkout session:', { userId, priceId, type })
     return
   }
+
+  console.log(`🔍 Processing ${type} purchase for user ${userId}, priceId: ${priceId}`)
 
   if (type === 'credits') {
     await handleCreditPurchase(userId, priceId)
@@ -202,7 +205,9 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
 
 async function handleCreditPurchase(userId: string, priceId: string, creditAmount?: number) {
   try {
+    console.log(`🎫 Processing credit purchase for user ${userId}, priceId: ${priceId}`)
     const credits = creditAmount || getCreditAmountFromPriceId(priceId)
+    console.log(`💰 Credit amount: ${credits}`)
     
     if (credits <= 0) {
       console.error('Invalid credit amount:', credits)
@@ -221,27 +226,13 @@ async function handleCreditPurchase(userId: string, priceId: string, creditAmoun
         [credits, userId]
       )
 
-      // Log the credit purchase transaction (with fallback for missing columns)
+      // Log the credit purchase transaction
       const packageName = getPlanNameFromPriceId(priceId)
-      try {
-        await query(
-          `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
-           VALUES ($1, $2, $3, $4)`,
-          [userId, 'purchase', credits, `Credit purchase: ${packageName}`]
-        )
-      } catch (error) {
-        // If amount column doesn't exist, try with credits_amount column
-        if (error.message.includes('amount')) {
-          console.log('Amount column missing, trying with credits_amount...')
-          await query(
-            `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-             VALUES ($1, $2, $3, $4)`,
-            [userId, 'purchase', credits, `Credit purchase: ${packageName}`]
-          )
-        } else {
-          throw error
-        }
-      }
+      await query(
+        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, 'purchase', credits, `Credit purchase: ${packageName}`]
+      )
 
       await query('COMMIT')
       console.log(`Added ${credits} credits to user ${userId}`)

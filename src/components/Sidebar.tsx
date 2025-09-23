@@ -27,7 +27,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, current: true },
   { name: 'Web Scan', href: '/new-scan', icon: Plus, current: false },
   { name: 'Document Scan', href: '/document-scan', icon: Upload, current: false },
-  { name: 'Product Backlog', href: '/issues-board', icon: AlertTriangle, current: false },
+  { name: 'Product Backlog', href: '/product-backlog', icon: AlertTriangle, current: false },
   { name: 'Sprint Board', href: '/sprint-board', icon: Target, current: false },
   { name: 'Periodic Scans', href: '/periodic-scans', icon: Calendar, current: false },
   { name: 'Scan History', href: '/scan-history', icon: History, current: false },

@@ -248,7 +248,7 @@ function ScanDetailsContent() {
       // Extract scan settings from the current scan
       const scanSettings = {
         wcagLevel: 'AA', // Default, could be enhanced to store actual settings
-        selectedTags: ['wcag22a', 'wcag22aa'],
+        selectedTags: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'],
         pagesToScan: scan.url ? [scan.url] : [],
         includeSubdomains: true
       }

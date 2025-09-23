@@ -85,25 +85,11 @@ export async function POST(request: NextRequest) {
     // Check if user has unlimited credits
     if (creditData.unlimited_credits) {
       // Unlimited user, log the scan but don't deduct credits
-      try {
-        await query(
-          `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
-           VALUES ($1, $2, $3, $4)`,
-          [user.userId, 'usage', 0, `Document scan: ${body.fileName}`]
-        )
-        } catch (error) {
-          // If amount column doesn't exist, try with credits_amount column
-          if (error.message.includes('amount')) {
-            console.log('Amount column missing, trying with credits_amount...')
-            await query(
-              `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-               VALUES ($1, $2, $3, $4)`,
-              [user.userId, 'usage', -1, `Document scan: ${body.fileName}`]
-            )
-          } else {
-            throw error
-          }
-        }
+      await query(
+        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+         VALUES ($1, $2, $3, $4)`,
+        [user.userId, 'usage', 0, `Document scan: ${body.fileName}`]
+      )
     } else {
       // Check if user has enough credits
       if (creditData.credits_remaining < 1) {
@@ -131,25 +117,11 @@ export async function POST(request: NextRequest) {
         )
         
         // Log the scan transaction (with fallback for missing columns)
-        try {
-          await query(
-            `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
-             VALUES ($1, $2, $3, $4)`,
-            [user.userId, 'usage', -1, `Document scan: ${body.fileName}`]
-          )
-        } catch (error) {
-          // If amount column doesn't exist, try with credits_amount column
-          if (error.message.includes('amount')) {
-            console.log('Amount column missing, trying with credits_amount...')
-            await query(
-              `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-               VALUES ($1, $2, $3, $4)`,
-              [user.userId, 'usage', 0, `Document scan: ${body.fileName}`]
-            )
-          } else {
-            throw error
-          }
-        }
+        await query(
+          `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+           VALUES ($1, $2, $3, $4)`,
+          [user.userId, 'usage', -1, `Document scan: ${body.fileName}`]
+        )
         
         await query('COMMIT')
         
@@ -301,7 +273,7 @@ export async function POST(request: NextRequest) {
           scanDurationSeconds: Math.round(totalDuration / 1000),
           scanSettings: {
             wcagLevel: body.wcagLevel || 'AA',
-            selectedTags: body.selectedTags || ['wcag22a', 'wcag22aa', 'wcag22aaa']
+            selectedTags: body.selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']
           }
         })
         console.log('✅ Document scan results stored in history')
@@ -373,7 +345,7 @@ export async function POST(request: NextRequest) {
         scanDurationSeconds: Math.round(totalDuration / 1000),
         scanSettings: {
           wcagLevel: body.wcagLevel || 'AA',
-          selectedTags: body.selectedTags || ['wcag22a', 'wcag22aa', 'wcag22aaa']
+          selectedTags: body.selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']
         }
       })
       console.log('✅ Document scan results stored in history')

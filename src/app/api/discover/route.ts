@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       maxPages: enforcedMaxPages,
       scanType: 'discover',
       wcagLevel: 'AA',
-      selectedTags: ['wcag22a', 'wcag22aa']
+      selectedTags: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']
     }
 
     // Initialize the scan service

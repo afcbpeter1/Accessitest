@@ -471,10 +471,13 @@ function ScanHistoryContent() {
             <div className="flex items-center">
               <AlertTriangle className="h-8 w-8 text-red-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Total Issues</p>
+                <p className="text-sm font-medium text-gray-500">Unique Issues</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {scans.reduce((sum, s) => sum + (s.criticalIssues || 0) + (s.seriousIssues || 0) + (s.moderateIssues || 0) + (s.minorIssues || 0), 0)}
+                  {scans.length > 0 ? 
+                    (scans[0].criticalIssues || 0) + (scans[0].seriousIssues || 0) + (scans[0].moderateIssues || 0) + (scans[0].minorIssues || 0) 
+                    : 0}
                 </p>
+                <p className="text-xs text-gray-500">From most recent scan</p>
               </div>
             </div>
           </div>
@@ -955,7 +958,7 @@ function ScanHistoryContent() {
                           fileType: null,
                           scanSettings: {
                             wcagLevel: 'AA',
-                            selectedTags: ['wcag22a', 'wcag22aa', 'wcag22aaa']
+                            selectedTags: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'wcag2aaa', 'wcag21aaa', 'wcag22aaa']
                           },
                           frequency: frequency,
                           nextRunAt: calculateNextRun(frequency)

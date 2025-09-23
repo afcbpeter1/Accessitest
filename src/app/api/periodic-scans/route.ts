@@ -203,65 +203,6 @@ function calculateNextRunTime({
   // Default to scheduled time if in the future, otherwise tomorrow
   return scheduledDateTime > now ? scheduledDateTime : new Date(now.getTime() + 24 * 60 * 60 * 1000)
 }
-    if (!scanType || !scanTitle || !scanSettings || !frequency) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
-        { status: 400 }
-      )
-    }
-
-    // Calculate next run time based on frequency
-    const now = new Date()
-    let nextRunAt: Date
-
-    switch (frequency) {
-      case 'daily':
-        nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000) // 24 hours from now
-        break
-      case 'weekly':
-        nextRunAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 days from now
-        break
-      case 'monthly':
-        nextRunAt = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()) // Next month
-        break
-      default:
-        return NextResponse.json(
-          { success: false, error: 'Invalid frequency' },
-          { status: 400 }
-        )
-    }
-
-    const result = await queryOne(
-      `INSERT INTO periodic_scans (
-        user_id, scan_type, scan_title, url, file_name, file_type,
-        scan_settings, frequency, next_run_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING id`,
-      [
-        user.userId,
-        scanType,
-        scanTitle,
-        url || null,
-        fileName || null,
-        fileType || null,
-        JSON.stringify(scanSettings),
-        frequency,
-        nextRunAt.toISOString()
-      ]
-    )
-
-    return NextResponse.json({
-      success: true,
-      scanId: result.id
-    })
-  } catch (error) {
-    console.error('Error creating periodic scan:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to create periodic scan' },
-      { status: 500 }
-    )
-  }
-}
 
 export async function PUT(request: NextRequest) {
   try {

@@ -93,6 +93,14 @@ export class AccessibilityScanner {
    * This method should be called from within a Puppeteer page context
    */
   async scanPageInBrowser(page: any, selectedTags?: string[]): Promise<ScanResult> {
+    console.log(`🔍 AccessibilityScanner.scanPageInBrowser called`)
+    
+    // Get the current URL from the page
+    const currentUrl = await page.url();
+    
+    // Set a smaller viewport for better performance and smaller screenshots
+    await page.setViewport({ width: 1280, height: 720, deviceScaleFactor: 1 });
+    
     try {
       // Use selected tags or default to comprehensive WCAG compliance
       // CRITICAL: Include all relevant rule sets for comprehensive testing
@@ -104,6 +112,8 @@ export class AccessibilityScanner {
         'section508',         // Section 508 compliance
         'EN-301-549'          // European accessibility standard
       ];
+      
+      console.log(`🏷️ Tags to check: ${tagsToCheck.join(', ')}`)
       
       // CRITICAL: Fix the fundamental WCAG tag mapping issue
       // The problem: wcag22aa/wcag22aaa tags don't include all the rules they should!
@@ -198,6 +208,8 @@ export class AccessibilityScanner {
       
       // Run axe-core analysis with comprehensive rule set
       // CRITICAL: Enable all rules that should be active for comprehensive testing
+      console.log(`🧪 Running axe-core analysis with tags: ${tags.join(', ')}`)
+      
       const results = await axe.run({
         runOnly: {
           type: 'tag',
@@ -298,6 +310,14 @@ export class AccessibilityScanner {
         incomplete: results.incomplete.length,
         inapplicable: results.inapplicable.length
       };
+      
+      console.log(`📊 Processed issues:`, {
+        total: issues.length,
+        critical: summary.critical,
+        serious: summary.serious,
+        moderate: summary.moderate,
+        minor: summary.minor
+      });
 
       // Check WCAG 2.2 compliance
       const wcag22Compliance = this.checkWCAG22Compliance(issues, results);
@@ -306,31 +326,46 @@ export class AccessibilityScanner {
       let screenshots = null;
       try {
         console.log('📸 Capturing screenshots...');
+        console.log(`📊 Issues to screenshot: ${issues.length}`);
         
-        // Take a full page screenshot
+        // Take a full page screenshot (optimized for smaller file size)
+        console.log('📸 Taking full page screenshot...');
         const fullPageScreenshot = await page.screenshot({
           fullPage: true,
-          encoding: 'base64'
+          encoding: 'base64',
+          quality: 80,
+          type: 'jpeg'
         }) as string;
+        console.log(`✅ Full page screenshot captured: ${fullPageScreenshot ? 'Yes' : 'No'}`);
 
-        // Take a viewport screenshot
+        // Take a viewport screenshot (optimized for smaller file size)
+        console.log('📸 Taking viewport screenshot...');
         const viewportScreenshot = await page.screenshot({
           fullPage: false,
-          encoding: 'base64'
+          encoding: 'base64',
+          quality: 80,
+          type: 'jpeg'
         }) as string;
+        console.log(`✅ Viewport screenshot captured: ${viewportScreenshot ? 'Yes' : 'No'}`);
 
         // Capture screenshots of elements with issues
+        console.log('📸 Capturing element screenshots...');
         const elementScreenshots = [];
         for (const issue of issues.slice(0, 5)) { // Limit to first 5 issues
+          console.log(`📸 Processing issue: ${issue.id} (${issue.nodes?.length || 0} nodes)`);
           for (const node of issue.nodes || []) {
             const selector = node.target?.[0];
             if (selector) {
+              console.log(`📸 Attempting to screenshot element: ${selector}`);
               try {
                 // Try to find and screenshot the element
                 const element = await page.$(selector);
                 if (element) {
+                  console.log(`✅ Element found, taking screenshot...`);
                   const elementScreenshot = await element.screenshot({
-                    encoding: 'base64'
+                    encoding: 'base64',
+                    quality: 80,
+                    type: 'jpeg'
                   }) as string;
                   
                   elementScreenshots.push({
@@ -340,13 +375,17 @@ export class AccessibilityScanner {
                     screenshot: elementScreenshot,
                     boundingBox: await element.boundingBox()
                   });
+                  console.log(`✅ Element screenshot captured for ${selector}`);
+                } else {
+                  console.log(`❌ Element not found: ${selector}`);
                 }
               } catch (elementError) {
-                console.warn(`Failed to screenshot element ${selector}:`, elementError);
+                console.warn(`❌ Failed to screenshot element ${selector}:`, elementError);
               }
             }
           }
         }
+        console.log(`📸 Element screenshots captured: ${elementScreenshots.length}`);
 
         // Upload screenshots to Cloudinary
         console.log('☁️ Uploading screenshots to Cloudinary...');
@@ -405,7 +444,11 @@ export class AccessibilityScanner {
         
         console.log(`☁️ Screenshots uploaded to Cloudinary: ${uploadResults.length} images`);
       } catch (screenshotError) {
-        console.warn('Failed to capture or upload screenshots:', screenshotError);
+        console.error('❌ Screenshot capture failed:', screenshotError);
+        console.error('Screenshot error details:', {
+          message: screenshotError.message,
+          stack: screenshotError.stack
+        });
         // Continue without screenshots
       }
 
@@ -442,7 +485,7 @@ export class AccessibilityScanner {
         }
       }
 
-      return {
+      const finalResult = {
         url: currentUrl,
         timestamp: new Date(),
         issues,
@@ -450,6 +493,15 @@ export class AccessibilityScanner {
         wcag22Compliance,
         screenshots
       };
+      
+      console.log(`🎯 Final scan result:`, {
+        url: finalResult.url,
+        issuesCount: finalResult.issues.length,
+        summary: finalResult.summary,
+        hasScreenshots: !!finalResult.screenshots
+      });
+      
+      return finalResult;
     } catch (error) {
       console.error('Error scanning page for accessibility issues:', error);
       throw new Error(`Failed to scan ${currentUrl}: ${error.message}`);
@@ -493,29 +545,24 @@ export class AccessibilityScanner {
    * Check WCAG 2.2 compliance levels (including AAA)
    */
   private checkWCAG22Compliance(issues: AccessibilityIssue[], results: any) {
-    const levelARules = wcag22Rules.levelA;
-    const levelAARules = wcag22Rules.levelAA;
-    const levelAAARules = wcag22Rules.levelAAA;
+    console.log('🔍 Checking WCAG 2.2 compliance...');
+    console.log('📊 Issues count:', issues.length);
+    console.log('📊 WCAG22Rules structure:', {
+      hasLevelA: !!wcag22Rules.levelA,
+      hasLevelAA: !!wcag22Rules.levelAA,
+      hasLevelAAA: !!wcag22Rules.levelAAA,
+      levelALength: wcag22Rules.levelA?.length || 0
+    });
 
-    // Check if all Level A rules pass
-    const levelACompliant = levelARules.every(ruleId => 
-      !issues.some(issue => issue.id === ruleId)
-    );
-
-    // Check if all Level AA rules pass
-    const levelAACompliant = levelAARules.every(ruleId => 
-      !issues.some(issue => issue.id === ruleId)
-    );
-
-    // Check if all Level AAA rules pass
-    const levelAAACompliant = levelAAARules.every(ruleId => 
-      !issues.some(issue => issue.id === ruleId)
-    ) && results.passes.length > 0;
+    // Simplified compliance check based on issue severity
+    const criticalIssues = issues.filter(issue => issue.impact === 'critical').length;
+    const seriousIssues = issues.filter(issue => issue.impact === 'serious').length;
+    const moderateIssues = issues.filter(issue => issue.impact === 'moderate').length;
 
     return {
-      levelA: levelACompliant,
-      levelAA: levelAACompliant,
-      levelAAA: levelAAACompliant
+      levelA: criticalIssues === 0,
+      levelAA: criticalIssues === 0 && seriousIssues === 0,
+      levelAAA: criticalIssues === 0 && seriousIssues === 0 && moderateIssues === 0
     };
   }
 

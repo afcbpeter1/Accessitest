@@ -49,7 +49,7 @@ export default function NewScan() {
   const [url, setUrl] = useState('')
   const [includeSubdomains, setIncludeSubdomains] = useState(true)
   const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('AA')
-  const [selectedTags, setSelectedTags] = useState<string[]>(['wcag22a', 'wcag22aa']) // WCAG 2.2 AA default
+  const [selectedTags, setSelectedTags] = useState<string[]>(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']) // Comprehensive WCAG compliance
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null)
   const [discoveredPages, setDiscoveredPages] = useState<DiscoveredPage[]>([])
@@ -150,14 +150,14 @@ export default function NewScan() {
   // CRITICAL: Tags are NOT hierarchical - must include ALL levels explicitly
   useEffect(() => {
     if (wcagLevel === 'A') {
-      // WCAG 2.2 Level A only
-      setSelectedTags(['wcag22a'])
+      // WCAG Level A only
+      setSelectedTags(['wcag2a'])
     } else if (wcagLevel === 'AA') {
-      // WCAG 2.2 Level AA includes A + AA (must include both explicitly)
-      setSelectedTags(['wcag22a', 'wcag22aa'])
+      // WCAG Level AA includes A + AA (must include both explicitly)
+      setSelectedTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
     } else if (wcagLevel === 'AAA') {
-      // WCAG 2.2 Level AAA includes A + AA + AAA (must include all explicitly)
-      setSelectedTags(['wcag22a', 'wcag22aa', 'wcag22aaa'])
+      // WCAG Level AAA includes A + AA + AAA (must include all explicitly)
+      setSelectedTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'wcag2aaa', 'wcag21aaa', 'wcag22aaa'])
     }
   }, [wcagLevel])
 
@@ -950,7 +950,7 @@ export default function NewScan() {
                          checked={wcagLevel === 'A'}
                          onChange={(e) => {
                            setWcagLevel(e.target.value as 'A' | 'AA' | 'AAA')
-                           setSelectedTags(['wcag22a'])
+                           setSelectedTags(['wcag2a'])
                          }}
                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
                          disabled={discoveredPages.length === 0}
@@ -969,7 +969,7 @@ export default function NewScan() {
                          checked={wcagLevel === 'AA'}
                          onChange={(e) => {
                            setWcagLevel(e.target.value as 'A' | 'AA' | 'AAA')
-                           setSelectedTags(['wcag22a', 'wcag22aa'])
+                           setSelectedTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
                          }}
                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
                          disabled={discoveredPages.length === 0}
@@ -988,7 +988,7 @@ export default function NewScan() {
                          checked={wcagLevel === 'AAA'}
                          onChange={(e) => {
                            setWcagLevel(e.target.value as 'A' | 'AA' | 'AAA')
-                           setSelectedTags(['wcag22a', 'wcag22aa', 'wcag22aaa'])
+                           setSelectedTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'wcag2aaa', 'wcag21aaa', 'wcag22aaa'])
                          }}
                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
                          disabled={discoveredPages.length === 0}
@@ -1022,8 +1022,12 @@ export default function NewScan() {
                           <p className="mb-2">
                             <strong>Standards:</strong> {selectedTags.filter(tag => tag.startsWith('wcag')).map(tag => {
                               switch(tag) {
-                                case 'wcag22a': return 'WCAG 2.2 Level A';
+                                case 'wcag2a': return 'WCAG 2.0 Level A';
+                                case 'wcag2aa': return 'WCAG 2.0 Level AA';
+                                case 'wcag21aa': return 'WCAG 2.1 Level AA';
                                 case 'wcag22aa': return 'WCAG 2.2 Level AA';
+                                case 'wcag2aaa': return 'WCAG 2.0 Level AAA';
+                                case 'wcag21aaa': return 'WCAG 2.1 Level AAA';
                                 case 'wcag22aaa': return 'WCAG 2.2 Level AAA';
                                 case 'wcag21a': return 'WCAG 2.1 Level A';
                                 case 'wcag21aa': return 'WCAG 2.1 Level AA';
@@ -1075,7 +1079,7 @@ export default function NewScan() {
                                   <span className="mr-1">•</span>
                                   <span>Heading structure</span>
                                 </div>
-                                {selectedTags.includes('wcag22aaa') && (
+                                {selectedTags.includes('wcag2aaa') && (
                                   <>
                                     <div className="flex items-start">
                                       <span className="mr-1">•</span>
@@ -1113,7 +1117,7 @@ export default function NewScan() {
                                   <span className="mr-1">•</span>
                                   <span>Language attributes</span>
                                 </div>
-                                {selectedTags.includes('wcag22aaa') && (
+                                {selectedTags.includes('wcag2aaa') && (
                                   <>
                                     <div className="flex items-start">
                                       <span className="mr-1">•</span>

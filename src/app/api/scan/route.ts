@@ -37,25 +37,11 @@ export async function POST(request: NextRequest) {
     // Check if user has unlimited credits
     if (creditData.unlimited_credits) {
       // Unlimited user, log the scan but don't deduct credits
-      try {
-        await query(
-          `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
-           VALUES ($1, $2, $3, $4)`,
-          [user.userId, 'usage', 0, `Web scan: ${url}`]
-        )
-      } catch (error) {
-        // If amount column doesn't exist, try without it
-        if (error.message.includes('amount')) {
-          console.log('Amount column missing, trying without it...')
-          await query(
-            `INSERT INTO credit_transactions (user_id, transaction_type, description)
-             VALUES ($1, $2, $3)`,
-            [user.userId, 'usage', `Web scan: ${url}`]
-          )
-        } else {
-          throw error
-        }
-      }
+      await query(
+        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+         VALUES ($1, $2, $3, $4)`,
+        [user.userId, 'usage', 0, `Web scan: ${url}`]
+      )
     } else {
       // Check if user has enough credits
       if (creditData.credits_remaining < 1) {
@@ -82,26 +68,12 @@ export async function POST(request: NextRequest) {
           [user.userId]
         )
         
-        // Log the scan transaction (with fallback for missing columns)
-        try {
-          await query(
-            `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
-             VALUES ($1, $2, $3, $4)`,
-            [user.userId, 'usage', -1, `Web scan: ${url}`]
-          )
-        } catch (error) {
-          // If amount column doesn't exist, try with credits_amount column
-          if (error.message.includes('amount')) {
-            console.log('Amount column missing, trying with credits_amount...')
-            await query(
-              `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-               VALUES ($1, $2, $3, $4)`,
-              [user.userId, 'usage', -1, `Web scan: ${url}`]
-            )
-          } else {
-            throw error
-          }
-        }
+        // Log the scan transaction
+        await query(
+          `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+           VALUES ($1, $2, $3, $4)`,
+          [user.userId, 'usage', -1, `Web scan: ${url}`]
+        )
         
         await query('COMMIT')
         

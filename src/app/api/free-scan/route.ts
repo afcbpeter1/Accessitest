@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
         const results = await axe.run({
           runOnly: {
             type: 'tag',
-            values: ['wcag2a', 'wcag2aa', 'wcag22a', 'wcag22aa']
+            values: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']
           }
         })
 
@@ -161,16 +161,20 @@ export async function POST(request: NextRequest) {
       let elementScreenshots = null
       
       try {
-        // Take a full page screenshot
+        // Take a full page screenshot (optimized)
         const fullPageScreenshot = await page.screenshot({
           fullPage: true,
-          encoding: 'base64'
+          encoding: 'base64',
+          quality: 80,
+          type: 'jpeg'
         }) as string
 
-        // Take a viewport screenshot
+        // Take a viewport screenshot (optimized)
         const viewportScreenshot = await page.screenshot({
           fullPage: false,
-          encoding: 'base64'
+          encoding: 'base64',
+          quality: 80,
+          type: 'jpeg'
         }) as string
 
         // Get the HTML source code
@@ -187,7 +191,9 @@ export async function POST(request: NextRequest) {
                 const element = await page.$(selector)
                 if (element) {
                   const elementScreenshot = await element.screenshot({
-                    encoding: 'base64'
+                    encoding: 'base64',
+                    quality: 80,
+                    type: 'jpeg'
                   }) as string
                   
                   elementScreenshots.push({
@@ -264,6 +270,16 @@ export async function POST(request: NextRequest) {
         requiresSignup: true,
         message: 'Sign up to see detailed recommendations and remediation steps'
       })
+
+      // Auto-create backlog items for unique issues (for authenticated users)
+      try {
+        console.log('🎫 Auto-creating backlog items for free scan...')
+        // Note: Free scans don't have authentication, so we skip auto-creation
+        // This would need to be handled differently for authenticated users
+        console.log('⚠️ Skipping auto-creation for free scan (no authentication)')
+      } catch (error) {
+        console.error('❌ Error auto-creating backlog items for free scan:', error)
+      }
 
     } finally {
       await browser.close()

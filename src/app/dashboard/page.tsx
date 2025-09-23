@@ -138,12 +138,22 @@ function DashboardContent() {
     // Sort by date
     filteredScans.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
     
-    // Calculate trends - use individual severity counts for accuracy
-    const criticalIssues = filteredScans.reduce((sum, scan) => sum + (scan.criticalIssues || 0), 0)
-    const seriousIssues = filteredScans.reduce((sum, scan) => sum + (scan.seriousIssues || 0), 0)
-    const moderateIssues = filteredScans.reduce((sum, scan) => sum + (scan.moderateIssues || 0), 0)
-    const minorIssues = filteredScans.reduce((sum, scan) => sum + (scan.minorIssues || 0), 0)
-    const totalIssues = criticalIssues + seriousIssues + moderateIssues + minorIssues
+    // Calculate unique issues from the most recent scan only
+    // This shows actual unique issues, not total occurrences across all scans
+    let criticalIssues = 0
+    let seriousIssues = 0
+    let moderateIssues = 0
+    let minorIssues = 0
+    let totalIssues = 0
+    
+    if (filteredScans.length > 0) {
+      const mostRecentScan = filteredScans[filteredScans.length - 1]
+      criticalIssues = mostRecentScan.criticalIssues || 0
+      seriousIssues = mostRecentScan.seriousIssues || 0
+      moderateIssues = mostRecentScan.moderateIssues || 0
+      minorIssues = mostRecentScan.minorIssues || 0
+      totalIssues = criticalIssues + seriousIssues + moderateIssues + minorIssues
+    }
     
     // Calculate exact issue changes (comparing most recent scan vs previous scan for the same website)
     let issuesFixed = 0
@@ -203,7 +213,7 @@ function DashboardContent() {
       bgColor: 'bg-blue-50'
     },
     {
-      title: 'Total Issues',
+      title: 'Unique Issues',
       value: analytics.totalIssues.toString(),
       icon: AlertTriangle,
       color: 'text-red-600',
@@ -397,7 +407,10 @@ function DashboardContent() {
 
             {/* Issue Breakdown */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Issue Breakdown</h3>
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Issue Breakdown</h3>
+                <p className="text-sm text-gray-600 mt-1">Unique issues from your most recent scan</p>
+              </div>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">

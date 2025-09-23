@@ -31,8 +31,44 @@ export const axeConfig: Spec = {
 };
 
 export const wcag22Rules = {
-  // WCAG 2.0 Level A & AA Rules (Complete Deque List)
-  wcag20AA: [
+  // WCAG 2.0 Level A Rules
+  levelA: [
+    'area-alt',
+    'image-alt',
+    'input-image-alt',
+    'object-alt',
+    'role-img-alt',
+    'svg-img-alt',
+    'aria-allowed-attr',
+    'aria-required-attr',
+    'aria-required-children',
+    'aria-required-parent',
+    'aria-roles',
+    'aria-valid-attr',
+    'aria-valid-attr-value',
+    'blink',
+    'marquee',
+    'meta-refresh',
+    'no-autoplay-audio',
+    'video-caption',
+    'bypass',
+    'frame-focusable-content',
+    'nested-interactive',
+    'scrollable-region-focusable',
+    'color-contrast',
+    'color-contrast-enhanced',
+    'focus-order-semantics',
+    'keyboard',
+    'keyboard-navigation',
+    'link-name',
+    'page-has-heading-one',
+    'page-has-main',
+    'region',
+    'tabindex'
+  ],
+  
+  // WCAG 2.0 Level AA Rules
+  levelAA: [
     // Text Alternatives
     'area-alt',
     'image-alt',
@@ -163,7 +199,7 @@ export const wcag22Rules = {
   ],
 
   // WCAG 2.x Level AAA Rules
-  wcag2AAA: [
+  levelAAA: [
     'color-contrast-enhanced',
     'identical-links-same-purpose',
     'meta-refresh-no-exceptions'

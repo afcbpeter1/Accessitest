@@ -15,6 +15,7 @@ import {
   FileText,
   Sparkles
 } from 'lucide-react'
+import AddToBacklogButton from './AddToBacklogButton'
 
 interface IssueStatus {
   status: 'open' | 'raised' | 'deferred'
@@ -228,6 +229,20 @@ Affected URLs: ${affectedUrls.join(', ')}`
           </div>
           
           <div className="flex items-center gap-2 ml-4">
+            <AddToBacklogButton 
+              issue={{
+                id: issueId,
+                ruleName,
+                description,
+                impact,
+                wcagLevel: wcag22Level,
+                elementSelector: offendingElements[0]?.target?.[0],
+                elementHtml: offendingElements[0]?.html,
+                failureSummary: offendingElements[0]?.failureSummary,
+                url: affectedUrls[0] || ''
+              }}
+              domain={affectedUrls[0] ? new URL(affectedUrls[0]).hostname : ''}
+            />
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -329,7 +344,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
                     <img 
                       src={screenshots.viewport}
                       alt={`Screenshot of ${affectedUrls[0]}`}
-                      className="w-full h-auto max-h-32 sm:max-h-40 md:max-h-48 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                      className="w-full h-auto max-h-40 sm:max-h-48 md:max-h-56 object-cover cursor-pointer hover:opacity-90 transition-opacity rounded"
                       onClick={() => window.open(screenshots.viewport, '_blank')}
                     />
                   </div>
@@ -368,46 +383,38 @@ Affected URLs: ${affectedUrls.join(', ')}`
           {suggestions.length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
-                <Code className="h-4 w-4" />
+                <Sparkles className="h-4 w-4 text-purple-600" />
                 AI-Generated Fixes
               </h4>
               <div className="space-y-3">
                 {suggestions.map((suggestion, index) => {
-                  // Check if this is an AI-powered contextual suggestion
-                  const isAISuggestion = suggestion.description.length > 100 && 
-                    (suggestion.description.includes('#') || 
-                     suggestion.description.includes('Accessibility Fix:') ||
-                     suggestion.description.includes('Brief explanation') ||
-                     suggestion.description.includes('Issue Explanation') ||
-                     suggestion.description.includes('Specific Code Fix') ||
-                     suggestion.description.includes('Why this fix improves') ||
-                     suggestion.description.includes('Alternative approaches') ||
-                     suggestion.description.includes('This improves accessibility'));
+                  // All suggestions are AI-powered since we use Claude API
+                  const isAISuggestion = true;
                   
                   return (
                     <div key={index} className={`border rounded p-3 ${
                       isAISuggestion 
-                        ? 'border-purple-200 bg-purple-50' 
-                        : 'border-gray-200 bg-blue-50'
+                        ? 'border-purple-300 bg-purple-100' 
+                        : 'border-blue-300 bg-blue-100'
                     }`}>
                       <div className="flex items-start gap-3">
                         {isAISuggestion ? (
                           <div className="flex-shrink-0">
-                            <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
-                              <Sparkles className="h-3 w-3 text-purple-600" />
+                            <div className="w-6 h-6 bg-purple-200 rounded-full flex items-center justify-center">
+                              <Sparkles className="h-3 w-3 text-purple-800" />
                             </div>
                           </div>
                         ) : (
                           <div className="flex-shrink-0">
-                            <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                              <Code className="h-3 w-3 text-blue-600" />
+                            <div className="w-6 h-6 bg-blue-200 rounded-full flex items-center justify-center">
+                              <Code className="h-3 w-3 text-blue-800" />
                             </div>
                           </div>
                         )}
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             {isAISuggestion && (
-                              <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full border border-purple-200">
+                              <span className="px-2 py-1 text-xs font-medium bg-purple-200 text-purple-900 rounded-full border border-purple-300">
                                 AI SUGGESTION
                               </span>
                             )}
@@ -419,7 +426,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
                             </span>
                           </div>
                           <p className={`mb-3 ${
-                            isAISuggestion ? 'text-purple-900 font-medium' : 'text-gray-700'
+                            isAISuggestion ? 'text-purple-900 font-medium' : 'text-gray-800'
                           }`}>
                             {suggestion.description}
                           </p>
@@ -443,6 +450,11 @@ Affected URLs: ${affectedUrls.join(', ')}`
             </div>
           )}
 
+        </div>
+      )}
+    </div>
+  )
+}
           {/* Status Management */}
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
             <div className="flex items-center gap-2 mb-4">

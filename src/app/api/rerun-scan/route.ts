@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
           pagesToScan,
           includeSubdomains: scanSettings.includeSubdomains || false,
           wcagLevel: scanSettings.wcagLevel || 'AA',
-          selectedTags: scanSettings.selectedTags || ['wcag22a', 'wcag22aa']
+          selectedTags: scanSettings.selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']
         }
       })
     } else if (originalScan.scan_type === 'document') {
