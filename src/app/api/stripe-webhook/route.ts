@@ -255,22 +255,17 @@ async function sendReceiptEmailFromSession(session: Stripe.Checkout.Session) {
       return
     }
 
-    // Get the price details
-    const lineItem = session.line_items?.data?.[0]
-    if (!lineItem?.price) {
-      console.log('No price information in session, skipping receipt email')
+    const { type, priceId } = session.metadata || {}
+    
+    if (!type || !priceId) {
+      console.log('Missing metadata in session, skipping receipt email')
       return
     }
 
-    const price = lineItem.price
-    const { type } = session.metadata || {}
-    
-    // Get plan name from price
-    const planName = getPlanNameFromPriceId(price.id)
-    const amount = `$${(price.unit_amount || 0) / 100}`
-    const billingPeriod = price.recurring ? 
-      (price.recurring.interval === 'month' ? 'Monthly' : 'Yearly') : 
-      undefined
+    // Get plan name and amount from priceId
+    const planName = getPlanNameFromPriceId(priceId)
+    const creditAmount = getCreditAmountFromPriceId(priceId)
+    const amount = `$${(session.amount_total || 0) / 100}`
 
     const receiptData: ReceiptData = {
       customerEmail: session.customer_email,
@@ -285,11 +280,13 @@ async function sendReceiptEmailFromSession(session: Stripe.Checkout.Session) {
         hour: '2-digit',
         minute: '2-digit'
       }),
-      billingPeriod,
-      creditAmount: type === 'credits' ? getCreditAmountFromPriceId(price.id) : undefined
+      billingPeriod: undefined, // Not applicable for one-time purchases
+      creditAmount: type === 'credits' ? creditAmount : undefined
     }
 
+    console.log('📧 Sending receipt email:', receiptData)
     await sendReceiptEmail(receiptData)
+    console.log('✅ Receipt email sent successfully')
   } catch (error) {
     console.error('Error sending receipt email from session:', error)
   }

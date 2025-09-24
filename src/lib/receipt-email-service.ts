@@ -248,7 +248,7 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
     `
 
     const result = await resend.emails.send({
-      from: 'AccessiTest <receipts@accessitest.com>',
+      from: 'AccessiTest <onboarding@resend.dev>',
       to: [customerEmail],
       subject,
       html: htmlContent,

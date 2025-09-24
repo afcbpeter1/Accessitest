@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Check, CreditCard, Zap, Shield, FileText, Globe } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import { STRIPE_PRICE_IDS } from '@/lib/stripe-config'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface PricingPlan {
   name: string
@@ -25,6 +26,7 @@ interface CreditPackage {
 }
 
 export default function Pricing() {
+  const { user } = useAuth()
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [selectedCredits, setSelectedCredits] = useState<string | null>(null)
@@ -132,6 +134,8 @@ export default function Pricing() {
         },
         body: JSON.stringify({
           priceId,
+          userId: user?.id,
+          userEmail: user?.email,
           successUrl: `${window.location.origin}/thank-you?success=true`,
           cancelUrl: `${window.location.origin}/pricing?canceled=true`,
         }),
@@ -177,6 +181,8 @@ export default function Pricing() {
         },
         body: JSON.stringify({
           priceId,
+          userId: user?.id,
+          userEmail: user?.email,
           successUrl: `${window.location.origin}/thank-you?success=true`,
           cancelUrl: `${window.location.origin}/pricing?canceled=true`,
         }),
