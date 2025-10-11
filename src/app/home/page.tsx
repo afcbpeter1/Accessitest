@@ -13,7 +13,8 @@ import {
   AlertTriangle,
   ExternalLink,
   Code,
-  X
+  X,
+  Contrast
 } from 'lucide-react'
 import Link from 'next/link'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -331,6 +332,14 @@ export default function HomePage() {
       link: '/accessibility-issues'
     },
     {
+      icon: Contrast,
+      title: 'Logo Contrast Checker',
+      description: 'Free tool to check color contrast ratios in your logos against WCAG accessibility standards',
+      color: 'text-[#06B6D4]',
+      bgColor: 'bg-[#06B6D4]/10',
+      link: '/logo-contrast-checker'
+    },
+    {
       icon: Zap,
       title: 'AI-Powered Analysis',
       description: 'Advanced artificial intelligence for intelligent issue detection and automated remediation recommendations',
@@ -444,6 +453,13 @@ export default function HomePage() {
             >
               🔍 See Issues Demo
               <AlertTriangle className="ml-2 h-5 w-5" />
+            </Link>
+            <Link 
+              href="/logo-contrast-checker" 
+              className="bg-[#0B1220] text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-800 transition-colors flex items-center justify-center"
+            >
+              🎨 Logo Contrast Checker
+              <Contrast className="ml-2 h-5 w-5" />
             </Link>
           </div>
         </div>
@@ -601,6 +617,13 @@ export default function HomePage() {
                     >
                       See Issues Demo
                       <AlertTriangle className="h-5 w-5 ml-2" />
+                    </Link>
+                    <Link 
+                      href="/logo-contrast-checker"
+                      className="inline-flex items-center px-6 py-3 bg-white text-[#0B1220] rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                    >
+                      Logo Contrast Checker
+                      <Contrast className="h-5 w-5 ml-2" />
                     </Link>
                   </div>
                 </div>

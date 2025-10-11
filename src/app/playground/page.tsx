@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { CheckCircle, XCircle, AlertTriangle, Code, Eye, EyeOff, Volume2, VolumeX, MousePointer, Keyboard, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import Footer from '../../components/Footer'
 
 interface AccessibilityIssue {
   id: string
@@ -413,7 +414,7 @@ export default function AccessibilityPlayground() {
                 <span>Back to Home</span>
               </Link>
               <div className="h-6 w-px bg-gray-300"></div>
-              <h1 className="text-xl font-semibold text-gray-900">AccessScan</h1>
+              <img src="/allytest.png" alt="AccessScan" className="h-8 w-auto" />
             </div>
             <div className="flex items-center space-x-4">
               <Link href="/login" className="text-gray-600 hover:text-gray-900">Sign In</Link>
@@ -611,6 +612,8 @@ export default function AccessibilityPlayground() {
             </div>
           )}
         </div>
+
+        <Footer />
       </div>
     </div>
   )

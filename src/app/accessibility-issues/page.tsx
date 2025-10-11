@@ -3,32 +3,47 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, AlertTriangle, CheckCircle, XCircle, Info, Eye, EyeOff, Volume2, VolumeX, MessageCircle } from 'lucide-react'
+import Footer from '../../components/Footer'
 
 export default function AccessibilityIssuesPage() {
   const [showIssues, setShowIssues] = useState(true)
 
   return (
     <div className="min-h-screen bg-gray-50 accessibility-issues-demo">
-      {/* Header with multiple accessibility issues */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/home" className="text-blue-600 hover:underline">
-              <ArrowLeft className="h-5 w-5 inline mr-1" />
-              Back to Home
-            </Link>
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-12">
             <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setShowIssues(!showIssues)}
-                className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-md"
-              >
-                {showIssues ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                <span>{showIssues ? 'Hide Issues' : 'Show Issues'}</span>
-              </button>
+              <Link href="/" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
+                <ArrowLeft className="h-5 w-5" />
+                <span>Back to Home</span>
+              </Link>
+              <div className="h-6 w-px bg-gray-300"></div>
+              <img src="/allytest.png" alt="AccessScan" className="h-8 w-auto" />
+            </div>
+            <div className="flex items-center space-x-4">
+              <Link href="/login" className="text-gray-600 hover:text-gray-900">Sign In</Link>
+              <Link href="/signup" className="bg-[#0B1220] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800">Get Started</Link>
             </div>
           </div>
         </div>
-      </header>
+      </div>
+
+      {/* Toggle Issues Button */}
+      <div className="bg-white shadow-sm">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-center">
+            <button
+              onClick={() => setShowIssues(!showIssues)}
+              className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-md"
+            >
+              {showIssues ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              <span>{showIssues ? 'Hide Issues' : 'Show Issues'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
@@ -1509,53 +1524,7 @@ export default function AccessibilityIssuesPage() {
         </article>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-gray-800 text-white py-8 mt-12">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="grid grid-cols-3 gap-8">
-            <div>
-              <h4 className="text-lg font-semibold mb-4">About Us</h4>
-              <p className="text-gray-300 text-sm">
-                We're passionate about creating accessible web experiences that work for everyone.
-              </p>
-            </div>
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
-              <div className="space-y-2 text-sm">
-                <Link href="/home" className="text-gray-300 hover:text-white block">Home</Link>
-                <Link href="/playground" className="text-gray-300 hover:text-white block">Accessibility Playground</Link>
-                <Link href="/new-scan" className="text-gray-300 hover:text-white block">Start New Scan</Link>
-                <Link href="/pricing" className="text-gray-300 hover:text-white block">Pricing</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Connect</h4>
-              <div className="space-y-2 text-sm">
-                <a href="#" className="text-gray-300 hover:text-white block">Twitter</a>
-                <a href="#" className="text-gray-300 hover:text-white block">LinkedIn</a>
-                <a href="#" className="text-gray-300 hover:text-white block">GitHub</a>
-                <a href="#" className="text-gray-300 hover:text-white block">Email</a>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-gray-700 mt-8 pt-4 text-center text-sm text-gray-400">
-            <p>&copy; 2024 Accessibility Blog. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
-
-      {/* Hidden content that affects accessibility */}
-      <div style={{ display: 'none' }}>
-        <p>This content is hidden with display: none</p>
-      </div>
-      
-      <div style={{ visibility: 'hidden' }}>
-        <p>This content is hidden with visibility: hidden</p>
-      </div>
-
-      <div aria-hidden="true">
-        <p>This content is hidden with aria-hidden</p>
-      </div>
+      <Footer />
     </div>
   )
 }
