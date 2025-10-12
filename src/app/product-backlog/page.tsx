@@ -5,6 +5,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import { Plus, MessageSquare, Copy, Trash2, Edit3, CheckCircle, Clock, XCircle } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import IssueDetailModal from '@/components/IssueDetailModal'
 
 interface BacklogItem {
   id: string
@@ -62,6 +63,7 @@ export default function ProductBacklog() {
   const [showComments, setShowComments] = useState(false)
   const [newComment, setNewComment] = useState('')
   const [comments, setComments] = useState<Comment[]>([])
+  const [showDetailModal, setShowDetailModal] = useState(false)
 
   useEffect(() => {
     fetchBacklogItems()
@@ -298,9 +300,13 @@ ${item.element_html || 'N/A'}
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
-                                  className={`p-6 hover:bg-gray-50 transition-colors ${
+                                  className={`p-6 hover:bg-gray-50 transition-colors cursor-pointer ${
                                     snapshot.isDragging ? 'bg-blue-50 shadow-lg' : ''
                                   }`}
+                                  onClick={() => {
+                                    setSelectedItem(item)
+                                    setShowDetailModal(true)
+                                  }}
                                 >
                                   <div className="flex items-start justify-between">
                                     <div className="flex-1">
@@ -472,6 +478,26 @@ ${item.element_html || 'N/A'}
             </div>
           </div>
         </div>
+        
+        {/* Issue Detail Modal */}
+        <IssueDetailModal
+          issue={selectedItem}
+          isOpen={showDetailModal}
+          onClose={() => {
+            setShowDetailModal(false)
+            setSelectedItem(null)
+          }}
+          onUpdate={(issueId, updates) => {
+            // Update the issue in the backlog
+            setBacklogItems(items => 
+              items.map(item => 
+                item.id === issueId 
+                  ? { ...item, ...updates }
+                  : item
+              )
+            )
+          }}
+        />
       </Sidebar>
     </ProtectedRoute>
   )

@@ -61,11 +61,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // For now, use the first available user_id since authentication is bypassed
+    const defaultUserId = '09d7030b-e612-4226-b695-beefb3e97936'
+    
     const result = await pool.query(
-      `INSERT INTO sprints (name, description, start_date, end_date, goal, status)
-       VALUES ($1, $2, $3, $4, $5, 'planning')
+      `INSERT INTO sprints (user_id, name, description, start_date, end_date, goal, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'planning')
        RETURNING *`,
-      [name, description, start_date, end_date, goal]
+      [defaultUserId, name, description, start_date, end_date, goal]
     )
 
     // Create default columns for the sprint
@@ -94,8 +97,10 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Error creating sprint:', error)
+    console.error('❌ Error details:', error.message)
+    console.error('❌ Error stack:', error.stack)
     return NextResponse.json(
-      { error: 'Failed to create sprint' },
+      { error: 'Failed to create sprint', details: error.message },
       { status: 500 }
     )
   }
