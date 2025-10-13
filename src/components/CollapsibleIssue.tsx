@@ -17,11 +17,6 @@ import {
 } from 'lucide-react'
 import AddToBacklogButton from './AddToBacklogButton'
 
-interface IssueStatus {
-  status: 'open' | 'raised' | 'deferred'
-  deferredReason?: string
-  notes?: string
-}
 
 interface CollapsibleIssueProps {
   issueId: string
@@ -67,8 +62,6 @@ interface CollapsibleIssueProps {
   }
   savedAIResponses?: any[]
   scanId: string
-  onStatusChange?: (issueId: string, status: IssueStatus) => void
-  initialStatus?: IssueStatus
 }
 
 const getImpactColor = (impact: string) => {
@@ -90,21 +83,6 @@ const getPriorityColor = (priority: string) => {
   }
 }
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'raised': return 'text-green-600 bg-green-50'
-    case 'deferred': return 'text-orange-600 bg-orange-50'
-    default: return 'text-gray-600 bg-gray-50'
-  }
-}
-
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case 'raised': return <CheckCircle className="h-4 w-4" />
-    case 'deferred': return <XCircle className="h-4 w-4" />
-    default: return <AlertTriangle className="h-4 w-4" />
-  }
-}
 
 export default function CollapsibleIssue({
   issueId,
@@ -121,39 +99,10 @@ export default function CollapsibleIssue({
   priority,
   screenshots,
   savedAIResponses,
-  scanId,
-  onStatusChange,
-  initialStatus
+  scanId
 }: CollapsibleIssueProps) {
   const [isExpanded, setIsExpanded] = useState(false) // Start collapsed by default
-  const [issueStatus, setIssueStatus] = useState<IssueStatus>(
-    initialStatus || { status: 'open' }
-  )
-  const [showDeferredReason, setShowDeferredReason] = useState(false)
-  const [deferredReason, setDeferredReason] = useState(issueStatus.deferredReason || '')
-  const [notes, setNotes] = useState(issueStatus.notes || '')
   const [copied, setCopied] = useState(false)
-
-  const handleStatusChange = (newStatus: 'open' | 'raised' | 'deferred') => {
-    const updatedStatus = {
-      ...issueStatus,
-      status: newStatus,
-      deferredReason: newStatus === 'deferred' ? deferredReason : undefined
-    }
-    setIssueStatus(updatedStatus)
-    onStatusChange?.(issueId, updatedStatus)
-  }
-
-  const handleDeferredReasonSubmit = () => {
-    const updatedStatus = {
-      ...issueStatus,
-      status: 'deferred',
-      deferredReason
-    }
-    setIssueStatus(updatedStatus)
-    setShowDeferredReason(false)
-    onStatusChange?.(issueId, updatedStatus)
-  }
 
   const handleCopy = async () => {
     const issueText = `Issue: ${ruleName}
@@ -208,10 +157,6 @@ Affected URLs: ${affectedUrls.join(', ')}`
                 </span>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(priority)} bg-opacity-10`}>
                   {priority.toUpperCase()} PRIORITY
-                </span>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(issueStatus.status)} flex items-center gap-1`}>
-                  {getStatusIcon(issueStatus.status)}
-                  {issueStatus.status.toUpperCase()}
                 </span>
               </div>
               <p className="text-sm text-gray-600 mb-2 break-words">{description}</p>
@@ -449,6 +394,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
               </div>
             </div>
           )}
+
 
         </div>
       )}

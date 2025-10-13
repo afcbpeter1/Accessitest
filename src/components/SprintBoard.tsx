@@ -53,9 +53,19 @@ interface SprintIssue {
 }
 
 export default function SprintBoard() {
+  console.log('🏃 SprintBoard component loaded')
+  
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [selectedSprint, setSelectedSprint] = useState<Sprint | null>(null)
-  const [columns, setColumns] = useState<SprintColumn[]>([])
+  // Fixed standard columns
+  const columns = [
+    { id: 'todo', name: 'To Do', color: '#6B7280', wip_limit: null },
+    { id: 'blocked', name: 'Blocked', color: '#EF4444', wip_limit: null },
+    { id: 'in_progress', name: 'In Progress', color: '#3B82F6', wip_limit: 5 },
+    { id: 'in_review', name: 'In Review', color: '#F59E0B', wip_limit: 3 },
+    { id: 'done', name: 'Done', color: '#10B981', wip_limit: null }
+  ]
+  
   const [issues, setIssues] = useState<SprintIssue[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedIssue, setSelectedIssue] = useState<any>(null)
@@ -63,7 +73,6 @@ export default function SprintBoard() {
   const [draggedIssue, setDraggedIssue] = useState<string | null>(null)
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
-  const [showAddColumnModal, setShowAddColumnModal] = useState(false)
 
   useEffect(() => {
     fetchSprints()
@@ -78,17 +87,24 @@ export default function SprintBoard() {
   const fetchSprints = async () => {
     try {
       setLoading(true)
+      console.log('🔄 Fetching sprints...')
       const response = await fetch('/api/sprint-board/sprints')
       const data = await response.json()
       
+      console.log('📊 Sprint API response:', data)
+      
       if (data.success) {
+        console.log('✅ Found sprints:', data.data.sprints.length)
         setSprints(data.data.sprints)
         if (data.data.sprints.length > 0 && !selectedSprint) {
+          console.log('🎯 Setting first sprint as selected:', data.data.sprints[0])
           setSelectedSprint(data.data.sprints[0])
         }
+      } else {
+        console.error('❌ Sprint API error:', data.error)
       }
     } catch (error) {
-      console.error('Error fetching sprints:', error)
+      console.error('❌ Error fetching sprints:', error)
     } finally {
       setLoading(false)
     }
@@ -97,19 +113,17 @@ export default function SprintBoard() {
   const fetchSprintData = async () => {
     if (!selectedSprint) return
 
+    console.log('🔄 Fetching sprint data for sprint:', selectedSprint.id)
+
     try {
       setLoading(true)
-      const [columnsRes, issuesRes] = await Promise.all([
-        fetch(`/api/sprint-board/columns?sprintId=${selectedSprint.id}`),
-        fetch(`/api/sprint-board/issues?sprintId=${selectedSprint.id}`)
-      ])
-
-      const columnsData = await columnsRes.json()
+      const issuesRes = await fetch(`/api/sprint-board/issues?sprintId=${selectedSprint.id}`)
       const issuesData = await issuesRes.json()
 
-      if (columnsData.success && issuesData.success) {
-        setColumns(columnsData.data.columns)
-        setIssues(issuesData.data.sprintIssues)
+      console.log('🔄 Fetched issues data:', issuesData)
+
+      if (issuesData.success) {
+        setIssues(issuesData.data.issues)
       }
     } catch (error) {
       console.error('Error fetching sprint data:', error)
@@ -216,27 +230,37 @@ export default function SprintBoard() {
     }
   }
 
-  const handleAddColumn = async (columnData: any) => {
-    if (!selectedSprint) return
-
+  const handleSprintStatusUpdate = async (sprintId: string, status: string) => {
     try {
-      const response = await fetch('/api/sprint-board/columns', {
-        method: 'POST',
+      console.log('🔄 Updating sprint status:', sprintId, 'to', status)
+      
+      const response = await fetch('/api/sprint-board/sprints', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sprintId: selectedSprint.id,
-          ...columnData
-        })
+        body: JSON.stringify({ sprintId, status })
       })
 
-      if (response.ok) {
-        fetchSprintData()
-        setShowAddColumnModal(false)
+      const data = await response.json()
+      console.log('📊 Sprint status update response:', data)
+
+      if (response.ok && data.success) {
+        console.log('✅ Sprint status updated successfully')
+        
+        // Update the selected sprint status immediately
+        if (selectedSprint?.id === sprintId) {
+          setSelectedSprint(prev => prev ? { ...prev, status } : null)
+        }
+        
+        // Refresh sprints list to get updated data
+        fetchSprints()
+      } else {
+        console.error('❌ Failed to update sprint status:', data.error)
       }
     } catch (error) {
-      console.error('Error adding column:', error)
+      console.error('❌ Error updating sprint status:', error)
     }
   }
+
 
   const getImpactColor = (impact: string) => {
     switch (impact) {
@@ -350,9 +374,61 @@ export default function SprintBoard() {
                   )}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-gray-900">{issues.length}</div>
-                <div className="text-sm text-gray-500">Total Issues</div>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-gray-900">{issues.length}</div>
+                  <div className="text-sm text-gray-500">Total Issues</div>
+                </div>
+                
+                {/* Sprint Status Management */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">Status:</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    selectedSprint.status === 'planning' ? 'bg-blue-100 text-blue-800' :
+                    selectedSprint.status === 'active' ? 'bg-green-100 text-green-800' :
+                    selectedSprint.status === 'completed' ? 'bg-gray-100 text-gray-800' :
+                    selectedSprint.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {selectedSprint.status.charAt(0).toUpperCase() + selectedSprint.status.slice(1)}
+                  </span>
+                  
+                  {/* Status Action Buttons */}
+                  {selectedSprint.status === 'planning' && (
+                    <button
+                      onClick={() => handleSprintStatusUpdate(selectedSprint.id, 'active')}
+                      className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      Start Sprint
+                    </button>
+                  )}
+                  
+                  {selectedSprint.status === 'active' && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSprintStatusUpdate(selectedSprint.id, 'completed')}
+                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        Complete Sprint
+                      </button>
+                      <button
+                        onClick={() => handleSprintStatusUpdate(selectedSprint.id, 'cancelled')}
+                        className="px-3 py-1 bg-red-600 text-white text-xs rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Cancel Sprint
+                      </button>
+                    </div>
+                  )}
+                  
+                  {(selectedSprint.status === 'completed' || selectedSprint.status === 'cancelled') && (
+                    <button
+                      onClick={() => handleSprintStatusUpdate(selectedSprint.id, 'planning')}
+                      className="px-3 py-1 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 transition-colors"
+                    >
+                      Reset Sprint
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -450,18 +526,6 @@ export default function SprintBoard() {
               </div>
             ))}
             
-            {/* Add Column Button - Trello Style */}
-            <div className="flex-shrink-0 w-72">
-              <button 
-                onClick={() => setShowAddColumnModal(true)}
-                className="w-full h-12 bg-gray-200 border-2 border-dashed border-gray-400 rounded-lg flex items-center justify-center hover:bg-gray-300 hover:border-gray-500 transition-colors group"
-              >
-                <div className="flex items-center gap-2 text-gray-600 group-hover:text-gray-700">
-                  <Plus className="h-5 w-5" />
-                  <span className="font-medium">Add Column</span>
-                </div>
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -497,54 +561,6 @@ export default function SprintBoard() {
         onSave={handleSprintSave}
       />
 
-      {/* Add Column Modal */}
-      {showAddColumnModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowAddColumnModal(false)}></div>
-            <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Column</h3>
-              <form onSubmit={(e) => {
-                e.preventDefault()
-                const formData = new FormData(e.currentTarget)
-                handleAddColumn({
-                  name: formData.get('name'),
-                  description: formData.get('description'),
-                  color: formData.get('color'),
-                  wip_limit: formData.get('wip_limit') ? parseInt(formData.get('wip_limit') as string) : null
-                })
-              }}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Column Name</label>
-                    <input name="name" type="text" required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    <input name="description" type="text" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Color</label>
-                    <input name="color" type="color" defaultValue="#3B82F6" className="w-full h-10 border border-gray-300 rounded-lg" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">WIP Limit (optional)</label>
-                    <input name="wip_limit" type="number" min="1" max="20" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
-                  </div>
-                </div>
-                <div className="flex justify-end gap-3 mt-6">
-                  <button type="button" onClick={() => setShowAddColumnModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                    Cancel
-                  </button>
-                  <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-                    Add Column
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

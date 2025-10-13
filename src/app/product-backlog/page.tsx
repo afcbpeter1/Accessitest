@@ -69,12 +69,24 @@ export default function ProductBacklog() {
     fetchBacklogItems()
   }, [])
 
+  // Debug: Log backlog items when they change
+  useEffect(() => {
+    console.log('🔍 Debug: Backlog items state changed:', backlogItems.length, 'items')
+    console.log('🔍 Debug: Backlog items:', backlogItems)
+  }, [backlogItems])
+
   const fetchBacklogItems = async () => {
     try {
+      console.log('🔍 Debug: Fetching backlog items...')
       const response = await fetch('/api/backlog')
       const data = await response.json()
+      console.log('🔍 Debug: API response:', data)
+      console.log('🔍 Debug: Items count:', data.items?.length || 0)
       if (data.success) {
         setBacklogItems(data.items)
+        console.log('🔍 Debug: Set backlog items:', data.items)
+      } else {
+        console.error('❌ API returned success: false', data)
       }
     } catch (error) {
       console.error('Error fetching backlog items:', error)
@@ -96,29 +108,52 @@ export default function ProductBacklog() {
   }
 
   const handleDragEnd = async (result: any) => {
-    if (!result.destination) return
+    console.log('🔄 Drag and drop triggered:', result)
+    
+    if (!result.destination) {
+      console.log('❌ No destination, drag cancelled')
+      return
+    }
+
+    console.log('🔄 Moving item from', result.source.index, 'to', result.destination.index)
 
     const items = Array.from(backlogItems)
     const [reorderedItem] = items.splice(result.source.index, 1)
     items.splice(result.destination.index, 0, reorderedItem)
 
-    // Update priority ranks
+    // Update ranks for all items
     const updatedItems = items.map((item, index) => ({
       ...item,
-      priority_rank: index + 1
+      rank: index + 1
     }))
 
     setBacklogItems(updatedItems)
 
-    // Update the moved item's priority rank
+    // Update all items' ranks in the database
     try {
-      await fetch(`/api/backlog/${reorderedItem.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priorityRank: result.destination.index + 1 })
+      console.log('🔄 Updating ranks for all items after drag and drop')
+      
+      // Update all items with their new ranks
+      const updatePromises = updatedItems.map((item, index) => {
+        console.log(`🔄 Updating item ${item.id} to rank ${index + 1}`)
+        return fetch(`/api/backlog/${item.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priorityRank: index + 1 })
+        })
       })
+
+      const responses = await Promise.all(updatePromises)
+      
+      // Check if any updates failed
+      const failedUpdates = responses.filter(response => !response.ok)
+      if (failedUpdates.length > 0) {
+        throw new Error(`Failed to update ${failedUpdates.length} items`)
+      }
+      
+      console.log('✅ All ranks updated successfully')
     } catch (error) {
-      console.error('Error updating priority rank:', error)
+      console.error('❌ Error updating ranks:', error)
       // Revert on error
       fetchBacklogItems()
     }
@@ -283,6 +318,9 @@ ${item.element_html || 'N/A'}
                     <h2 className="text-lg font-semibold text-gray-900">
                       Backlog Items ({backlogItems.length})
                     </h2>
+                    <div className="mt-2 text-sm text-gray-600">
+                      Debug: Loading={loading.toString()}, Items={backlogItems.length}
+                    </div>
                   </div>
                   
                   <DragDropContext onDragEnd={handleDragEnd}>
@@ -293,7 +331,12 @@ ${item.element_html || 'N/A'}
                           ref={provided.innerRef}
                           className="divide-y divide-gray-200"
                         >
-                          {backlogItems.map((item, index) => (
+                          {backlogItems.length === 0 ? (
+                            <div className="p-8 text-center text-gray-500">
+                              No backlog items found. Check the console for debug info.
+                            </div>
+                          ) : (
+                            backlogItems.map((item, index) => (
                             <Draggable key={item.id} draggableId={item.id} index={index}>
                               {(provided, snapshot) => (
                                 <div
@@ -344,29 +387,13 @@ ${item.element_html || 'N/A'}
                                     </div>
                                     
                                     <div className="flex items-center gap-2 ml-4">
-                                      {/* Story Points */}
-                                      <select
-                                        value={item.story_points || ''}
-                                        onChange={(e) => updateStoryPoints(item.id, parseInt(e.target.value) || 0)}
-                                        className="text-xs border border-gray-300 rounded px-2 py-1"
-                                      >
-                                        <option value="">Points</option>
-                                        {FIBONACCI_POINTS.map(point => (
-                                          <option key={point} value={point}>{point}</option>
-                                        ))}
-                                      </select>
-                                      
-                                      {/* Status */}
-                                      <select
-                                        value={item.status}
-                                        onChange={(e) => updateStatus(item.id, e.target.value)}
-                                        className="text-xs border border-gray-300 rounded px-2 py-1"
-                                      >
-                                        <option value="backlog">Backlog</option>
-                                        <option value="in_progress">In Progress</option>
-                                        <option value="done">Done</option>
-                                        <option value="cancelled">Cancelled</option>
-                                      </select>
+                                      {/* Story Points Display */}
+                                      <div className="flex items-center gap-1 text-xs text-gray-600">
+                                        <span className="font-medium">Points:</span>
+                                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-semibold">
+                                          {item.story_points || 1}
+                                        </span>
+                                      </div>
                                       
                                       {/* Actions */}
                                       <button
@@ -401,7 +428,8 @@ ${item.element_html || 'N/A'}
                                 </div>
                               )}
                             </Draggable>
-                          ))}
+                          ))
+                          )}
                           {provided.placeholder}
                         </div>
                       )}

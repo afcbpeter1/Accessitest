@@ -7,11 +7,13 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🏃 Sprint API called')
     
-    // Temporarily bypass authentication for debugging
+    // Temporarily bypass authentication to debug
     // const user = await getAuthenticatedUser(request)
     // if (!user) {
     //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     // }
+
+    console.log('🔍 Debug: Fetching all sprints (bypassing auth)')
 
     const result = await pool.query(`
       SELECT 
@@ -52,6 +54,11 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🏃 Creating new sprint')
     
+    const user = await getAuthenticatedUser(request)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const { name, description, start_date, end_date, goal } = await request.json()
 
     if (!name || !start_date || !end_date) {
@@ -60,15 +67,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    // For now, use the first available user_id since authentication is bypassed
-    const defaultUserId = '09d7030b-e612-4226-b695-beefb3e97936'
     
     const result = await pool.query(
       `INSERT INTO sprints (user_id, name, description, start_date, end_date, goal, status)
        VALUES ($1, $2, $3, $4, $5, $6, 'planning')
        RETURNING *`,
-      [defaultUserId, name, description, start_date, end_date, goal]
+      [user.userId, name, description, start_date, end_date, goal]
     )
 
     // Create default columns for the sprint
@@ -101,6 +105,60 @@ export async function POST(request: NextRequest) {
     console.error('❌ Error stack:', error.stack)
     return NextResponse.json(
       { error: 'Failed to create sprint', details: error.message },
+      { status: 500 }
+    )
+  }
+}
+
+// PUT /api/sprint-board/sprints - Update sprint status
+export async function PUT(request: NextRequest) {
+  try {
+    console.log('🔄 Updating sprint status')
+    
+    // Temporarily bypass authentication to debug
+    // const user = await getAuthenticatedUser(request)
+    // if (!user) {
+    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // }
+
+    const { sprintId, status } = await request.json()
+
+    if (!sprintId || !status) {
+      return NextResponse.json(
+        { error: 'Sprint ID and status are required' },
+        { status: 400 }
+      )
+    }
+
+    console.log('🔍 Debug: Updating sprint', sprintId, 'to status:', status)
+
+    // Update sprint status (bypassing user check for now)
+    const result = await pool.query(`
+      UPDATE sprints 
+      SET status = $1, updated_at = NOW()
+      WHERE id = $2
+      RETURNING *
+    `, [status, sprintId])
+
+    if (result.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Sprint not found' },
+        { status: 404 }
+      )
+    }
+
+    console.log('✅ Sprint status updated to:', status)
+
+    return NextResponse.json({
+      success: true,
+      data: result.rows[0]
+    })
+
+  } catch (error) {
+    console.error('❌ Error updating sprint:', error)
+    console.error('❌ Error details:', error.message)
+    return NextResponse.json(
+      { error: 'Failed to update sprint', details: error.message },
       { status: 500 }
     )
   }
