@@ -10,7 +10,7 @@ import {
   Users,
   BarChart3
 } from 'lucide-react'
-import IssueDetailsModal from './IssueDetailsModal'
+import IssueDetailModal from './IssueDetailModal'
 import SprintSettingsModal from './SprintSettingsModal'
 
 interface Sprint {
@@ -35,36 +35,50 @@ interface SprintColumn {
 
 interface SprintIssue {
   id: string
+  sprint_id: string
   issue_id: string
   column_id: string
   position: number
   story_points: number
   assignee_id?: string
-  issue: {
-    id: string
-    rule_name: string
-    description: string
-    impact: string
-    status: string
-    priority: string
+  created_at: string
+  updated_at: string
+  rule_name: string
+  description: string
+  impact: string
+  wcag_level: string
+  status: string
+  priority: string
+  total_occurrences: number
+  affected_pages: number
+  notes?: string
+  help_url?: string
+  help_text?: string
+  url: string
+  scan_results?: any
+  // Add the same fields as BacklogItem for consistency
+  issue_id: string
+  element_selector?: string
+  element_html?: string
+  failure_summary?: string
+  domain: string
+  priority_rank: number
+  comment_count: number
+  scan_data?: {
+    suggestions: any[]
+    offending_elements: any[]
     total_occurrences: number
-    last_seen: string
+    affected_pages: number
+    help_url?: string
+    help_text?: string
+    screenshots?: any
   }
 }
 
 export default function SprintBoard() {
-  console.log('🏃 SprintBoard component loaded')
-  
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [selectedSprint, setSelectedSprint] = useState<Sprint | null>(null)
-  // Fixed standard columns
-  const columns = [
-    { id: 'todo', name: 'To Do', color: '#6B7280', wip_limit: null },
-    { id: 'blocked', name: 'Blocked', color: '#EF4444', wip_limit: null },
-    { id: 'in_progress', name: 'In Progress', color: '#3B82F6', wip_limit: 5 },
-    { id: 'in_review', name: 'In Review', color: '#F59E0B', wip_limit: 3 },
-    { id: 'done', name: 'Done', color: '#10B981', wip_limit: null }
-  ]
+  const [columns, setColumns] = useState<SprintColumn[]>([])
   
   const [issues, setIssues] = useState<SprintIssue[]>([])
   const [loading, setLoading] = useState(true)
@@ -73,6 +87,7 @@ export default function SprintBoard() {
   const [draggedIssue, setDraggedIssue] = useState<string | null>(null)
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [showIssueMenu, setShowIssueMenu] = useState<string | null>(null)
 
   useEffect(() => {
     fetchSprints()
@@ -84,20 +99,27 @@ export default function SprintBoard() {
     }
   }, [selectedSprint])
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowIssueMenu(null)
+    }
+    
+    if (showIssueMenu) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [showIssueMenu])
+
   const fetchSprints = async () => {
     try {
       setLoading(true)
-      console.log('🔄 Fetching sprints...')
       const response = await fetch('/api/sprint-board/sprints')
       const data = await response.json()
       
-      console.log('📊 Sprint API response:', data)
-      
       if (data.success) {
-        console.log('✅ Found sprints:', data.data.sprints.length)
         setSprints(data.data.sprints)
         if (data.data.sprints.length > 0 && !selectedSprint) {
-          console.log('🎯 Setting first sprint as selected:', data.data.sprints[0])
           setSelectedSprint(data.data.sprints[0])
         }
       } else {
@@ -113,17 +135,27 @@ export default function SprintBoard() {
   const fetchSprintData = async () => {
     if (!selectedSprint) return
 
-    console.log('🔄 Fetching sprint data for sprint:', selectedSprint.id)
-
     try {
       setLoading(true)
+      
+      // Fetch columns for the sprint
+      const columnsRes = await fetch(`/api/sprint-board/columns?sprintId=${selectedSprint.id}`)
+      const columnsData = await columnsRes.json()
+
+      if (columnsData.success) {
+        setColumns(columnsData.data.columns)
+      } else {
+        console.error('❌ Columns API error:', columnsData.error)
+      }
+      
+      // Fetch issues for the sprint
       const issuesRes = await fetch(`/api/sprint-board/issues?sprintId=${selectedSprint.id}`)
       const issuesData = await issuesRes.json()
 
-      console.log('🔄 Fetched issues data:', issuesData)
-
       if (issuesData.success) {
         setIssues(issuesData.data.issues)
+      } else {
+        console.error('❌ Issues API error:', issuesData.error)
       }
     } catch (error) {
       console.error('Error fetching sprint data:', error)
@@ -200,8 +232,9 @@ export default function SprintBoard() {
     }
   }
 
-  const handleIssueClick = (issue: any) => {
-    setSelectedIssue(issue)
+  const handleIssueClick = (sprintIssue: any) => {
+    // Pass the raw sprint issue data directly, just like the product backlog does
+    setSelectedIssue(sprintIssue)
     setIsModalOpen(true)
   }
 
@@ -232,8 +265,6 @@ export default function SprintBoard() {
 
   const handleSprintStatusUpdate = async (sprintId: string, status: string) => {
     try {
-      console.log('🔄 Updating sprint status:', sprintId, 'to', status)
-      
       const response = await fetch('/api/sprint-board/sprints', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -241,10 +272,8 @@ export default function SprintBoard() {
       })
 
       const data = await response.json()
-      console.log('📊 Sprint status update response:', data)
 
       if (response.ok && data.success) {
-        console.log('✅ Sprint status updated successfully')
         
         // Update the selected sprint status immediately
         if (selectedSprint?.id === sprintId) {
@@ -258,6 +287,28 @@ export default function SprintBoard() {
       }
     } catch (error) {
       console.error('❌ Error updating sprint status:', error)
+    }
+  }
+
+  const handleMoveToBacklog = async (issueId: string) => {
+    if (!selectedSprint) return
+
+    const confirmed = window.confirm('Are you sure you want to move this issue back to the backlog?')
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(`/api/sprint-board/remove-issue?sprintId=${selectedSprint.id}&issueId=${issueId}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        // Refresh sprint data to remove the issue
+        fetchSprintData()
+      } else {
+        console.error('Failed to move issue to backlog')
+      }
+    } catch (error) {
+      console.error('Error moving issue to backlog:', error)
     }
   }
 
@@ -474,27 +525,52 @@ export default function SprintBoard() {
                       className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-2 hover:shadow-md transition-all cursor-pointer hover:border-blue-300 group"
                       draggable
                       onDragStart={(e) => handleDragStart(e, sprintIssue.issue_id)}
-                      onClick={() => handleIssueClick(sprintIssue.issue)}
+                      onClick={() => handleIssueClick(sprintIssue)}
                     >
                       {/* Card Header */}
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1 min-w-0">
                           <h4 className="text-sm font-medium text-gray-900 line-clamp-2 mb-1">
-                            {sprintIssue.issue.rule_name}
+                            {sprintIssue.rule_name}
                           </h4>
                           <p className="text-xs text-gray-500 line-clamp-2">
-                            {sprintIssue.issue.description}
+                            {sprintIssue.description}
                           </p>
                         </div>
-                        <button className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-opacity">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
+                        <div className="relative">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setShowIssueMenu(showIssueMenu === sprintIssue.issue_id ? null : sprintIssue.issue_id)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-opacity"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                          
+                          {showIssueMenu === sprintIssue.issue_id && (
+                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-32">
+                              <div className="py-1">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleMoveToBacklog(sprintIssue.issue_id)
+                                    setShowIssueMenu(null)
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                                >
+                                  Move to Backlog
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Card Tags */}
                       <div className="flex items-center gap-2 mb-2">
-                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getImpactColor(sprintIssue.issue.impact)}`}>
-                          {sprintIssue.issue.impact.toUpperCase()}
+                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${getImpactColor(sprintIssue.impact)}`}>
+                          {sprintIssue.impact.toUpperCase()}
                         </span>
                         {sprintIssue.story_points && (
                           <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
@@ -506,10 +582,10 @@ export default function SprintBoard() {
                       {/* Card Footer */}
                       <div className="flex items-center justify-between text-xs text-gray-500">
                         <div className="flex items-center gap-1">
-                          <span>👁️ {sprintIssue.issue.total_occurrences}</span>
+                          <span>👁️ {sprintIssue.total_occurrences}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span>{new Date(sprintIssue.issue.last_seen).toLocaleDateString()}</span>
+                          <span>{new Date(sprintIssue.created_at).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </div>
@@ -548,7 +624,7 @@ export default function SprintBoard() {
       )}
 
       {/* Issue Details Modal */}
-      <IssueDetailsModal
+      <IssueDetailModal
         isOpen={isModalOpen}
         onClose={handleModalClose}
         issue={selectedIssue}

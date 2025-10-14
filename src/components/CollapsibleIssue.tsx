@@ -155,8 +155,8 @@ Affected URLs: ${affectedUrls.join(', ')}`
                 <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full border border-purple-200">
                   WCAG 2.2 {wcag22Level}
                 </span>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(priority)} bg-opacity-10`}>
-                  {priority.toUpperCase()} PRIORITY
+                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(priority || 'medium')} bg-opacity-10`}>
+                  {(priority || 'medium').toUpperCase()} PRIORITY
                 </span>
               </div>
               <p className="text-sm text-gray-600 mb-2 break-words">{description}</p>
@@ -167,7 +167,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
                 </span>
                 <span className="flex items-center gap-1">
                   <ExternalLink className="h-3 w-3" />
-                  {affectedUrls.length} page{affectedUrls.length !== 1 ? 's' : ''}
+                  {(affectedUrls || []).length} page{(affectedUrls || []).length !== 1 ? 's' : ''}
                 </span>
               </div>
             </div>
@@ -181,12 +181,12 @@ Affected URLs: ${affectedUrls.join(', ')}`
                 description,
                 impact,
                 wcagLevel: wcag22Level,
-                elementSelector: offendingElements[0]?.target?.[0],
-                elementHtml: offendingElements[0]?.html,
-                failureSummary: offendingElements[0]?.failureSummary,
-                url: affectedUrls[0] || ''
+                elementSelector: (offendingElements || [])[0]?.target?.[0],
+                elementHtml: (offendingElements || [])[0]?.html,
+                failureSummary: (offendingElements || [])[0]?.failureSummary,
+                url: (affectedUrls || [])[0] || ''
               }}
-              domain={affectedUrls[0] ? new URL(affectedUrls[0]).hostname : ''}
+              domain={(affectedUrls || [])[0] ? new URL((affectedUrls || [])[0]).hostname : ''}
             />
             <button
               onClick={(e) => {
@@ -233,11 +233,11 @@ Affected URLs: ${affectedUrls.join(', ')}`
           </div>
 
           {/* Offending Elements */}
-          {offendingElements.length > 0 && (
+          {(offendingElements || []).length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-3">Offending Elements ({offendingElements.length})</h4>
+              <h4 className="text-sm font-medium text-gray-900 mb-3">Offending Elements ({(offendingElements || []).length})</h4>
               <div className="space-y-3">
-                {offendingElements.map((element, index) => (
+                {(offendingElements || []).map((element, index) => (
                   <div key={index} className="bg-gray-50 rounded-lg p-3">
                     <div className="flex items-start justify-between mb-2">
                       <span className="text-xs font-medium text-gray-500">Element {index + 1}</span>
@@ -259,7 +259,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
                         <p className="text-sm text-gray-700 mt-1">{element.failureSummary}</p>
                       </div>
                     )}
-                    {element.target && element.target.length > 0 && (
+                    {element.target && (element.target || []).length > 0 && (
                       <div>
                         <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Selector</label>
                         <code className="text-xs text-gray-700 bg-white p-1 rounded border mt-1 block">
@@ -298,7 +298,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
               )}
               
               {/* Element Screenshots */}
-              {screenshots.elements && screenshots.elements.length > 0 && (
+              {screenshots?.elements && (screenshots.elements || []).length > 0 && (
                 <div>
                   <div className="text-xs text-gray-600 mb-2">Affected Elements:</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -325,7 +325,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
           )}
 
           {/* AI-Generated Remediation */}
-          {suggestions.length > 0 && (
+          {(suggestions || []).length > 0 && (
             <div>
               <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-purple-600" />
@@ -366,8 +366,8 @@ Affected URLs: ${affectedUrls.join(', ')}`
                             <span className="text-sm font-medium text-gray-700 capitalize">
                               {suggestion.type}
                             </span>
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(suggestion.priority)}`}>
-                              {suggestion.priority.toUpperCase()} PRIORITY
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(suggestion.priority || 'medium')}`}>
+                              {(suggestion.priority || 'medium').toUpperCase()} PRIORITY
                             </span>
                           </div>
                           <p className={`mb-3 ${

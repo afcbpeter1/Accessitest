@@ -28,8 +28,6 @@ export async function GET(request: NextRequest) {
       ORDER BY sc.position ASC
     `, [sprintId])
 
-    console.log('📋 Fetched columns for sprint', sprintId, ':', result.rows.length, 'columns')
-    console.log('📋 Column names:', result.rows.map(r => r.name))
 
     return NextResponse.json({
       success: true,
@@ -52,7 +50,6 @@ export async function POST(request: NextRequest) {
   try {
     const { sprintId, name, description, color, wip_limit } = await request.json()
 
-    console.log('🔧 Creating column with data:', { sprintId, name, description, color, wip_limit })
 
     if (!sprintId || !name) {
       return NextResponse.json(
@@ -69,7 +66,6 @@ export async function POST(request: NextRequest) {
     `, [sprintId])
 
     const nextPosition = positionResult.rows[0].next_position
-    console.log('📍 Next position will be:', nextPosition)
 
     const result = await pool.query(`
       INSERT INTO sprint_columns (sprint_id, name, description, color, position, wip_limit, is_done_column)
@@ -77,7 +73,6 @@ export async function POST(request: NextRequest) {
       RETURNING *
     `, [sprintId, name, description || '', color || '#3B82F6', nextPosition, wip_limit || null, false])
 
-    console.log('✅ Column created successfully:', result.rows[0])
 
     return NextResponse.json({
       success: true,

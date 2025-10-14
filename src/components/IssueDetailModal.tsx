@@ -61,13 +61,6 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
 
   const handleSave = async () => {
     try {
-      console.log('💾 Saving issue updates:', {
-        id: issue.id,
-        story_points: storyPoints,
-        remaining_points: remainingPoints,
-        assignee,
-        description
-      })
 
       // Save to database
       const response = await fetch('/api/backlog', {
@@ -83,10 +76,8 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
       })
 
       const data = await response.json()
-      console.log('📊 Save response:', data)
 
       if (response.ok && data.success) {
-        console.log('✅ Issue updated successfully in database')
         
         // Update local state
         if (onUpdate) {

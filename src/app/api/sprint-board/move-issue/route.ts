@@ -54,7 +54,6 @@ export async function PUT(request: NextRequest) {
         VALUES ($1, $2, $3, $4, 1)
       `, [sprintId, issueId, targetColumnId, newPosition])
 
-      console.log('✅ Issue added to sprint')
     } else {
       // Move issue to new column
       const maxPosition = await pool.query(`
@@ -71,7 +70,6 @@ export async function PUT(request: NextRequest) {
         WHERE sprint_id = $3 AND issue_id = $4
       `, [targetColumnId, newPosition, sprintId, issueId])
 
-      console.log('✅ Issue moved to new column')
     }
 
     return NextResponse.json({

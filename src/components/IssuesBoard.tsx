@@ -81,10 +81,6 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
   }, [showSprintMenu])
 
   // Debug: Log when issues state changes
-  useEffect(() => {
-    console.log('🔄 Issues state changed:', issues.length, 'issues')
-    console.log('🔄 Issues order:', issues.map((i, idx) => `${idx + 1}. ${i.rule_name}`))
-  }, [issues])
 
   const fetchIssues = async () => {
     try {
@@ -148,7 +144,6 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
     console.log('🎯 DRAG ENTER:', issueId, 'draggedItem:', draggedItem)
     if (issueId !== draggedItem) {
       setDragOverItem(issueId)
-      console.log('✅ Setting drag over item:', issueId)
     }
   }
 
@@ -163,7 +158,6 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
     console.log('🎯 Current dragOverItem:', dragOverItem)
     
     if (!draggedItem || draggedItem === targetIssueId) {
-      console.log('❌ Same item or no dragged item')
       setDraggedItem(null)
       setDragOverItem(null)
       setIsReordering(false)
@@ -173,10 +167,7 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
     const draggedIndex = issues.findIndex(issue => issue.id === draggedItem)
     const targetIndex = issues.findIndex(issue => issue.id === targetIssueId)
     
-    console.log('📊 Indices:', { draggedIndex, targetIndex })
-    
     if (draggedIndex === -1 || targetIndex === -1) {
-      console.log('❌ Invalid indices')
       setDraggedItem(null)
       setDragOverItem(null)
       setIsReordering(false)
@@ -188,19 +179,11 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
     const [draggedIssue] = newIssues.splice(draggedIndex, 1)
     newIssues.splice(targetIndex, 0, draggedIssue)
     
-    console.log('🔄 Reordering:', newIssues.map(i => i.rule_name))
-    console.log('📊 Before:', issues.map((i, idx) => `${idx + 1}. ${i.rule_name}`))
-    console.log('📊 After:', newIssues.map((i, idx) => `${idx + 1}. ${i.rule_name}`))
-    
-    // Update state with callback to ensure it happens
-    console.log('🔄 Before setIssues - current issues:', issues.length)
-    console.log('🔄 Before setIssues - new issues:', newIssues.length)
     
     // Batch state updates to prevent race conditions
     setIssues(newIssues)
     setRenderKey(prev => prev + 1)
     
-    console.log('🔄 State updates queued')
 
     // Update database
     try {
@@ -215,7 +198,6 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
         body: JSON.stringify({ rankUpdates })
       })
       
-      console.log('✅ Ranks updated successfully')
     } catch (error) {
       console.error('❌ Error updating ranks:', error)
     }
@@ -224,7 +206,6 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
     setDraggedItem(null)
     setDragOverItem(null)
     setIsReordering(false)
-    console.log('🔄 Drag state reset')
   }
 
   const handleIssueClick = (issue: Issue) => {
@@ -272,7 +253,6 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
       })
 
       if (response.ok) {
-        console.log('✅ Issue moved to sprint successfully')
         setShowSprintMenu(null)
         // Optionally refresh the issues list
         fetchIssues()
@@ -530,7 +510,6 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
                   handleDragStart(e, issue.id)
                 }}
                 onDragOver={(e) => {
-                  console.log('🔄 DRAG OVER on issue:', issue.id)
                   handleDragOver(e)
                 }}
                 onDragEnter={(e) => {
@@ -552,7 +531,6 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
                     setDraggedItem(null)
                     setDragOverItem(null)
                     setIsReordering(false)
-                    console.log('🔄 Drag state reset on drag end')
                   }, 100)
                 }}
               >

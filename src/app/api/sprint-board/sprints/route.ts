@@ -5,15 +5,11 @@ import pool from '@/lib/database'
 // GET /api/sprint-board/sprints - Get all sprints for user
 export async function GET(request: NextRequest) {
   try {
-    console.log('🏃 Sprint API called')
-    
     // Temporarily bypass authentication to debug
     // const user = await getAuthenticatedUser(request)
     // if (!user) {
     //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     // }
-
-    console.log('🔍 Debug: Fetching all sprints (bypassing auth)')
 
     const result = await pool.query(`
       SELECT 
@@ -31,7 +27,6 @@ export async function GET(request: NextRequest) {
       LIMIT 20
     `)
 
-    console.log('📊 Found sprints:', result.rows.length)
 
     return NextResponse.json({
       success: true,
@@ -52,7 +47,6 @@ export async function GET(request: NextRequest) {
 // POST /api/sprint-board/sprints - Create new sprint
 export async function POST(request: NextRequest) {
   try {
-    console.log('🏃 Creating new sprint')
     
     const user = await getAuthenticatedUser(request)
     if (!user) {
@@ -92,7 +86,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('✅ Sprint created successfully')
 
     return NextResponse.json({
       success: true,
@@ -113,7 +106,6 @@ export async function POST(request: NextRequest) {
 // PUT /api/sprint-board/sprints - Update sprint status
 export async function PUT(request: NextRequest) {
   try {
-    console.log('🔄 Updating sprint status')
     
     // Temporarily bypass authentication to debug
     // const user = await getAuthenticatedUser(request)
@@ -130,7 +122,6 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    console.log('🔍 Debug: Updating sprint', sprintId, 'to status:', status)
 
     // Update sprint status (bypassing user check for now)
     const result = await pool.query(`
@@ -147,7 +138,6 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    console.log('✅ Sprint status updated to:', status)
 
     return NextResponse.json({
       success: true,

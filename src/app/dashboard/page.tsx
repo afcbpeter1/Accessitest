@@ -52,19 +52,11 @@ function DashboardContent() {
       
       if (historyResponse.ok) {
         const historyData = await historyResponse.json()
-        console.log('🔍 Debug: All scans from API:', historyData.scans)
-        console.log('🔍 Debug: Scan types found:', historyData.scans.map((s: any) => s.scanType))
-        
         const webScans = historyData.scans.filter((scan: any) => scan.scanType === 'web')
-        console.log('🔍 Debug: Web scans after filtering:', webScans)
         setScans(webScans)
         
         // Extract unique websites with URL validation
-        console.log('🔍 Debug: Total web scans found:', webScans.length)
-        console.log('🔍 Debug: Web scans data:', webScans)
-        
         const allUrls = webScans.map((scan: any) => scan.url)
-        console.log('🔍 Debug: All URLs from scans:', allUrls)
         
         const validUrls = allUrls.filter(Boolean).filter((url: string) => {
           try {
@@ -82,10 +74,7 @@ function DashboardContent() {
             }
           }
         })
-        console.log('🔍 Debug: Valid URLs:', validUrls)
-        
         const uniqueWebsites = [...new Set(validUrls)]
-        console.log('🔍 Debug: Unique websites:', uniqueWebsites)
         setWebsites(uniqueWebsites)
         
         // Calculate analytics

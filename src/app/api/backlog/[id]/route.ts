@@ -8,20 +8,11 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    console.log('🔄 Updating individual issue:', params.id)
-    
     // Temporarily bypass authentication to restore access
     const user = { userId: '09d7030b-e612-4226-b695-beefb3e97936' }
 
     const { storyPoints, remainingPoints, assignee, description, priorityRank } = await request.json()
 
-    console.log('🔍 Debug: Updating issue with data:', {
-      storyPoints,
-      remainingPoints,
-      assignee,
-      description,
-      priorityRank
-    })
 
     // Update the issue in the issues table
     const updateFields = []
@@ -74,8 +65,6 @@ export async function PUT(
       WHERE id = $${paramIndex}
     `
 
-    console.log('🔍 Debug: Executing query:', query)
-    console.log('🔍 Debug: With values:', values)
 
     const result = await pool.query(query, values)
 
@@ -86,7 +75,6 @@ export async function PUT(
       )
     }
 
-    console.log('✅ Issue updated successfully')
 
     return NextResponse.json({
       success: true,

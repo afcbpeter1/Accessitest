@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { Plus, MessageSquare, Copy, Trash2, Edit3, CheckCircle, Clock, XCircle } from 'lucide-react'
+import { Plus, MessageSquare, Copy, Trash2, Edit3, CheckCircle, Clock, XCircle, MoreHorizontal, ChevronDown } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import IssueDetailModal from '@/components/IssueDetailModal'
@@ -32,6 +32,16 @@ interface Comment {
   comment: string
   created_at: string
   user_email: string
+}
+
+interface Sprint {
+  id: string
+  name: string
+  description?: string
+  start_date: string
+  end_date: string
+  status: string
+  goal?: string
 }
 
 const FIBONACCI_POINTS = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
@@ -64,27 +74,45 @@ export default function ProductBacklog() {
   const [newComment, setNewComment] = useState('')
   const [comments, setComments] = useState<Comment[]>([])
   const [showDetailModal, setShowDetailModal] = useState(false)
+  const [sprints, setSprints] = useState<Sprint[]>([])
+  const [showSprintDropdown, setShowSprintDropdown] = useState<string | null>(null)
 
   useEffect(() => {
     fetchBacklogItems()
+    fetchSprints()
   }, [])
 
-  // Debug: Log backlog items when they change
+  // Close dropdown when clicking outside
   useEffect(() => {
-    console.log('🔍 Debug: Backlog items state changed:', backlogItems.length, 'items')
-    console.log('🔍 Debug: Backlog items:', backlogItems)
-  }, [backlogItems])
+    const handleClickOutside = () => {
+      setShowSprintDropdown(null)
+    }
+    
+    if (showSprintDropdown) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [showSprintDropdown])
+
+  const fetchSprints = async () => {
+    try {
+      const response = await fetch('/api/sprint-board/sprints')
+      const data = await response.json()
+      if (data.success) {
+        setSprints(data.data.sprints)
+      }
+    } catch (error) {
+      console.error('Failed to fetch sprints:', error)
+    }
+  }
+
 
   const fetchBacklogItems = async () => {
     try {
-      console.log('🔍 Debug: Fetching backlog items...')
       const response = await fetch('/api/backlog')
       const data = await response.json()
-      console.log('🔍 Debug: API response:', data)
-      console.log('🔍 Debug: Items count:', data.items?.length || 0)
       if (data.success) {
         setBacklogItems(data.items)
-        console.log('🔍 Debug: Set backlog items:', data.items)
       } else {
         console.error('❌ API returned success: false', data)
       }
@@ -108,14 +136,9 @@ export default function ProductBacklog() {
   }
 
   const handleDragEnd = async (result: any) => {
-    console.log('🔄 Drag and drop triggered:', result)
-    
     if (!result.destination) {
-      console.log('❌ No destination, drag cancelled')
       return
     }
-
-    console.log('🔄 Moving item from', result.source.index, 'to', result.destination.index)
 
     const items = Array.from(backlogItems)
     const [reorderedItem] = items.splice(result.source.index, 1)
@@ -131,11 +154,8 @@ export default function ProductBacklog() {
 
     // Update all items' ranks in the database
     try {
-      console.log('🔄 Updating ranks for all items after drag and drop')
-      
       // Update all items with their new ranks
       const updatePromises = updatedItems.map((item, index) => {
-        console.log(`🔄 Updating item ${item.id} to rank ${index + 1}`)
         return fetch(`/api/backlog/${item.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -150,8 +170,6 @@ export default function ProductBacklog() {
       if (failedUpdates.length > 0) {
         throw new Error(`Failed to update ${failedUpdates.length} items`)
       }
-      
-      console.log('✅ All ranks updated successfully')
     } catch (error) {
       console.error('❌ Error updating ranks:', error)
       // Revert on error
@@ -196,6 +214,43 @@ export default function ProductBacklog() {
       }
     } catch (error) {
       console.error('Error updating status:', error)
+    }
+  }
+
+  const handleMoveToSprint = async (itemId: string, sprintId: string) => {
+    try {
+      // First, get the "To Do" column ID for this sprint
+      const columnsResponse = await fetch(`/api/sprint-board/columns?sprintId=${sprintId}`)
+      const columnsData = await columnsResponse.json()
+      
+      if (!columnsData.success || columnsData.data.columns.length === 0) {
+        console.error('Failed to get sprint columns')
+        return
+      }
+      
+      // Find the "To Do" column (first column)
+      const todoColumn = columnsData.data.columns.find((col: any) => col.name === 'To Do') || columnsData.data.columns[0]
+      
+      const response = await fetch('/api/sprint-board/move-issue', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sprintId,
+          issueId: itemId,
+          columnId: todoColumn.id
+        })
+      })
+
+      if (response.ok) {
+        setShowSprintDropdown(null)
+        // Refresh backlog to remove the moved item
+        fetchBacklogItems()
+      } else {
+        const errorData = await response.json()
+        console.error('Failed to move issue to sprint:', errorData)
+      }
+    } catch (error) {
+      console.error('Error moving issue to sprint:', error)
     }
   }
 
@@ -318,9 +373,6 @@ ${item.element_html || 'N/A'}
                     <h2 className="text-lg font-semibold text-gray-900">
                       Backlog Items ({backlogItems.length})
                     </h2>
-                    <div className="mt-2 text-sm text-gray-600">
-                      Debug: Loading={loading.toString()}, Items={backlogItems.length}
-                    </div>
                   </div>
                   
                   <DragDropContext onDragEnd={handleDragEnd}>
@@ -423,6 +475,48 @@ ${item.element_html || 'N/A'}
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </button>
+                                      
+                                      {/* Sprint Assignment Dropdown */}
+                                      {sprints.length > 0 && (
+                                        <div className="relative">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setShowSprintDropdown(showSprintDropdown === item.id ? null : item.id)
+                                            }}
+                                            className="p-1 text-gray-400 hover:text-purple-600"
+                                            title="Move to Sprint"
+                                          >
+                                            <MoreHorizontal className="h-4 w-4" />
+                                          </button>
+                                          
+                                          {showSprintDropdown === item.id && (
+                                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
+                                              <div className="p-2 border-b border-gray-100">
+                                                <div className="text-xs font-medium text-gray-700">Move to Sprint</div>
+                                              </div>
+                                              <div className="py-1">
+                                                {sprints.map((sprint) => (
+                                                  <button
+                                                    key={sprint.id}
+                                                    onClick={(e) => {
+                                                      e.stopPropagation()
+                                                      handleMoveToSprint(item.id, sprint.id)
+                                                    }}
+                                                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
+                                                  >
+                                                    <div>
+                                                      <div className="font-medium">{sprint.name}</div>
+                                                      <div className="text-xs text-gray-500 capitalize">{sprint.status}</div>
+                                                    </div>
+                                                    <ChevronDown className="h-3 w-3 text-gray-400" />
+                                                  </button>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
