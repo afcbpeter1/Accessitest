@@ -6,6 +6,7 @@ import { Plus, MessageSquare, Copy, Trash2, Edit3, CheckCircle, Clock, XCircle, 
 import Sidebar from '@/components/Sidebar'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import IssueDetailModal from '@/components/IssueDetailModal'
+import { authenticatedFetch } from '@/lib/auth-utils'
 
 interface BacklogItem {
   id: string
@@ -96,7 +97,7 @@ export default function ProductBacklog() {
 
   const fetchSprints = async () => {
     try {
-      const response = await fetch('/api/sprint-board/sprints')
+      const response = await authenticatedFetch('/api/sprint-board/sprints')
       const data = await response.json()
       if (data.success) {
         setSprints(data.data.sprints)
@@ -220,7 +221,7 @@ export default function ProductBacklog() {
   const handleMoveToSprint = async (itemId: string, sprintId: string) => {
     try {
       // First, get the "To Do" column ID for this sprint
-      const columnsResponse = await fetch(`/api/sprint-board/columns?sprintId=${sprintId}`)
+      const columnsResponse = await authenticatedFetch(`/api/sprint-board/columns?sprintId=${sprintId}`)
       const columnsData = await columnsResponse.json()
       
       if (!columnsData.success || columnsData.data.columns.length === 0) {
@@ -231,7 +232,7 @@ export default function ProductBacklog() {
       // Find the "To Do" column (first column)
       const todoColumn = columnsData.data.columns.find((col: any) => col.name === 'To Do') || columnsData.data.columns[0]
       
-      const response = await fetch('/api/sprint-board/move-issue', {
+      const response = await authenticatedFetch('/api/sprint-board/move-issue', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

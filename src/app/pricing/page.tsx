@@ -75,6 +75,20 @@ export default function Pricing() {
       ],
       popular: true,
       unlimited: true
+    },
+    {
+      name: 'Pay Per Scan',
+      description: 'No monthly commitment',
+      price: 1.50,
+      yearlyPrice: 1.50,
+      features: [
+        'No monthly commitment',
+        'Buy credits as needed',
+        'Same features as plans',
+        'WCAG 2.2 + Section 508 compliance',
+        'AI-powered recommendations'
+      ],
+      unlimited: false
     }
   ]
 
@@ -109,6 +123,16 @@ export default function Pricing() {
     setSelectedPlan(plan.name)
     
     try {
+      // For Pay Per Scan, redirect to credit packages section
+      if (plan.name === 'Pay Per Scan') {
+        // Scroll to credit packages section
+        const creditSection = document.getElementById('credit-packages')
+        if (creditSection) {
+          creditSection.scrollIntoView({ behavior: 'smooth' })
+        }
+        return
+      }
+
       // Determine the correct price ID based on plan and billing cycle
       let priceId = ''
       
@@ -208,10 +232,9 @@ export default function Pricing() {
       <div className="space-y-8">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Choose Your Plan</h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Get comprehensive accessibility testing with flexible pricing options. 
-            Subscribe for unlimited access or pay per scan with credits.
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Simple, Transparent Pricing</h1>
+          <p className="text-lg text-gray-700 max-w-2xl mx-auto">
+            Choose the plan that fits your needs. All plans include our core accessibility testing features.
           </p>
         </div>
 
@@ -223,7 +246,7 @@ export default function Pricing() {
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 billingCycle === 'monthly'
                   ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  : 'text-gray-700 hover:text-gray-900'
               }`}
             >
               Monthly
@@ -233,7 +256,7 @@ export default function Pricing() {
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 billingCycle === 'yearly'
                   ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
+                  : 'text-gray-700 hover:text-gray-900'
               }`}
             >
               Yearly
@@ -246,36 +269,37 @@ export default function Pricing() {
 
         {/* Subscription Plans */}
         <div>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Subscription Plans</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
             {subscriptionPlans.map((plan) => (
               <div
                 key={plan.name}
                 className={`relative bg-white rounded-lg shadow-lg border-2 p-6 flex flex-col h-full ${
-                  plan.popular ? 'border-blue-500' : 'border-gray-200'
+                  plan.popular ? 'border-primary-500' : 'border-gray-200'
                 }`}
               >
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                                      <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    Most Popular
-                  </span>
+                    <span className="bg-primary-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                      Most Popular
+                    </span>
                   </div>
                 )}
 
                 <div className="text-center mb-6">
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">{plan.name}</h3>
-                  <p className="text-gray-600 mb-4">{plan.description}</p>
+                  <p className="text-gray-700 mb-4">{plan.description}</p>
                   <div className="mb-2">
                     <span className="text-4xl font-bold text-gray-900">
                       ${billingCycle === 'monthly' ? plan.price : plan.yearlyPrice}
                     </span>
-                    <span className="text-gray-600">/{billingCycle === 'monthly' ? 'month' : 'year'}</span>
+                    <span className="text-gray-700">
+                      {plan.name === 'Pay Per Scan' ? '/scan' : `/${billingCycle === 'monthly' ? 'month' : 'year'}`}
+                    </span>
                   </div>
-                  {billingCycle === 'yearly' && (
+                  {billingCycle === 'yearly' && plan.name !== 'Pay Per Scan' && (
                     <div className="text-sm text-green-600">
                       <p>Save ${((plan.price * 12) - plan.yearlyPrice).toFixed(0)} per year</p>
-                      <p className="text-xs text-gray-500 mt-1">Billed annually</p>
+                      <p className="text-xs text-gray-600 mt-1">Billed annually</p>
                     </div>
                   )}
                 </div>
@@ -284,18 +308,14 @@ export default function Pricing() {
                   {plan.features.map((feature, index) => (
                     <li key={index} className="flex items-start">
                       <Check className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                      <span className="text-gray-700">{feature}</span>
+                      <span className="text-gray-800">{feature}</span>
                     </li>
                   ))}
                 </ul>
 
                 <button
                   onClick={() => handleSubscribe(plan)}
-                  className={`w-full py-3 px-4 rounded-lg font-medium transition-colors mt-auto ${
-                    plan.popular
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : 'bg-gray-100 text-gray-900 hover:bg-blue-700'
-                  }`}
+                  className="w-full py-3 px-4 bg-primary-600 text-white rounded-lg font-medium transition-colors hover:bg-primary-700 mt-auto"
                 >
                   Get Started
                 </button>
@@ -305,14 +325,14 @@ export default function Pricing() {
         </div>
 
         {/* Credit-Based Scanning */}
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Pay Per Scan</h2>
-          <p className="text-center text-gray-600 mb-8 max-w-2xl mx-auto">
+        <div id="credit-packages">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Credit Packages</h2>
+          <p className="text-center text-gray-700 mb-8 max-w-2xl mx-auto">
             Don't need unlimited access? Buy credits and scan only when you need to. 
             Each scan costs $1.50 regardless of document size or complexity.
           </p>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {creditPackages.map((creditPackage) => (
               <div
                 key={creditPackage.name}
@@ -323,23 +343,23 @@ export default function Pricing() {
                   <div className="text-3xl font-bold text-gray-900 mb-1">
                     {creditPackage.credits}
                   </div>
-                  <div className="text-sm text-gray-600">credits</div>
+                  <div className="text-sm text-gray-700">credits</div>
                 </div>
                 <div className="mb-4">
-                  <div className="text-2xl font-bold text-blue-600">
+                  <div className="text-2xl font-bold text-primary-600">
                     ${creditPackage.price}
                   </div>
-                  <div className="text-sm text-gray-600">
+                  <div className="text-sm text-gray-700">
                     ${creditPackage.pricePerCredit} per credit
                   </div>
                 </div>
                 <button
                   onClick={() => handleBuyCredits(creditPackage)}
-                  className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="w-full py-3 px-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
                 >
                   Buy Credits
                 </button>
-            </div>
+              </div>
             ))}
           </div>
         </div>
@@ -353,7 +373,7 @@ export default function Pricing() {
                 <Globe className="h-6 w-6 text-blue-600 mr-3" />
                 <h3 className="text-lg font-semibold text-gray-900">Website Scans</h3>
               </div>
-              <ul className="space-y-2 text-gray-600">
+              <ul className="space-y-2 text-gray-700">
                 <li>• WCAG 2.2 Level AA compliance</li>
                 <li>• Automated accessibility testing</li>
                 <li>• Detailed issue reports</li>
@@ -367,7 +387,7 @@ export default function Pricing() {
                 <FileText className="h-6 w-6 text-green-600 mr-3" />
                 <h3 className="text-lg font-semibold text-gray-900">Document Scans</h3>
                 </div>
-              <ul className="space-y-2 text-gray-600">
+              <ul className="space-y-2 text-gray-700">
                 <li>• Section 508 compliance testing</li>
                 <li>• PDF, Word, PowerPoint support</li>
                 <li>• AI-powered recommendations</li>
@@ -384,19 +404,19 @@ export default function Pricing() {
           <div className="max-w-3xl mx-auto space-y-4">
             <div className="bg-white rounded-lg p-6 border border-gray-200">
               <h3 className="font-semibold text-gray-900 mb-2">How do credits work?</h3>
-              <p className="text-gray-600">
+              <p className="text-gray-700">
                 Each credit allows you to scan one document or website. Credits never expire and can be used for any type of scan.
               </p>
             </div>
             <div className="bg-white rounded-lg p-6 border border-gray-200">
               <h3 className="font-semibold text-gray-900 mb-2">Can I switch between plans?</h3>
-              <p className="text-gray-600">
+              <p className="text-gray-700">
                 Yes! You can upgrade, downgrade, or cancel your subscription at any time. Changes take effect at your next billing cycle.
               </p>
             </div>
             <div className="bg-white rounded-lg p-6 border border-gray-200">
               <h3 className="font-semibold text-gray-900 mb-2">What payment methods do you accept?</h3>
-              <p className="text-gray-600">
+              <p className="text-gray-700">
                 We use Stripe for secure payments and accept all major credit cards.
               </p>
             </div>

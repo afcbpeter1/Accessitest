@@ -12,6 +12,9 @@ import {
 } from 'lucide-react'
 import IssueDetailModal from './IssueDetailModal'
 import SprintSettingsModal from './SprintSettingsModal'
+import SprintTemplatesModal from './SprintTemplatesModal'
+import ConfirmationModal from './ConfirmationModal'
+import { authenticatedFetch } from '../lib/auth-utils'
 
 interface Sprint {
   id: string
@@ -40,6 +43,7 @@ interface SprintIssue {
   column_id: string
   position: number
   story_points: number
+  remaining_points?: number
   assignee_id?: string
   created_at: string
   updated_at: string
@@ -88,9 +92,20 @@ export default function SprintBoard() {
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null)
   const [showSettingsModal, setShowSettingsModal] = useState(false)
   const [showIssueMenu, setShowIssueMenu] = useState<string | null>(null)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [issueToMove, setIssueToMove] = useState<string | null>(null)
+  const [dontAskAgain, setDontAskAgain] = useState(false)
+  const [showTemplatesModal, setShowTemplatesModal] = useState(false)
+  const [showMoveToSprintModal, setShowMoveToSprintModal] = useState(false)
+  const [issueToMoveToSprint, setIssueToMoveToSprint] = useState<string | null>(null)
 
   useEffect(() => {
     fetchSprints()
+    // Load "don't ask again" preference from localStorage
+    const savedPreference = localStorage.getItem('sprintBoard_dontAskAgain')
+    if (savedPreference === 'true') {
+      setDontAskAgain(true)
+    }
   }, [])
 
   useEffect(() => {
@@ -111,16 +126,24 @@ export default function SprintBoard() {
     }
   }, [showIssueMenu])
 
-  const fetchSprints = async () => {
+  const fetchSprints = async (selectNewest = false) => {
     try {
       setLoading(true)
-      const response = await fetch('/api/sprint-board/sprints')
+      const response = await authenticatedFetch('/api/sprint-board/sprints')
       const data = await response.json()
       
       if (data.success) {
         setSprints(data.data.sprints)
-        if (data.data.sprints.length > 0 && !selectedSprint) {
-          setSelectedSprint(data.data.sprints[0])
+        
+        // If we should select the newest sprint (after creation) or no sprint is selected
+        if (data.data.sprints.length > 0) {
+          if (selectNewest || !selectedSprint) {
+            // Sort by created_at descending and select the newest
+            const sortedSprints = [...data.data.sprints].sort((a, b) => 
+              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            )
+            setSelectedSprint(sortedSprints[0])
+          }
         }
       } else {
         console.error('❌ Sprint API error:', data.error)
@@ -139,7 +162,7 @@ export default function SprintBoard() {
       setLoading(true)
       
       // Fetch columns for the sprint
-      const columnsRes = await fetch(`/api/sprint-board/columns?sprintId=${selectedSprint.id}`)
+      const columnsRes = await authenticatedFetch(`/api/sprint-board/columns?sprintId=${selectedSprint.id}`)
       const columnsData = await columnsRes.json()
 
       if (columnsData.success) {
@@ -149,7 +172,7 @@ export default function SprintBoard() {
       }
       
       // Fetch issues for the sprint
-      const issuesRes = await fetch(`/api/sprint-board/issues?sprintId=${selectedSprint.id}`)
+      const issuesRes = await authenticatedFetch(`/api/sprint-board/issues?sprintId=${selectedSprint.id}`)
       const issuesData = await issuesRes.json()
 
       if (issuesData.success) {
@@ -203,7 +226,7 @@ export default function SprintBoard() {
     ))
 
     try {
-      const response = await fetch('/api/sprint-board/move-issue', {
+      const response = await authenticatedFetch('/api/sprint-board/move-issue', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -248,24 +271,34 @@ export default function SprintBoard() {
 
   const handleSprintSave = async (sprintData: any) => {
     try {
-      const response = await fetch('/api/sprint-board/sprints', {
-        method: 'POST',
+      const isEditing = selectedSprint && selectedSprint.id
+      const method = isEditing ? 'PUT' : 'POST'
+      const url = isEditing 
+        ? `/api/sprint-board/sprints?id=${selectedSprint.id}`
+        : '/api/sprint-board/sprints'
+
+      const response = await authenticatedFetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sprintData)
       })
 
       if (response.ok) {
-        fetchSprints()
+        if (isEditing) {
+          // Update the selected sprint with new data
+          setSelectedSprint(prev => prev ? { ...prev, ...sprintData } : null)
+        }
+        fetchSprints(isEditing ? false : true) // Only select newest for new sprints
         setShowSettingsModal(false)
       }
     } catch (error) {
-      console.error('Error creating sprint:', error)
+      console.error(`Error ${selectedSprint ? 'updating' : 'creating'} sprint:`, error)
     }
   }
 
   const handleSprintStatusUpdate = async (sprintId: string, status: string) => {
     try {
-      const response = await fetch('/api/sprint-board/sprints', {
+      const response = await authenticatedFetch('/api/sprint-board/sprints', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sprintId, status })
@@ -293,11 +326,22 @@ export default function SprintBoard() {
   const handleMoveToBacklog = async (issueId: string) => {
     if (!selectedSprint) return
 
-    const confirmed = window.confirm('Are you sure you want to move this issue back to the backlog?')
-    if (!confirmed) return
+    // Check if user has set "don't ask again"
+    if (dontAskAgain) {
+      await performMoveToBacklog(issueId)
+      return
+    }
+
+    // Show confirmation modal
+    setIssueToMove(issueId)
+    setShowConfirmModal(true)
+  }
+
+  const performMoveToBacklog = async (issueId: string) => {
+    if (!selectedSprint) return
 
     try {
-      const response = await fetch(`/api/sprint-board/remove-issue?sprintId=${selectedSprint.id}&issueId=${issueId}`, {
+      const response = await authenticatedFetch(`/api/sprint-board/remove-issue?sprintId=${selectedSprint.id}&issueId=${issueId}`, {
         method: 'DELETE'
       })
 
@@ -309,6 +353,79 @@ export default function SprintBoard() {
       }
     } catch (error) {
       console.error('Error moving issue to backlog:', error)
+    }
+  }
+
+  const handleConfirmMoveToBacklog = async () => {
+    if (issueToMove) {
+      await performMoveToBacklog(issueToMove)
+    }
+    setShowConfirmModal(false)
+    setIssueToMove(null)
+  }
+
+  const handleDontAskAgainChange = (checked: boolean) => {
+    setDontAskAgain(checked)
+    // Store preference in localStorage
+    localStorage.setItem('sprintBoard_dontAskAgain', checked.toString())
+  }
+
+  const handleMoveToSprint = async (issueId: string) => {
+    if (!selectedSprint) return
+
+    console.log('🔄 Opening move to sprint modal for issue:', issueId)
+    // Show move to sprint modal
+    setIssueToMoveToSprint(issueId)
+    setShowMoveToSprintModal(true)
+  }
+
+  const handleMoveToSprintConfirm = async (targetSprintId: string, issueId?: string) => {
+    console.log('🚀 handleMoveToSprintConfirm called with:', targetSprintId, 'issueId:', issueId)
+    console.log('🚀 Current state:', { issueToMoveToSprint, selectedSprint: selectedSprint?.id })
+    
+    const actualIssueId = issueId || issueToMoveToSprint
+    
+    if (!actualIssueId || !selectedSprint) {
+      console.log('❌ Missing required data:', { actualIssueId, selectedSprint })
+      return
+    }
+
+    console.log('🔄 Moving issue to sprint:', {
+      issueId: actualIssueId,
+      fromSprint: selectedSprint.id,
+      toSprint: targetSprintId
+    })
+
+    try {
+      const response = await authenticatedFetch('/api/sprint-board/move-issue', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sprintId: selectedSprint.id,
+          issueId: actualIssueId,
+          toSprintId: targetSprintId
+        })
+      })
+
+      console.log('📡 API Response status:', response.status)
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log('✅ Move successful:', result)
+        
+        // Refresh both the sprints list and current sprint data
+        fetchSprints()
+        fetchSprintData()
+        setShowMoveToSprintModal(false)
+        setIssueToMoveToSprint(null)
+      } else {
+        const errorData = await response.json()
+        console.error('❌ Failed to move issue to sprint:', errorData)
+        alert(`Failed to move issue: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('❌ Error moving issue to sprint:', error)
+      alert(`Error moving issue: ${error.message}`)
     }
   }
 
@@ -345,6 +462,13 @@ export default function SprintBoard() {
           </div>
           <div className="flex items-center gap-3">
             <button 
+              onClick={() => setShowTemplatesModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Calendar className="h-4 w-4" />
+              Templates
+            </button>
+            <button 
               onClick={() => setShowSettingsModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
@@ -365,20 +489,59 @@ export default function SprintBoard() {
       {/* Sprint Selector */}
       {sprints.length > 0 && (
         <div className="bg-white border-b border-gray-200 px-6 py-3">
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium text-gray-700">Active Sprint:</label>
-            <select
-              value={selectedSprint?.id || ''}
-              onChange={(e) => {
-                const sprint = sprints.find(s => s.id === e.target.value)
-                setSelectedSprint(sprint || null)
-              }}
-              className="px-3 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              {sprints.map(sprint => (
-                <option key={sprint.id} value={sprint.id}>{sprint.name}</option>
-              ))}
-            </select>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-medium text-gray-700">Active Sprint:</label>
+              <select
+                value={selectedSprint?.id || ''}
+                onChange={(e) => {
+                  const sprint = sprints.find(s => s.id === e.target.value)
+                  setSelectedSprint(sprint || null)
+                }}
+                className="px-3 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {sprints
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .map(sprint => (
+                    <option key={sprint.id} value={sprint.id}>
+                      {sprint.name} ({sprint.status}) - {new Date(sprint.start_date).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric' 
+                      })} to {new Date(sprint.end_date).toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            
+            {/* Sprint Info & Edit Button */}
+            {selectedSprint && (
+              <div className="flex items-center gap-3">
+                <div className="text-sm text-gray-600">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    selectedSprint.status === 'active' 
+                      ? 'bg-green-100 text-green-800' 
+                      : selectedSprint.status === 'planning'
+                      ? 'bg-blue-100 text-blue-800'
+                      : selectedSprint.status === 'completed'
+                      ? 'bg-gray-100 text-gray-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {selectedSprint.status}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowSettingsModal(true)}
+                  className="flex items-center gap-1 px-3 py-1 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  <Settings className="h-4 w-4" />
+                  Edit Sprint
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -549,15 +712,51 @@ export default function SprintBoard() {
                           </button>
                           
                           {showIssueMenu === sprintIssue.issue_id && (
-                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-32">
+                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
                               <div className="py-1">
+                                {/* Move to other sprints */}
+                                {sprints
+                                  .filter(sprint => sprint.id !== selectedSprint?.id)
+                                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                                  .slice(0, 3) // Show max 3 other sprints
+                                  .map(sprint => (
+                                    <button
+                                      key={sprint.id}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        console.log('🔄 Quick move clicked for sprint:', sprint.id, sprint.name)
+                                        handleMoveToSprintConfirm(sprint.id, sprintIssue.issue_id)
+                                        setShowIssueMenu(null)
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                                    >
+                                      Move to {sprint.name}
+                                    </button>
+                                  ))}
+                                
+                                {/* Show "More sprints..." if there are more than 3 */}
+                                {sprints.filter(sprint => sprint.id !== selectedSprint?.id).length > 3 && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      console.log('🔄 More sprints clicked for issue:', sprintIssue.issue_id)
+                                      handleMoveToSprint(sprintIssue.issue_id)
+                                      setShowIssueMenu(null)
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 border-t border-gray-100"
+                                  >
+                                    More sprints...
+                                  </button>
+                                )}
+                                
+                                {/* Move to backlog */}
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     handleMoveToBacklog(sprintIssue.issue_id)
                                     setShowIssueMenu(null)
                                   }}
-                                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 border-t border-gray-100"
                                 >
                                   Move to Backlog
                                 </button>
@@ -574,7 +773,7 @@ export default function SprintBoard() {
                         </span>
                         {sprintIssue.story_points && (
                           <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                            {sprintIssue.story_points} pts
+                            {sprintIssue.remaining_points !== undefined ? sprintIssue.remaining_points : sprintIssue.story_points} pts left
                           </span>
                         )}
                       </div>
@@ -634,7 +833,106 @@ export default function SprintBoard() {
       <SprintSettingsModal
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
+        sprint={selectedSprint}
         onSave={handleSprintSave}
+      />
+
+      {/* Sprint Templates Modal */}
+      <SprintTemplatesModal
+        isOpen={showTemplatesModal}
+        onClose={() => setShowTemplatesModal(false)}
+        onSprintCreated={() => {
+          fetchSprints(true) // Select the newest sprint
+          setShowTemplatesModal(false)
+        }}
+      />
+
+      {/* Move to Sprint Modal */}
+      {showMoveToSprintModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4">
+            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowMoveToSprintModal(false)}></div>
+            
+            <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Move to Sprint</h3>
+                  <button
+                    onClick={() => setShowMoveToSprintModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                
+                <p className="text-sm text-gray-600 mb-4">
+                  Select which sprint to move this issue to:
+                </p>
+                
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {sprints
+                    .filter(sprint => sprint.id !== selectedSprint?.id)
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .map(sprint => (
+                      <button
+                        key={sprint.id}
+                        onClick={() => {
+                          console.log('🔄 Modal move clicked for sprint:', sprint.id, sprint.name)
+                          handleMoveToSprintConfirm(sprint.id)
+                        }}
+                        className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                      >
+                        <div className="font-medium text-gray-900">{sprint.name}</div>
+                        <div className="text-sm text-gray-500">
+                          {new Date(sprint.start_date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })} - {new Date(sprint.end_date).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric',
+                            year: 'numeric'
+                          })} • {sprint.status}
+                        </div>
+                      </button>
+                    ))}
+                </div>
+                
+                {sprints.filter(sprint => sprint.id !== selectedSprint?.id).length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No other sprints available</p>
+                    <p className="text-sm">Create another sprint first</p>
+                  </div>
+                )}
+                
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    onClick={() => setShowMoveToSprintModal(false)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        onClose={() => {
+          setShowConfirmModal(false)
+          setIssueToMove(null)
+        }}
+        onConfirm={handleConfirmMoveToBacklog}
+        title="Move to Backlog"
+        message="Are you sure you want to move this issue back to the product backlog? This will remove it from the current sprint."
+        confirmText="Move to Backlog"
+        cancelText="Cancel"
+        type="warning"
+        showDontAskAgain={true}
+        onDontAskAgain={handleDontAskAgainChange}
       />
 
     </div>

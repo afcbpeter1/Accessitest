@@ -242,10 +242,11 @@ export default function Sidebar({ children }: SidebarProps) {
         {/* Logo */}
         <div className="flex items-center px-6 py-4 border-b border-gray-200">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">A</span>
-            </div>
-            <span className="text-xl font-semibold text-gray-900">AccessScan</span>
+            <img 
+              src="/allytest.png" 
+              alt="AccessiTest Logo" 
+              className="h-8 w-auto object-contain" 
+            />
           </div>
         </div>
 

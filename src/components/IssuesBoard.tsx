@@ -16,6 +16,7 @@ import {
   Eye
 } from 'lucide-react'
 import IssueDetailsModal from './IssueDetailsModal'
+import { authenticatedFetch } from '@/lib/auth-utils'
 
 interface Issue {
   id: string
@@ -115,7 +116,7 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
 
   const fetchSprints = async () => {
     try {
-      const response = await fetch('/api/sprint-board/sprints')
+      const response = await authenticatedFetch('/api/sprint-board/sprints')
       const data = await response.json()
       
       if (data.success) {
@@ -242,7 +243,7 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
 
   const handleMoveToSprint = async (issueId: string, sprintId: string) => {
     try {
-      const response = await fetch('/api/sprint-board/move-issue', {
+      const response = await authenticatedFetch('/api/sprint-board/move-issue', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

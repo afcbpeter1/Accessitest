@@ -1,21 +1,133 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import pool from '@/lib/database'
 
 // PUT /api/sprint-board/move-issue - Move issue between columns
 export async function PUT(request: NextRequest) {
   try {
-    const { sprintId, issueId, columnId } = await request.json()
+    const user = await getAuthenticatedUser(request)
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
 
-    if (!sprintId || !issueId || !columnId) {
+    const { sprintId, issueId, columnId, newColumnId, toSprintId } = await request.json()
+    
+    console.log('🔄 Move issue API called with:', { sprintId, issueId, columnId, newColumnId, toSprintId })
+    
+    // Handle moving to different sprint
+    if (toSprintId && toSprintId !== sprintId) {
+      console.log('📦 Moving to different sprint:', { from: sprintId, to: toSprintId })
+      // Verify the target sprint belongs to the user
+      const targetSprintCheck = await pool.query(
+        'SELECT id FROM sprints WHERE id = $1 AND user_id = $2',
+        [toSprintId, user.userId]
+      )
+
+      if (targetSprintCheck.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'Target sprint not found or access denied' },
+          { status: 404 }
+        )
+      }
+
+      // Get the current column of the issue in the source sprint
+      const currentIssue = await pool.query(`
+        SELECT si.column_id, sc.name as column_name, sc.position as column_position
+        FROM sprint_issues si
+        JOIN sprint_columns sc ON si.column_id = sc.id
+        WHERE si.sprint_id = $1 AND si.issue_id = $2
+      `, [sprintId, issueId])
+
+      if (currentIssue.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'Issue not found in source sprint' },
+          { status: 404 }
+        )
+      }
+
+      const currentColumn = currentIssue.rows[0]
+      console.log('📍 Current column:', currentColumn.column_name, 'position:', currentColumn.column_position)
+
+      // Find equivalent column in target sprint by position
+      const targetColumn = await pool.query(`
+        SELECT id, name, position FROM sprint_columns 
+        WHERE sprint_id = $1 
+        ORDER BY position ASC
+      `, [toSprintId])
+      
+      if (targetColumn.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'No columns found for target sprint' },
+          { status: 400 }
+        )
+      }
+
+      // Find the column at the same position, or the closest one
+      let finalTargetColumn = targetColumn.rows.find(col => col.position === currentColumn.column_position)
+      if (!finalTargetColumn) {
+        // If exact position not found, use the column at the same index
+        const columnIndex = Math.min(currentColumn.column_position - 1, targetColumn.rows.length - 1)
+        finalTargetColumn = targetColumn.rows[columnIndex]
+      }
+
+      console.log('🎯 Target column:', finalTargetColumn.name, 'position:', finalTargetColumn.position)
+
+      // Remove from current sprint
+      await pool.query(
+        'DELETE FROM sprint_issues WHERE sprint_id = $1 AND issue_id = $2',
+        [sprintId, issueId]
+      )
+
+      // Add to target sprint in the equivalent column
+      const maxPosition = await pool.query(`
+        SELECT COALESCE(MAX(position), 0) as max_pos
+        FROM sprint_issues 
+        WHERE sprint_id = $1 AND column_id = $2
+      `, [toSprintId, finalTargetColumn.id])
+
+      const newPosition = (maxPosition.rows[0].max_pos || 0) + 1
+
+      await pool.query(`
+        INSERT INTO sprint_issues (sprint_id, issue_id, column_id, position, story_points)
+        VALUES ($1, $2, $3, $4, 1)
+      `, [toSprintId, issueId, finalTargetColumn.id, newPosition])
+
+      console.log('✅ Successfully moved issue to different sprint in column:', finalTargetColumn.name)
+      return NextResponse.json({
+        success: true,
+        message: `Issue moved to different sprint in ${finalTargetColumn.name} column`
+      })
+    }
+    
+    // Use newColumnId if provided, otherwise use columnId
+    const targetColumnId = newColumnId || columnId
+
+    if (!sprintId || !issueId || !targetColumnId) {
       return NextResponse.json(
         { error: 'Sprint ID, Issue ID, and Column ID are required' },
         { status: 400 }
       )
     }
 
-    // If no columnId provided, get the first column (To Do)
-    let targetColumnId = columnId
-    if (!targetColumnId) {
+    // Verify the sprint belongs to the user
+    const sprintCheck = await pool.query(
+      'SELECT id FROM sprints WHERE id = $1 AND user_id = $2',
+      [sprintId, user.userId]
+    )
+
+    if (sprintCheck.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Sprint not found or access denied' },
+        { status: 404 }
+      )
+    }
+
+    // If no targetColumnId provided, get the first column (To Do)
+    let finalColumnId = targetColumnId
+    if (!finalColumnId) {
       const firstColumn = await pool.query(`
         SELECT id FROM sprint_columns 
         WHERE sprint_id = $1 
@@ -29,7 +141,7 @@ export async function PUT(request: NextRequest) {
           { status: 400 }
         )
       }
-      targetColumnId = firstColumn.rows[0].id
+      finalColumnId = firstColumn.rows[0].id
     }
 
     // Check if issue is already in the sprint
@@ -45,14 +157,14 @@ export async function PUT(request: NextRequest) {
         SELECT COALESCE(MAX(position), 0) as max_pos
         FROM sprint_issues 
         WHERE sprint_id = $1 AND column_id = $2
-      `, [sprintId, targetColumnId])
+      `, [sprintId, finalColumnId])
 
       const newPosition = (maxPosition.rows[0].max_pos || 0) + 1
 
       await pool.query(`
         INSERT INTO sprint_issues (sprint_id, issue_id, column_id, position, story_points)
         VALUES ($1, $2, $3, $4, 1)
-      `, [sprintId, issueId, targetColumnId, newPosition])
+      `, [sprintId, issueId, finalColumnId, newPosition])
 
     } else {
       // Move issue to new column
@@ -60,15 +172,15 @@ export async function PUT(request: NextRequest) {
         SELECT COALESCE(MAX(position), 0) as max_pos
         FROM sprint_issues 
         WHERE sprint_id = $1 AND column_id = $2
-      `, [sprintId, targetColumnId])
+      `, [sprintId, finalColumnId])
 
       const newPosition = (maxPosition.rows[0].max_pos || 0) + 1
 
       await pool.query(`
         UPDATE sprint_issues 
-        SET column_id = $1, position = $2, moved_at = NOW()
+        SET column_id = $1, position = $2, updated_at = NOW()
         WHERE sprint_id = $3 AND issue_id = $4
-      `, [targetColumnId, newPosition, sprintId, issueId])
+      `, [finalColumnId, newPosition, sprintId, issueId])
 
     }
 
