@@ -399,7 +399,7 @@ export class AccessibilityScanner {
           uploadPromises.push(
             CloudinaryService.uploadBase64Image(
               fullPageScreenshot,
-              'accessitest/screenshots',
+              'a11ytest/screenshots',
               { public_id: `${scanId}_fullpage` }
             )
           );
@@ -410,7 +410,7 @@ export class AccessibilityScanner {
           uploadPromises.push(
             CloudinaryService.uploadBase64Image(
               viewportScreenshot,
-              'accessitest/screenshots',
+              'a11ytest/screenshots',
               { public_id: `${scanId}_viewport` }
             )
           );
@@ -422,7 +422,7 @@ export class AccessibilityScanner {
           uploadPromises.push(
             CloudinaryService.uploadBase64Image(
               element.screenshot,
-              'accessitest/screenshots',
+              'a11ytest/screenshots',
               { public_id: `${scanId}_element_${i}` }
             )
           );

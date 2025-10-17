@@ -13,6 +13,7 @@ import {
 import IssueDetailModal from './IssueDetailModal'
 import SprintSettingsModal from './SprintSettingsModal'
 import SprintTemplatesModal from './SprintTemplatesModal'
+import SprintBurndownModal from './SprintBurndownModal'
 import ConfirmationModal from './ConfirmationModal'
 import { authenticatedFetch } from '../lib/auth-utils'
 
@@ -98,6 +99,7 @@ export default function SprintBoard() {
   const [showTemplatesModal, setShowTemplatesModal] = useState(false)
   const [showMoveToSprintModal, setShowMoveToSprintModal] = useState(false)
   const [issueToMoveToSprint, setIssueToMoveToSprint] = useState<string | null>(null)
+  const [showBurndownModal, setShowBurndownModal] = useState(false)
 
   useEffect(() => {
     fetchSprints()
@@ -220,11 +222,6 @@ export default function SprintBoard() {
       return
     }
 
-    // Optimistic UI update
-    setIssues(prev => prev.map(issue =>
-      issue.issue_id === issueIdToMove ? { ...issue, column_id: targetColumnId } : issue
-    ))
-
     try {
       const response = await authenticatedFetch('/api/sprint-board/move-issue', {
         method: 'PUT',
@@ -238,17 +235,12 @@ export default function SprintBoard() {
       })
 
       if (!response.ok) {
-        // Revert optimistic update if API call fails
-        setIssues(prev => prev.map(issue =>
-          issue.issue_id === issueIdToMove ? { ...issue, column_id: oldColumnId } : issue
-        ))
         console.error('Failed to move issue:', await response.json())
+      } else {
+        // Refresh sprint data to get updated remaining_points and column positions
+        fetchSprintData()
       }
     } catch (err) {
-      // Revert optimistic update on network error
-      setIssues(prev => prev.map(issue =>
-        issue.issue_id === issueIdToMove ? { ...issue, column_id: oldColumnId } : issue
-      ))
       console.error('Error moving issue:', err)
     } finally {
       setDraggedIssue(null)
@@ -482,6 +474,15 @@ export default function SprintBoard() {
               <Settings className="h-4 w-4" />
               Settings
             </button>
+            {selectedSprint && (
+              <button 
+                onClick={() => setShowBurndownModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                <BarChart3 className="h-4 w-4" />
+                Burndown Chart
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -781,7 +782,7 @@ export default function SprintBoard() {
                       {/* Card Footer */}
                       <div className="flex items-center justify-between text-xs text-gray-500">
                         <div className="flex items-center gap-1">
-                          <span>👁️ {sprintIssue.total_occurrences}</span>
+                          <span>{sprintIssue.total_occurrences}</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <span>{new Date(sprintIssue.created_at).toLocaleDateString()}</span>
@@ -933,6 +934,13 @@ export default function SprintBoard() {
         type="warning"
         showDontAskAgain={true}
         onDontAskAgain={handleDontAskAgainChange}
+      />
+
+      {/* Burndown Chart Modal */}
+      <SprintBurndownModal
+        isOpen={showBurndownModal}
+        onClose={() => setShowBurndownModal(false)}
+        sprint={selectedSprint}
       />
 
     </div>

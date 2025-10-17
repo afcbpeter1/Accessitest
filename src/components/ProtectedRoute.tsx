@@ -107,7 +107,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
             <div className="flex justify-center">
               <img 
                 src="/allytest.png" 
-                alt="AccessiTest Logo" 
+                alt="A11ytest.ai Logo" 
                 className="h-12 w-auto object-contain" 
               />
             </div>

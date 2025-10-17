@@ -431,7 +431,7 @@ export default function HomePage() {
             Professional Accessibility Testing Platform
           </h1>
           <p className="text-xl mb-8 max-w-3xl mx-auto">
-            AccessiTest is the leading accessibility testing platform that ensures your documents and websites meet federal Section 508 requirements and international WCAG 2.2 AA standards. Our AI-powered technology provides comprehensive accessibility audits for PDFs, Word documents, PowerPoint presentations, and websites, helping organizations achieve full compliance and create inclusive digital experiences for all users.
+            A11ytest.ai is the leading accessibility testing platform that ensures your documents and websites meet federal Section 508 requirements and international WCAG 2.2 AA standards. Our AI-powered technology provides comprehensive accessibility audits for PDFs, Word documents, PowerPoint presentations, and websites, helping organizations achieve full compliance and create inclusive digital experiences for all users.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
@@ -592,7 +592,7 @@ export default function HomePage() {
                   Comprehensive Accessibility Testing for Modern Organizations
                 </h2>
                 <p className="text-lg text-gray-600 max-w-4xl mx-auto mb-8">
-                  AccessiTest revolutionizes accessibility compliance by combining advanced artificial intelligence with comprehensive testing methodologies. Our platform addresses the critical need for organizations to ensure their digital content is accessible to all users, including those with disabilities. Whether you're a government agency requiring Section 508 compliance, a business seeking WCAG 2.2 AA certification, or an educational institution needing accessible document standards, AccessiTest provides the tools and expertise to achieve full accessibility compliance.
+                  A11ytest.ai revolutionizes accessibility compliance by combining advanced artificial intelligence with comprehensive testing methodologies. Our platform addresses the critical need for organizations to ensure their digital content is accessible to all users, including those with disabilities. Whether you're a government agency requiring Section 508 compliance, a business seeking WCAG 2.2 AA certification, or an educational institution needing accessible document standards, A11ytest.ai provides the tools and expertise to achieve full accessibility compliance.
                 </p>
                 
                 {/* Accessibility Playground CTA */}
@@ -1026,7 +1026,7 @@ export default function HomePage() {
                   Advanced Features for Professional Accessibility Testing
                 </h2>
                 <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                  AccessiTest combines cutting-edge technology with industry expertise to deliver the most comprehensive accessibility testing solution available.
+                  A11ytest.ai combines cutting-edge technology with industry expertise to deliver the most comprehensive accessibility testing solution available.
                 </p>
               </div>
 
@@ -1339,7 +1339,7 @@ export default function HomePage() {
                 <div className="bg-white p-2 rounded-lg">
                   <img 
                     src="/allytest.png" 
-                    alt="AccessiTest Logo" 
+                    alt="A11ytest.ai Logo" 
                     className="h-8 w-auto object-contain" 
                   />
                 </div>

@@ -166,6 +166,27 @@ export async function PUT(request: NextRequest) {
         VALUES ($1, $2, $3, $4, 1)
       `, [sprintId, issueId, finalColumnId, newPosition])
 
+      // Update remaining_points in issues table based on column
+      const isDoneColumn = await pool.query(`
+        SELECT is_done_column FROM sprint_columns WHERE id = $1
+      `, [finalColumnId])
+
+      if (isDoneColumn.rows.length > 0 && isDoneColumn.rows[0].is_done_column) {
+        // Set remaining points to 0 for issues added to Done column
+        await pool.query(`
+          UPDATE issues 
+          SET remaining_points = 0, updated_at = NOW()
+          WHERE id = $1
+        `, [issueId])
+      } else {
+        // Only set remaining_points to story_points if it's currently NULL
+        await pool.query(`
+          UPDATE issues 
+          SET remaining_points = story_points, updated_at = NOW()
+          WHERE id = $1 AND remaining_points IS NULL
+        `, [issueId])
+      }
+
     } else {
       // Move issue to new column
       const maxPosition = await pool.query(`
@@ -182,7 +203,26 @@ export async function PUT(request: NextRequest) {
         WHERE sprint_id = $3 AND issue_id = $4
       `, [finalColumnId, newPosition, sprintId, issueId])
 
+      // Update remaining_points in issues table based on column
+      const isDoneColumn = await pool.query(`
+        SELECT is_done_column FROM sprint_columns WHERE id = $1
+      `, [finalColumnId])
+
+      if (isDoneColumn.rows.length > 0 && isDoneColumn.rows[0].is_done_column) {
+        // Set remaining points to 0 for issues moved to Done column
+        await pool.query(`
+          UPDATE issues 
+          SET remaining_points = 0, updated_at = NOW()
+          WHERE id = $1
+        `, [issueId])
+      }
+      // Note: We don't modify remaining_points when moving to non-Done columns
+      // This preserves the existing remaining_points value
+
     }
+
+    // Update burndown data after moving issue
+    await updateBurndownData(sprintId)
 
     return NextResponse.json({
       success: true,
@@ -195,5 +235,62 @@ export async function PUT(request: NextRequest) {
       { error: 'Failed to move issue' },
       { status: 500 }
     )
+  }
+}
+
+// Helper function to update burndown data for a sprint
+async function updateBurndownData(sprintId: string) {
+  try {
+    // Get current sprint issues with their column status
+    const issuesResult = await pool.query(`
+      SELECT 
+        COALESCE(SUM(i.story_points), 0) as total_points,
+        COALESCE(SUM(
+          CASE 
+            WHEN sc.is_done_column = true THEN 0 
+            ELSE COALESCE(i.remaining_points, i.story_points) 
+          END
+        ), 0) as remaining_points,
+        COALESCE(SUM(
+          CASE 
+            WHEN sc.is_done_column = true THEN i.story_points 
+            ELSE 0 
+          END
+        ), 0) as completed_points
+      FROM sprint_issues si
+      JOIN issues i ON si.issue_id = i.id
+      JOIN sprint_columns sc ON si.column_id = sc.id
+      WHERE si.sprint_id = $1
+    `, [sprintId])
+
+    const totalPoints = parseInt(issuesResult.rows[0]?.total_points || '0')
+    const remainingPoints = parseInt(issuesResult.rows[0]?.remaining_points || totalPoints.toString())
+    const completedPoints = parseInt(issuesResult.rows[0]?.completed_points || '0')
+
+    // Debug logging
+    console.log('📊 Burndown update calculation:', {
+      sprintId,
+      totalPoints,
+      remainingPoints,
+      completedPoints,
+      rawData: issuesResult.rows[0]
+    })
+
+    // Insert or update burndown data for today
+    const today = new Date().toISOString().split('T')[0]
+    
+    await pool.query(`
+      INSERT INTO sprint_burndown_data (sprint_id, date, total_story_points, remaining_story_points, completed_story_points)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (sprint_id, date) DO UPDATE SET
+        remaining_story_points = EXCLUDED.remaining_story_points,
+        completed_story_points = EXCLUDED.completed_story_points,
+        updated_at = CURRENT_TIMESTAMP
+    `, [sprintId, today, totalPoints, remainingPoints, completedPoints])
+
+    console.log(`📊 Updated burndown data for sprint ${sprintId}: ${remainingPoints}/${totalPoints} remaining`)
+  } catch (error) {
+    console.error('❌ Error updating burndown data:', error)
+    // Don't throw error - burndown update failure shouldn't break issue movement
   }
 }

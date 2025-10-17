@@ -50,6 +50,9 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
+    // Update burndown data after removing issue
+    await updateBurndownData(sprintId)
+
     return NextResponse.json({
       success: true,
       message: 'Issue removed from sprint successfully'
@@ -61,5 +64,47 @@ export async function DELETE(request: NextRequest) {
       { error: 'Failed to remove issue from sprint' },
       { status: 500 }
     )
+  }
+}
+
+// Helper function to update burndown data for a sprint
+async function updateBurndownData(sprintId: string) {
+  try {
+    // Get current sprint issues with their column status
+    const issuesResult = await pool.query(`
+      SELECT 
+        COALESCE(SUM(i.story_points), 0) as total_points,
+        COALESCE(SUM(
+          CASE 
+            WHEN sc.is_done_column = true THEN 0 
+            ELSE COALESCE(i.remaining_points, i.story_points) 
+          END
+        ), 0) as remaining_points
+      FROM sprint_issues si
+      JOIN issues i ON si.issue_id = i.id
+      JOIN sprint_columns sc ON si.column_id = sc.id
+      WHERE si.sprint_id = $1
+    `, [sprintId])
+
+    const totalPoints = parseInt(issuesResult.rows[0]?.total_points || '0')
+    const remainingPoints = parseInt(issuesResult.rows[0]?.remaining_points || totalPoints.toString())
+    const completedPoints = totalPoints - remainingPoints
+
+    // Insert or update burndown data for today
+    const today = new Date().toISOString().split('T')[0]
+    
+    await pool.query(`
+      INSERT INTO sprint_burndown_data (sprint_id, date, total_story_points, remaining_story_points, completed_story_points)
+      VALUES ($1, $2, $3, $4, $5)
+      ON CONFLICT (sprint_id, date) DO UPDATE SET
+        remaining_story_points = EXCLUDED.remaining_story_points,
+        completed_story_points = EXCLUDED.completed_story_points,
+        updated_at = CURRENT_TIMESTAMP
+    `, [sprintId, today, totalPoints, remainingPoints, completedPoints])
+
+    console.log(`📊 Updated burndown data for sprint ${sprintId}: ${remainingPoints}/${totalPoints} remaining`)
+  } catch (error) {
+    console.error('❌ Error updating burndown data:', error)
+    // Don't throw error - burndown update failure shouldn't break issue removal
   }
 }

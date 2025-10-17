@@ -32,7 +32,7 @@ export class CloudinaryService {
    */
   static async uploadBase64Image(
     base64Data: string,
-    folder: string = 'accessitest',
+    folder: string = 'a11ytest',
     options: {
       public_id?: string
       transformation?: any
@@ -83,7 +83,7 @@ export class CloudinaryService {
       const uploadPromises = images.map(async (image) => {
         return await this.uploadBase64Image(
           image.base64Data,
-          image.folder || 'accessitest',
+          image.folder || 'a11ytest',
           { public_id: image.public_id }
         )
       })

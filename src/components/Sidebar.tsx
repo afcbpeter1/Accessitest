@@ -244,7 +244,7 @@ export default function Sidebar({ children }: SidebarProps) {
           <div className="flex items-center space-x-2">
             <img 
               src="/allytest.png" 
-              alt="AccessiTest Logo" 
+              alt="A11ytest.ai Logo" 
               className="h-8 w-auto object-contain" 
             />
           </div>

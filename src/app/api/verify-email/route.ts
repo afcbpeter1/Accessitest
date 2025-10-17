@@ -94,7 +94,7 @@ async function handleEmailVerification(email: string, verificationCode: string) 
 
     return NextResponse.json({
       success: true,
-      message: 'Email verified successfully! Welcome to AccessiTest.',
+      message: 'Email verified successfully! Welcome to A11ytest.ai.',
       user: {
         id: user.id,
         email: user.email,

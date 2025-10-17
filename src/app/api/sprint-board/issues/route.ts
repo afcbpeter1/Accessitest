@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
         url: issue.url,
         domain: domain,
         story_points: issue.story_points || 1,
-        remaining_points: issue.remaining_points || 1,
+        remaining_points: issue.remaining_points ?? issue.story_points,
         assignee: issue.assignee || null,
         priority_rank: issue.position,
         priority: issue.priority || 'medium',

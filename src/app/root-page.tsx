@@ -29,7 +29,7 @@ export default function RootPage() {
       <div className="text-center">
         <img 
           src="/allytest.png" 
-          alt="AccessiTest Logo" 
+          alt="A11ytest.ai Logo" 
           className="h-16 w-auto object-contain mx-auto mb-4" 
         />
         <Loader2 className="h-8 w-8 text-blue-600 mx-auto animate-spin" />

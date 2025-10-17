@@ -25,7 +25,7 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
 
     const { customerEmail, planName, amount, type, transactionId, date, billingPeriod, creditAmount } = receiptData
 
-    const subject = `Receipt for ${planName} - AccessiTest`
+    const subject = `Receipt for ${planName} - A11ytest.ai`
     
     const htmlContent = `
       <!DOCTYPE html>
@@ -33,7 +33,7 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Receipt - AccessiTest</title>
+        <title>Receipt - A11ytest.ai</title>
         <style>
           body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -152,7 +152,7 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
       <body>
         <div class="container">
           <div class="header">
-            <div class="logo">AccessiTest</div>
+            <div class="logo">A11ytest.ai</div>
             <div class="title">Payment Receipt</div>
             <div class="subtitle">Thank you for your purchase!</div>
           </div>
@@ -222,7 +222,7 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
     `
 
     const textContent = `
-      AccessiTest - Payment Receipt
+      A11ytest.ai - Payment Receipt
 
       Thank you for your purchase!
 
@@ -248,7 +248,7 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
     `
 
     const result = await resend.emails.send({
-      from: 'AccessiTest <onboarding@resend.dev>',
+      from: 'A11ytest.ai <onboarding@resend.dev>',
       to: [customerEmail],
       subject,
       html: htmlContent,

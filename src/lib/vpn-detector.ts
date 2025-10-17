@@ -125,7 +125,7 @@ export class VPNDetector {
     try {
       const response = await fetch(`https://ipapi.co/${ip}/json/`, {
         headers: {
-          'User-Agent': 'AccessiTest/1.0'
+          'User-Agent': 'A11ytest.ai/1.0'
         }
       })
       
@@ -145,7 +145,7 @@ export class VPNDetector {
       // Using a free IP info service
       const response = await fetch(`https://ipinfo.io/${ip}/json`, {
         headers: {
-          'User-Agent': 'AccessiTest/1.0'
+          'User-Agent': 'A11ytest.ai/1.0'
         }
       })
       

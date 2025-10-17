@@ -45,14 +45,14 @@ export class EmailService {
       const result = await resend.emails.send({
         from: `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`,
         to: [email],
-        subject: 'Verify your AccessiTest account',
+        subject: 'Verify your A11ytest.ai account',
         html: `
           <!DOCTYPE html>
           <html>
           <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Verify your AccessiTest account</title>
+            <title>Verify your A11ytest.ai account</title>
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
               .header { background: #06B6D4; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
@@ -64,11 +64,11 @@ export class EmailService {
           </head>
           <body>
             <div class="header">
-              <h1>Welcome to AccessiTest!</h1>
+              <h1>Welcome to A11ytest.ai!</h1>
             </div>
             <div class="content">
               <h2>Hi ${firstName},</h2>
-              <p>Thank you for signing up for AccessiTest! To complete your registration and start testing website accessibility, please verify your email address.</p>
+              <p>Thank you for signing up for A11ytest.ai! To complete your registration and start testing website accessibility, please verify your email address.</p>
               
               <p><strong>Your verification code is:</strong></p>
               <div class="verification-code">${verificationCode}</div>
@@ -77,23 +77,23 @@ export class EmailService {
               
               <p><strong>This code will expire in 15 minutes.</strong></p>
               
-              <p>If you didn't create an account with AccessiTest, please ignore this email.</p>
+              <p>If you didn't create an account with A11ytest.ai, please ignore this email.</p>
               
-              <p>Best regards,<br>The AccessiTest Team</p>
+              <p>Best regards,<br>The A11ytest.ai Team</p>
             </div>
             <div class="footer">
-              <p>AccessiTest - Professional Accessibility Testing</p>
+              <p>A11ytest.ai - Professional Accessibility Testing</p>
               <p>This email was sent to ${email}</p>
             </div>
           </body>
           </html>
         `,
         text: `
-          Welcome to AccessiTest!
+          Welcome to A11ytest.ai!
           
           Hi ${firstName},
           
-          Thank you for signing up for AccessiTest! To complete your registration and start testing website accessibility, please verify your email address.
+          Thank you for signing up for A11ytest.ai! To complete your registration and start testing website accessibility, please verify your email address.
           
           Your verification code is: ${verificationCode}
           
@@ -101,12 +101,12 @@ export class EmailService {
           
           This code will expire in 15 minutes.
           
-          If you didn't create an account with AccessiTest, please ignore this email.
+          If you didn't create an account with A11ytest.ai, please ignore this email.
           
           Best regards,
-          The AccessiTest Team
+          The A11ytest.ai Team
           
-          AccessiTest - Professional Accessibility Testing
+          A11ytest.ai - Professional Accessibility Testing
           This email was sent to ${email}
         `
       })
@@ -204,10 +204,10 @@ export class EmailService {
               
               <p>This scan was part of your scheduled periodic accessibility monitoring. Keep up the great work maintaining accessible websites!</p>
               
-              <p>Best regards,<br>The AccessiTest Team</p>
+              <p>Best regards,<br>The A11ytest.ai Team</p>
             </div>
             <div class="footer">
-              <p>AccessiTest - Professional Accessibility Testing</p>
+              <p>A11ytest.ai - Professional Accessibility Testing</p>
               <p>This email was sent to ${to}</p>
             </div>
           </body>
@@ -239,9 +239,9 @@ export class EmailService {
           This scan was part of your scheduled periodic accessibility monitoring.
           
           Best regards,
-          The AccessiTest Team
+          The A11ytest.ai Team
           
-          AccessiTest - Professional Accessibility Testing
+          A11ytest.ai - Professional Accessibility Testing
           This email was sent to ${to}
         `
       })
@@ -311,10 +311,10 @@ export class EmailService {
               
               <p>Don't worry - your periodic scan will be retried automatically. If you continue to experience issues, please check your scan configuration.</p>
               
-              <p>Best regards,<br>The AccessiTest Team</p>
+              <p>Best regards,<br>The A11ytest.ai Team</p>
             </div>
             <div class="footer">
-              <p>AccessiTest - Professional Accessibility Testing</p>
+              <p>A11ytest.ai - Professional Accessibility Testing</p>
               <p>This email was sent to ${to}</p>
             </div>
           </body>
@@ -342,9 +342,9 @@ export class EmailService {
           Don't worry - your periodic scan will be retried automatically.
           
           Best regards,
-          The AccessiTest Team
+          The A11ytest.ai Team
           
-          AccessiTest - Professional Accessibility Testing
+          A11ytest.ai - Professional Accessibility Testing
           This email was sent to ${to}
         `
       })
