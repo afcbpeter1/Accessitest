@@ -12,7 +12,128 @@ function generateIssueId(ruleName: string, elementSelector: string, url: string)
   return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16)
 }
 
-// Auto-create backlog items for unique issues
+// Auto-create backlog items for unique issues (with scan history ID)
+async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: any[], scanHistoryId: string) {
+  const addedItems = []
+  const reopenedItems = []
+  const skippedItems = []
+
+  for (const result of scanResults) {
+    if (!result.issues) continue
+    
+    for (const issue of result.issues) {
+      try {
+        // Generate unique issue ID based on rule, element, and URL
+        const issueId = generateIssueId(issue.id, issue.nodes?.[0]?.target?.[0], result.url)
+        const domain = new URL(result.url).hostname
+
+        // Check if this exact issue already exists for this domain
+        const existingItem = await queryOne(`
+          SELECT i.id, i.status, i.created_at, i.updated_at 
+          FROM issues i
+          JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+          WHERE sh.user_id = $1 AND i.rule_name = $2 AND sh.url LIKE $3
+        `, [userId, issue.id, `%${domain}%`])
+
+        if (existingItem) {
+          // Update last_scan_at and check if we should reopen
+          const now = new Date()
+          const lastSeen = new Date(existingItem.last_scan_at)
+          const daysSinceLastSeen = Math.floor((now.getTime() - lastSeen.getTime()) / (1000 * 60 * 60 * 24))
+
+          // If issue was closed/done and it's been more than 7 days, reopen it
+          if ((existingItem.status === 'done' || existingItem.status === 'cancelled') && daysSinceLastSeen > 7) {
+            await query(`
+              UPDATE issues 
+              SET status = 'backlog', 
+                  updated_at = NOW(),
+                  rank = (
+                    SELECT COALESCE(MAX(rank), 0) + 1 
+                    FROM issues 
+                    WHERE first_seen_scan_id IN (
+                      SELECT id FROM scan_history WHERE user_id = $1
+                    )
+                  )
+              WHERE id = $2
+            `, [userId, existingItem.id])
+
+            reopenedItems.push({
+              id: existingItem.id,
+              issueId: issueId,
+              ruleName: issue.id,
+              impact: issue.impact,
+              status: 'reopened'
+            })
+          }
+          continue
+        }
+
+        // Get the next priority rank
+        const maxRank = await queryOne(`
+          SELECT COALESCE(MAX(rank), 0) as max_rank 
+          FROM issues 
+          WHERE first_seen_scan_id IN (
+            SELECT id FROM scan_history WHERE user_id = $1
+          )
+        `, [userId])
+
+        const nextRank = (maxRank?.max_rank || 0) + 1
+
+        // Insert new issue using the provided scan history ID
+        const newItem = await queryOne(`
+          INSERT INTO issues (
+            issue_key, rule_id, rule_name, description, impact, wcag_level,
+            total_occurrences, affected_pages, notes,
+            status, priority, rank, story_points, remaining_points,
+            first_seen_scan_id, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          RETURNING *
+        `, [
+          issueId,
+          issue.id, // rule_id
+          issue.id, 
+          issue.description, 
+          issue.impact, 
+          issue.tags?.find((tag: string) => tag.startsWith('wcag')) || 'AA',
+          issue.nodes?.length || 1, 
+          [result.url], 
+          issue.nodes?.[0]?.failureSummary || '', 
+          'open', 
+          'medium', 
+          nextRank, 
+          1, 
+          1, 
+          scanHistoryId, 
+          new Date().toISOString(), 
+          new Date().toISOString()
+        ])
+
+        addedItems.push({
+          id: newItem.id,
+          issueId: issueId,
+          ruleName: issue.id,
+          impact: issue.impact
+        })
+      } catch (error) {
+        console.error(`Error processing issue ${issue.id}:`, error)
+        skippedItems.push({
+          issueId: issue.id,
+          ruleName: issue.id,
+          reason: 'Error processing issue'
+        })
+      }
+    }
+  }
+
+  console.log('✅ Backlog auto-creation result:', {
+    total: scanResults.reduce((sum, result) => sum + (result.issues?.length || 0), 0),
+    added: addedItems.length,
+    reopened: reopenedItems.length,
+    skipped: skippedItems.length
+  })
+}
+
+// Auto-create backlog items for unique issues (legacy function)
 async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId: string, scanType: string) {
   const addedItems = []
   const reopenedItems = []
@@ -29,10 +150,11 @@ async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId
 
         // Check if this exact issue already exists for this domain
         const existingItem = await queryOne(`
-          SELECT id, status, created_at, last_scan_at 
-          FROM product_backlog 
-          WHERE user_id = $1 AND issue_id = $2 AND domain = $3
-        `, [userId, issueId, domain])
+          SELECT i.id, i.status, i.created_at, i.updated_at 
+          FROM issues i
+          JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+          WHERE sh.user_id = $1 AND i.rule_name = $2 AND sh.url LIKE $3
+        `, [userId, issue.id, `%${domain}%`])
 
         if (existingItem) {
           // Update last_scan_at and check if we should reopen
@@ -43,14 +165,15 @@ async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId
           // If issue was closed/done and it's been more than 7 days, reopen it
           if ((existingItem.status === 'done' || existingItem.status === 'cancelled') && daysSinceLastSeen > 7) {
             await query(`
-              UPDATE product_backlog 
+              UPDATE issues 
               SET status = 'backlog', 
-                  last_scan_at = NOW(), 
                   updated_at = NOW(),
-                  priority_rank = (
-                    SELECT COALESCE(MAX(priority_rank), 0) + 1 
-                    FROM product_backlog 
-                    WHERE user_id = $1
+                  rank = (
+                    SELECT COALESCE(MAX(rank), 0) + 1 
+                    FROM issues 
+                    WHERE first_seen_scan_id IN (
+                      SELECT id FROM scan_history WHERE user_id = $1
+                    )
                   )
               WHERE id = $2
             `, [userId, existingItem.id])
@@ -65,8 +188,8 @@ async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId
           } else {
             // Just update last seen time
             await query(`
-              UPDATE product_backlog 
-              SET last_scan_at = NOW(), updated_at = NOW()
+              UPDATE issues 
+              SET updated_at = NOW()
               WHERE id = $1
             `, [existingItem.id])
 
@@ -81,36 +204,53 @@ async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId
 
         // Get the next priority rank
         const maxRank = await queryOne(`
-          SELECT COALESCE(MAX(priority_rank), 0) as max_rank 
-          FROM product_backlog 
-          WHERE user_id = $1
+          SELECT COALESCE(MAX(rank), 0) as max_rank 
+          FROM issues 
+          WHERE first_seen_scan_id IN (
+            SELECT id FROM scan_history WHERE user_id = $1
+          )
         `, [userId])
 
         const nextRank = (maxRank?.max_rank || 0) + 1
 
-        // Insert new backlog item
+        // Get the scan history ID for this scan
+        const scanHistory = await queryOne(`
+          SELECT id FROM scan_history 
+          WHERE user_id = $1 AND scan_type = $2 AND url = $3
+          ORDER BY created_at DESC 
+          LIMIT 1
+        `, [userId, scanType, result.url])
+
+        if (!scanHistory) {
+          console.error(`No scan history found for user ${userId}, scan ${scanId}`)
+          continue
+        }
+
+        // Insert new issue
         const newItem = await queryOne(`
-          INSERT INTO product_backlog (
-            user_id, issue_id, rule_name, description, impact, wcag_level,
-            element_selector, element_html, failure_summary, url, domain,
-            priority_rank, status, last_scan_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+          INSERT INTO issues (
+            rule_name, description, impact, wcag_level,
+            total_occurrences, affected_pages, notes,
+            status, priority, rank, story_points, remaining_points,
+            first_seen_scan_id, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
           RETURNING *
         `, [
-          userId, 
-          issueId, 
           issue.id, 
           issue.description, 
           issue.impact, 
           issue.tags?.find((tag: string) => tag.startsWith('wcag')) || 'AA',
-          issue.nodes?.[0]?.target?.[0], 
-          issue.nodes?.[0]?.html, 
-          issue.nodes?.[0]?.failureSummary, 
-          result.url, 
-          domain,
+          issue.nodes?.length || 1, 
+          [result.url], 
+          issue.nodes?.[0]?.failureSummary || '', 
+          'backlog', 
+          'medium', 
           nextRank, 
-          'backlog',
-          new Date()
+          1, 
+          1, 
+          scanHistory.id, 
+          new Date().toISOString(), 
+          new Date().toISOString()
         ])
 
         addedItems.push({
@@ -531,18 +671,11 @@ export async function POST(request: NextRequest) {
                console.error('Failed to mark scan as completed:', error)
              }
 
-             // Auto-create backlog items for unique issues
-             try {
-               console.log('🎫 Auto-creating backlog items for unique issues...')
-               await autoCreateBacklogItems(user.userId, finalResults, scanId, 'web')
-             } catch (error) {
-               console.error('❌ Error auto-creating backlog items:', error)
-             }
-
              // Store scan results in history (with error handling)
+             let scanHistoryId: string | null = null
              try {
                const { ScanHistoryService } = await import('@/lib/scan-history-service')
-               await ScanHistoryService.storeScanResult(user.userId, 'web', {
+               scanHistoryId = await ScanHistoryService.storeScanResult(user.userId, 'web', {
                  scanTitle: `Web Scan: ${url}`,
                  url: url,
                  scanResults: finalResults,
@@ -561,9 +694,21 @@ export async function POST(request: NextRequest) {
                    selectedTags: selectedTags
                  }
                })
-               console.log('✅ Scan results stored in history')
+               console.log('✅ Scan results stored in history with ID:', scanHistoryId)
              } catch (error) {
                console.error('Failed to store scan results in history:', error)
+             }
+
+             // Auto-create backlog items for unique issues (AFTER scan history is stored)
+             if (scanHistoryId) {
+               try {
+                 console.log('🎫 Auto-creating backlog items for unique issues...')
+                 await autoCreateBacklogItemsWithHistoryId(user.userId, finalResults.results, scanHistoryId)
+               } catch (error) {
+                 console.error('❌ Error auto-creating backlog items:', error)
+               }
+             } else {
+               console.error('❌ Cannot create backlog items - no scan history ID')
              }
 
              // Close the stream

@@ -5,14 +5,12 @@ import pool from '@/lib/database'
 // GET /api/backlog - Get all backlog items for the user
 export async function GET(request: NextRequest) {
   try {
-    // Temporarily bypass authentication to restore access
-    const user = { userId: '09d7030b-e612-4226-b695-beefb3e97936' }
+    const user = await getAuthenticatedUser(request)
 
     // Get all issues to restore your backlog, excluding those already in sprints
     const result = await pool.query(`
       SELECT 
         i.id,
-        i.issue_key,
         i.rule_name,
         i.description,
         i.impact,
@@ -46,6 +44,16 @@ export async function GET(request: NextRequest) {
 
     // Convert to backlog format
     const backlogItems = result.rows.map(issue => {
+      // Debug: Log scan results structure
+      console.log('🔍 Debug scan results for issue:', issue.rule_name, {
+        hasScanResults: !!issue.scan_results,
+        remediationReportLength: issue.scan_results?.remediationReport?.length || 0,
+        remediationReport: issue.scan_results?.remediationReport?.map((r: any) => ({
+          ruleName: r.ruleName,
+          hasSuggestions: !!r.suggestions,
+          suggestionsLength: r.suggestions?.length || 0
+        })) || []
+      })
       let domain = 'unknown'
       try {
         if (issue.url) {
@@ -63,7 +71,7 @@ export async function GET(request: NextRequest) {
       
       return {
         id: issue.id,
-        issue_id: issue.issue_key,
+        issue_id: issue.id,
         rule_name: issue.rule_name,
         description: issue.description,
         impact: issue.impact,
@@ -87,16 +95,59 @@ export async function GET(request: NextRequest) {
         offendingElements: [],
         suggestions: [],
         // Add detailed scan data for the detailed view
-        scan_data: {
-          suggestions: issue.scan_results?.remediationReport?.find(r => r.ruleName === issue.rule_name)?.suggestions || [],
-          offending_elements: issue.scan_results?.remediationReport?.find(r => r.ruleName === issue.rule_name)?.offendingElements || [],
-          total_occurrences: issue.total_occurrences,
-          affected_pages: issue.affected_pages,
-          help_url: issue.help_url,
-          help_text: issue.help_text,
-          // Add screenshots from the original scan - results is an array, screenshots are in results[0].screenshots
-          screenshots: issue.scan_results?.results?.[0]?.screenshots || null
-        }
+        scan_data: (() => {
+          // Try to find remediation item by exact rule name match first
+          let remediationItem = issue.scan_results?.remediationReport?.find((r: any) => r.ruleName === issue.rule_name)
+          
+          // If not found, try to find by partial match (rule name contains the issue rule name)
+          if (!remediationItem) {
+            remediationItem = issue.scan_results?.remediationReport?.find((r: any) => 
+              r.ruleName.toLowerCase().includes(issue.rule_name.toLowerCase()) ||
+              issue.rule_name.toLowerCase().includes(r.ruleName.toLowerCase().split(' ').pop() || '')
+            )
+          }
+          
+          // If still not found, try to find by rule ID pattern matching
+          if (!remediationItem) {
+            const ruleIdPatterns = {
+              'color-contrast-enhanced': 'enhanced contrast',
+              'color-contrast': 'minimum contrast',
+              'heading-order': 'order of headings',
+              'landmark-unique': 'landmarks are unique',
+              'region': 'page content is contained by landmarks',
+              'target-size': 'touch targets have sufficient size'
+            }
+            
+            const pattern = ruleIdPatterns[issue.rule_name as keyof typeof ruleIdPatterns]
+            if (pattern) {
+              remediationItem = issue.scan_results?.remediationReport?.find((r: any) => 
+                r.ruleName.toLowerCase().includes(pattern.toLowerCase())
+              )
+            }
+          }
+          
+          const suggestions = remediationItem?.suggestions || []
+          const offendingElements = remediationItem?.offendingElements || []
+          
+          // Debug: Log what we found
+          console.log('🔍 Debug suggestions for', issue.rule_name, {
+            foundRemediationItem: !!remediationItem,
+            suggestionsCount: suggestions.length,
+            matchedRuleName: remediationItem?.ruleName,
+            suggestions: suggestions.slice(0, 2) // Show first 2 suggestions
+          })
+          
+          return {
+            suggestions,
+            offending_elements: offendingElements,
+            total_occurrences: issue.total_occurrences,
+            affected_pages: issue.affected_pages,
+            help_url: issue.help_url,
+            help_text: issue.help_text,
+            // Add screenshots from the original scan - results is an array, screenshots are in results[0].screenshots
+            screenshots: issue.scan_results?.results?.[0]?.screenshots || null
+          }
+        })()
       }
     })
 
@@ -107,10 +158,10 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Error fetching backlog items:', error)
-    console.error('❌ Error details:', error.message)
-    console.error('❌ Error stack:', error.stack)
+    console.error('❌ Error details:', (error as Error).message)
+    console.error('❌ Error stack:', (error as Error).stack)
     return NextResponse.json(
-      { error: 'Failed to fetch backlog items', details: error.message },
+      { error: 'Failed to fetch backlog items', details: (error as Error).message },
       { status: 500 }
     )
   }

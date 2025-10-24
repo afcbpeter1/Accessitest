@@ -1,61 +1,46 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Check } from 'lucide-react'
+import { Plus } from 'lucide-react'
 
 interface AddToBacklogButtonProps {
-  issueId: string
-  onAdd?: (issueId: string) => void
-  className?: string
+  issue: {
+    id: string
+    rule_name: string
+    description: string
+    impact: string
+    wcag_level: string
+    element_selector?: string
+    element_html?: string
+    failure_summary?: string
+    url: string
+    domain: string
+  }
+  onAdd: (issue: any) => void
 }
 
-export default function AddToBacklogButton({ issueId, onAdd, className = '' }: AddToBacklogButtonProps) {
-  const [isAdded, setIsAdded] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+export default function AddToBacklogButton({ issue, onAdd }: AddToBacklogButtonProps) {
+  const [isAdding, setIsAdding] = useState(false)
 
-  const handleAdd = async () => {
-    if (isLoading) return
-    
-    setIsLoading(true)
-    
+  const handleAddToBacklog = async () => {
+    setIsAdding(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
-      setIsAdded(true)
-      if (onAdd) {
-        onAdd(issueId)
-      }
-      
-      // Reset after 2 seconds
-      setTimeout(() => {
-        setIsAdded(false)
-      }, 2000)
+      await onAdd(issue)
     } catch (error) {
       console.error('Error adding to backlog:', error)
     } finally {
-      setIsLoading(false)
+      setIsAdding(false)
     }
   }
 
   return (
     <button
-      onClick={handleAdd}
-      disabled={isLoading || isAdded}
-      className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-        isAdded
-          ? 'bg-green-100 text-green-800 border border-green-200'
-          : 'bg-blue-100 text-blue-800 border border-blue-200 hover:bg-blue-200'
-      } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${className}`}
+      onClick={handleAddToBacklog}
+      disabled={isAdding}
+      className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
     >
-      {isLoading ? (
-        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-      ) : isAdded ? (
-        <Check className="w-4 h-4" />
-      ) : (
-        <Plus className="w-4 h-4" />
-      )}
-      {isAdded ? 'Added' : 'Add to Backlog'}
+      <Plus className="h-4 w-4 mr-1.5" />
+      {isAdding ? 'Adding...' : 'Add to Backlog'}
     </button>
   )
 }

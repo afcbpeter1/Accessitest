@@ -110,7 +110,7 @@ export default function ProductBacklog() {
 
   const fetchBacklogItems = async () => {
     try {
-      const response = await fetch('/api/backlog')
+      const response = await authenticatedFetch('/api/backlog')
       const data = await response.json()
       if (data.success) {
         setBacklogItems(data.items)
@@ -126,7 +126,7 @@ export default function ProductBacklog() {
 
   const fetchComments = async (itemId: string) => {
     try {
-      const response = await fetch(`/api/backlog/${itemId}/comments`)
+      const response = await authenticatedFetch(`/api/backlog/${itemId}/comments`)
       const data = await response.json()
       if (data.success) {
         setComments(data.comments)
@@ -157,7 +157,7 @@ export default function ProductBacklog() {
     try {
       // Update all items with their new ranks
       const updatePromises = updatedItems.map((item, index) => {
-        return fetch(`/api/backlog/${item.id}`, {
+        return authenticatedFetch(`/api/backlog/${item.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ priorityRank: index + 1 })
@@ -180,7 +180,7 @@ export default function ProductBacklog() {
 
   const updateStoryPoints = async (itemId: string, storyPoints: number) => {
     try {
-      const response = await fetch(`/api/backlog/${itemId}`, {
+      const response = await authenticatedFetch(`/api/backlog/${itemId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ storyPoints })
@@ -200,7 +200,7 @@ export default function ProductBacklog() {
 
   const updateStatus = async (itemId: string, status: string) => {
     try {
-      const response = await fetch(`/api/backlog/${itemId}`, {
+      const response = await authenticatedFetch(`/api/backlog/${itemId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
@@ -259,7 +259,7 @@ export default function ProductBacklog() {
     if (!selectedItem || !newComment.trim()) return
 
     try {
-      const response = await fetch(`/api/backlog/${selectedItem.id}/comments`, {
+      const response = await authenticatedFetch(`/api/backlog/${selectedItem.id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ comment: newComment.trim() })
@@ -311,7 +311,7 @@ ${item.element_html || 'N/A'}
     if (!confirm('Are you sure you want to delete this backlog item?')) return
 
     try {
-      const response = await fetch(`/api/backlog/${itemId}`, {
+      const response = await authenticatedFetch(`/api/backlog/${itemId}`, {
         method: 'DELETE'
       })
       

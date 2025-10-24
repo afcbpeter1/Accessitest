@@ -15,7 +15,8 @@ import {
   FileText,
   Sparkles
 } from 'lucide-react'
-import AddToBacklogButton from './AddToBacklogButton'
+// import AddToBacklogButton from './AddToBacklogButton'
+// import { useToast } from './Toast'
 
 
 interface CollapsibleIssueProps {
@@ -103,6 +104,7 @@ export default function CollapsibleIssue({
 }: CollapsibleIssueProps) {
   const [isExpanded, setIsExpanded] = useState(false) // Start collapsed by default
   const [copied, setCopied] = useState(false)
+  // const { showToast, ToastContainer } = useToast()
 
   const handleCopy = async () => {
     const issueText = `Issue: ${ruleName}
@@ -174,20 +176,6 @@ Affected URLs: ${affectedUrls.join(', ')}`
           </div>
           
           <div className="flex items-center gap-2 ml-4">
-            <AddToBacklogButton 
-              issue={{
-                id: issueId,
-                ruleName,
-                description,
-                impact,
-                wcagLevel: wcag22Level,
-                elementSelector: (offendingElements || [])[0]?.target?.[0],
-                elementHtml: (offendingElements || [])[0]?.html,
-                failureSummary: (offendingElements || [])[0]?.failureSummary,
-                url: (affectedUrls || [])[0] || ''
-              }}
-              domain={(affectedUrls || [])[0] ? new URL((affectedUrls || [])[0]).hostname : ''}
-            />
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -398,6 +386,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
 
         </div>
       )}
+      {/* <ToastContainer /> */}
     </div>
   )
 }

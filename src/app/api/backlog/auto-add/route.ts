@@ -24,17 +24,25 @@ export async function POST(request: NextRequest) {
 
     for (const issue of scanResults) {
       try {
+        // Generate unique issue ID based on rule, element, and URL
+        const crypto = require('crypto')
+        const issueKey = crypto.createHash('sha256')
+          .update(`${issue.ruleName}|${issue.elementSelector || ''}|${issue.url}`)
+          .digest('hex').substring(0, 16)
+
         // Check if this issue already exists for this domain
         const existingItem = await queryOne(`
-          SELECT id FROM product_backlog 
-          WHERE user_id = $1 AND issue_id = $2 AND domain = $3
-        `, [user.userId, issue.id, domain])
+          SELECT i.id, i.status, i.created_at, i.updated_at 
+          FROM issues i
+          JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+          WHERE sh.user_id = $1 AND i.rule_name = $2 AND sh.url LIKE $3
+        `, [user.userId, issue.ruleName, `%${domain}%`])
 
         if (existingItem) {
           // Update last_scan_at for existing items
           await query(`
-            UPDATE product_backlog 
-            SET last_scan_at = NOW(), updated_at = NOW()
+            UPDATE issues 
+            SET updated_at = NOW()
             WHERE id = $1
           `, [existingItem.id])
           
@@ -48,35 +56,60 @@ export async function POST(request: NextRequest) {
 
         // Get the next priority rank
         const maxRank = await queryOne(`
-          SELECT COALESCE(MAX(priority_rank), 0) as max_rank 
-          FROM product_backlog 
-          WHERE user_id = $1
+          SELECT COALESCE(MAX(rank), 0) as max_rank 
+          FROM issues 
+          WHERE first_seen_scan_id IN (
+            SELECT id FROM scan_history WHERE user_id = $1
+          )
         `, [user.userId])
 
         const nextRank = (maxRank?.max_rank || 0) + 1
 
-        // Insert new backlog item
+        // Get the most recent scan history for this user
+        const scanHistory = await queryOne(`
+          SELECT id FROM scan_history 
+          WHERE user_id = $1
+          ORDER BY created_at DESC 
+          LIMIT 1
+        `, [user.userId])
+
+        if (!scanHistory) {
+          console.error(`No scan history found for user ${user.userId}`)
+          skippedItems.push({
+            issueId: issue.id,
+            ruleName: issue.ruleName,
+            reason: 'No scan history found'
+          })
+          continue
+        }
+
+        // Insert new issue
         const result = await queryOne(`
-          INSERT INTO product_backlog (
-            user_id, issue_id, rule_name, description, impact, wcag_level,
-            element_selector, element_html, failure_summary, url, domain,
-            priority_rank, status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+          INSERT INTO issues (
+            issue_key, rule_id, rule_name, description, impact, wcag_level,
+            total_occurrences, affected_pages, notes,
+            status, priority, rank, story_points, remaining_points,
+            first_seen_scan_id, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
           RETURNING *
         `, [
-          user.userId, 
-          issue.id, 
+          issueKey,
+          issue.ruleName, // rule_id (using rule name as rule_id)
           issue.ruleName, 
           issue.description, 
           issue.impact, 
           issue.wcagLevel,
-          issue.elementSelector, 
-          issue.elementHtml, 
-          issue.failureSummary, 
-          issue.url, 
-          domain,
+          1, // total_occurrences
+          [issue.url], // affected_pages
+          issue.failureSummary || '', // notes
+          'open', 
+          'medium', 
           nextRank, 
-          'backlog'
+          1, // story_points
+          1, // remaining_points
+          scanHistory.id, 
+          new Date().toISOString(), 
+          new Date().toISOString()
         ])
 
         addedItems.push({
