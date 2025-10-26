@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Upload, FileText, AlertTriangle, CheckCircle, X, Download, Eye, Sparkles, CreditCard } from 'lucide-react'
+import { Upload, FileText, AlertTriangle, CheckCircle, X, Download, Eye, Sparkles, CreditCard, Plus, ChevronUp, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import ScanHistory from './ScanHistory'
+import CollapsibleIssue from './CollapsibleIssue'
 
 interface UploadedDocument {
   id: string
@@ -84,9 +85,6 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
-  const [selectedIssue, setSelectedIssue] = useState<any>(null)
-  const [showIssueModal, setShowIssueModal] = useState(false)
-  const [showAllIssues, setShowAllIssues] = useState(false)
   const [showTagSelector, setShowTagSelector] = useState(false)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [currentScanId, setCurrentScanId] = useState<string | null>(null)
@@ -164,11 +162,23 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
   const checkUserCredits = async () => {
     setIsCheckingCredits(true)
     try {
-      const response = await fetch('/api/credits?userId=demo-user')
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        console.error('No access token found')
+        return
+      }
+
+      const response = await fetch('/api/credits', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      })
       if (response.ok) {
         const data = await response.json()
         setUserCredits(data.credits)
         setCanScan(data.canScan)
+      } else {
+        console.error('Failed to fetch credits:', response.status, response.statusText)
       }
     } catch (error) {
       console.error('Failed to check credits:', error)
@@ -335,6 +345,57 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     setScanLogs([])
   }
 
+  const addIssuesToBacklog = async (issues: any[]) => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        addScanLog('❌ Authentication required to add issues to backlog')
+        return
+      }
+
+      addScanLog('🔄 Adding issues to product backlog...')
+
+      // Transform document issues to match the expected format for backlog
+      const transformedIssues = issues.map(issue => ({
+        ruleName: issue.id || issue.description,
+        description: issue.description,
+        impact: issue.type,
+        wcagLevel: issue.wcagCriterion || 'AA',
+        elementSelector: issue.elementLocation || '',
+        elementHtml: issue.context || '',
+        failureSummary: issue.recommendation || '',
+        url: `Document: ${uploadedDocuments.find(doc => doc.scanResults)?.name || 'Unknown'}`,
+        domain: 'document-scan'
+      }))
+
+      const response = await fetch('/api/backlog/auto-add', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          scanResults: transformedIssues,
+          domain: 'document-scan'
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        addScanLog(`✅ Added ${data.added.length} issues to product backlog`)
+        if (data.skipped.length > 0) {
+          addScanLog(`ℹ️ Skipped ${data.skipped.length} duplicate issues`)
+        }
+      } else {
+        addScanLog(`❌ Failed to add issues to backlog: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error adding issues to backlog:', error)
+      addScanLog('❌ Error adding issues to backlog')
+    }
+  }
+
   const startScan = async (documentId: string) => {
     const document = uploadedDocuments.find(doc => doc.id === documentId)
     if (!document) {
@@ -372,10 +433,17 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
     try {
       // Call the API for 508 compliance scan
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        addScanLog('❌ Authentication required. Please log in again.')
+        return
+      }
+
       const response = await fetch('/api/document-scan', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           fileName: document.name,
@@ -407,6 +475,9 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       }
       
       const scanResults = result.result
+      console.log('🔍 Document scan results structure:', scanResults)
+      console.log('🔍 Issues array:', scanResults.issues)
+      console.log('🔍 Issues length:', scanResults.issues?.length)
       addScanLog(`✅ Scan completed! Found ${scanResults.issues.length} accessibility issues`)
       
       const completedDocument: UploadedDocument = {
@@ -429,9 +500,9 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            userId: 'demo-user',
             scanType: 'document',
             scanId: scanId,
             fileName: document.name
@@ -451,7 +522,19 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
              // Reset scanning state
        setCurrentScanId(null)
        setIsScanning(false)
-       addScanLog('🎉 Document processing complete!')
+       
+       // Show professional success notification
+       const totalIssues = scanResults.summary.total
+       const criticalIssues = scanResults.summary.critical
+       const seriousIssues = scanResults.summary.serious
+       const pagesAnalyzed = scanResults.metadata?.pagesAnalyzed || 1
+       
+       addScanLog(`🎉 Document scan completed successfully!`)
+       addScanLog(`📊 Pages analyzed: ${pagesAnalyzed}`)
+       addScanLog(`📋 Total issues: ${totalIssues}`)
+       addScanLog(`🔴 Critical issues: ${criticalIssues}`)
+       addScanLog(`🟠 Serious issues: ${seriousIssues}`)
+       addScanLog(`✅ Issues automatically added to product backlog`)
 
        // Refresh credits
        checkUserCredits()
@@ -479,8 +562,17 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     if (currentScanId) {
       addScanLog('🚫 User requested scan cancellation...')
       try {
+        const token = localStorage.getItem('accessToken')
+        if (!token) {
+          addScanLog('❌ Authentication required for cancellation')
+          return
+        }
+
         await fetch(`/api/document-scan?scanId=${currentScanId}`, {
-          method: 'DELETE'
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          }
         })
         setCurrentScanId(null)
         setIsScanning(false)
@@ -544,38 +636,18 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
         </div>
 
-        {/* Credit Display */}
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <CreditCard className="h-5 w-5 text-blue-600" />
-              <span className="text-sm font-medium text-blue-800">
-                Credits Available: {userCredits === 999999 ? 'Unlimited' : userCredits}
-              </span>
-            </div>
-            {!canScan && (
-              <span className="text-sm text-red-600 font-medium">
-                Insufficient credits to scan
-              </span>
-            )}
-          </div>
-          {userCredits < 5 && userCredits !== 999999 && (
-            <div className="flex items-center justify-between mt-2">
-              <p className="text-xs text-blue-600">
-                Running low on credits? <Link href="/pricing" className="underline hover:text-blue-800">Buy more</Link> or upgrade to unlimited.
-              </p>
-              <Link 
-                href="/pricing"
-                className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-              >
-                Buy Credits
-              </Link>
-            </div>
-          )}
-        </div>
 
-                 {/* Section 508 Tag Selector */}
+                 {/* ADA & Section 508 Tag Selector */}
          <div className="mb-6">
+           <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+             <div className="flex items-center space-x-2">
+               <CheckCircle className="h-5 w-5 text-green-600" />
+               <div>
+                 <p className="text-sm font-medium text-green-800">ADA Compliant Document Scans</p>
+                 <p className="text-xs text-green-600">Meets Americans with Disabilities Act requirements through Section 508 + WCAG 2.1 AA compliance</p>
+               </div>
+             </div>
+           </div>
            <div className="flex items-center justify-between mb-3">
              <h4 className="text-md font-medium text-gray-800">Section 508 Compliance Tests</h4>
              <div className="flex space-x-2">
@@ -844,57 +916,83 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                       </div>
                     )}
 
-                    {/* Issues List */}
-                    {document.scanResults.issues.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-gray-700">Issues Found:</p>
-                        {document.scanResults.issues.slice(0, showAllIssues ? undefined : 3).map((issue) => (
-                          <div 
-                            key={issue.id} 
-                            className="flex items-start space-x-2 p-2 bg-white rounded border cursor-pointer hover:bg-gray-50 transition-colors"
-                            onClick={() => {
-                              setSelectedIssue(issue)
-                              setShowIssueModal(true)
-                            }}
-                          >
-                            <div className={`w-2 h-2 rounded-full mt-2 ${
-                              issue.type === 'critical' ? 'bg-red-500' :
-                              issue.type === 'serious' ? 'bg-orange-500' :
-                              issue.type === 'moderate' ? 'bg-yellow-500' :
-                              'bg-blue-500'
-                            }`} />
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <p className="text-sm font-medium text-gray-900">{issue.description}</p>
-                                {issue.category && (
-                                  <span className="px-1 py-0.5 bg-gray-100 text-gray-700 text-xs rounded">
-                                    {issue.category}
-                                  </span>
-                                )}
-                                {issue.occurrences && issue.occurrences > 1 && (
-                                  <span className="px-1 py-0.5 bg-purple-100 text-purple-700 text-xs rounded">
-                                    {issue.occurrences} instances
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs text-gray-500">
-                                {issue.section}
-                                {issue.pageNumber && ` • Page ${issue.pageNumber}`}
-                                {issue.lineNumber && ` • Line ${issue.lineNumber}`}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                        {document.scanResults.issues.length > 3 && (
-                          <div className="text-center">
-                            <button 
-                              onClick={() => setShowAllIssues(!showAllIssues)}
-                              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    {/* Enhanced Issues List - Similar to Web Scan */}
+                    {(() => {
+                      console.log('🔍 Rendering issues - scanResults:', document.scanResults)
+                      console.log('🔍 Rendering issues - issues array:', document.scanResults.issues)
+                      console.log('🔍 Rendering issues - issues length:', document.scanResults.issues?.length)
+                      return document.scanResults.issues && document.scanResults.issues.length > 0
+                    })() ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-medium text-gray-900">Accessibility Issues</h3>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => {
+                                // Auto-add issues to backlog
+                                addIssuesToBacklog(document.scanResults.issues)
+                              }}
+                              className="inline-flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                             >
-                              {showAllIssues ? 'Show Less' : `+${document.scanResults.issues.length - 3} more issues`}
+                              <Plus className="h-4 w-4 mr-1" />
+                              Add to Backlog
                             </button>
+                            <Link
+                              href="/scan-history"
+                              className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
+                            >
+                              <FileText className="h-4 w-4 mr-1" />
+                              View All Scans
+                            </Link>
                           </div>
-                        )}
+                        </div>
+                        
+                        {/* Display issues using CollapsibleIssue component like web scan */}
+                        {document.scanResults.issues.map((issue, issueIndex) => {
+                          // Transform document issue to match CollapsibleIssue format
+                          const collapsibleIssue = {
+                            issueId: issue.id,
+                            ruleName: issue.id || issue.description,
+                            description: issue.description,
+                            impact: issue.type,
+                            wcag22Level: issue.wcagCriterion || 'AA',
+                            help: issue.recommendation || issue.description,
+                            helpUrl: '', // Document issues don't have help URLs
+                            totalOccurrences: 1,
+                            affectedUrls: [`Document: ${document.name}`],
+                            offendingElements: [{
+                              html: issue.context || '',
+                              target: issue.elementLocation || '',
+                              failureSummary: issue.recommendation || '',
+                              impact: issue.type,
+                              url: `Document: ${document.name}`
+                            }],
+                            suggestions: [{
+                              type: 'fix' as const,
+                              description: issue.recommendation || issue.description,
+                              priority: (issue.type === 'critical' || issue.type === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
+                            }],
+                            priority: (issue.type === 'critical' || issue.type === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
+                          };
+
+                          return (
+                            <CollapsibleIssue
+                              key={`${document.id}-${issueIndex}`}
+                              {...collapsibleIssue}
+                              screenshots={null} // Document scans don't have screenshots
+                              scanId={document.scanResults.metadata?.scanId}
+                              onStatusChange={(issueId, status) => {
+                                console.log('Document issue status changed:', issueId, status)
+                              }}
+                            />
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Issues Found</h3>
+                        <p className="text-gray-600">Great! No accessibility issues were detected in this scan.</p>
                       </div>
                     )}
 

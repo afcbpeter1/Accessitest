@@ -249,7 +249,7 @@ export async function POST(request: NextRequest) {
       // Store scan results in history (with error handling)
       try {
         const { ScanHistoryService } = await import('@/lib/scan-history-service')
-        await ScanHistoryService.storeScanResult(user.userId, 'document', {
+        const scanHistoryResult = await ScanHistoryService.storeScanResult(user.userId, 'document', {
           scanTitle: `Document Scan: ${body.fileName}`,
           fileName: body.fileName,
           fileType: body.fileType,
@@ -277,6 +277,16 @@ export async function POST(request: NextRequest) {
           }
         })
         console.log('✅ Document scan results stored in history')
+
+        // Auto-add issues to product backlog
+        if (enhancedResult.issues && enhancedResult.issues.length > 0 && scanHistoryResult?.scanId) {
+          try {
+            await autoAddDocumentIssuesToBacklog(user.userId, enhancedResult.issues, scanHistoryResult.scanId, body.fileName)
+            console.log('✅ Document issues automatically added to product backlog')
+          } catch (backlogError) {
+            console.error('Failed to auto-add document issues to backlog:', backlogError)
+          }
+        }
       } catch (error) {
         console.error('Failed to store document scan results in history:', error)
       }
@@ -321,7 +331,7 @@ export async function POST(request: NextRequest) {
     // Store scan results in history (with error handling)
     try {
       const { ScanHistoryService } = await import('@/lib/scan-history-service')
-      await ScanHistoryService.storeScanResult(user.userId, 'document', {
+      const scanHistoryResult = await ScanHistoryService.storeScanResult(user.userId, 'document', {
         scanTitle: `Document Scan: ${body.fileName}`,
         fileName: body.fileName,
         fileType: body.fileType,
@@ -349,6 +359,16 @@ export async function POST(request: NextRequest) {
         }
       })
       console.log('✅ Document scan results stored in history')
+
+      // Auto-add issues to product backlog
+      if (scanResult.issues && scanResult.issues.length > 0 && scanHistoryResult?.scanId) {
+        try {
+          await autoAddDocumentIssuesToBacklog(user.userId, scanResult.issues, scanHistoryResult.scanId, body.fileName)
+          console.log('✅ Document issues automatically added to product backlog')
+        } catch (backlogError) {
+          console.error('Failed to auto-add document issues to backlog:', backlogError)
+        }
+      }
     } catch (error) {
       console.error('Failed to store document scan results in history:', error)
     }
@@ -568,5 +588,112 @@ File Type: ${request.fileType}
         ...scanResult.metadata
       }
     }
+  }
+}
+
+/**
+ * Auto-add document scan issues to product backlog
+ */
+async function autoAddDocumentIssuesToBacklog(userId: string, issues: any[], scanHistoryId: string, fileName: string): Promise<void> {
+  try {
+    const addedItems = []
+    const skippedItems = []
+
+    for (const issue of issues) {
+      try {
+        // Generate unique issue ID based on rule, element, and document
+        const crypto = require('crypto')
+        const issueKey = crypto.createHash('sha256')
+          .update(`${issue.id || issue.description}|${issue.elementLocation || ''}|${fileName}`)
+          .digest('hex').substring(0, 16)
+
+        // Check if this issue already exists for this user
+        const existingItem = await queryOne(`
+          SELECT i.id, i.status, i.created_at, i.updated_at 
+          FROM issues i
+          JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+          WHERE sh.user_id = $1 AND i.rule_name = $2 AND sh.file_name = $3
+        `, [userId, issue.id || issue.description, fileName])
+
+        if (existingItem) {
+          // Update last_scan_at for existing items
+          await query(`
+            UPDATE issues 
+            SET updated_at = NOW()
+            WHERE id = $1
+          `, [existingItem.id])
+          
+          skippedItems.push({
+            issueId: issue.id,
+            ruleName: issue.id || issue.description,
+            reason: 'Already exists in backlog'
+          })
+          continue
+        }
+
+        // Get the next priority rank
+        const maxRank = await queryOne(`
+          SELECT COALESCE(MAX(rank), 0) as max_rank 
+          FROM issues 
+          WHERE first_seen_scan_id IN (
+            SELECT id FROM scan_history WHERE user_id = $1
+          )
+        `, [userId])
+
+        const nextRank = (maxRank?.max_rank || 0) + 1
+
+        // Insert new issue
+        const result = await queryOne(`
+          INSERT INTO issues (
+            issue_key, rule_id, rule_name, description, impact, wcag_level,
+            total_occurrences, affected_pages, notes,
+            status, priority, rank, story_points, remaining_points,
+            first_seen_scan_id, created_at, updated_at
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          RETURNING *
+        `, [
+          issueKey,
+          issue.id || issue.description, // rule_id
+          issue.id || issue.description, // rule_name
+          issue.description, 
+          issue.type, 
+          issue.wcagCriterion || 'AA',
+          1, // total_occurrences
+          [`Document: ${fileName}`], // affected_pages
+          issue.recommendation || '', // notes
+          'open', 
+          'medium', 
+          nextRank, 
+          1, // story_points
+          1, // remaining_points
+          scanHistoryId, 
+          new Date().toISOString(), 
+          new Date().toISOString()
+        ])
+
+        addedItems.push({
+          id: result.id,
+          issueId: issue.id,
+          ruleName: issue.id || issue.description,
+          impact: issue.type
+        })
+      } catch (error) {
+        console.error(`Error processing document issue ${issue.id}:`, error)
+        skippedItems.push({
+          issueId: issue.id,
+          ruleName: issue.id || issue.description,
+          reason: 'Error processing issue'
+        })
+      }
+    }
+
+    console.log('✅ Document backlog auto-creation result:', {
+      total: issues.length,
+      added: addedItems.length,
+      skipped: skippedItems.length
+    })
+  } catch (error) {
+    console.error('Error auto-adding document issues to backlog:', error)
+    throw error
   }
 }

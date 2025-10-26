@@ -116,16 +116,17 @@ async function handleLogin(email: string, password: string) {
       [user.id]
     )
 
-    // Generate JWT token
+    // Generate JWT token with sliding expiration
     const token = jwt.sign(
       { 
         userId: user.id, 
         email: user.email, 
         plan: user.plan_type,
-        emailVerified: user.email_verified
+        emailVerified: user.email_verified,
+        lastActivity: Date.now()  // Track last activity for sliding expiration
       },
       JWT_SECRET,
-      { expiresIn: '15m' }
+      { expiresIn: '15m' }  // 15 minutes of inactivity
     )
 
     return NextResponse.json({

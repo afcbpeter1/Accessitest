@@ -47,8 +47,18 @@ export default function ScanHistory({ type = 'all', className = '' }: ScanHistor
   const loadScanHistory = async () => {
     setIsLoadingHistory(true)
     try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        console.error('No access token found for scan history')
+        return
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+      }
+
       // Load document scans
-      const docResponse = await fetch('/api/document-scan')
+      const docResponse = await fetch('/api/document-scan', { headers })
       const docHistory = await docResponse.json()
       const docScans = (docHistory.scans || []).map((scan: any) => ({
         ...scan,
@@ -56,7 +66,7 @@ export default function ScanHistory({ type = 'all', className = '' }: ScanHistor
       }))
 
       // Load web scans (when API is available)
-      const webResponse = await fetch('/api/web-scan')
+      const webResponse = await fetch('/api/web-scan', { headers })
       let webScans: ScanRecord[] = []
       if (webResponse.ok) {
         const webHistory = await webResponse.json()

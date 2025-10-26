@@ -18,6 +18,43 @@ import {
 // import AddToBacklogButton from './AddToBacklogButton'
 // import { useToast } from './Toast'
 
+// Function to format AI suggestion descriptions with proper numbering and spacing
+function formatSuggestionDescription(description: string) {
+  if (!description) return description
+  
+  // Split by lines and process each line
+  const lines = description.split('\n')
+  let stepNumber = 1
+  
+  return lines.map((line, index) => {
+    // Skip empty lines
+    if (!line.trim()) {
+      return <br key={index} />
+    }
+    
+    // Check if line starts with a number followed by a period
+    const numberedMatch = line.match(/^(\d+)\.\s*(.+)$/)
+    if (numberedMatch) {
+      const [, number, content] = numberedMatch
+      // Use consistent numbering starting from 1
+      const formattedLine = `${stepNumber}. ${content.trim()}`
+      stepNumber++
+      return (
+        <p key={index} className="mb-2">
+          {formattedLine}
+        </p>
+      )
+    }
+    
+    // For non-numbered lines, just return as is
+    return (
+      <p key={index} className="mb-2">
+        {line.trim()}
+      </p>
+    )
+  })
+}
+
 
 interface CollapsibleIssueProps {
   issueId: string
@@ -358,11 +395,11 @@ Affected URLs: ${affectedUrls.join(', ')}`
                               {(suggestion.priority || 'medium').toUpperCase()} PRIORITY
                             </span>
                           </div>
-                          <p className={`mb-3 ${
+                          <div className={`mb-3 ${
                             isAISuggestion ? 'text-purple-900 font-medium' : 'text-gray-800'
                           }`}>
-                            {suggestion.description}
-                          </p>
+                            {formatSuggestionDescription(suggestion.description)}
+                          </div>
                           {suggestion.codeExample && (
                             <div>
                               <p className="text-sm text-gray-600 mb-1 flex items-center gap-1">

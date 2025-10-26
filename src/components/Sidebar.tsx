@@ -19,7 +19,6 @@ import {
   History,
   AlertTriangle,
   Target,
-  Calendar
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -29,7 +28,6 @@ const navigation = [
   { name: 'Document Scan', href: '/document-scan', icon: Upload, current: false },
   { name: 'Product Backlog', href: '/product-backlog', icon: AlertTriangle, current: false },
   { name: 'Sprint Board', href: '/sprint-board', icon: Target, current: false },
-  { name: 'Periodic Scans', href: '/periodic-scans', icon: Calendar, current: false },
   { name: 'Scan History', href: '/scan-history', icon: History, current: false },
   { name: 'Pricing', href: '/pricing', icon: DollarSign, current: false },
   { name: 'Settings', href: '/settings', icon: Settings, current: false },

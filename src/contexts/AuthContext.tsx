@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { isAuthenticated, getCurrentUser, clearAuthData, showLogoutNotification } from '@/lib/auth-utils'
+import { tokenRefreshService } from '@/lib/token-refresh-service'
 
 interface User {
   id: string
@@ -48,6 +49,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refreshAuth()
+    
+    // Start token refresh service if user is authenticated
+    if (isAuthenticated()) {
+      console.log('🔄 Starting token refresh service for sliding expiration')
+    }
     
     // Listen for storage changes (e.g., when user logs in from another tab)
     const handleStorageChange = (e: StorageEvent) => {

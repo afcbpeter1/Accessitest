@@ -62,7 +62,6 @@ function ScanDetailsContent() {
   const [scan, setScan] = useState<ScanHistoryDetails | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showPeriodicModal, setShowPeriodicModal] = useState(false)
   const [rerunning, setRerunning] = useState(false)
   
   // Modal management
@@ -217,73 +216,6 @@ function ScanDetailsContent() {
     }
   }
 
-  const handleCreatePeriodicScan = async (frequency: string, scanTitle: string) => {
-    if (!scan) return
-    
-    try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) {
-        setError('Authentication required')
-        return
-      }
-
-      // Calculate next run time based on frequency
-      const now = new Date()
-      let nextRunAt: Date
-      
-      switch (frequency) {
-        case 'daily':
-          nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-          break
-        case 'weekly':
-          nextRunAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-          break
-        case 'monthly':
-          nextRunAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
-          break
-        default:
-          nextRunAt = new Date(now.getTime() + 24 * 60 * 60 * 1000)
-      }
-
-      // Extract scan settings from the current scan
-      const scanSettings = {
-        wcagLevel: 'AA', // Default, could be enhanced to store actual settings
-        selectedTags: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'],
-        pagesToScan: scan.url ? [scan.url] : [],
-        includeSubdomains: true
-      }
-
-      const response = await fetch('/api/periodic-scans', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          scanType: scan.scanType,
-          scanTitle: scanTitle || scan.scanTitle,
-          url: scan.url,
-          fileName: scan.fileName,
-          fileType: scan.fileType,
-          scanSettings,
-          frequency,
-          nextRunAt: nextRunAt.toISOString()
-        })
-      })
-
-      const data = await response.json()
-      
-      if (data.success) {
-        setShowPeriodicModal(false)
-        showAlert('Periodic Scan Scheduled', 'Your periodic scan has been successfully scheduled!', 'success')
-      } else {
-        setError(data.error || 'Failed to create periodic scan')
-      }
-    } catch (error) {
-      console.error('Error creating periodic scan:', error)
-      setError('Failed to create periodic scan')
-    }
-  }
 
   if (loading) {
     return (
@@ -383,13 +315,6 @@ function ScanDetailsContent() {
               {rerunning ? 'Rerunning...' : 'Rerun Scan'}
             </button>
             
-            <button
-              onClick={() => setShowPeriodicModal(true)}
-              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-            >
-              <Repeat className="h-4 w-4 mr-2" />
-              Schedule Recurring
-            </button>
             
             {scan.url && (
               <a
@@ -504,6 +429,9 @@ function ScanDetailsContent() {
                       scanResults = scan.scanResults
                     } else if (scan.scanResults.results && Array.isArray(scan.scanResults.results)) {
                       scanResults = scan.scanResults.results
+                    } else if (scan.scanResults.issues && Array.isArray(scan.scanResults.issues)) {
+                      // Document scan results structure
+                      scanResults = scan.scanResults.issues
                     }
                   }
                   
@@ -611,85 +539,6 @@ function ScanDetailsContent() {
         </div>
       </div>
 
-      {/* Periodic Scan Modal */}
-      {showPeriodicModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              Schedule Recurring Scan
-            </h3>
-            
-            {scan && (
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600">
-                  <strong>Scan:</strong> {scan.scanTitle}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <strong>Type:</strong> {scan.scanType}
-                </p>
-                {scan.url && (
-                  <p className="text-sm text-gray-600">
-                    <strong>URL:</strong> {scan.url}
-                  </p>
-                )}
-                {scan.fileName && (
-                  <p className="text-sm text-gray-600">
-                    <strong>File:</strong> {scan.fileName}
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Frequency
-                </label>
-                <select 
-                  id="frequency"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="daily">Daily</option>
-                  <option value="weekly">Weekly</option>
-                  <option value="monthly">Monthly</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Scan Title
-                </label>
-                <input
-                  type="text"
-                  id="scanTitle"
-                  defaultValue={scan?.scanTitle || ''}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter scan title"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => setShowPeriodicModal(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  const frequency = (document.getElementById('frequency') as HTMLSelectElement)?.value || 'daily'
-                  const scanTitle = (document.getElementById('scanTitle') as HTMLInputElement)?.value || scan?.scanTitle || ''
-                  handleCreatePeriodicScan(frequency, scanTitle)
-                }}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-              >
-                Schedule Scan
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* User-friendly Modal */}
       <AlertModal

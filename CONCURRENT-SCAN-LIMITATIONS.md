@@ -161,7 +161,6 @@ async checkUserLimits(userId) {
 
 ### **2. Advanced Queue Features**
 - **Priority Boost**: Users can pay for faster processing
-- **Scheduled Scans**: Queue scans for specific times
 - **Batch Processing**: Group similar scans for efficiency
 
 ### **3. AI Optimization**

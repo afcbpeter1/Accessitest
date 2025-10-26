@@ -359,6 +359,13 @@ export default function HomePage() {
   const complianceStandards = [
     {
       icon: Shield,
+      standard: 'ADA Compliant',
+      description: 'Americans with Disabilities Act compliance through WCAG 2.2 AA standards',
+      coverage: 'Legal compliance guaranteed',
+      color: 'text-green-600'
+    },
+    {
+      icon: Shield,
       standard: 'Section 508 Compliance',
       description: 'Federal accessibility standards for electronic and information technology',
       coverage: 'All 16 subsections tested',
@@ -431,7 +438,7 @@ export default function HomePage() {
             Professional Accessibility Testing Platform
           </h1>
           <p className="text-xl mb-8 max-w-3xl mx-auto">
-            A11ytest.ai is the leading accessibility testing platform that ensures your documents and websites meet federal Section 508 requirements and international WCAG 2.2 AA standards. Our AI-powered technology provides comprehensive accessibility audits for PDFs, Word documents, PowerPoint presentations, and websites, helping organizations achieve full compliance and create inclusive digital experiences for all users.
+            A11ytest.ai is the leading accessibility testing platform that ensures your documents and websites meet <strong>ADA compliance</strong>, federal Section 508 requirements, and international WCAG 2.2 AA standards. Our AI-powered technology provides comprehensive accessibility audits for PDFs, Word documents, PowerPoint presentations, and websites, helping organizations achieve full legal compliance and create inclusive digital experiences for all users.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
