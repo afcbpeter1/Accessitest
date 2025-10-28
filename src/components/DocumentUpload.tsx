@@ -5,6 +5,8 @@ import { Upload, FileText, AlertTriangle, CheckCircle, X, Download, Eye, Sparkle
 import Link from 'next/link'
 import ScanHistory from './ScanHistory'
 import CollapsibleIssue from './CollapsibleIssue'
+import { useScan } from '@/contexts/ScanContext'
+import { authenticatedFetch } from '@/lib/auth-utils'
 
 interface UploadedDocument {
   id: string
@@ -90,28 +92,46 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
   const [currentScanId, setCurrentScanId] = useState<string | null>(null)
   const [scanLogs, setScanLogs] = useState<string[]>([])
   const [showLogs, setShowLogs] = useState(false)
+  const { addScan, updateScan, removeScan, getActiveScan, activeScans } = useScan()
 
   const [userCredits, setUserCredits] = useState<number>(10)
   const [canScan, setCanScan] = useState<boolean>(true)
   const [isCheckingCredits, setIsCheckingCredits] = useState<boolean>(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
-  // Load scan state from localStorage on component mount
+  // Load scan state from localStorage and global context on component mount
   useEffect(() => {
     const savedScanId = localStorage.getItem('currentScanId')
     const savedScanLogs = localStorage.getItem('scanLogs')
     const savedIsScanning = localStorage.getItem('isScanning')
     
-    if (savedScanId && savedIsScanning === 'true') {
+    // First check if there's an active scan in global state
+    const documentScans = activeScans.filter(scan => scan.type === 'document')
+    if (documentScans.length > 0) {
+      const activeScan = documentScans[0] // Get the most recent document scan
+      setCurrentScanId(activeScan.scanId)
+      setIsScanning(activeScan.status === 'scanning' || activeScan.status === 'analyzing')
+      
+      if (savedScanLogs) {
+        setScanLogs(JSON.parse(savedScanLogs))
+      }
+      
+      // If scan is complete, update document status and load results
+      if (activeScan.status === 'complete') {
+        // Load scan results from scan history
+        loadScanResultsForDocument(activeScan.fileName)
+        setCurrentScanId(null)
+        setIsScanning(false)
+      }
+    } else if (savedScanId && savedIsScanning === 'true') {
+      // Fallback to localStorage if no global state
       setCurrentScanId(savedScanId)
       setIsScanning(true)
       if (savedScanLogs) {
         setScanLogs(JSON.parse(savedScanLogs))
       }
-      // Check if scan is still active on backend
-      checkScanStatus(savedScanId)
     }
-  }, [])
+  }, [activeScans])
   
   // Save scan state to localStorage
   useEffect(() => {
@@ -133,48 +153,32 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     }
   }, [scanLogs])
   
-  // Check if scan is still active on backend
-  const checkScanStatus = async (scanId: string) => {
-    try {
-      const response = await fetch(`/api/document-scan/status?scanId=${scanId}`)
-      if (response.ok) {
-        const result = await response.json()
-        if (result.status === 'completed' || result.status === 'cancelled') {
-          // Scan finished, clear state
-          setCurrentScanId(null)
-          setIsScanning(false)
-          localStorage.removeItem('currentScanId')
-          localStorage.removeItem('isScanning')
-                     addScanLog('🔄 Scan completed while page was refreshed')
-        }
-      }
-    } catch (error) {
-      console.error('Failed to check scan status:', error)
-    }
-  }
+  // Document scans are synchronous, so no status check needed
+  // The scan completes immediately when the API call returns
 
   // Load credits on component mount
   useEffect(() => {
     checkUserCredits()
   }, [])
 
+  // Debug: Monitor uploaded documents changes
+  useEffect(() => {
+    console.log('🔍 Uploaded documents updated:', uploadedDocuments)
+    uploadedDocuments.forEach(doc => {
+      if (doc.status === 'completed' && doc.scanResults) {
+        console.log('🔍 Document with results:', doc.name, doc.scanResults)
+      }
+    })
+  }, [uploadedDocuments])
+
   // Check user credits
   const checkUserCredits = async () => {
     setIsCheckingCredits(true)
     try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) {
-        console.error('No access token found')
-        return
-      }
-
-      const response = await fetch('/api/credits', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      })
+      const response = await authenticatedFetch('/api/credits')
       if (response.ok) {
         const data = await response.json()
+        console.log('🔍 Credit check result:', data)
         setUserCredits(data.credits)
         setCanScan(data.canScan)
       } else {
@@ -184,6 +188,37 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       console.error('Failed to check credits:', error)
     } finally {
       setIsCheckingCredits(false)
+    }
+  }
+
+  // Load scan results for a completed document
+  const loadScanResultsForDocument = async (fileName: string) => {
+    try {
+      const response = await authenticatedFetch('/api/document-scan')
+      if (response.ok) {
+        const data = await response.json()
+        const recentScan = data.scans?.find((scan: any) => 
+          scan.fileName === fileName && scan.scanResults
+        )
+        
+        if (recentScan && recentScan.scanResults) {
+          console.log('🔍 Loading scan results for document:', fileName, recentScan.scanResults)
+          
+          setUploadedDocuments(prev => 
+            prev.map(doc => 
+              doc.name === fileName 
+                ? { 
+                    ...doc, 
+                    status: 'completed',
+                    scanResults: recentScan.scanResults
+                  } 
+                : doc
+            )
+          )
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load scan results:', error)
     }
   }
 
@@ -429,6 +464,18 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     const scanId = `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     setCurrentScanId(scanId)
     setIsScanning(true)
+    
+    // Add to global scan state
+    addScan({
+      scanId,
+      type: 'document',
+      status: 'scanning',
+      currentPage: 0,
+      totalPages: 1,
+      startTime: Date.now(),
+      fileName: document.name
+    })
+    
     addScanLog('🔄 Initializing scan engine...')
 
     try {
@@ -478,7 +525,9 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       console.log('🔍 Document scan results structure:', scanResults)
       console.log('🔍 Issues array:', scanResults.issues)
       console.log('🔍 Issues length:', scanResults.issues?.length)
-      addScanLog(`✅ Scan completed! Found ${scanResults.issues.length} accessibility issues`)
+      addScanLog(`✅ Scan completed! Found ${scanResults.issues?.length || 0} accessibility issues`)
+      
+      console.log('🔍 About to update document status to completed')
       
       const completedDocument: UploadedDocument = {
         ...document,
@@ -493,6 +542,12 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
             : doc
         )
       )
+      
+      console.log('🔍 Document status updated to completed, scanResults:', completedDocument.scanResults)
+
+      // Clear scanning state immediately
+      setCurrentScanId(null)
+      setIsScanning(false)
 
       // Deduct credits for the scan
       try {
@@ -536,8 +591,21 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
        addScanLog(`🟠 Serious issues: ${seriousIssues}`)
        addScanLog(`✅ Issues automatically added to product backlog`)
 
-       // Refresh credits
-       checkUserCredits()
+       // Update global scan state to complete
+       updateScan(scanId, {
+         status: 'complete',
+         message: `Scan completed! Found ${totalIssues} issues`
+       })
+
+       // Remove from global state after a delay
+       setTimeout(() => {
+         removeScan(scanId)
+       }, 5000) // Remove after 5 seconds
+
+       // Refresh credits after a short delay to ensure credit deduction is complete
+       setTimeout(() => {
+         checkUserCredits()
+       }, 1000)
 
       if (onScanComplete) {
         onScanComplete(completedDocument)
@@ -552,6 +620,13 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
             : doc
         )
       )
+      
+      // Update global scan state to error
+      updateScan(scanId, {
+        status: 'error',
+        message: 'Scan failed'
+      })
+      
       // Reset scanning state on error
       setCurrentScanId(null)
       setIsScanning(false)
@@ -861,7 +936,12 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                 </div>
 
                 {/* Scan Results */}
-                {document.status === 'completed' && document.scanResults && (
+                {(() => {
+                  console.log('🔍 UI Rendering - document.status:', document.status)
+                  console.log('🔍 UI Rendering - document.scanResults:', document.scanResults)
+                  console.log('🔍 UI Rendering - should show results:', document.status === 'completed' && document.scanResults)
+                  return document.status === 'completed' && document.scanResults
+                })() && (
                   <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-2">
@@ -962,7 +1042,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                             affectedUrls: [`Document: ${document.name}`],
                             offendingElements: [{
                               html: issue.context || '',
-                              target: issue.elementLocation || '',
+                              target: issue.elementLocation ? [issue.elementLocation] : [],
                               failureSummary: issue.recommendation || '',
                               impact: issue.type,
                               url: `Document: ${document.name}`
@@ -1033,122 +1113,6 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         </div>
       )}
 
-      {/* Issue Detail Modal */}
-      {showIssueModal && selectedIssue && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Issue Details</h3>
-                <button
-                  onClick={() => setShowIssueModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                {/* Issue Header */}
-                <div className="flex items-center space-x-3">
-                  <div className={`w-3 h-3 rounded-full ${
-                    selectedIssue.type === 'critical' ? 'bg-red-500' :
-                    selectedIssue.type === 'serious' ? 'bg-orange-500' :
-                    selectedIssue.type === 'moderate' ? 'bg-yellow-500' :
-                    'bg-blue-500'
-                  }`} />
-                  <div>
-                    <h4 className="font-medium text-gray-900 capitalize">{selectedIssue.type} Issue</h4>
-                    <p className="text-sm text-gray-500">
-                      {selectedIssue.section}
-                      {selectedIssue.pageNumber && ` • Page ${selectedIssue.pageNumber}`}
-                      {selectedIssue.lineNumber && ` • Line ${selectedIssue.lineNumber}`}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Issue Description */}
-                <div>
-                  <h5 className="font-medium text-gray-900 mb-2">Issue Description</h5>
-                  <p className="text-gray-700">{selectedIssue.description}</p>
-                  {selectedIssue.elementLocation && (
-                    <p className="text-sm text-gray-600 mt-1">
-                      <strong>Location:</strong> {selectedIssue.elementLocation}
-                    </p>
-                  )}
-                  {selectedIssue.context && (
-                    <p className="text-sm text-gray-600 mt-1">
-                      <strong>Context:</strong> {selectedIssue.context}
-                    </p>
-                  )}
-                  {selectedIssue.occurrences && selectedIssue.occurrences > 1 && (
-                    <p className="text-sm text-gray-600 mt-1">
-                      <strong>Occurrences:</strong> This issue appears {selectedIssue.occurrences} times across {selectedIssue.affectedPages || 1} pages
-                    </p>
-                  )}
-                </div>
-
-                {/* Compliance Standards */}
-                {(selectedIssue.wcagCriterion || selectedIssue.section508Requirement) && (
-                  <div>
-                    <h5 className="font-medium text-gray-900 mb-2">Compliance Standards</h5>
-                    <div className="space-y-2">
-                      {selectedIssue.wcagCriterion && (
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-blue-600">WCAG:</span>
-                          <span className="text-sm text-gray-700">{selectedIssue.wcagCriterion}</span>
-                        </div>
-                      )}
-                      {selectedIssue.section508Requirement && (
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-green-600">Section 508:</span>
-                          <span className="text-sm text-gray-700">{selectedIssue.section508Requirement}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                                 {/* AI Recommendation */}
-                 {selectedIssue.recommendation ? (
-                   <div>
-                     <h5 className="font-medium text-gray-900 mb-2">Recommendation</h5>
-                     <div className="bg-gray-50 rounded-lg p-4">
-                       <div className="prose prose-sm max-w-none">
-                         {selectedIssue.recommendation.split('\n').map((line: string, index: number) => (
-                           <p key={index} className="text-gray-700 mb-2 last:mb-0">
-                             {line}
-                           </p>
-                         ))}
-                       </div>
-                     </div>
-                   </div>
-                 ) : (
-                   <div>
-                     <h5 className="font-medium text-gray-700 mb-2">Recommendation</h5>
-                     <div className="bg-gray-50 rounded-lg p-4">
-                       <p className="text-gray-500 italic">No AI recommendation available for this issue.</p>
-                     </div>
-                   </div>
-                 )}
-
-                {/* Action Buttons */}
-                <div className="flex space-x-3 pt-4">
-                  <button
-                    onClick={() => setShowIssueModal(false)}
-                    className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    Close
-                  </button>
-                  <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                    Mark as Fixed
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

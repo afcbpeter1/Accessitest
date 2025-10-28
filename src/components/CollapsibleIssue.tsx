@@ -100,6 +100,7 @@ interface CollapsibleIssueProps {
   }
   savedAIResponses?: any[]
   scanId: string
+  scanType?: 'web' | 'document'
 }
 
 const getImpactColor = (impact: string) => {
@@ -137,8 +138,10 @@ export default function CollapsibleIssue({
   priority,
   screenshots,
   savedAIResponses,
-  scanId
+  scanId,
+  scanType = 'web'
 }: CollapsibleIssueProps) {
+  console.log('🔍 CollapsibleIssue received scanType:', scanType, 'for issue:', issueId);
   const [isExpanded, setIsExpanded] = useState(false) // Start collapsed by default
   const [copied, setCopied] = useState(false)
   // const { showToast, ToastContainer } = useToast()
@@ -198,7 +201,6 @@ Affected URLs: ${affectedUrls.join(', ')}`
                   {(priority || 'medium').toUpperCase()} PRIORITY
                 </span>
               </div>
-              <p className="text-sm text-gray-600 mb-2 break-words">{description}</p>
               <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
                 <span className="flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" />
@@ -235,61 +237,53 @@ Affected URLs: ${affectedUrls.join(', ')}`
           role="region"
           aria-label="Issue details and management"
         >
-          {/* Issue Details */}
-          <div>
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Issue Details</h4>
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Help</label>
-                <p className="text-sm text-gray-700 mt-1">{help}</p>
-                {helpUrl && (
-                  <a 
-                    href={helpUrl} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 mt-1"
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Learn more
-                  </a>
-                )}
+          {/* Issue Details - Only for web scans */}
+          {scanType !== 'document' && (
+            <div>
+              <h4 className="text-sm font-medium text-gray-900 mb-3">Issue Details</h4>
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-medium text-blue-700 uppercase tracking-wide">Description</label>
+                    <div className="text-sm text-blue-900 mt-1 leading-relaxed">
+                      {help}
+                    </div>
+                    {helpUrl && (
+                      <a 
+                        href={helpUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 mt-2 font-medium"
+                      >
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        Learn more about this issue
+                      </a>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Offending Elements */}
+          {/* Offending Elements / Document Content */}
           {(offendingElements || []).length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-gray-900 mb-3">Offending Elements ({(offendingElements || []).length})</h4>
+              <h4 className="text-sm font-medium text-gray-900 mb-3">
+                Offending Items ({(offendingElements || []).length})
+              </h4>
               <div className="space-y-3">
                 {(offendingElements || []).map((element, index) => (
                   <div key={index} className="bg-gray-50 rounded-lg p-3">
-                    <div className="flex items-start justify-between mb-2">
-                      <span className="text-xs font-medium text-gray-500">Element {index + 1}</span>
+                    <div className="flex items-start justify-end mb-2">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getImpactColor(element.impact)}`}>
                         {element.impact.toUpperCase()}
                       </span>
                     </div>
-                    {element.html && (
-                      <div className="mb-2">
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">HTML</label>
-                        <pre className="text-xs text-gray-700 bg-white p-2 rounded border mt-1 overflow-x-auto">
-                          {element.html}
-                        </pre>
-                      </div>
-                    )}
                     {element.failureSummary && (
-                      <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Issue</label>
-                        <p className="text-sm text-gray-700 mt-1">{element.failureSummary}</p>
-                      </div>
-                    )}
-                    {element.target && (element.target || []).length > 0 && (
-                      <div>
-                        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Selector</label>
-                        <code className="text-xs text-gray-700 bg-white p-1 rounded border mt-1 block">
-                          {element.target.join(' ')}
-                        </code>
+                      <div className="mt-3">
+                        <div className="text-sm text-gray-700 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          {formatSuggestionDescription(element.failureSummary)}
+                        </div>
                       </div>
                     )}
                   </div>

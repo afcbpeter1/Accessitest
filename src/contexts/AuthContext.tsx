@@ -41,10 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       showLogoutNotification(message)
     }
     
-    // Redirect to login after a short delay
+    // Redirect to home after a short delay
     setTimeout(() => {
-      window.location.href = '/login'
-    }, message ? 2000 : 0)
+      window.location.href = '/home'
+    }, message ? 1500 : 0)
   }
 
   useEffect(() => {

@@ -19,6 +19,37 @@ export class AuthError extends Error {
 export async function authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const token = localStorage.getItem('accessToken')
   
+  // Quick JWT expiry check before making request
+  if (token) {
+    try {
+      const tokenParts = token.split('.')
+      if (tokenParts.length === 3) {
+        const payload = JSON.parse(atob(tokenParts[1]))
+        const now = Math.floor(Date.now() / 1000)
+        
+        if (payload.exp && payload.exp < now) {
+          console.log('❌ Token expired locally - immediate logout')
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('user')
+          showLogoutNotification('Your session has expired. Please log in again.')
+          setTimeout(() => {
+            window.location.href = '/home'
+          }, 1000)
+          throw new AuthError('Your session has expired. Please log in again.', 'TOKEN_EXPIRED')
+        }
+      }
+    } catch (error) {
+      console.log('❌ Invalid token format - immediate logout')
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('user')
+      showLogoutNotification('Invalid session. Please log in again.')
+      setTimeout(() => {
+        window.location.href = '/home'
+      }, 1000)
+      throw new AuthError('Invalid session. Please log in again.', 'TOKEN_INVALID')
+    }
+  }
+  
   // Add authorization header if token exists
   const headers = {
     'Content-Type': 'application/json',
@@ -35,36 +66,41 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
       headers,
     })
     
-    // Handle authentication errors
-    if (response.status === 401) {
+    // Handle authentication and server errors
+    if (response.status === 401 || response.status === 500) {
       const errorData = await response.json().catch(() => ({}))
       
       // Clear stored auth data
       localStorage.removeItem('accessToken')
       localStorage.removeItem('user')
       
-      // Determine error type
+      // Determine error type and message
       let errorCode: AuthError['code'] = 'TOKEN_EXPIRED'
       let errorMessage = 'Your session has expired. Please log in again.'
       
-      if (errorData.error?.includes('Invalid') || errorData.error?.includes('expired')) {
-        errorCode = 'TOKEN_EXPIRED'
-        errorMessage = 'Your session has expired. Please log in again.'
-      } else if (errorData.error?.includes('verification')) {
+      if (response.status === 401) {
+        if (errorData.error?.includes('Invalid') || errorData.error?.includes('expired')) {
+          errorCode = 'TOKEN_EXPIRED'
+          errorMessage = 'Your session has expired. Please log in again.'
+        } else if (errorData.error?.includes('verification')) {
+          errorCode = 'UNAUTHORIZED'
+          errorMessage = 'Email verification required. Please check your email.'
+        } else {
+          errorCode = 'UNAUTHORIZED'
+          errorMessage = 'Authentication required. Please log in.'
+        }
+      } else if (response.status === 500) {
         errorCode = 'UNAUTHORIZED'
-        errorMessage = 'Email verification required. Please check your email.'
-      } else {
-        errorCode = 'UNAUTHORIZED'
-        errorMessage = 'Authentication required. Please log in.'
+        errorMessage = 'Server error detected. Please log in again to refresh your session.'
       }
       
       // Show user-friendly notification
       showLogoutNotification(errorMessage)
       
-      // Redirect to login after a short delay
+      // Redirect to home page after a short delay
       setTimeout(() => {
-        window.location.href = '/login'
-      }, 2000)
+        window.location.href = '/home'
+      }, 1500)
       
       throw new AuthError(errorMessage, errorCode)
     }
@@ -120,7 +156,9 @@ export function showLogoutNotification(message: string) {
 // Check if user is authenticated
 export function isAuthenticated(): boolean {
   const token = localStorage.getItem('accessToken')
-  if (!token) return false
+  const user = localStorage.getItem('user')
+  
+  if (!token || !user) return false
   
   try {
     // Basic JWT structure check (has 3 parts separated by dots)
@@ -131,8 +169,19 @@ export function isAuthenticated(): boolean {
     const payload = JSON.parse(atob(parts[1]))
     const now = Math.floor(Date.now() / 1000)
     
-    return payload.exp > now
+    // Check if token is expired
+    if (payload.exp && payload.exp <= now) {
+      // Clean up expired token
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('user')
+      return false
+    }
+    
+    return true
   } catch (error) {
+    // Clean up invalid token
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('user')
     return false
   }
 }

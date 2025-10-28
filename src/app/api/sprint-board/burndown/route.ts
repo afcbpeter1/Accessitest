@@ -250,23 +250,11 @@ export async function GET(request: NextRequest) {
         actualRemaining = currentRemaining
         actualCompleted = currentCompleted
       } else if (day < getCurrentDay()) {
-        // Past days without historical data: Show the actual work pattern
-        // Day 1: 1 point completed (8 remaining)
-        // Days 2-7: No work (8 remaining)
-        // Day 8: 5 points completed (2 remaining)
-        if (day === 1) {
-          // Day 1: 1 point completed
-          actualRemaining = totalStoryPoints - 1
-          actualCompleted = 1
-        } else if (day >= 2 && day <= 7) {
-          // Days 2-7: Flatline at 8 points (no additional work)
-          actualRemaining = totalStoryPoints - 1
-          actualCompleted = 1
-        } else {
-          // Other past days: Show current status
-          actualRemaining = currentRemaining
-          actualCompleted = currentCompleted
-        }
+        // Past days without historical data: Interpolate between start and current
+        // Calculate a linear interpolation from total points to current remaining
+        const progressRatio = day / getCurrentDay()
+        actualRemaining = Math.round(totalStoryPoints - (totalStoryPoints - currentRemaining) * progressRatio)
+        actualCompleted = totalStoryPoints - actualRemaining
       } else {
         // Future days: Show no data (null values so line stops at current day)
         actualRemaining = null

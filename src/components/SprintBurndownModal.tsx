@@ -16,9 +16,10 @@ interface SprintBurndownModalProps {
   isOpen: boolean
   onClose: () => void
   sprint: Sprint | null
+  refreshTrigger?: number
 }
 
-export default function SprintBurndownModal({ isOpen, onClose, sprint }: SprintBurndownModalProps) {
+export default function SprintBurndownModal({ isOpen, onClose, sprint, refreshTrigger: externalRefreshTrigger }: SprintBurndownModalProps) {
   const [totalStoryPoints, setTotalStoryPoints] = useState(0)
   const [loading, setLoading] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -37,6 +38,14 @@ export default function SprintBurndownModal({ isOpen, onClose, sprint }: SprintB
       setRefreshTrigger(prev => prev + 1)
     }
   }, [isOpen])
+
+  // Handle external refresh trigger (when issues are moved)
+  useEffect(() => {
+    if (externalRefreshTrigger && externalRefreshTrigger > 0) {
+      fetchSprintStoryPoints()
+      setRefreshTrigger(prev => prev + 1)
+    }
+  }, [externalRefreshTrigger])
 
   const fetchSprintStoryPoints = async () => {
     if (!sprint) return

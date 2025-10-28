@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
         is508Compliant: enhancedResult.is508Compliant,
         scanResults: {
           summary: enhancedResult.summary,
-          issues: enhancedResult.issues.slice(0, 10), // Store first 10 issues to avoid huge records
+          issues: enhancedResult.issues, // Store ALL issues with full details
           metadata: enhancedResult.metadata
         }
       }
@@ -280,12 +280,19 @@ export async function POST(request: NextRequest) {
 
         // Auto-add issues to product backlog
         if (enhancedResult.issues && enhancedResult.issues.length > 0 && scanHistoryResult?.scanId) {
+          console.log(`🔄 Attempting to add ${enhancedResult.issues.length} enhanced document issues to backlog...`)
           try {
             await autoAddDocumentIssuesToBacklog(user.userId, enhancedResult.issues, scanHistoryResult.scanId, body.fileName)
             console.log('✅ Document issues automatically added to product backlog')
           } catch (backlogError) {
-            console.error('Failed to auto-add document issues to backlog:', backlogError)
+            console.error('❌ Failed to auto-add document issues to backlog:', backlogError)
           }
+        } else {
+          console.log('⚠️ Skipping backlog addition - no enhanced issues or missing scanHistoryResult:', {
+            hasIssues: enhancedResult.issues && enhancedResult.issues.length > 0,
+            issuesCount: enhancedResult.issues?.length || 0,
+            hasScanHistoryResult: !!scanHistoryResult?.scanId
+          })
         }
       } catch (error) {
         console.error('Failed to store document scan results in history:', error)
@@ -317,7 +324,7 @@ export async function POST(request: NextRequest) {
       is508Compliant: scanResult.is508Compliant,
       scanResults: {
         summary: scanResult.summary,
-        issues: scanResult.issues.slice(0, 10), // Store first 10 issues to avoid huge records
+        issues: scanResult.issues, // Store ALL issues with full details
         metadata: scanResult.metadata
       }
     }
@@ -362,12 +369,19 @@ export async function POST(request: NextRequest) {
 
       // Auto-add issues to product backlog
       if (scanResult.issues && scanResult.issues.length > 0 && scanHistoryResult?.scanId) {
+        console.log(`🔄 Attempting to add ${scanResult.issues.length} document issues to backlog...`)
         try {
           await autoAddDocumentIssuesToBacklog(user.userId, scanResult.issues, scanHistoryResult.scanId, body.fileName)
           console.log('✅ Document issues automatically added to product backlog')
         } catch (backlogError) {
-          console.error('Failed to auto-add document issues to backlog:', backlogError)
+          console.error('❌ Failed to auto-add document issues to backlog:', backlogError)
         }
+      } else {
+        console.log('⚠️ Skipping backlog addition - no issues or missing scanHistoryResult:', {
+          hasIssues: scanResult.issues && scanResult.issues.length > 0,
+          issuesCount: scanResult.issues?.length || 0,
+          hasScanHistoryResult: !!scanHistoryResult?.scanId
+        })
       }
     } catch (error) {
       console.error('Failed to store document scan results in history:', error)
@@ -596,6 +610,13 @@ File Type: ${request.fileType}
  */
 async function autoAddDocumentIssuesToBacklog(userId: string, issues: any[], scanHistoryId: string, fileName: string): Promise<void> {
   try {
+    console.log(`🔄 autoAddDocumentIssuesToBacklog called with:`, {
+      userId,
+      issuesCount: issues.length,
+      scanHistoryId,
+      fileName
+    })
+    
     const addedItems = []
     const skippedItems = []
 

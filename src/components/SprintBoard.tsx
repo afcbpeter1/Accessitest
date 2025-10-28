@@ -100,6 +100,12 @@ export default function SprintBoard() {
   const [showMoveToSprintModal, setShowMoveToSprintModal] = useState(false)
   const [issueToMoveToSprint, setIssueToMoveToSprint] = useState<string | null>(null)
   const [showBurndownModal, setShowBurndownModal] = useState(false)
+  const [burndownRefreshTrigger, setBurndownRefreshTrigger] = useState(0)
+
+  // Function to trigger burndown chart refresh
+  const refreshBurndownChart = () => {
+    setBurndownRefreshTrigger(prev => prev + 1)
+  }
 
   useEffect(() => {
     fetchSprints()
@@ -239,6 +245,8 @@ export default function SprintBoard() {
       } else {
         // Refresh sprint data to get updated remaining_points and column positions
         fetchSprintData()
+        // Refresh burndown chart to reflect changes
+        refreshBurndownChart()
       }
     } catch (err) {
       console.error('Error moving issue:', err)
@@ -340,6 +348,8 @@ export default function SprintBoard() {
       if (response.ok) {
         // Refresh sprint data to remove the issue
         fetchSprintData()
+        // Refresh burndown chart to reflect changes
+        refreshBurndownChart()
       } else {
         console.error('Failed to move issue to backlog')
       }
@@ -408,6 +418,8 @@ export default function SprintBoard() {
         // Refresh both the sprints list and current sprint data
         fetchSprints()
         fetchSprintData()
+        // Refresh burndown chart to reflect changes
+        refreshBurndownChart()
         setShowMoveToSprintModal(false)
         setIssueToMoveToSprint(null)
       } else {
@@ -941,6 +953,7 @@ export default function SprintBoard() {
         isOpen={showBurndownModal}
         onClose={() => setShowBurndownModal(false)}
         sprint={selectedSprint}
+        refreshTrigger={burndownRefreshTrigger}
       />
 
     </div>

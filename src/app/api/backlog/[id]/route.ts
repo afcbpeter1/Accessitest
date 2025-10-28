@@ -89,3 +89,60 @@ export async function PUT(
     )
   }
 }
+
+// DELETE /api/backlog/[id] - Delete a specific backlog item
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = await getAuthenticatedUser(request)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const issueId = params.id
+
+    // First, check if the issue exists and belongs to the user
+    const checkResult = await pool.query(`
+      SELECT i.id 
+      FROM issues i
+      JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+      WHERE i.id = $1 AND sh.user_id = $2
+    `, [issueId, user.userId])
+
+    if (checkResult.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Issue not found or access denied' },
+        { status: 404 }
+      )
+    }
+
+    // Delete the issue from the issues table
+    const deleteResult = await pool.query(`
+      DELETE FROM issues 
+      WHERE id = $1
+    `, [issueId])
+
+    if (deleteResult.rowCount === 0) {
+      return NextResponse.json(
+        { error: 'Issue not found' },
+        { status: 404 }
+      )
+    }
+
+    console.log(`✅ Successfully deleted issue ${issueId} for user ${user.userId}`)
+
+    return NextResponse.json({
+      success: true,
+      message: 'Issue deleted successfully'
+    })
+
+  } catch (error) {
+    console.error('❌ Error deleting issue:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete issue', details: error.message },
+      { status: 500 }
+    )
+  }
+}

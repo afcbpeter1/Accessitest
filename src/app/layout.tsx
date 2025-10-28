@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ScanProvider } from '@/contexts/ScanContext'
+import GlobalScanStatus from '@/components/GlobalScanStatus'
 
 export const metadata: Metadata = {
   title: 'AccessScan - Accessibility Testing Platform',
@@ -16,7 +18,10 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-gray-50 min-h-screen overflow-x-hidden">
         <AuthProvider>
-          {children}
+          <ScanProvider>
+            {children}
+            <GlobalScanStatus />
+          </ScanProvider>
         </AuthProvider>
       </body>
     </html>

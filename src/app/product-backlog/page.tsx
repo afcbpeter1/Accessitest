@@ -7,6 +7,7 @@ import Sidebar from '@/components/Sidebar'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import IssueDetailModal from '@/components/IssueDetailModal'
 import { authenticatedFetch } from '@/lib/auth-utils'
+import { useToast } from '@/components/Toast'
 
 interface BacklogItem {
   id: string
@@ -77,6 +78,9 @@ export default function ProductBacklog() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [showSprintDropdown, setShowSprintDropdown] = useState<string | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState<string | null>(null)
+  const { showToast, ToastContainer } = useToast()
 
   useEffect(() => {
     fetchBacklogItems()
@@ -304,26 +308,42 @@ ${item.element_html || 'N/A'}
     `.trim()
 
     navigator.clipboard.writeText(ticketText)
-    alert('Ticket copied to clipboard!')
+    showToast('Ticket copied to clipboard!', 'success')
+  }
+
+  const handleDeleteClick = (itemId: string) => {
+    setItemToDelete(itemId)
+    setShowDeleteConfirm(true)
   }
 
   const deleteItem = async (itemId: string) => {
-    if (!confirm('Are you sure you want to delete this backlog item?')) return
-
     try {
       const response = await authenticatedFetch(`/api/backlog/${itemId}`, {
         method: 'DELETE'
       })
       
       if (response.ok) {
+        // Remove from UI immediately
         setBacklogItems(items => items.filter(item => item.id !== itemId))
+        
+        // Close modal if this item was selected
         if (selectedItem?.id === itemId) {
           setSelectedItem(null)
           setShowComments(false)
         }
+        
+        // Show success toast
+        showToast('Backlog item deleted successfully!', 'success')
+      } else {
+        const errorData = await response.json()
+        showToast(`Failed to delete item: ${errorData.error || 'Unknown error'}`, 'error')
       }
     } catch (error) {
       console.error('Error deleting item:', error)
+      showToast('Failed to delete item. Please try again.', 'error')
+    } finally {
+      setShowDeleteConfirm(false)
+      setItemToDelete(null)
     }
   }
 
@@ -450,7 +470,8 @@ ${item.element_html || 'N/A'}
                                       
                                       {/* Actions */}
                                       <button
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                          e.stopPropagation()
                                           setSelectedItem(item)
                                           setShowComments(true)
                                           fetchComments(item.id)
@@ -462,7 +483,10 @@ ${item.element_html || 'N/A'}
                                       </button>
                                       
                                       <button
-                                        onClick={() => copyTicket(item)}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          copyTicket(item)
+                                        }}
                                         className="p-1 text-gray-400 hover:text-green-600"
                                         title="Copy Ticket"
                                       >
@@ -470,7 +494,10 @@ ${item.element_html || 'N/A'}
                                       </button>
                                       
                                       <button
-                                        onClick={() => deleteItem(item.id)}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleDeleteClick(item.id)
+                                        }}
                                         className="p-1 text-gray-400 hover:text-red-600"
                                         title="Delete"
                                       >
@@ -621,6 +648,49 @@ ${item.element_html || 'N/A'}
             )
           }}
         />
+        
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex min-h-screen items-center justify-center p-4">
+              <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={() => setShowDeleteConfirm(false)}></div>
+              <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="flex-shrink-0">
+                      <Trash2 className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-lg font-medium text-gray-900">Delete Backlog Item</h3>
+                    </div>
+                  </div>
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500">
+                      Are you sure you want to delete this backlog item? This action cannot be undone.
+                    </p>
+                  </div>
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => itemToDelete && deleteItem(itemToDelete)}
+                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Toast Notifications */}
+        <ToastContainer />
       </Sidebar>
     </ProtectedRoute>
   )

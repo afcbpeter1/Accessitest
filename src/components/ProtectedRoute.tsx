@@ -33,6 +33,31 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         return
       }
 
+      // Quick JWT expiry check before making server request
+      try {
+        const tokenParts = accessToken.split('.')
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]))
+          const now = Math.floor(Date.now() / 1000)
+          
+          if (payload.exp && payload.exp < now) {
+            console.log('❌ Token expired locally - immediate logout')
+            localStorage.removeItem('accessToken')
+            localStorage.removeItem('user')
+            setAuthStatus('unauthenticated')
+            router.push('/home')
+            return
+          }
+        }
+      } catch (error) {
+        console.log('❌ Invalid token format - immediate logout')
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('user')
+        setAuthStatus('unauthenticated')
+        router.push('/home')
+        return
+      }
+
       try {
         const parsedUser: User = JSON.parse(userData)
         
@@ -46,11 +71,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         if (!response.ok) {
           // Token is invalid or expired
           console.log('🔍 Authentication failed:', response.status, response.statusText)
-          if (response.status === 401) {
-            console.log('❌ Token expired or invalid - logging out')
-          } else {
-            console.log('❌ Server error during authentication - logging out')
-          }
           localStorage.removeItem('accessToken')
           localStorage.removeItem('user')
           setAuthStatus('unauthenticated')
@@ -62,8 +82,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         if (userResponse.success) {
           // Update user data with fresh data from server
           const freshUser = userResponse.user
-          
-          // Token refresh is handled automatically by tokenRefreshService
           
           // Check email verification
           if (!freshUser.emailVerified) {

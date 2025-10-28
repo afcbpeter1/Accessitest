@@ -10,6 +10,7 @@ import CollapsibleIssue from '@/components/CollapsibleIssue'
 import { authenticatedFetch } from '@/lib/auth-utils'
 import { AlertModal, ConfirmationModal } from '@/components/AccessibleModal'
 import { useModal } from '@/hooks/useModal'
+import { useScan } from '@/contexts/ScanContext'
 
 interface ScanProgress {
   currentPage: number;
@@ -51,7 +52,10 @@ export default function NewScan() {
   const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('AA')
   const [selectedTags, setSelectedTags] = useState<string[]>(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']) // Comprehensive WCAG compliance
   const [isScanning, setIsScanning] = useState(false)
-  const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null)
+  const { addScan, updateScan, removeScan, getActiveScan, activeScans } = useScan()
+  
+  // Get current scan progress from global state
+  const scanProgress = activeScanId ? getActiveScan(activeScanId) : null
   const [discoveredPages, setDiscoveredPages] = useState<DiscoveredPage[]>([])
   const [selectedPages, setSelectedPages] = useState<string[]>([])
   const [activeScanId, setActiveScanId] = useState<string | null>(null)
@@ -118,7 +122,7 @@ export default function NewScan() {
         
         // Clear any active scans when coming from rerun
         setActiveScanId(null)
-        setScanProgress(null)
+        // Note: Global scan state will be managed by the new scan
         setScanResults([])
         setScanError(null)
         hasAutoStartedRef.current = false // Reset auto-start flag for new rerun
@@ -134,6 +138,25 @@ export default function NewScan() {
       }
     }
   }, [searchParams])
+
+  // Restore scan state from global context
+  useEffect(() => {
+    const webScans = activeScans.filter(scan => scan.type === 'web')
+    if (webScans.length > 0) {
+      const activeScan = webScans[0] // Get the most recent web scan
+      console.log('🔄 Restoring web scan state from global context:', activeScan)
+      
+      setActiveScanId(activeScan.scanId)
+      setIsScanning(activeScan.status === 'scanning' || activeScan.status === 'analyzing' || activeScan.status === 'crawling')
+      
+      // If scan is complete, show results
+      if (activeScan.status === 'complete') {
+        // The scan results should already be loaded from the API
+        setActiveScanId(null)
+        setIsScanning(false)
+      }
+    }
+  }, [activeScans])
 
   // Auto-start scan when coming from rerun
   useEffect(() => {
@@ -239,7 +262,14 @@ export default function NewScan() {
 
   // Update progress and add to log
   const updateProgress = (progress: ScanProgress) => {
-    setScanProgress(progress)
+    if (activeScanId) {
+      updateScan(activeScanId, {
+        status: progress.status,
+        currentPage: progress.currentPage,
+        totalPages: progress.totalPages,
+        message: progress.message
+      })
+    }
     if (progress.message && !discoveryLog.includes(progress.message)) {
       setDiscoveryLog(prev => [...prev, progress.message])
     }
@@ -248,9 +278,21 @@ export default function NewScan() {
   const discoverPages = async () => {
     setIsScanning(true)
     setScanError(null)
-    setScanProgress(null)
     setDiscoveredPages([])
     setSelectedPages([])
+    
+    // Create a new scan in global state
+    const scanId = `web-discovery-${Date.now()}`
+    setActiveScanId(scanId)
+    addScan({
+      scanId,
+      type: 'web',
+      status: 'crawling',
+      currentPage: 0,
+      totalPages: 0,
+      startTime: Date.now(),
+      url: url
+    })
 
     try {
       // Validate URL format
@@ -272,10 +314,9 @@ export default function NewScan() {
       
       // If includeSubdomains is false, skip discovery and just use the single URL
       if (!includeSubdomains) {
-        setScanProgress({
+        updateScan(scanId, {
           currentPage: 1,
           totalPages: 1,
-          currentUrl: normalizedUrl,
           status: 'complete',
           message: 'Single page scan ready. Click "Start WCAG 2.2 Scan" to begin.'
         })
@@ -327,10 +368,9 @@ export default function NewScan() {
         tipIndex++
       }, 2000)
 
-      setScanProgress({
+      updateScan(scanId, {
         currentPage: 0,
         totalPages: 200,
-        currentUrl: normalizedUrl,
         status: 'crawling',
         message: 'Discovering pages on website...'
       })
@@ -363,10 +403,9 @@ export default function NewScan() {
       setSelectedPages(highPriorityUrls)
       
       // Update progress to complete
-      setScanProgress({
+      updateScan(scanId, {
         currentPage: result.totalPages,
         totalPages: result.totalPages,
-        currentUrl: '',
         status: 'complete',
         message: `Discovered ${result.totalPages} pages! Select which ones to scan.`
       })
@@ -376,7 +415,7 @@ export default function NewScan() {
       setScanError(error instanceof Error ? error.message : 'Page discovery failed')
     } finally {
       setIsScanning(false)
-      setTimeout(() => setScanProgress(null), 2000)
+      setTimeout(() => removeScan(scanId), 2000)
     }
   }
 
@@ -384,8 +423,20 @@ export default function NewScan() {
     console.log('🚀 Starting scan with selectedPages:', selectedPages)
     setIsScanning(true)
     setScanError(null)
-    setScanProgress(null)
     setScanResults([])
+
+    // Create a new scan in global state
+    const scanId = `web-scan-${Date.now()}`
+    setActiveScanId(scanId)
+    addScan({
+      scanId,
+      type: 'web',
+      status: 'scanning',
+      currentPage: 0,
+      totalPages: selectedPages.length,
+      startTime: Date.now(),
+      url: selectedPages[0]
+    })
 
     try {
       const pagesToScan = selectedPages
@@ -398,10 +449,9 @@ export default function NewScan() {
       console.log('📄 Pages to scan:', pagesToScan)
 
       // Update progress
-      setScanProgress({
+      updateScan(scanId, {
         currentPage: 0,
         totalPages: pagesToScan.length,
-        currentUrl: pagesToScan[0],
         status: 'scanning',
         message: 'Scanning pages for accessibility issues...'
       })
@@ -477,10 +527,9 @@ export default function NewScan() {
               
               // Update progress based on message type
               if (data.type === 'start') {
-                setScanProgress({
+                updateScan(scanId, {
                   currentPage: 0,
                   totalPages: data.totalPages,
-                  currentUrl: '',
                   status: 'scanning',
                   message: data.message
                 })
@@ -492,28 +541,25 @@ export default function NewScan() {
                   status: data.status,
                   message: data.message
                 })
-                setScanProgress({
+                updateScan(scanId, {
                   currentPage: data.currentPage,
                   totalPages: data.totalPages,
-                  currentUrl: data.currentUrl,
                   status: data.status,
                   message: data.message
                 })
               } else if (data.type === 'page_complete') {
-                setScanProgress({
+                updateScan(scanId, {
                   currentPage: data.currentPage,
                   totalPages: data.totalPages,
-                  currentUrl: data.currentUrl,
                   status: data.status,
                   message: data.message
                 })
               } else if (data.type === 'complete') {
                 console.log('✅ Scan complete data received:', data)
                 console.log('📊 Scan results:', data.results)
-                setScanProgress({
+                updateScan(scanId, {
                   currentPage: data.currentPage,
                   totalPages: data.totalPages,
-                  currentUrl: '',
                   status: 'complete',
                   message: data.message
                 })
@@ -573,10 +619,9 @@ export default function NewScan() {
               
               // Handle the final data
               if (data.type === 'complete') {
-                setScanProgress({
+                updateScan(scanId, {
                   currentPage: data.currentPage,
                   totalPages: data.totalPages,
-                  currentUrl: '',
                   status: 'complete',
                   message: data.message
                 })
@@ -619,7 +664,7 @@ export default function NewScan() {
       setActiveScanId(null)
     } finally {
       setIsScanning(false)
-      setTimeout(() => setScanProgress(null), 2000)
+      setTimeout(() => removeScan(scanId), 2000)
     }
   }
 
@@ -1608,7 +1653,7 @@ export default function NewScan() {
                     setScanResults([])
                     setRemediationReport([])
                     setScanError(null)
-                    setScanProgress(null)
+                    // Note: Global scan state will be managed by new scans
                     setShowSuccessNotification(false)
                     // Scroll to top
                     window.scrollTo({ top: 0, behavior: 'smooth' })

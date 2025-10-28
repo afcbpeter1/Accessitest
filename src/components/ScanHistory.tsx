@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { FileText, Globe, AlertTriangle, CheckCircle, Clock, RefreshCw } from 'lucide-react'
+import { authenticatedFetch } from '@/lib/auth-utils'
 
 interface ScanHistoryProps {
   type?: 'all' | 'web' | 'document'
@@ -47,18 +48,8 @@ export default function ScanHistory({ type = 'all', className = '' }: ScanHistor
   const loadScanHistory = async () => {
     setIsLoadingHistory(true)
     try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) {
-        console.error('No access token found for scan history')
-        return
-      }
-
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-      }
-
       // Load document scans
-      const docResponse = await fetch('/api/document-scan', { headers })
+      const docResponse = await authenticatedFetch('/api/document-scan')
       const docHistory = await docResponse.json()
       const docScans = (docHistory.scans || []).map((scan: any) => ({
         ...scan,
@@ -66,7 +57,7 @@ export default function ScanHistory({ type = 'all', className = '' }: ScanHistor
       }))
 
       // Load web scans (when API is available)
-      const webResponse = await fetch('/api/web-scan', { headers })
+      const webResponse = await authenticatedFetch('/api/web-scan')
       let webScans: ScanRecord[] = []
       if (webResponse.ok) {
         const webHistory = await webResponse.json()

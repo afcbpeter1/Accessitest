@@ -12,13 +12,37 @@ export default function RootPage() {
       const token = localStorage.getItem('accessToken')
       const user = localStorage.getItem('user')
 
-      if (token && user) {
-        // User is authenticated, redirect to dashboard
-        router.push('/')
-      } else {
-        // User is not authenticated, redirect to home page
+      if (!token || !user) {
+        // No token or user data, redirect to home
         router.push('/home')
+        return
       }
+
+      // Quick JWT expiry check before redirecting
+      try {
+        const tokenParts = token.split('.')
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]))
+          const now = Math.floor(Date.now() / 1000)
+          
+          if (payload.exp && payload.exp < now) {
+            console.log('❌ Token expired - redirecting to home')
+            localStorage.removeItem('accessToken')
+            localStorage.removeItem('user')
+            router.push('/home')
+            return
+          }
+        }
+      } catch (error) {
+        console.log('❌ Invalid token format - redirecting to home')
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('user')
+        router.push('/home')
+        return
+      }
+
+      // Token appears valid, redirect to dashboard
+      router.push('/')
     }
 
     checkAuthAndRedirect()

@@ -52,10 +52,12 @@ function DashboardContent() {
       
       if (historyResponse.ok) {
         const historyData = await historyResponse.json()
-        const webScans = historyData.scans.filter((scan: any) => scan.scanType === 'web')
-        setScans(webScans)
+        // Show both web and document scans
+        const allScans = historyData.scans || []
+        setScans(allScans)
         
-        // Extract unique websites with URL validation
+        // Extract unique websites from web scans only for filtering
+        const webScans = allScans.filter((scan: any) => scan.scanType === 'web')
         const allUrls = webScans.map((scan: any) => scan.url)
         
         const validUrls = allUrls.filter(Boolean).filter((url: string) => {
@@ -77,8 +79,8 @@ function DashboardContent() {
         const uniqueWebsites = [...new Set(validUrls)]
         setWebsites(uniqueWebsites)
         
-        // Calculate analytics
-        const analyticsData = calculateAnalytics(webScans, selectedWebsite, timeRange)
+        // Calculate analytics for all scans
+        const analyticsData = calculateAnalytics(allScans, selectedWebsite, timeRange)
         setAnalytics(analyticsData)
       }
     } catch (error) {
@@ -94,7 +96,12 @@ function DashboardContent() {
     
     if (website !== 'all') {
       filteredScans = scans.filter(scan => {
-        // Handle URLs with or without protocols
+        // For document scans, include them in "all" but not in specific website filters
+        if (scan.scanType === 'document') {
+          return website === 'all'
+        }
+        
+        // For web scans, filter by website
         const scanUrl = scan.url
         const selectedUrl = website
         
@@ -177,8 +184,14 @@ function DashboardContent() {
       minor: scan.minorIssues || 0
     }))
     
+    // Count scan types
+    const webScans = filteredScans.filter(scan => scan.scanType === 'web').length
+    const documentScans = filteredScans.filter(scan => scan.scanType === 'document').length
+
     return {
       totalScans: filteredScans.length,
+      webScans,
+      documentScans,
       totalIssues,
       criticalIssues,
       seriousIssues,
@@ -202,15 +215,22 @@ function DashboardContent() {
       bgColor: 'bg-blue-50'
     },
     {
-      title: 'Unique Issues',
-      value: analytics.totalIssues.toString(),
-      icon: AlertTriangle,
-      color: 'text-red-600',
-      bgColor: 'bg-red-50'
+      title: 'Web Scans',
+      value: analytics.webScans?.toString() || '0',
+      icon: Globe,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50'
     },
     {
-      title: 'Critical Issues',
-      value: analytics.criticalIssues.toString(),
+      title: 'Document Scans',
+      value: analytics.documentScans?.toString() || '0',
+      icon: Upload,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50'
+    },
+    {
+      title: 'Unique Issues',
+      value: analytics.totalIssues.toString(),
       icon: AlertTriangle,
       color: 'text-red-600',
       bgColor: 'bg-red-50'
@@ -342,8 +362,8 @@ function DashboardContent() {
 
         {/* Stats Cards */}
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map((i) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 animate-pulse">
                 <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
                 <div className="h-8 bg-gray-200 rounded w-1/2"></div>
@@ -351,7 +371,7 @@ function DashboardContent() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {stats.map((stat, index) => (
               <StatsCard key={index} {...stat} />
             ))}
@@ -462,28 +482,48 @@ function DashboardContent() {
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-1">
-                        <Globe className="h-4 w-4 text-blue-600" />
-                <h4 className="font-medium text-gray-900">
-                  {(() => {
-                    try {
-                      // Try to create URL as-is first
-                      return new URL(scan.url).hostname
-                    } catch (error) {
-                      try {
-                        // If that fails, try adding https:// protocol
-                        return new URL(`https://${scan.url}`).hostname
-                      } catch (secondError) {
-                        // If both fail, just show the URL as-is
-                        return scan.url
-                      }
-                    }
-                  })()}
-                </h4>
+                        {scan.scanType === 'document' ? (
+                          <Upload className="h-4 w-4 text-purple-600" />
+                        ) : (
+                          <Globe className="h-4 w-4 text-blue-600" />
+                        )}
+                        <h4 className="font-medium text-gray-900">
+                          {scan.scanType === 'document' ? (
+                            `Document: ${scan.fileName || 'Unknown File'}`
+                          ) : (
+                            (() => {
+                              try {
+                                // Try to create URL as-is first
+                                return new URL(scan.url).hostname
+                              } catch (error) {
+                                try {
+                                  // If that fails, try adding https:// protocol
+                                  return new URL(`https://${scan.url}`).hostname
+                                } catch (secondError) {
+                                  // If both fail, just show the URL as-is
+                                  return scan.url
+                                }
+                              }
+                            })()
+                          )}
+                        </h4>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          scan.scanType === 'document' 
+                            ? 'bg-purple-100 text-purple-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {scan.scanType === 'document' ? 'Document' : 'Web'}
+                        </span>
                         <span className="text-xs text-gray-500">
                           {new Date(scan.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600">{scan.url}</p>
+                      <p className="text-sm text-gray-600">
+                        {scan.scanType === 'document' 
+                          ? `Section 508 compliance scan` 
+                          : scan.url
+                        }
+                      </p>
                     </div>
                     <div className="text-right">
                       <div className="flex items-center space-x-2">

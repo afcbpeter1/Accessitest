@@ -106,10 +106,11 @@ function ScanDetailsContent() {
       
       const data = await response.json()
       
-      if (data.success) {
-        console.log('🔍 Scan data received:', data.scan)
-        console.log('🔍 Scan results structure:', JSON.stringify(data.scan.scanResults, null, 2))
-        console.log('🔍 Compliance summary structure:', JSON.stringify(data.scan.complianceSummary, null, 2))
+        if (data.success) {
+          console.log('🔍 Scan data received:', data.scan)
+          console.log('🔍 Scan type from API:', data.scan.scanType)
+          console.log('🔍 Scan results structure:', JSON.stringify(data.scan.scanResults, null, 2))
+          console.log('🔍 Compliance summary structure:', JSON.stringify(data.scan.complianceSummary, null, 2))
         console.log('🔍 Remediation report structure:', JSON.stringify(data.scan.remediationReport, null, 2))
         setScan(data.scan)
       } else {
@@ -355,11 +356,6 @@ function ScanDetailsContent() {
                   </span>
                 )}
                 
-                {scan.overallScore && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-                    Score: {scan.overallScore}/100
-                  </span>
-                )}
               </div>
             </div>
             
@@ -422,22 +418,35 @@ function ScanDetailsContent() {
                 <h3 className="text-lg font-medium text-gray-900 mb-6">Accessibility Issues</h3>
                 {(() => {
                   // Handle different data structures for scan results
-                  let scanResults = []
+                  let issues = []
                   
                   if (scan.scanResults) {
-                    if (Array.isArray(scan.scanResults)) {
-                      scanResults = scan.scanResults
-                    } else if (scan.scanResults.results && Array.isArray(scan.scanResults.results)) {
-                      scanResults = scan.scanResults.results
-                    } else if (scan.scanResults.issues && Array.isArray(scan.scanResults.issues)) {
-                      // Document scan results structure
-                      scanResults = scan.scanResults.issues
+                    if (scan.scanType === 'document') {
+                      // For document scans, get issues directly from scanResults.issues
+                      if (scan.scanResults.issues && Array.isArray(scan.scanResults.issues)) {
+                        issues = scan.scanResults.issues
+                      }
+                    } else {
+                      // For web scans, process results as before
+                      let scanResults = []
+                      if (Array.isArray(scan.scanResults)) {
+                        scanResults = scan.scanResults
+                      } else if (scan.scanResults.results && Array.isArray(scan.scanResults.results)) {
+                        scanResults = scan.scanResults.results
+                      }
+                      
+                      // Extract issues from web scan results
+                      scanResults.forEach((result: any) => {
+                        if (result.issues && Array.isArray(result.issues)) {
+                          issues.push(...result.issues)
+                        }
+                      })
                     }
                   }
                   
-                  console.log('🔍 Processed scan results:', scanResults)
+                  console.log('🔍 Processed issues:', issues)
                   
-                  if (scanResults.length === 0) {
+                  if (issues.length === 0) {
                     return (
                       <div className="text-center py-8">
                         <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
@@ -450,86 +459,59 @@ function ScanDetailsContent() {
                   }
                   
                   return (
-                    <div className="space-y-8">
-                      {scanResults.map((result: any, resultIndex: number) => (
-                        <div key={resultIndex} className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                          <div className="mb-6">
-                            <div className="flex items-center justify-between mb-4">
-                              <div>
-                                <h4 className="text-lg font-semibold text-gray-900 mb-1">
-                                  {result.url || scan.url || 'Scan Result'}
-                                </h4>
-                                <p className="text-sm text-gray-500">
-                                  Scanned on {new Date(scan.createdAt).toLocaleString()}
-                                </p>
-                              </div>
-                              {result.issues && result.issues.length > 0 && (
-                                <div className="text-right">
-                                  <div className="text-2xl font-bold text-gray-900">{result.issues.length}</div>
-                                  <div className="text-sm text-gray-500">Issues Found</div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                    <div className="space-y-6">
+                      {issues.map((issue: any, issueIndex: number) => {
+                        // Find matching AI response from remediation report
+                        const matchingAIResponse = scan.remediationReport?.find((report: any) => 
+                          report.issueId === (issue.id || `issue-${issueIndex}`)
+                        );
 
-                          {result.issues && result.issues.length === 0 ? (
-                            <div className="text-center py-8">
-                              <CheckCircle className="mx-auto h-12 w-12 text-green-600 mb-4" />
-                              <p className="text-gray-500">No accessibility issues found on this page!</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-6">
-                              {result.issues && result.issues.map((issue: any, issueIndex: number) => {
-                                // Find matching AI response from remediation report
-                                const matchingAIResponse = scan.remediationReport?.find((report: any) => 
-                                  report.issueId === (issue.id || `issue-${resultIndex}-${issueIndex}`)
-                                );
+                        // Create a collapsible issue for each issue
+                        const collapsibleIssue = {
+                          issueId: issue.id || `issue-${issueIndex}`,
+                          ruleName: issue.description || 'Accessibility Issue',
+                          description: issue.description || 'No description available',
+                          impact: issue.type || issue.impact || 'minor',
+                          wcag22Level: issue.wcagCriterion || 'A',
+                          help: issue.description || '',
+                          helpUrl: issue.wcagCriterion ? `https://www.w3.org/WAI/WCAG22/Understanding/${issue.wcagCriterion}` : '',
+                          totalOccurrences: issue.occurrences || 1,
+                          affectedUrls: [scan.url || scan.fileName || ''],
+                          offendingElements: [{
+                            html: scan.scanType === 'document' ? 
+                              `Document Content (Page ${issue.pageNumber || 'Unknown'})` : 
+                              (issue.elementContent || ''),
+                            target: scan.scanType === 'document' ? 
+                              [`Document Section: ${issue.section || 'Unknown'}`] : 
+                              (issue.elementSelector ? [issue.elementSelector] : []),
+                            failureSummary: scan.scanType === 'document' ? 
+                              (issue.remediation || issue.recommendation || '') : 
+                              (issue.remediation || issue.recommendation || issue.description || ''),
+                            impact: issue.type || issue.impact || 'minor',
+                            url: scan.scanType === 'document' ? 
+                              `Document: ${scan.fileName || 'Unknown'}` : 
+                              (scan.url || '')
+                          }],
+                          suggestions: [
+                            {
+                              type: 'fix' as const,
+                              description: issue.recommendation || issue.remediation || issue.description || 'Fix this accessibility issue',
+                              priority: (issue.type === 'critical' || issue.type === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
+                            }
+                          ],
+                          priority: (issue.type === 'critical' || issue.type === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
+                        };
 
-                                // Create a collapsible issue for each issue
-                                const collapsibleIssue = {
-                                  issueId: issue.id || `issue-${resultIndex}-${issueIndex}`,
-                                  ruleName: issue.description || issue.help || 'Accessibility Issue',
-                                  description: issue.description || issue.help || 'No description available',
-                                  impact: issue.impact || 'minor',
-                                  wcag22Level: 'A', // Default, could be enhanced
-                                  help: issue.help || issue.description || '',
-                                  helpUrl: issue.helpUrl || '',
-                                  totalOccurrences: issue.nodes?.length || 1,
-                                  affectedUrls: [result.url || scan.url || ''],
-                                  offendingElements: (issue.nodes || []).map((node: any) => ({
-                                    html: node.html || '',
-                                    target: node.target || [],
-                                    failureSummary: node.failureSummary || '',
-                                    impact: node.impact || issue.impact || 'minor',
-                                    url: result.url || scan.url || ''
-                                  })),
-                                  suggestions: matchingAIResponse?.suggestions || [
-                                    {
-                                      type: 'fix' as const,
-                                      description: issue.help || issue.description || 'Fix this accessibility issue',
-                                      priority: (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
-                                    }
-                                  ],
-                                  priority: (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
-                                };
+          console.log('🔍 Page scanType:', scan.scanType, 'for issue:', issueIndex);
 
-                                return (
-                                  <CollapsibleIssue
-                                    key={`${resultIndex}-${issueIndex}`}
-                                    {...collapsibleIssue}
-                                    screenshots={result.screenshots}
-                                    scanId={scan.id}
-                                    onStatusChange={(issueId, status) => {
-                                      // Handle status changes - could save to database
-                                      console.log('Issue status changed:', issueId, status)
-                                    }}
-                                  />
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      ))}
+          return (
+            <CollapsibleIssue
+              key={`issue-${issueIndex}`}
+              {...collapsibleIssue}
+              scanType={scan.scanType}
+            />
+          );
+                      })}
                     </div>
                   )
                 })()}
