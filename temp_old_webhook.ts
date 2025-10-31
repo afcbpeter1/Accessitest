@@ -11,67 +11,22 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
-// Disable body parsing - we need the raw body for signature verification
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
-
-// Important: Don't parse the body as JSON - we need the raw string
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔔 Webhook received!')
-    
-    // Check webhook secret exists
-    if (!webhookSecret) {
-      console.error('❌ STRIPE_WEBHOOK_SECRET is not configured')
-      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
-    }
-
-    // Get raw body as text - this is critical for signature verification
-    // Must use .text() not .json() to preserve exact formatting
+    console.log('≡ƒöö Webhook received!')
     const body = await request.text()
-    const signature = request.headers.get('stripe-signature')
-
-    if (!signature) {
-      console.error('❌ Missing stripe-signature header')
-      return NextResponse.json({ error: 'Missing signature header' }, { status: 400 })
-    }
-
-    console.log('📝 Body length:', body.length)
-    console.log('🔐 Signature header present:', !!signature)
-    console.log('🔑 Webhook secret configured:', !!webhookSecret)
-    console.log('🔑 Webhook secret starts with:', webhookSecret.substring(0, 10))
-    console.log('🔑 Expected secret from CLI: whsec_4a2b... (if using Stripe CLI)')
+    const signature = request.headers.get('stripe-signature')!
 
     let event: Stripe.Event
 
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
-      console.log('✅ Webhook signature verified successfully')
-    } catch (err: any) {
-      console.error('❌ Webhook signature verification failed')
-      console.error('Error type:', err.type)
-      console.error('Error message:', err.message)
-      console.error('Signature preview:', signature.substring(0, 50) + '...')
-      
-      // In development, provide more helpful error messages
-      if (process.env.NODE_ENV === 'development') {
-        console.error('\n💡 TROUBLESHOOTING TIPS:')
-        console.error('1. If using Stripe CLI locally, use: stripe listen --forward-to localhost:3000/api/stripe-webhook')
-        console.error('2. Copy the webhook signing secret from the CLI output (starts with whsec_)')
-        console.error('3. Set it as STRIPE_WEBHOOK_SECRET in your .env file')
-        console.error('4. If using Stripe Dashboard, use the webhook endpoint\'s signing secret')
-        console.error('5. Make sure the webhook secret matches the endpoint you\'re testing')
-      }
-      
-      return NextResponse.json({ 
-        error: 'Invalid signature',
-        message: process.env.NODE_ENV === 'development' 
-          ? 'Check console for troubleshooting tips'
-          : 'Signature verification failed'
-      }, { status: 400 })
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
     }
 
-    console.log('🔔 Received webhook event:', event.type, event.id)
+    console.log('≡ƒöö Received webhook event:', event.type, event.id)
 
     switch (event.type) {
       case 'checkout.session.completed':
@@ -110,17 +65,17 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-  console.log('🛒 Processing checkout session completed:', session.id)
-  console.log('📋 Session metadata:', session.metadata)
+  console.log('≡ƒ¢Æ Processing checkout session completed:', session.id)
+  console.log('≡ƒôï Session metadata:', session.metadata)
   
   const { userId, priceId, type } = session.metadata || {}
   
   if (!userId || !priceId) {
-    console.error('❌ Missing metadata in checkout session:', { userId, priceId, type })
+    console.error('Γ¥î Missing metadata in checkout session:', { userId, priceId, type })
     return
   }
 
-  console.log(`🔍 Processing ${type} purchase for user ${userId}, priceId: ${priceId}`)
+  console.log(`≡ƒöì Processing ${type} purchase for user ${userId}, priceId: ${priceId}`)
 
   if (type === 'credits') {
     await handleCreditPurchase(userId, priceId)
@@ -204,8 +159,6 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   console.log('Processing subscription deleted:', subscription.id)
   
-  const { userId } = subscription.metadata || {}
-  
   try {
     // Start transaction to set user back to free plan and remove unlimited credits
     await query('BEGIN')
@@ -230,9 +183,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       console.log(`Set user with subscription ${subscription.id} back to free plan with 3 credits`)
 
       // Create notification for subscription cancellation
-      if (userId) {
-        await NotificationService.notifySubscriptionCancelled(userId)
-      }
+      await NotificationService.notifySubscriptionCancelled(userId)
     } catch (error) {
       await query('ROLLBACK')
       throw error
@@ -243,38 +194,20 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 }
 
 async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
-  console.log('💳 Processing payment_intent.succeeded:', paymentIntent.id)
-  console.log('📋 Payment intent metadata:', paymentIntent.metadata)
+  console.log('Processing payment succeeded:', paymentIntent.id)
   
-  const { userId, creditAmount, priceId, type } = paymentIntent.metadata || {}
+  const { userId, creditAmount } = paymentIntent.metadata || {}
   
-  if (!userId) {
-    console.error('❌ Missing userId in payment intent metadata')
-    return
-  }
-
-  // Handle credit purchases
-  if (type === 'credits' && creditAmount) {
-    const credits = parseInt(creditAmount)
-    await handleCreditPurchase(userId, priceId || '', credits)
-    
-    // Send receipt email for credit purchase
-    await sendReceiptEmailFromPaymentIntent(paymentIntent)
-  } else if (creditAmount) {
-    // Fallback: if creditAmount exists but no type, assume it's a credit purchase
-    const credits = parseInt(creditAmount)
-    await handleCreditPurchase(userId, priceId || '', credits)
-    
-    // Send receipt email for credit purchase
-    await sendReceiptEmailFromPaymentIntent(paymentIntent)
+  if (userId && creditAmount) {
+    await handleCreditPurchase(userId, '', parseInt(creditAmount))
   }
 }
 
 async function handleCreditPurchase(userId: string, priceId: string, creditAmount?: number) {
   try {
-    console.log(`🎫 Processing credit purchase for user ${userId}, priceId: ${priceId}`)
+    console.log(`≡ƒÄ½ Processing credit purchase for user ${userId}, priceId: ${priceId}`)
     const credits = creditAmount || getCreditAmountFromPriceId(priceId)
-    console.log(`💰 Credit amount: ${credits}`)
+    console.log(`≡ƒÆ░ Credit amount: ${credits}`)
     
     if (credits <= 0) {
       console.error('Invalid credit amount:', credits)
@@ -294,11 +227,7 @@ async function handleCreditPurchase(userId: string, priceId: string, creditAmoun
       )
 
       // Log the credit purchase transaction
-      let packageName = getPlanNameFromPriceId(priceId)
-      // Fallback: if priceId is empty, derive package name from credit amount
-      if (packageName === 'Unknown Plan' && credits) {
-        packageName = getPackageNameFromCreditAmount(credits)
-      }
+      const packageName = getPlanNameFromPriceId(priceId)
       await query(
         `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
          VALUES ($1, $2, $3, $4)`,
@@ -321,39 +250,30 @@ async function handleCreditPurchase(userId: string, priceId: string, creditAmoun
 
 async function sendReceiptEmailFromSession(session: Stripe.Checkout.Session) {
   try {
-    // Get customer email - try from session first, then from Stripe customer if available
-    let customerEmail = session.customer_email
-    
-    if (!customerEmail && session.customer) {
-      try {
-        const customer = await stripe.customers.retrieve(session.customer as string)
-        if (customer && !customer.deleted && 'email' in customer && customer.email) {
-          customerEmail = customer.email
-        }
-      } catch (error) {
-        console.log('Could not retrieve customer email from Stripe:', error)
-      }
-    }
-
-    if (!customerEmail) {
-      console.log('No customer email available in session, skipping receipt email')
+    if (!session.customer_email) {
+      console.log('No customer email in session, skipping receipt email')
       return
     }
 
-    const { type, priceId } = session.metadata || {}
-    
-    if (!type || !priceId) {
-      console.log('Missing metadata in session, skipping receipt email')
+    // Get the price details
+    const lineItem = session.line_items?.data?.[0]
+    if (!lineItem?.price) {
+      console.log('No price information in session, skipping receipt email')
       return
     }
 
-    // Get plan name and amount from priceId
-    const planName = getPlanNameFromPriceId(priceId)
-    const creditAmount = getCreditAmountFromPriceId(priceId)
-    const amount = `$${(session.amount_total || 0) / 100}`
+    const price = lineItem.price
+    const { type } = session.metadata || {}
+    
+    // Get plan name from price
+    const planName = getPlanNameFromPriceId(price.id)
+    const amount = `$${(price.unit_amount || 0) / 100}`
+    const billingPeriod = price.recurring ? 
+      (price.recurring.interval === 'month' ? 'Monthly' : 'Yearly') : 
+      undefined
 
     const receiptData: ReceiptData = {
-      customerEmail,
+      customerEmail: session.customer_email,
       planName,
       amount,
       type: type as 'subscription' | 'credits',
@@ -365,17 +285,11 @@ async function sendReceiptEmailFromSession(session: Stripe.Checkout.Session) {
         hour: '2-digit',
         minute: '2-digit'
       }),
-      billingPeriod: undefined, // Not applicable for one-time purchases
-      creditAmount: type === 'credits' ? creditAmount : undefined
+      billingPeriod,
+      creditAmount: type === 'credits' ? getCreditAmountFromPriceId(price.id) : undefined
     }
 
-    console.log('📧 Sending receipt email:', receiptData)
-    const result = await sendReceiptEmail(receiptData)
-    if (result.success) {
-      console.log('✅ Receipt email sent successfully')
-    } else {
-      console.error('⚠️ Receipt email failed:', result.error)
-    }
+    await sendReceiptEmail(receiptData)
   } catch (error) {
     console.error('Error sending receipt email from session:', error)
   }
@@ -426,64 +340,6 @@ async function sendReceiptEmailFromSubscription(subscription: Stripe.Subscriptio
   }
 }
 
-async function sendReceiptEmailFromPaymentIntent(paymentIntent: Stripe.PaymentIntent) {
-  try {
-    const { userId, priceId, creditAmount, type } = paymentIntent.metadata || {}
-    
-    if (!type || type !== 'credits' || !priceId) {
-      console.log('Not a credit purchase or missing priceId, skipping receipt email')
-      return
-    }
-
-    // Get customer email from charge billing details
-    let customerEmail: string | null = null
-    
-    if (paymentIntent.latest_charge) {
-      try {
-        const charge = await stripe.charges.retrieve(paymentIntent.latest_charge as string)
-        customerEmail = charge.billing_details?.email || null
-      } catch (error) {
-        console.log('Could not retrieve charge for email:', error)
-      }
-    }
-
-    if (!customerEmail) {
-      console.log('No customer email available for payment intent, skipping receipt email')
-      return
-    }
-
-    const planName = getPlanNameFromPriceId(priceId)
-    const amount = `$${(paymentIntent.amount || 0) / 100}`
-    const credits = creditAmount ? parseInt(creditAmount) : undefined
-
-    const receiptData: ReceiptData = {
-      customerEmail,
-      planName,
-      amount,
-      type: 'credits',
-      transactionId: paymentIntent.id,
-      date: new Date().toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }),
-      creditAmount: credits
-    }
-
-    console.log('📧 Sending receipt email from payment intent:', receiptData)
-    const result = await sendReceiptEmail(receiptData)
-    if (result.success) {
-      console.log('✅ Receipt email sent successfully')
-    } else {
-      console.error('⚠️ Receipt email failed:', result.error)
-    }
-  } catch (error) {
-    console.error('Error sending receipt email from payment intent:', error)
-  }
-}
-
 function getPlanNameFromPriceId(priceId: string): string {
   // Map price IDs to plan names
   const planNames: Record<string, string> = {
@@ -500,16 +356,4 @@ function getPlanNameFromPriceId(priceId: string): string {
   }
   
   return planNames[priceId] || 'Unknown Plan'
-}
-
-function getPackageNameFromCreditAmount(credits: number): string {
-  // Map credit amounts to package names (fallback when priceId is missing)
-  const creditToPackage: Record<number, string> = {
-    5: 'Starter Pack',
-    7: 'Professional Pack',
-    9: 'Business Pack',
-    11: 'Enterprise Pack',
-  }
-  
-  return creditToPackage[credits] || `${credits} Credit Pack`
 }

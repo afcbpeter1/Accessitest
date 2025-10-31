@@ -130,7 +130,9 @@ export async function POST(request: NextRequest) {
       sessionParams.payment_intent_data = {
         metadata: {
           userId: userId || '',
+          priceId: priceId,
           creditAmount: getCreditAmountFromPriceId(priceId).toString(),
+          type: 'credits',
         },
       }
     }

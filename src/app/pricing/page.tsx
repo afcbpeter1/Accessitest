@@ -151,6 +151,7 @@ export default function Pricing() {
       }
 
       // Create checkout session
+      // Don't override successUrl - let the API generate it with purchase details
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
@@ -160,7 +161,6 @@ export default function Pricing() {
           priceId,
           userId: user?.id,
           userEmail: user?.email,
-          successUrl: `${window.location.origin}/thank-you?success=true`,
           cancelUrl: `${window.location.origin}/pricing?canceled=true`,
         }),
       })
@@ -198,6 +198,7 @@ export default function Pricing() {
       }
 
       // Create checkout session
+      // Don't override successUrl - let the API generate it with purchase details
       const response = await fetch('/api/create-checkout-session', {
         method: 'POST',
         headers: {
@@ -207,7 +208,6 @@ export default function Pricing() {
           priceId,
           userId: user?.id,
           userEmail: user?.email,
-          successUrl: `${window.location.origin}/thank-you?success=true`,
           cancelUrl: `${window.location.origin}/pricing?canceled=true`,
         }),
       })
