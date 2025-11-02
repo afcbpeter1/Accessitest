@@ -9,7 +9,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
 })
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
+// Trim whitespace to avoid issues with .env file formatting
+const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim() || ''
 
 // Disable body parsing - we need the raw body for signature verification
 export const runtime = 'nodejs'
@@ -39,8 +40,20 @@ export async function POST(request: NextRequest) {
     console.log('📝 Body length:', body.length)
     console.log('🔐 Signature header present:', !!signature)
     console.log('🔑 Webhook secret configured:', !!webhookSecret)
-    console.log('🔑 Webhook secret starts with:', webhookSecret.substring(0, 10))
-    console.log('🔑 Expected secret from CLI: whsec_4a2b... (if using Stripe CLI)')
+    console.log('🔑 Webhook secret length:', webhookSecret.length)
+    console.log('🔑 Webhook secret first 10 chars:', webhookSecret.substring(0, 10))
+    console.log('🔑 Webhook secret last 10 chars:', webhookSecret.substring(webhookSecret.length - 10))
+    console.log('🔑 Expected from CLI starts with: whsec_4a2b...')
+    console.log('🔑 Expected from CLI ends with: ...73aa49')
+    console.log('🔑 Secret matches CLI start?', webhookSecret.startsWith('whsec_4a2b'))
+    console.log('🔑 Secret matches CLI end?', webhookSecret.endsWith('73aa49'))
+    
+    // Check for whitespace issues
+    const trimmedSecret = webhookSecret.trim()
+    if (trimmedSecret !== webhookSecret) {
+      console.warn('⚠️ WARNING: Webhook secret has leading/trailing whitespace!')
+      console.warn('⚠️ Original length:', webhookSecret.length, 'Trimmed length:', trimmedSecret.length)
+    }
 
     let event: Stripe.Event
 
@@ -113,10 +126,34 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   console.log('🛒 Processing checkout session completed:', session.id)
   console.log('📋 Session metadata:', session.metadata)
   
-  const { userId, priceId, type } = session.metadata || {}
+  let { userId, priceId, type } = session.metadata || {}
   
-  if (!userId || !priceId) {
-    console.error('❌ Missing metadata in checkout session:', { userId, priceId, type })
+  // If userId is missing or empty, try to look up user by email
+  if (!userId || userId.trim() === '') {
+    const customerEmail = session.customer_email || (session.customer ? 
+      (await stripe.customers.retrieve(session.customer as string).then(c => 
+        !c.deleted && 'email' in c ? c.email : null
+      ).catch(() => null)) : null)
+    
+    if (customerEmail) {
+      console.log(`🔍 userId missing, looking up user by email: ${customerEmail}`)
+      const userResult = await query(
+        `SELECT id FROM users WHERE email = $1 LIMIT 1`,
+        [customerEmail]
+      )
+      
+      if (userResult.rows && userResult.rows.length > 0) {
+        userId = userResult.rows[0].id
+        console.log(`✅ Found user ${userId} by email ${customerEmail}`)
+      } else {
+        console.error(`❌ User not found with email: ${customerEmail}`)
+      }
+    }
+  }
+  
+  if (!userId || userId.trim() === '' || !priceId) {
+    console.error('❌ Missing required metadata in checkout session:', { userId, priceId, type })
+    console.error('⚠️ Cannot process purchase without userId. Customer email:', session.customer_email)
     return
   }
 
@@ -253,7 +290,29 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
     return
   }
 
-  // Handle credit purchases
+  // IMPORTANT: Skip credit processing here if this payment_intent was created via checkout.session
+  // The checkout.session.completed event will handle credits to avoid double-processing
+  // Only process credits here if this payment_intent was NOT part of a checkout session
+  // (e.g., direct API payments that don't go through checkout)
+  
+  // For checkout sessions, we check if a checkout session exists for this payment intent
+  // If it does, skip processing here to avoid duplicates
+  try {
+    const sessions = await stripe.checkout.sessions.list({
+      payment_intent: paymentIntent.id,
+      limit: 1
+    })
+    
+    if (sessions.data.length > 0) {
+      console.log('⚠️ Payment intent is part of a checkout session - skipping credit processing here to avoid duplicate')
+      console.log('ℹ️ Credits will be processed by checkout.session.completed handler')
+      return
+    }
+  } catch (error) {
+    console.log('Could not check for checkout session, proceeding with payment intent processing')
+  }
+
+  // Only process credits if this payment intent is NOT part of a checkout session
   if (type === 'credits' && creditAmount) {
     const credits = parseInt(creditAmount)
     await handleCreditPurchase(userId, priceId || '', credits)
@@ -321,6 +380,16 @@ async function handleCreditPurchase(userId: string, priceId: string, creditAmoun
 
 async function sendReceiptEmailFromSession(session: Stripe.Checkout.Session) {
   try {
+    console.log('📧 Starting receipt email process for session:', session.id)
+    
+    // Check if RESEND_API_KEY is configured first
+    if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === 'dummy-key-for-development') {
+      console.warn('⚠️ RESEND_API_KEY not configured in environment variables')
+      console.warn('⚠️ To enable receipt emails, add RESEND_API_KEY to your .env file')
+      console.warn('⚠️ Get your API key from: https://resend.com/api-keys')
+      return
+    }
+
     // Get customer email - try from session first, then from Stripe customer if available
     let customerEmail = session.customer_email
     
@@ -336,14 +405,41 @@ async function sendReceiptEmailFromSession(session: Stripe.Checkout.Session) {
     }
 
     if (!customerEmail) {
-      console.log('No customer email available in session, skipping receipt email')
+      console.log('⚠️ No customer email available in session, skipping receipt email')
+      console.log('📋 Session customer_email:', session.customer_email)
+      console.log('📋 Session customer:', session.customer)
       return
     }
 
-    const { type, priceId } = session.metadata || {}
+    let { type, priceId } = session.metadata || {}
+    
+    // Try to derive priceId from line items if metadata is missing
+    if (!priceId && session.line_items) {
+      try {
+        const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 })
+        if (lineItems.data.length > 0 && lineItems.data[0].price) {
+          priceId = lineItems.data[0].price.id
+          console.log(`📋 Derived priceId from line items: ${priceId}`)
+        }
+      } catch (error) {
+        console.log('Could not retrieve line items for receipt email:', error)
+      }
+    }
+    
+    // If type is missing but we have a priceId, check if it's a credit purchase
+    if (!type && priceId) {
+      const { STRIPE_PRICE_IDS } = await import('@/lib/stripe-config')
+      const allCreditPriceIds = Object.values(STRIPE_PRICE_IDS.credits)
+      if (allCreditPriceIds.includes(priceId)) {
+        type = 'credits'
+        console.log(`📋 Derived type as 'credits' from priceId`)
+      }
+    }
     
     if (!type || !priceId) {
-      console.log('Missing metadata in session, skipping receipt email')
+      console.log('⚠️ Missing metadata in session, skipping receipt email')
+      console.log('📋 Session metadata:', session.metadata)
+      console.log('📋 Session amount_total:', session.amount_total)
       return
     }
 
@@ -369,15 +465,21 @@ async function sendReceiptEmailFromSession(session: Stripe.Checkout.Session) {
       creditAmount: type === 'credits' ? creditAmount : undefined
     }
 
-    console.log('📧 Sending receipt email:', receiptData)
+    console.log('📧 Attempting to send receipt email:', {
+      to: receiptData.customerEmail,
+      plan: receiptData.planName,
+      amount: receiptData.amount,
+      type: receiptData.type
+    })
+    
     const result = await sendReceiptEmail(receiptData)
     if (result.success) {
-      console.log('✅ Receipt email sent successfully')
+      console.log('✅ Receipt email sent successfully! Message ID:', result.messageId)
     } else {
-      console.error('⚠️ Receipt email failed:', result.error)
+      console.error('❌ Receipt email failed:', result.error)
     }
   } catch (error) {
-    console.error('Error sending receipt email from session:', error)
+    console.error('❌ Error sending receipt email from session:', error)
   }
 }
 

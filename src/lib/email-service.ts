@@ -1,12 +1,6 @@
 import { Resend } from 'resend'
 
-// Check if RESEND_API_KEY is loaded
-const resendApiKey = process.env.RESEND_API_KEY
-if (!resendApiKey) {
-  console.warn('RESEND_API_KEY not found in environment variables')
-}
-
-const resend = new Resend(resendApiKey || 'dummy-key-for-development')
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 export interface EmailVerificationData {
   email: string
@@ -20,8 +14,9 @@ export class EmailService {
     try {
       const { email, verificationCode, firstName = 'User' } = data
 
+      // Use same hardcoded address as receipt emails for consistency
       const result = await resend.emails.send({
-        from: `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`,
+        from: 'A11ytest.ai <onboarding@resend.dev>',
         to: [email],
         subject: 'Verify your A11ytest.ai account',
         html: `
@@ -90,14 +85,16 @@ export class EmailService {
       })
 
       if (result.error) {
-        console.error('Failed to send verification email:', result.error)
+        console.error('❌ Failed to send verification email. Error:', JSON.stringify(result.error, null, 2))
+        console.error('📧 Attempted to send from:', `${fromName} <${fromEmail}>`)
+        console.error('📧 Attempted to send to:', email)
         return false
       }
 
-      console.log('Verification email sent successfully:', result.data?.id)
+      console.log('✅ Verification email sent successfully! Message ID:', result.data?.id)
       return true
     } catch (error) {
-      console.error('Error sending verification email:', error)
+      console.error('❌ Exception sending verification email:', error)
       return false
     }
   }

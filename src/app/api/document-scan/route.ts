@@ -246,6 +246,9 @@ export async function POST(request: NextRequest) {
       // Clean up scan record
       activeScans.delete(scanId)
       
+      // Initialize backlogResult outside try block so it's available in return statement
+      let backlogResult = null
+      
       // Store scan results in history (with error handling)
       try {
         const { ScanHistoryService } = await import('@/lib/scan-history-service')
@@ -279,19 +282,21 @@ export async function POST(request: NextRequest) {
         console.log('✅ Document scan results stored in history')
 
         // Auto-add issues to product backlog
-        if (enhancedResult.issues && enhancedResult.issues.length > 0 && scanHistoryResult?.scanId) {
+        // scanHistoryResult is the ID string, not an object
+        if (enhancedResult.issues && enhancedResult.issues.length > 0 && scanHistoryResult) {
           console.log(`🔄 Attempting to add ${enhancedResult.issues.length} enhanced document issues to backlog...`)
           try {
-            await autoAddDocumentIssuesToBacklog(user.userId, enhancedResult.issues, scanHistoryResult.scanId, body.fileName)
-            console.log('✅ Document issues automatically added to product backlog')
+            backlogResult = await autoAddDocumentIssuesToBacklog(user.userId, enhancedResult.issues, scanHistoryResult, body.fileName)
+            console.log('✅ Document issues automatically added to product backlog:', backlogResult)
           } catch (backlogError) {
             console.error('❌ Failed to auto-add document issues to backlog:', backlogError)
+            backlogResult = { success: false, error: backlogError instanceof Error ? backlogError.message : 'Unknown error' }
           }
         } else {
           console.log('⚠️ Skipping backlog addition - no enhanced issues or missing scanHistoryResult:', {
             hasIssues: enhancedResult.issues && enhancedResult.issues.length > 0,
             issuesCount: enhancedResult.issues?.length || 0,
-            hasScanHistoryResult: !!scanHistoryResult?.scanId
+            hasScanHistoryResult: !!scanHistoryResult
           })
         }
       } catch (error) {
@@ -301,7 +306,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         result: enhancedResult,
-        scanId
+        scanId,
+        backlogAdded: backlogResult
       })
     }
     
@@ -334,6 +340,9 @@ export async function POST(request: NextRequest) {
     
     // Clean up scan record
     activeScans.delete(scanId)
+    
+    // Initialize backlogResult outside try block so it's available in return statement
+    let backlogResult = null
     
     // Store scan results in history (with error handling)
     try {
@@ -368,19 +377,21 @@ export async function POST(request: NextRequest) {
       console.log('✅ Document scan results stored in history')
 
       // Auto-add issues to product backlog
-      if (scanResult.issues && scanResult.issues.length > 0 && scanHistoryResult?.scanId) {
+      // scanHistoryResult is the ID string, not an object
+      if (scanResult.issues && scanResult.issues.length > 0 && scanHistoryResult) {
         console.log(`🔄 Attempting to add ${scanResult.issues.length} document issues to backlog...`)
         try {
-          await autoAddDocumentIssuesToBacklog(user.userId, scanResult.issues, scanHistoryResult.scanId, body.fileName)
-          console.log('✅ Document issues automatically added to product backlog')
+          backlogResult = await autoAddDocumentIssuesToBacklog(user.userId, scanResult.issues, scanHistoryResult, body.fileName)
+          console.log('✅ Document issues automatically added to product backlog:', backlogResult)
         } catch (backlogError) {
           console.error('❌ Failed to auto-add document issues to backlog:', backlogError)
+          backlogResult = { success: false, error: backlogError instanceof Error ? backlogError.message : 'Unknown error' }
         }
       } else {
         console.log('⚠️ Skipping backlog addition - no issues or missing scanHistoryResult:', {
           hasIssues: scanResult.issues && scanResult.issues.length > 0,
           issuesCount: scanResult.issues?.length || 0,
-          hasScanHistoryResult: !!scanHistoryResult?.scanId
+          hasScanHistoryResult: !!scanHistoryResult
         })
       }
     } catch (error) {
@@ -390,7 +401,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       result: scanResult,
-      scanId
+      scanId,
+      backlogAdded: backlogResult
     })
     
   } catch (error) {
@@ -629,12 +641,14 @@ async function autoAddDocumentIssuesToBacklog(userId: string, issues: any[], sca
           .digest('hex').substring(0, 16)
 
         // Check if this issue already exists for this user
+        // Use description/section for matching since rule_name now uses description
+        const ruleNameForMatching = issue.description || issue.section || 'Accessibility Issue'
         const existingItem = await queryOne(`
           SELECT i.id, i.status, i.created_at, i.updated_at 
           FROM issues i
           JOIN scan_history sh ON i.first_seen_scan_id = sh.id
           WHERE sh.user_id = $1 AND i.rule_name = $2 AND sh.file_name = $3
-        `, [userId, issue.id || issue.description, fileName])
+        `, [userId, ruleNameForMatching, fileName])
 
         if (existingItem) {
           // Update last_scan_at for existing items
@@ -646,7 +660,7 @@ async function autoAddDocumentIssuesToBacklog(userId: string, issues: any[], sca
           
           skippedItems.push({
             issueId: issue.id,
-            ruleName: issue.id || issue.description,
+            ruleName: issue.description || issue.section || 'Accessibility Issue',
             reason: 'Already exists in backlog'
           })
           continue
@@ -674,8 +688,8 @@ async function autoAddDocumentIssuesToBacklog(userId: string, issues: any[], sca
           RETURNING *
         `, [
           issueKey,
-          issue.id || issue.description, // rule_id
-          issue.id || issue.description, // rule_name
+          issue.id || issue.description, // rule_id (technical ID)
+          issue.description || issue.section || 'Accessibility Issue', // rule_name (display name)
           issue.description, 
           issue.type, 
           issue.wcagCriterion || 'AA',
@@ -695,14 +709,14 @@ async function autoAddDocumentIssuesToBacklog(userId: string, issues: any[], sca
         addedItems.push({
           id: result.id,
           issueId: issue.id,
-          ruleName: issue.id || issue.description,
+          ruleName: issue.description || issue.section || 'Accessibility Issue',
           impact: issue.type
         })
       } catch (error) {
         console.error(`Error processing document issue ${issue.id}:`, error)
         skippedItems.push({
           issueId: issue.id,
-          ruleName: issue.id || issue.description,
+          ruleName: issue.description || issue.section || 'Accessibility Issue',
           reason: 'Error processing issue'
         })
       }
@@ -713,6 +727,16 @@ async function autoAddDocumentIssuesToBacklog(userId: string, issues: any[], sca
       added: addedItems.length,
       skipped: skippedItems.length
     })
+    
+    // Return summary for API response
+    return {
+      success: true,
+      total: issues.length,
+      added: addedItems.length,
+      skipped: skippedItems.length,
+      addedItems,
+      skippedItems
+    }
   } catch (error) {
     console.error('Error auto-adding document issues to backlog:', error)
     throw error

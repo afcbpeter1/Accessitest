@@ -75,20 +75,6 @@ export default function Pricing() {
       ],
       popular: true,
       unlimited: true
-    },
-    {
-      name: 'Pay Per Scan',
-      description: 'No monthly commitment',
-      price: 1.50,
-      yearlyPrice: 1.50,
-      features: [
-        'No monthly commitment',
-        'Buy credits as needed',
-        'Same features as plans',
-        'WCAG 2.2 + Section 508 compliance',
-        'AI-powered recommendations'
-      ],
-      unlimited: false
     }
   ]
 
@@ -123,16 +109,6 @@ export default function Pricing() {
     setSelectedPlan(plan.name)
     
     try {
-      // For Pay Per Scan, redirect to credit packages section
-      if (plan.name === 'Pay Per Scan') {
-        // Scroll to credit packages section
-        const creditSection = document.getElementById('credit-packages')
-        if (creditSection) {
-          creditSection.scrollIntoView({ behavior: 'smooth' })
-        }
-        return
-      }
-
       // Determine the correct price ID based on plan and billing cycle
       let priceId = ''
       
@@ -293,10 +269,10 @@ export default function Pricing() {
                       ${billingCycle === 'monthly' ? plan.price : plan.yearlyPrice}
                     </span>
                     <span className="text-gray-700">
-                      {plan.name === 'Pay Per Scan' ? '/scan' : `/${billingCycle === 'monthly' ? 'month' : 'year'}`}
+                      /{billingCycle === 'monthly' ? 'month' : 'year'}
                     </span>
                   </div>
-                  {billingCycle === 'yearly' && plan.name !== 'Pay Per Scan' && (
+                  {billingCycle === 'yearly' && (
                     <div className="text-sm text-green-600">
                       <p>Save ${((plan.price * 12) - plan.yearlyPrice).toFixed(0)} per year</p>
                       <p className="text-xs text-gray-600 mt-1">Billed annually</p>

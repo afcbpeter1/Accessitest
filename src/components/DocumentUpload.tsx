@@ -392,7 +392,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
       // Transform document issues to match the expected format for backlog
       const transformedIssues = issues.map(issue => ({
-        ruleName: issue.id || issue.description,
+        ruleName: issue.description || issue.section || 'Accessibility Issue',
         description: issue.description,
         impact: issue.type,
         wcagLevel: issue.wcagCriterion || 'AA',
@@ -525,6 +525,22 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       console.log('🔍 Document scan results structure:', scanResults)
       console.log('🔍 Issues array:', scanResults.issues)
       console.log('🔍 Issues length:', scanResults.issues?.length)
+      
+      // Show backlog addition results if available
+      if (result.backlogAdded) {
+        const backlog = result.backlogAdded
+        if (backlog.success && backlog.added > 0) {
+          addScanLog(`✅ ${backlog.added} issue${backlog.added !== 1 ? 's' : ''} added to product backlog`)
+          if (backlog.skipped > 0) {
+            addScanLog(`ℹ️ ${backlog.skipped} duplicate issue${backlog.skipped !== 1 ? 's' : ''} skipped`)
+          }
+        } else if (backlog.success && backlog.added === 0) {
+          addScanLog(`ℹ️ All issues already exist in product backlog`)
+        } else {
+          addScanLog(`⚠️ Failed to add issues to backlog: ${backlog.error || 'Unknown error'}`)
+        }
+      }
+      
       addScanLog(`✅ Scan completed! Found ${scanResults.issues?.length || 0} accessibility issues`)
       
       console.log('🔍 About to update document status to completed')
@@ -589,7 +605,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
        addScanLog(`📋 Total issues: ${totalIssues}`)
        addScanLog(`🔴 Critical issues: ${criticalIssues}`)
        addScanLog(`🟠 Serious issues: ${seriousIssues}`)
-       addScanLog(`✅ Issues automatically added to product backlog`)
+       
+       // Backlog addition message is now shown earlier in the flow
 
        // Update global scan state to complete
        updateScan(scanId, {
@@ -1032,7 +1049,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                           // Transform document issue to match CollapsibleIssue format
                           const collapsibleIssue = {
                             issueId: issue.id,
-                            ruleName: issue.id || issue.description,
+                            ruleName: issue.description || issue.section || 'Accessibility Issue',
                             description: issue.description,
                             impact: issue.type,
                             wcag22Level: issue.wcagCriterion || 'AA',

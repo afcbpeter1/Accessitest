@@ -17,6 +17,8 @@ export interface ReceiptData {
 export async function sendReceiptEmail(receiptData: ReceiptData) {
   try {
     console.log('📧 Attempting to send receipt email to:', receiptData.customerEmail)
+    console.log('🔑 RESEND_API_KEY configured:', !!process.env.RESEND_API_KEY)
+    console.log('🔑 RESEND_API_KEY starts with:', process.env.RESEND_API_KEY?.substring(0, 10) || 'NOT SET')
     
     if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === 'dummy-key-for-development') {
       console.warn('⚠️ RESEND_API_KEY not configured - skipping receipt email')
@@ -255,8 +257,30 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
       text: textContent,
     })
 
-    console.log('✅ Receipt email sent successfully:', result.data?.id)
-    return { success: true, messageId: result.data?.id }
+    // Log full response for debugging
+    console.log('📧 Resend API response:', JSON.stringify(result, null, 2))
+    
+    // Check for errors in the response
+    if (result.error) {
+      console.error('❌ Resend API returned an error:', result.error)
+      return { success: false, error: JSON.stringify(result.error) }
+    }
+
+    // Check if data exists
+    if (!result.data) {
+      console.error('❌ Resend API response has no data field')
+      return { success: false, error: 'No data in response' }
+    }
+
+    const messageId = result.data.id
+    if (!messageId) {
+      console.error('❌ Resend API response has no message ID')
+      console.error('Full response data:', JSON.stringify(result.data, null, 2))
+      return { success: false, error: 'No message ID in response' }
+    }
+
+    console.log('✅ Receipt email sent successfully! Message ID:', messageId)
+    return { success: true, messageId }
 
   } catch (error) {
     console.error('❌ Failed to send receipt email:', error)

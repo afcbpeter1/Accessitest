@@ -28,8 +28,13 @@ export async function GET(request: NextRequest) {
         i.assignee,
         i.created_at,
         i.updated_at,
-        sh.url,
+        CASE 
+          WHEN sh.url IS NOT NULL THEN sh.url
+          ELSE 'Document: ' || COALESCE(sh.file_name, 'Unknown')
+        END as url,
         sh.user_id,
+        sh.file_name,
+        sh.scan_type,
         sh.scan_results
       FROM issues i
       JOIN scan_history sh ON i.first_seen_scan_id = sh.id
@@ -57,15 +62,31 @@ export async function GET(request: NextRequest) {
       let domain = 'unknown'
       try {
         if (issue.url) {
-          domain = new URL(issue.url).hostname
+          // Check if it's a document format (starts with "Document:")
+          if (typeof issue.url === 'string' && issue.url.startsWith('Document:')) {
+            domain = 'document-scan'
+          } else {
+            domain = new URL(issue.url).hostname
+          }
+        } else {
+          // For document scans, url might be null, use file_name from scan_history
+          domain = 'document-scan'
         }
       } catch (error) {
         // Try to extract domain from the URL string even if it's not a full URL
         if (issue.url && typeof issue.url === 'string') {
-          const urlMatch = issue.url.match(/(?:https?:\/\/)?([^\/\s]+)/)
-          if (urlMatch) {
-            domain = urlMatch[1]
+          if (issue.url.startsWith('Document:')) {
+            domain = 'document-scan'
+          } else {
+            const urlMatch = issue.url.match(/(?:https?:\/\/)?([^\/\s]+)/)
+            if (urlMatch) {
+              domain = urlMatch[1]
+            } else {
+              domain = 'document-scan'
+            }
           }
+        } else {
+          domain = 'document-scan'
         }
       }
       
@@ -79,7 +100,7 @@ export async function GET(request: NextRequest) {
         element_selector: null,
         element_html: null,
         failure_summary: issue.notes,
-        url: issue.url,
+        url: issue.url || issue.affected_pages?.[0] || 'Document',
         domain: domain,
         story_points: issue.story_points || 1,
         remaining_points: issue.remaining_points || 1,

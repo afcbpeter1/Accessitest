@@ -781,34 +781,42 @@ export class ComprehensiveDocumentScanner {
   ): Promise<ComprehensiveDocumentIssue[]> {
     const issues: ComprehensiveDocumentIssue[] = []
 
-    // Always run general WCAG compliance checks
-    console.log(`🔍 Running general WCAG compliance checks (always enabled)`)
+    // Check if Section 508 tags are selected
+    const hasSection508Tags = selectedTags && selectedTags.some(tag => tag.startsWith('1194.22'))
     
-    // Text analysis
-    const textIssues = this.analyzeTextAccessibility(documentContent, documentType, pagesAnalyzed)
-    issues.push(...textIssues)
+    // Only run general WCAG compliance checks if NO Section 508 tags are selected
+    // This ensures that when user selects specific Section 508 tests, only those tests run
+    if (!hasSection508Tags) {
+      console.log(`🔍 Running general WCAG compliance checks (no Section 508 tags selected)`)
+      
+      // Text analysis
+      const textIssues = this.analyzeTextAccessibility(documentContent, documentType, pagesAnalyzed)
+      issues.push(...textIssues)
 
-    // Check for cancellation after text analysis
-    if (isCancelled && isCancelled()) {
-      throw new Error('Scan was cancelled by user')
-    }
+      // Check for cancellation after text analysis
+      if (isCancelled && isCancelled()) {
+        throw new Error('Scan was cancelled by user')
+      }
 
-    // Structure analysis
-    const structureIssues = this.analyzeStructureAccessibility(documentContent, documentType, pagesAnalyzed)
-    issues.push(...structureIssues)
+      // Structure analysis
+      const structureIssues = this.analyzeStructureAccessibility(documentContent, documentType, pagesAnalyzed)
+      issues.push(...structureIssues)
 
-    // Check for cancellation after structure analysis
-    if (isCancelled && isCancelled()) {
-      throw new Error('Scan was cancelled by user')
-    }
+      // Check for cancellation after structure analysis
+      if (isCancelled && isCancelled()) {
+        throw new Error('Scan was cancelled by user')
+      }
 
-    // Image analysis
-    const imageIssues = this.analyzeImageAccessibility(imageAnalysis, documentType, pagesAnalyzed)
-    issues.push(...imageIssues)
+      // Image analysis
+      const imageIssues = this.analyzeImageAccessibility(imageAnalysis, documentType, pagesAnalyzed)
+      issues.push(...imageIssues)
 
-    // Check for cancellation after image analysis
-    if (isCancelled && isCancelled()) {
-      throw new Error('Scan was cancelled by user')
+      // Check for cancellation after image analysis
+      if (isCancelled && isCancelled()) {
+        throw new Error('Scan was cancelled by user')
+      }
+    } else {
+      console.log(`⏭️ Section 508 tags selected - skipping general WCAG checks to run only selected compliance tests`)
     }
 
     // Section 508 compliance testing (only if tags are selected)
