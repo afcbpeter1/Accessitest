@@ -53,12 +53,12 @@ export default function NewScan() {
   const [selectedTags, setSelectedTags] = useState<string[]>(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']) // Comprehensive WCAG compliance
   const [isScanning, setIsScanning] = useState(false)
   const { addScan, updateScan, removeScan, getActiveScan, activeScans } = useScan()
+  const [activeScanId, setActiveScanId] = useState<string | null>(null)
   
   // Get current scan progress from global state
   const scanProgress = activeScanId ? getActiveScan(activeScanId) : null
   const [discoveredPages, setDiscoveredPages] = useState<DiscoveredPage[]>([])
   const [selectedPages, setSelectedPages] = useState<string[]>([])
-  const [activeScanId, setActiveScanId] = useState<string | null>(null)
   const [scanResults, setScanResults] = useState<ScanResult[]>([])
   const [remediationReport, setRemediationReport] = useState<any[]>([])
   const [scanError, setScanError] = useState<string | null>(null)

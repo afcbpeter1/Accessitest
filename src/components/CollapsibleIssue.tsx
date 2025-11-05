@@ -18,41 +18,90 @@ import {
 // import AddToBacklogButton from './AddToBacklogButton'
 // import { useToast } from './Toast'
 
-// Function to format AI suggestion descriptions with proper numbering and spacing
+// Function to format AI suggestion descriptions with proper markdown-like formatting
 function formatSuggestionDescription(description: string) {
   if (!description) return description
   
   // Split by lines and process each line
   const lines = description.split('\n')
+  const elements: JSX.Element[] = []
   let stepNumber = 1
+  let inList = false
   
-  return lines.map((line, index) => {
-    // Skip empty lines
-    if (!line.trim()) {
-      return <br key={index} />
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim()
+    
+    // Skip empty lines but add spacing
+    if (!trimmedLine) {
+      if (inList) {
+        inList = false
+        elements.push(<br key={`br-${index}`} />)
+      } else {
+        elements.push(<br key={`br-${index}`} />)
+      }
+      return
     }
     
-    // Check if line starts with a number followed by a period
-    const numberedMatch = line.match(/^(\d+)\.\s*(.+)$/)
+    // Handle markdown-style headings (## Heading)
+    if (trimmedLine.startsWith('## ')) {
+      const headingText = trimmedLine.substring(3).trim()
+      elements.push(
+        <h4 key={index} className="text-base font-semibold text-gray-900 mt-4 mb-2">
+          {headingText}
+        </h4>
+      )
+      return
+    }
+    
+    // Handle markdown-style headings (# Heading)
+    if (trimmedLine.startsWith('# ')) {
+      const headingText = trimmedLine.substring(2).trim()
+      elements.push(
+        <h3 key={index} className="text-lg font-bold text-gray-900 mt-4 mb-3">
+          {headingText}
+        </h3>
+      )
+      return
+    }
+    
+    // Handle numbered lists (1. Item or Step 1:)
+    const numberedMatch = trimmedLine.match(/^(?:Step\s+)?(\d+)[\.:]\s*(.+)$/i)
     if (numberedMatch) {
       const [, number, content] = numberedMatch
-      // Use consistent numbering starting from 1
-      const formattedLine = `${stepNumber}. ${content.trim()}`
-      stepNumber++
-      return (
-        <p key={index} className="mb-2">
-          {formattedLine}
+      elements.push(
+        <p key={index} className="mb-2 ml-4">
+          <span className="font-semibold text-gray-900">{stepNumber}.</span>{' '}
+          <span className="text-gray-800">{content.trim()}</span>
         </p>
       )
+      stepNumber++
+      return
     }
     
-    // For non-numbered lines, just return as is
-    return (
-      <p key={index} className="mb-2">
-        {line.trim()}
-      </p>
+    // Handle bullet points (- Item or * Item)
+    if (trimmedLine.match(/^[-*]\s+/)) {
+      const content = trimmedLine.replace(/^[-*]\s+/, '')
+      elements.push(
+        <p key={index} className="mb-1 ml-4">
+          <span className="text-gray-600">•</span>{' '}
+          <span className="text-gray-800">{content}</span>
+        </p>
+      )
+      inList = true
+      return
+    }
+    
+    // Handle bold text (**text** or **text**)
+    let formattedText = trimmedLine
+    formattedText = formattedText.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    
+    // Regular paragraph
+    elements.push(
+      <p key={index} className="mb-2 text-gray-800" dangerouslySetInnerHTML={{ __html: formattedText }} />
     )
   })
+  
+  return <div className="space-y-1">{elements}</div>
 }
 
 
@@ -274,7 +323,27 @@ Affected URLs: ${affectedUrls.join(', ')}`
               <div className="space-y-3">
                 {(offendingElements || []).map((element, index) => (
                   <div key={index} className="bg-gray-50 rounded-lg p-3">
-                    <div className="flex items-start justify-end mb-2">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        {scanType === 'document' ? (
+                          <div className="space-y-1">
+                            {element.url && (
+                              <div className="text-sm font-medium text-gray-900">
+                                {element.url}
+                              </div>
+                            )}
+                            {element.target && element.target.length > 0 && (
+                              <div className="text-xs text-gray-600">
+                                Location: {element.target.join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-600">
+                            {element.url}
+                          </div>
+                        )}
+                      </div>
                       <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getImpactColor(element.impact)}`}>
                         {element.impact.toUpperCase()}
                       </span>
@@ -282,8 +351,17 @@ Affected URLs: ${affectedUrls.join(', ')}`
                     {element.failureSummary && (
                       <div className="mt-3">
                         <div className="text-sm text-gray-700 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          {formatSuggestionDescription(element.failureSummary)}
+                          {scanType === 'document' ? (
+                            <div className="text-gray-800">{element.failureSummary}</div>
+                          ) : (
+                            formatSuggestionDescription(element.failureSummary)
+                          )}
                         </div>
+                      </div>
+                    )}
+                    {element.html && scanType === 'document' && (
+                      <div className="mt-2 text-xs text-gray-600 italic">
+                        {element.html}
                       </div>
                     )}
                   </div>

@@ -7,6 +7,142 @@ import ScanHistory from './ScanHistory'
 import CollapsibleIssue from './CollapsibleIssue'
 import { useScan } from '@/contexts/ScanContext'
 import { authenticatedFetch } from '@/lib/auth-utils'
+import { useToast } from './Toast'
+
+// Function to parse and extract suggestion text from aiFix field
+function parseAISuggestion(aiFix: string): string {
+  if (!aiFix) return ''
+  
+  // Try to extract JSON if present
+  try {
+    // Check if it's a JSON string wrapped in markdown code blocks
+    const jsonMatch = aiFix.match(/```json\s*([\s\S]*?)\s*```/i) || aiFix.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      const jsonStr = jsonMatch[1] || jsonMatch[0]
+      const parsed = JSON.parse(jsonStr)
+      // Return suggestion field if available, otherwise whatWillBeFixed
+      return parsed.suggestion || parsed.whatWillBeFixed || aiFix
+    }
+    
+    // Try parsing the whole string as JSON
+    const parsed = JSON.parse(aiFix)
+    return parsed.suggestion || parsed.whatWillBeFixed || aiFix
+  } catch (e) {
+    // If not JSON, check if there's a JSON object embedded in the text
+    const embeddedJson = aiFix.match(/\{[\s\S]*"suggestion"[\s\S]*\}/)
+    if (embeddedJson) {
+      try {
+        const parsed = JSON.parse(embeddedJson[0])
+        const suggestion = parsed.suggestion || parsed.whatWillBeFixed
+        if (suggestion) {
+          // Remove the JSON from the original text and return just the suggestion
+          return suggestion
+        }
+      } catch (e2) {
+        // Ignore parsing errors
+      }
+    }
+    
+    // If all parsing fails, remove any visible JSON code blocks and return clean text
+    let cleaned = aiFix
+      .replace(/```json\s*[\s\S]*?\s*```/gi, '') // Remove markdown code blocks
+      .replace(/\{[\s\S]*"suggestion"[\s\S]*\}/g, '') // Remove embedded JSON
+      .trim()
+    
+    // If cleaned text is empty or just whitespace, return original
+    if (!cleaned || cleaned.length < 10) {
+      return aiFix
+    }
+    
+    return cleaned
+  }
+}
+
+// Function to format AI suggestion descriptions with proper markdown-like formatting
+function formatSuggestionDescription(description: string) {
+  if (!description) return description
+  
+  // Split by lines and process each line
+  const lines = description.split('\n')
+  const elements: JSX.Element[] = []
+  let stepNumber = 1
+  let inList = false
+  
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim()
+    
+    // Skip empty lines but add spacing
+    if (!trimmedLine) {
+      if (inList) {
+        inList = false
+        elements.push(<br key={`br-${index}`} />)
+      } else {
+        elements.push(<br key={`br-${index}`} />)
+      }
+      return
+    }
+    
+    // Handle markdown-style headings (## Heading)
+    if (trimmedLine.startsWith('## ')) {
+      const headingText = trimmedLine.substring(3).trim()
+      elements.push(
+        <h4 key={index} className="text-base font-semibold text-gray-900 mt-4 mb-2">
+          {headingText}
+        </h4>
+      )
+      return
+    }
+    
+    // Handle markdown-style headings (# Heading)
+    if (trimmedLine.startsWith('# ')) {
+      const headingText = trimmedLine.substring(2).trim()
+      elements.push(
+        <h3 key={index} className="text-lg font-bold text-gray-900 mt-4 mb-3">
+          {headingText}
+        </h3>
+      )
+      return
+    }
+    
+    // Handle numbered lists (1. Item or Step 1:)
+    const numberedMatch = trimmedLine.match(/^(?:Step\s+)?(\d+)[\.:]\s*(.+)$/i)
+    if (numberedMatch) {
+      const [, number, content] = numberedMatch
+      elements.push(
+        <p key={index} className="mb-2 ml-4">
+          <span className="font-semibold text-gray-900">{stepNumber}.</span>{' '}
+          <span className="text-gray-800">{content.trim()}</span>
+        </p>
+      )
+      stepNumber++
+      return
+    }
+    
+    // Handle bullet points (- Item or * Item)
+    if (trimmedLine.match(/^[-*]\s+/)) {
+      const content = trimmedLine.replace(/^[-*]\s+/, '')
+      elements.push(
+        <p key={index} className="mb-1 ml-4">
+          <span className="text-gray-700">•</span>{' '}
+          <span className="text-gray-800">{content}</span>
+        </p>
+      )
+      inList = true
+      return
+    }
+    
+    // Handle bold text (**text** or **text**)
+    let formattedText = trimmedLine
+    formattedText = formattedText.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    
+    // Regular paragraph
+    elements.push(
+      <p key={index} className="mb-2 text-gray-800" dangerouslySetInnerHTML={{ __html: formattedText }} />
+    )
+  })
+  
+  return <div className="space-y-1">{elements}</div>
+}
 
 interface UploadedDocument {
   id: string
@@ -84,15 +220,36 @@ interface DocumentUploadProps {
 }
 
 export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) {
+  // Available Section 508 tags - defined first so it can be used in selectedTags
+  const availableTags = [
+    { tag: '1194.22a', name: 'Text Alternatives', description: 'Images and non-text content must have text alternatives' },
+    { tag: '1194.22b', name: 'Media Alternatives', description: 'Video and audio must have captions or alternatives' },
+    { tag: '1194.22c', name: 'Information Relationships', description: 'Document structure must preserve information relationships' },
+    { tag: '1194.22d', name: 'Meaningful Sequence', description: 'Content must be presented in a meaningful sequence' },
+    { tag: '1194.22e', name: 'Color Usage', description: 'Information must not be conveyed by color alone' },
+    { tag: '1194.22f', name: 'Contrast', description: 'Text must have sufficient contrast ratio' },
+    { tag: '1194.22g', name: 'Visual Presentation', description: 'Visual presentation must not interfere with readability' },
+    { tag: '1194.22h', name: 'Keyboard Accessibility', description: 'All functionality must be keyboard accessible' },
+    { tag: '1194.22i', name: 'No Keyboard Trap', description: 'Users must be able to navigate away from all content' },
+    { tag: '1194.22j', name: 'Timing', description: 'Users must have sufficient time to read and use content' },
+    { tag: '1194.22k', name: 'Flashing', description: 'Content must not flash more than 3 times per second' },
+    { tag: '1194.22l', name: 'Text-only Page', description: 'Complex documents should provide text-only alternatives' },
+    { tag: '1194.22m', name: 'Scripts', description: 'Scripts must be accessible or have alternatives' },
+    { tag: '1194.22n', name: 'Plug-ins', description: 'Plug-ins must be accessible or have alternatives' },
+    { tag: '1194.22o', name: 'Electronic Forms', description: 'Forms must have proper labels and error handling' },
+    { tag: '1194.22p', name: 'Navigation', description: 'Long documents should have navigation aids' }
+  ]
+
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
-  const [showTagSelector, setShowTagSelector] = useState(false)
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  // Auto-select all Section 508 tests by default - all tests run automatically
+  const selectedTags = availableTags.map(tag => tag.tag)
   const [currentScanId, setCurrentScanId] = useState<string | null>(null)
   const [scanLogs, setScanLogs] = useState<string[]>([])
   const [showLogs, setShowLogs] = useState(false)
   const { addScan, updateScan, removeScan, getActiveScan, activeScans } = useScan()
+  const { showToast, ToastContainer } = useToast()
 
   const [userCredits, setUserCredits] = useState<number>(10)
   const [canScan, setCanScan] = useState<boolean>(true)
@@ -106,32 +263,43 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     const savedIsScanning = localStorage.getItem('isScanning')
     
     // First check if there's an active scan in global state
-    const documentScans = activeScans.filter(scan => scan.type === 'document')
+    const documentScans = activeScans.filter(scan => 
+      scan.type === 'document' && 
+      (scan.status === 'scanning' || scan.status === 'analyzing' || scan.status === 'crawling')
+    )
+    
     if (documentScans.length > 0) {
-      const activeScan = documentScans[0] // Get the most recent document scan
+      const activeScan = documentScans[0] // Get the most recent active document scan
       setCurrentScanId(activeScan.scanId)
-      setIsScanning(activeScan.status === 'scanning' || activeScan.status === 'analyzing')
+      setIsScanning(true)
       
       if (savedScanLogs) {
         setScanLogs(JSON.parse(savedScanLogs))
       }
-      
-      // If scan is complete, update document status and load results
-      if (activeScan.status === 'complete') {
-        // Load scan results from scan history
-        loadScanResultsForDocument(activeScan.fileName)
+    } else {
+      // No active scans - clear any stale localStorage state
+      if (savedScanId || savedIsScanning === 'true') {
+        console.log('🧹 Clearing stale scan state from localStorage')
+        localStorage.removeItem('currentScanId')
+        localStorage.removeItem('isScanning')
+        localStorage.removeItem('scanLogs')
         setCurrentScanId(null)
         setIsScanning(false)
+        setScanLogs([])
       }
-    } else if (savedScanId && savedIsScanning === 'true') {
-      // Fallback to localStorage if no global state
-      setCurrentScanId(savedScanId)
-      setIsScanning(true)
-      if (savedScanLogs) {
-        setScanLogs(JSON.parse(savedScanLogs))
-      }
+      
+      // Check for completed scans that need cleanup
+      const completedScans = activeScans.filter(scan => 
+        scan.type === 'document' && 
+        (scan.status === 'complete' || scan.status === 'error')
+      )
+      
+      // Remove completed scans from global state
+      completedScans.forEach(scan => {
+        removeScan(scan.scanId)
+      })
     }
-  }, [activeScans])
+  }, [activeScans, removeScan])
   
   // Save scan state to localStorage
   useEffect(() => {
@@ -159,6 +327,35 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
   // Load credits on component mount
   useEffect(() => {
     checkUserCredits()
+    
+    // Clear any stale scan state on mount (user just logged in or refreshed)
+    // Only keep state if there's actually an active scan in global context
+    const hasActiveScan = activeScans.some(scan => 
+      scan.type === 'document' && 
+      (scan.status === 'scanning' || scan.status === 'analyzing' || scan.status === 'crawling')
+    )
+    
+    if (!hasActiveScan) {
+      // No active scans - ensure we're not showing stale state
+      const savedIsScanning = localStorage.getItem('isScanning')
+      if (savedIsScanning === 'true') {
+        console.log('🧹 Clearing stale scan state on mount')
+        localStorage.removeItem('currentScanId')
+        localStorage.removeItem('isScanning')
+        localStorage.removeItem('scanLogs')
+        setCurrentScanId(null)
+        setIsScanning(false)
+        setScanLogs([])
+      }
+      
+      // Clean up any completed scans from global state
+      activeScans.filter(scan => 
+        scan.type === 'document' && 
+        (scan.status === 'complete' || scan.status === 'error')
+      ).forEach(scan => {
+        removeScan(scan.scanId)
+      })
+    }
   }, [])
 
   // Debug: Monitor uploaded documents changes
@@ -222,25 +419,6 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     }
   }
 
-  // Available Section 508 tags for selection
-  const availableTags = [
-    { tag: '1194.22a', name: 'Text Alternatives', description: 'Images and non-text content must have text alternatives' },
-    { tag: '1194.22b', name: 'Media Alternatives', description: 'Video and audio must have captions or alternatives' },
-    { tag: '1194.22c', name: 'Information Relationships', description: 'Document structure must preserve information relationships' },
-    { tag: '1194.22d', name: 'Meaningful Sequence', description: 'Content must be presented in a meaningful sequence' },
-    { tag: '1194.22e', name: 'Color Usage', description: 'Information must not be conveyed by color alone' },
-    { tag: '1194.22f', name: 'Contrast', description: 'Text must have sufficient contrast ratio' },
-    { tag: '1194.22g', name: 'Visual Presentation', description: 'Visual presentation must not interfere with readability' },
-    { tag: '1194.22h', name: 'Keyboard Accessibility', description: 'All functionality must be keyboard accessible' },
-    { tag: '1194.22i', name: 'No Keyboard Trap', description: 'Users must be able to navigate away from all content' },
-    { tag: '1194.22j', name: 'Timing', description: 'Users must have sufficient time to read and use content' },
-    { tag: '1194.22k', name: 'Flashing', description: 'Content must not flash more than 3 times per second' },
-    { tag: '1194.22l', name: 'Text-only Page', description: 'Complex documents should provide text-only alternatives' },
-    { tag: '1194.22m', name: 'Scripts', description: 'Scripts must be accessible or have alternatives' },
-    { tag: '1194.22n', name: 'Plug-ins', description: 'Plug-ins must be accessible or have alternatives' },
-    { tag: '1194.22o', name: 'Electronic Forms', description: 'Forms must have proper labels and error handling' },
-    { tag: '1194.22p', name: 'Navigation', description: 'Long documents should have navigation aids' }
-  ]
 
   const supportedFormats = [
     'application/pdf',
@@ -301,7 +479,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
           )
         )
         addScanLog('✅ File processed successfully')
-        addScanLog('📋 Document ready for scanning - select tests and click "Start Scan"')
+        addScanLog('📋 Document ready for AI-powered repair')
         
         // Store file content for later scanning
         const fileContent = await new Promise<string>((resolve) => {
@@ -355,21 +533,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     setUploadedDocuments(prev => prev.filter(doc => doc.id !== documentId))
   }
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tag) 
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
-    )
-  }
-
-  const selectAllTags = () => {
-    setSelectedTags(availableTags.map(tag => tag.tag))
-  }
-
-  const clearAllTags = () => {
-    setSelectedTags([])
-  }
+  // All tests run automatically - no need for toggle functions
 
   const addScanLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString()
@@ -431,7 +595,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     }
   }
 
-  const startScan = async (documentId: string) => {
+  const startRepair = async (documentId: string) => {
     const document = uploadedDocuments.find(doc => doc.id === documentId)
     if (!document) {
       addScanLog('❌ Document not found')
@@ -443,22 +607,17 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       return
     }
 
-    if (selectedTags.length === 0) {
-      addScanLog('❌ Please select at least one Section 508 test to run')
-      return
-    }
-
-    // Update status to scanning
+    // Update status to repairing
     setUploadedDocuments(prev => 
       prev.map(doc => 
         doc.id === documentId 
-          ? { ...doc, status: 'scanning' }
+          ? { ...doc, status: 'scanning' } // Reuse scanning status for repair
           : doc
       )
     )
 
-    addScanLog('🔍 Starting Section 508 compliance scan...')
-    addScanLog(`📋 Selected tests: ${selectedTags.join(', ')}`)
+    addScanLog('🔧 Starting AI-powered document repair...')
+    addScanLog('🤖 AI will analyze and fix accessibility issues automatically')
 
     // Generate scan ID for cancellation support
     const scanId = `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -486,7 +645,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         return
       }
 
-      const response = await fetch('/api/document-scan', {
+      const response = await fetch('/api/document-repair', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -495,10 +654,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         body: JSON.stringify({
           fileName: document.name,
           fileType: document.type,
-          fileSize: document.size,
-          fileContent: document.fileContent,
-          selectedTags: selectedTags,
-          scanId: scanId
+          fileContent: document.fileContent
         })
       })
 
@@ -508,145 +664,112 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
       const result = await response.json()
       
-      // Scan completed
-      if (result.cancelled) {
-        addScanLog('🚫 Scan was cancelled by user')
-        setUploadedDocuments(prev => 
-          prev.map(doc => 
-            doc.id === documentId 
-              ? { ...doc, status: 'uploaded' }
-              : doc
-          )
-        )
-        return
-      }
-      
-      const scanResults = result.result
-      console.log('🔍 Document scan results structure:', scanResults)
-      console.log('🔍 Issues array:', scanResults.issues)
-      console.log('🔍 Issues length:', scanResults.issues?.length)
-      
-      // Show backlog addition results if available
-      if (result.backlogAdded) {
-        const backlog = result.backlogAdded
-        if (backlog.success && backlog.added > 0) {
-          addScanLog(`✅ ${backlog.added} issue${backlog.added !== 1 ? 's' : ''} added to product backlog`)
-          if (backlog.skipped > 0) {
-            addScanLog(`ℹ️ ${backlog.skipped} duplicate issue${backlog.skipped !== 1 ? 's' : ''} skipped`)
-          }
-        } else if (backlog.success && backlog.added === 0) {
-          addScanLog(`ℹ️ All issues already exist in product backlog`)
-        } else {
-          addScanLog(`⚠️ Failed to add issues to backlog: ${backlog.error || 'Unknown error'}`)
-        }
-      }
-      
-      addScanLog(`✅ Scan completed! Found ${scanResults.issues?.length || 0} accessibility issues`)
-      
-      console.log('🔍 About to update document status to completed')
-      
-      const completedDocument: UploadedDocument = {
-        ...document,
-        status: 'completed',
-        scanResults
+      if (!result.success) {
+        throw new Error(result.error || 'Repair failed')
       }
 
-      setUploadedDocuments(prev => 
-        prev.map(doc => 
-          doc.id === documentId 
-            ? completedDocument
-            : doc
-        )
-      )
-      
-      console.log('🔍 Document status updated to completed, scanResults:', completedDocument.scanResults)
-
-      // Clear scanning state immediately
-      setCurrentScanId(null)
-      setIsScanning(false)
-
-      // Deduct credits for the scan
-      try {
-        const creditResponse = await fetch('/api/credits', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            scanType: 'document',
-            scanId: scanId,
-            fileName: document.name
-          })
-        })
+      // Show repair plan
+      if (result.repairPlan && result.repairPlan.length > 0) {
+        const automaticFixes = result.repairPlan.filter((p: any) => p.fixType === 'automatic')
+        const suggestions = result.repairPlan.filter((p: any) => p.fixType === 'suggestion')
         
-        if (creditResponse.ok) {
-          const creditData = await creditResponse.json()
-          setUserCredits(creditData.credits)
-          addScanLog(`💳 Scan completed! Credits remaining: ${creditData.credits}`)
+        addScanLog(`✅ AI Analysis Complete!`)
+        addScanLog(`🔨 ${automaticFixes.length} issue${automaticFixes.length !== 1 ? 's' : ''} will be automatically fixed`)
+        addScanLog(`💡 ${suggestions.length} suggestion${suggestions.length !== 1 ? 's' : ''} provided for manual fixes`)
+        
+        // Show what AI will fix
+        if (automaticFixes.length > 0) {
+          addScanLog('')
+          addScanLog('🔨 Automatic Fixes:')
+          automaticFixes.forEach((fix: any, index: number) => {
+            addScanLog(`${index + 1}. ${fix.issue}`)
+            addScanLog(`   → ${fix.aiFix}`)
+          })
         }
-      } catch (error) {
-        console.error('Failed to deduct credits:', error)
-        addScanLog('⚠️ Scan completed but credit deduction failed')
+      } else {
+        addScanLog('✅ Document has no accessibility issues!')
       }
-
-             // Reset scanning state
-       setCurrentScanId(null)
-       setIsScanning(false)
-       
-       // Show professional success notification
-       const totalIssues = scanResults.summary.total
-       const criticalIssues = scanResults.summary.critical
-       const seriousIssues = scanResults.summary.serious
-       const pagesAnalyzed = scanResults.metadata?.pagesAnalyzed || 1
-       
-       addScanLog(`🎉 Document scan completed successfully!`)
-       addScanLog(`📊 Pages analyzed: ${pagesAnalyzed}`)
-       addScanLog(`📋 Total issues: ${totalIssues}`)
-       addScanLog(`🔴 Critical issues: ${criticalIssues}`)
-       addScanLog(`🟠 Serious issues: ${seriousIssues}`)
-       
-       // Backlog addition message is now shown earlier in the flow
-
-       // Update global scan state to complete
-       updateScan(scanId, {
-         status: 'complete',
-         message: `Scan completed! Found ${totalIssues} issues`
-       })
-
-       // Remove from global state after a delay
-       setTimeout(() => {
-         removeScan(scanId)
-       }, 5000) // Remove after 5 seconds
-
-       // Refresh credits after a short delay to ensure credit deduction is complete
-       setTimeout(() => {
-         checkUserCredits()
-       }, 1000)
-
-      if (onScanComplete) {
-        onScanComplete(completedDocument)
+      
+      // Store repair results
+      const repairResults = {
+        repairPlan: result.repairPlan || [],
+        repairedDocument: result.repairedDocument,
+        fixesApplied: result.fixesApplied || 0,
+        suggestionsProvided: result.suggestionsProvided || 0,
+        originalIssues: result.originalIssues || 0
       }
-
-    } catch (error) {
-      addScanLog(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`)
+      
+      addScanLog(`✅ Repair completed in ${result.repairDuration || 'N/A'}`)
+      
+      // Update document with repair results
       setUploadedDocuments(prev => 
         prev.map(doc => 
           doc.id === documentId 
-            ? { ...doc, status: 'error', error: 'Scan failed' }
+            ? { 
+                ...doc, 
+                status: 'completed',
+                repairResults: repairResults
+              }
             : doc
         )
       )
       
-      // Update global scan state to error
-      updateScan(scanId, {
-        status: 'error',
-        message: 'Scan failed'
-      })
+      // Update scan status to complete in global context
+      if (scanId) {
+        updateScan(scanId, {
+          status: 'complete',
+          currentPage: 1,
+          totalPages: 1,
+          message: `Repair complete: ${repairResults.fixesApplied} fixes applied`
+        })
+        // Remove scan after a short delay to show completion
+        setTimeout(() => {
+          removeScan(scanId)
+        }, 2000)
+      }
       
-      // Reset scanning state on error
-      setCurrentScanId(null)
+      // Refresh credits after repair
+      await checkUserCredits()
+      
       setIsScanning(false)
+      setCurrentScanId(null)
+      
+      if (onScanComplete) {
+        const updatedDoc = uploadedDocuments.find(doc => doc.id === documentId)
+        if (updatedDoc) {
+          onScanComplete(updatedDoc)
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Document repair error:', error)
+      addScanLog(`❌ Error: ${error instanceof Error ? error.message : 'Failed to repair document'}`)
+      
+      setUploadedDocuments(prev => 
+        prev.map(doc => 
+          doc.id === documentId 
+            ? { ...doc, status: 'error', error: error instanceof Error ? error.message : 'Repair failed' }
+            : doc
+        )
+      )
+      
+      // Update scan status to error in global context
+      if (scanId) {
+        updateScan(scanId, {
+          status: 'error',
+          message: error instanceof Error ? error.message : 'Repair failed'
+        })
+        // Remove scan after a short delay
+        setTimeout(() => {
+          removeScan(scanId)
+        }, 3000)
+      }
+      
+      setIsScanning(false)
+      setCurrentScanId(null)
+      
+      // Refresh credits on error too
+      await checkUserCredits()
     }
   }
 
@@ -718,82 +841,64 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
   return (
     <div className="space-y-6">
+      <ToastContainer />
       {/* Upload Section */}
       <div className="card">
         <div className="mb-4">
           <h3 className="text-lg font-medium text-gray-900 mb-2">Document Upload</h3>
           <p className="text-sm text-gray-600">
-            Upload documents to check for Section 508 compliance. Supported formats: PDF, Word, PowerPoint, HTML, and text files.
+            Upload documents to automatically repair accessibility issues using AI. The system will fix issues automatically and provide suggestions for manual fixes. Supported formats: PDF, Word, PowerPoint, HTML, and text files.
           </p>
 
         </div>
 
 
-                 {/* ADA & Section 508 Tag Selector */}
+                 {/* AI Document Repair Info */}
          <div className="mb-6">
-           <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-             <div className="flex items-center space-x-2">
-               <CheckCircle className="h-5 w-5 text-green-600" />
-               <div>
-                 <p className="text-sm font-medium text-green-800">ADA Compliant Document Scans</p>
-                 <p className="text-xs text-green-600">Meets Americans with Disabilities Act requirements through Section 508 + WCAG 2.1 AA compliance</p>
+           <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
+             <div className="flex items-start space-x-3">
+               <Sparkles className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
+               <div className="flex-1">
+                 <h4 className="text-md font-semibold text-gray-900 mb-2">AI-Powered Document Repair</h4>
+                 <p className="text-sm text-gray-700 mb-3">
+                   Upload your document and AI will scan for accessibility issues, automatically fix what it can, and provide detailed suggestions for manual fixes.
+                 </p>
+                 
+                 {/* What We Automatically Fix */}
+                 <div className="mb-3 p-3 bg-white rounded border border-green-200">
+                   <h5 className="text-xs font-semibold text-green-800 mb-2 flex items-center">
+                     <CheckCircle className="h-3 w-3 mr-1" />
+                     Automatically Fixed (No manual work needed):
+                   </h5>
+                   <ul className="text-xs text-gray-700 space-y-1 ml-5 list-disc">
+                     <li><strong>PDF:</strong> Document title, language metadata</li>
+                     <li><strong>HTML:</strong> Document title, language tag, alt text for images</li>
+                     <li><strong>Word (.docx only):</strong> Basic metadata fixes</li>
+                   </ul>
+                 </div>
+
+                 {/* What We Detect & Suggest */}
+                 <div className="mb-3 p-3 bg-white rounded border border-blue-200">
+                   <h5 className="text-xs font-semibold text-blue-800 mb-2 flex items-center">
+                     <Eye className="h-3 w-3 mr-1" />
+                     What We Detect & Provide Suggestions For:
+                   </h5>
+                   <ul className="text-xs text-gray-700 space-y-1 ml-5 list-disc">
+                     <li><strong>Real Detection:</strong> Document structure (headings, lists, tables from parsed document structure)</li>
+                     <li><strong>Real Detection:</strong> Missing alt text on images (from actual image tags in document)</li>
+                     <li><strong>Real Detection:</strong> Missing document title and language metadata</li>
+                     <li><strong>Real Detection:</strong> Non-descriptive links (from actual link elements in document)</li>
+                     <li><strong>Real Detection:</strong> GIF/animated images (detects GIF file signatures)</li>
+                     <li><strong>Real Detection:</strong> Form fields without labels (from actual form elements in PDF/HTML)</li>
+                     <li><strong>Real Detection:</strong> Color contrast (when document provides color data - PDFs with extracted colors)</li>
+                     <li><strong>Text Pattern Matching:</strong> Media, scripts, plug-ins, timing, keyboard traps - searches document text for keywords</li>
+                     <li><strong>16 Section 508 compliance tests run automatically</strong> - mix of real document structure analysis and text pattern matching</li>
+                   </ul>
+                 </div>
                </div>
              </div>
            </div>
-           <div className="flex items-center justify-between mb-3">
-             <h4 className="text-md font-medium text-gray-800">Section 508 Compliance Tests</h4>
-             <div className="flex space-x-2">
-               <button
-                 onClick={selectAllTags}
-                 disabled={uploadedDocuments.length === 0}
-                 className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-               >
-                 Select All
-               </button>
-               <button
-                 onClick={clearAllTags}
-                 disabled={uploadedDocuments.length === 0}
-                 className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
-               >
-                 Clear All
-               </button>
-             </div>
-           </div>
-          
-                     {uploadedDocuments.length === 0 ? (
-             <div className="text-center py-8 p-4 bg-gray-50 rounded-lg">
-               <FileText className="mx-auto h-12 w-12 text-gray-300 mb-2" />
-               <p className="text-gray-500 mb-2">No documents uploaded</p>
-               <p className="text-sm text-gray-400">Upload a document first to select compliance tests</p>
-             </div>
-           ) : (
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4 bg-gray-50 rounded-lg">
-               {availableTags.map((tag) => (
-                 <label key={tag.tag} className="flex items-start space-x-2 cursor-pointer">
-                   <input
-                     type="checkbox"
-                     checked={selectedTags.includes(tag.tag)}
-                     onChange={() => toggleTag(tag.tag)}
-                     className="mt-1 h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                   />
-                   <div className="flex-1">
-                     <div className="text-sm font-medium text-gray-900">{tag.name}</div>
-                     <div className="text-xs text-gray-600">{tag.description}</div>
-                   </div>
-                 </label>
-               ))}
-             </div>
-           )}
-          
-          {selectedTags.length > 0 && (
-            <div className="mt-3">
-              <p className="text-sm text-gray-600">
-                Selected tests: {selectedTags.length} of {availableTags.length} 
-                {selectedTags.length === availableTags.length && ' (All tests)'}
-              </p>
-            </div>
-          )}
-        </div>
+         </div>
 
         {/* Cancellation Button */}
         {isScanning && currentScanId && (
@@ -801,13 +906,13 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div>
-                <span className="text-sm text-yellow-800">Scan in progress...</span>
+                <span className="text-sm text-yellow-800">Repair in progress...</span>
               </div>
               <button
                 onClick={cancelScan}
                 className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
               >
-                Cancel Scan
+                Cancel Repair
               </button>
             </div>
           </div>
@@ -817,7 +922,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         {scanLogs.length > 0 && (
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-gray-800">Scan Progress Log</h4>
+              <h4 className="text-sm font-medium text-gray-800">Repair Progress Log</h4>
               <div className="flex space-x-2">
                 <button
                   onClick={() => setShowLogs(!showLogs)}
@@ -869,12 +974,12 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
             <div>
               <p className="text-lg font-medium text-gray-900">
                 {isUploading ? 'Uploading...' : 
-                 !canScan ? 'Insufficient credits to scan' :
+                 !canScan ? 'Insufficient credits to repair documents' :
                  'Drop files here or click to upload'}
               </p>
               <p className="text-sm text-gray-500">
                 {!canScan ? 'Purchase credits or upgrade to unlimited plan' :
-                 'PDF, Word, PowerPoint, HTML, or text files up to 50MB'}
+                 'PDF, Word, PowerPoint, HTML, or text files up to 50MB • Costs 1 token per repair'}
               </p>
             </div>
             <input
@@ -930,17 +1035,16 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                                          {/* Show scan button for uploaded documents */}
                      {document.status === 'uploaded' && (
                        <button
-                         onClick={() => startScan(document.id)}
-                         disabled={selectedTags.length === 0 || !document.fileContent}
-                         className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                         title={
-                           !document.fileContent ? 'No document content available' :
-                           selectedTags.length === 0 ? 'Select at least one test to start scanning' : 
-                           'Start Section 508 compliance scan'
-                         }
-                       >
-                         Start Scan
-                       </button>
+                         onClick={() => startRepair(document.id)}
+                        disabled={!document.fileContent}
+                        className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        title={
+                          !document.fileContent ? 'Document content missing - please re-upload' : 
+                          'Start AI-powered document repair'
+                        }
+                      >
+                        Repair Document
+                      </button>
                      )}
                     
                     <button
@@ -954,160 +1058,218 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
                 {/* Scan Results */}
                 {(() => {
-                  console.log('🔍 UI Rendering - document.status:', document.status)
-                  console.log('🔍 UI Rendering - document.scanResults:', document.scanResults)
-                  console.log('🔍 UI Rendering - should show results:', document.status === 'completed' && document.scanResults)
-                  return document.status === 'completed' && document.scanResults
+                  return document.status === 'completed' && (document.repairResults || document.scanResults)
                 })() && (
                   <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        {document.scanResults.is508Compliant ? (
+                    {/* Show repair results first if available */}
+                    {document.repairResults ? (
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
                           <CheckCircle className="h-5 w-5 text-green-600" />
-                        ) : (
-                          <AlertTriangle className="h-5 w-5 text-red-600" />
-                        )}
-                        <span className="font-medium text-gray-900">
-                          {document.scanResults.is508Compliant ? '508 Compliant' : '508 Non-Compliant'}
-                        </span>
-                        {document.scanResults.overallScore && (
-                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">
-                            Score: {document.scanResults.overallScore}/100
+                          <span className="font-medium text-gray-900">
+                            Document Repair Complete
                           </span>
-                        )}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {document.repairResults.fixesApplied} auto-fixed • {document.repairResults.suggestionsProvided} suggestions
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-500">
-                        {document.scanResults.summary.total} issues found
-                        {document.scanResults.metadata?.wordCount && ` • ${document.scanResults.metadata.wordCount} words`}
-                        {document.scanResults.metadata?.imageCount && ` • ${document.scanResults.metadata.imageCount} images`}
-                      </div>
-                    </div>
-
-                    {/* Issue Summary */}
-                    {document.scanResults.summary.total > 0 && (
-                      <div className="grid grid-cols-4 gap-2 mb-4">
-                        <div className="text-center p-2 bg-red-100 rounded">
-                          <div className="text-lg font-semibold text-red-800">
-                            {document.scanResults.summary.critical}
-                          </div>
-                          <div className="text-xs text-red-600">Critical</div>
+                    ) : document.scanResults && (
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          {document.scanResults.is508Compliant ? (
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <AlertTriangle className="h-5 w-5 text-red-600" />
+                          )}
+                          <span className="font-medium text-gray-900">
+                            {document.scanResults.is508Compliant ? '508 Compliant' : '508 Non-Compliant'}
+                          </span>
+                          {document.scanResults.overallScore && (
+                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+                              Score: {document.scanResults.overallScore}/100
+                            </span>
+                          )}
                         </div>
-                        <div className="text-center p-2 bg-orange-100 rounded">
-                          <div className="text-lg font-semibold text-orange-800">
-                            {document.scanResults.summary.serious}
-                          </div>
-                          <div className="text-xs text-orange-600">Serious</div>
-                        </div>
-                        <div className="text-center p-2 bg-yellow-100 rounded">
-                          <div className="text-lg font-semibold text-yellow-800">
-                            {document.scanResults.summary.moderate}
-                          </div>
-                          <div className="text-xs text-yellow-600">Moderate</div>
-                        </div>
-                        <div className="text-center p-2 bg-blue-100 rounded">
-                          <div className="text-lg font-semibold text-blue-800">
-                            {document.scanResults.summary.minor}
-                          </div>
-                          <div className="text-xs text-blue-600">Minor</div>
+                        <div className="text-sm text-gray-500">
+                          {document.scanResults.summary.total} issues found
+                          {document.scanResults.metadata?.wordCount && ` • ${document.scanResults.metadata.wordCount} words`}
+                          {document.scanResults.metadata?.imageCount && ` • ${document.scanResults.metadata.imageCount} images`}
                         </div>
                       </div>
                     )}
 
-                    {/* Enhanced Issues List - Similar to Web Scan */}
-                    {(() => {
-                      console.log('🔍 Rendering issues - scanResults:', document.scanResults)
-                      console.log('🔍 Rendering issues - issues array:', document.scanResults.issues)
-                      console.log('🔍 Rendering issues - issues length:', document.scanResults.issues?.length)
-                      return document.scanResults.issues && document.scanResults.issues.length > 0
-                    })() ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-medium text-gray-900">Accessibility Issues</h3>
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => {
-                                // Auto-add issues to backlog
-                                addIssuesToBacklog(document.scanResults.issues)
-                              }}
-                              className="inline-flex items-center px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                              <Plus className="h-4 w-4 mr-1" />
-                              Add to Backlog
-                            </button>
-                            <Link
-                              href="/scan-history"
-                              className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
-                            >
-                              <FileText className="h-4 w-4 mr-1" />
-                              View All Scans
-                            </Link>
+                    {/* Repair Results */}
+                    {document.repairResults && (
+                      <div className="space-y-4">
+                        {/* Repair Summary */}
+                        <div className="grid grid-cols-3 gap-3 mb-4">
+                          <div className="text-center p-3 bg-green-100 rounded-lg">
+                            <div className="text-2xl font-bold text-green-800">
+                              {document.repairResults.fixesApplied}
+                            </div>
+                            <div className="text-xs text-green-700 mt-1">Auto-Fixed</div>
+                          </div>
+                          <div className="text-center p-3 bg-blue-100 rounded-lg">
+                            <div className="text-2xl font-bold text-blue-800">
+                              {document.repairResults.suggestionsProvided}
+                            </div>
+                            <div className="text-xs text-blue-700 mt-1">Suggestions</div>
+                          </div>
+                          <div className="text-center p-3 bg-gray-100 rounded-lg">
+                            <div className="text-2xl font-bold text-gray-800">
+                              {document.repairResults.originalIssues}
+                            </div>
+                            <div className="text-xs text-gray-700 mt-1">Total Issues</div>
                           </div>
                         </div>
-                        
-                        {/* Display issues using CollapsibleIssue component like web scan */}
-                        {document.scanResults.issues.map((issue, issueIndex) => {
-                          // Transform document issue to match CollapsibleIssue format
-                          const collapsibleIssue = {
-                            issueId: issue.id,
-                            ruleName: issue.description || issue.section || 'Accessibility Issue',
-                            description: issue.description,
-                            impact: issue.type,
-                            wcag22Level: issue.wcagCriterion || 'AA',
-                            help: issue.recommendation || issue.description,
-                            helpUrl: '', // Document issues don't have help URLs
-                            totalOccurrences: 1,
-                            affectedUrls: [`Document: ${document.name}`],
-                            offendingElements: [{
-                              html: issue.context || '',
-                              target: issue.elementLocation ? [issue.elementLocation] : [],
-                              failureSummary: issue.recommendation || '',
-                              impact: issue.type,
-                              url: `Document: ${document.name}`
-                            }],
-                            suggestions: [{
-                              type: 'fix' as const,
-                              description: issue.recommendation || issue.description,
-                              priority: (issue.type === 'critical' || issue.type === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
-                            }],
-                            priority: (issue.type === 'critical' || issue.type === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
-                          };
 
-                          return (
-                            <CollapsibleIssue
-                              key={`${document.id}-${issueIndex}`}
-                              {...collapsibleIssue}
-                              screenshots={null} // Document scans don't have screenshots
-                              scanId={document.scanResults.metadata?.scanId}
-                              onStatusChange={(issueId, status) => {
-                                console.log('Document issue status changed:', issueId, status)
-                              }}
-                            />
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Issues Found</h3>
-                        <p className="text-gray-600">Great! No accessibility issues were detected in this scan.</p>
-                      </div>
-                    )}
-
-                    {/* Scan Metadata */}
-                    {document.scanResults.metadata && (
-                      <div className="mt-3 p-2 bg-gray-100 rounded text-xs text-gray-600">
-                        <div className="flex items-center justify-between">
-                          <span>Scan Engine: {document.scanResults.metadata.scanEngine || 'Unknown'}</span>
-                          <span>Standard: {document.scanResults.metadata.standard || 'Section 508'}</span>
-                        </div>
-                        {document.scanResults.metadata.scanDuration && (
-                          <div className="mt-1">
-                            Scan Duration: {Math.round(document.scanResults.metadata.scanDuration / 1000)}s
+                        {/* Download Repaired Document */}
+                        {document.repairResults.repairedDocument ? (
+                          <div className="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="text-sm font-semibold text-green-900 mb-1">
+                                  ✅ Document Repaired Successfully
+                                </h4>
+                                <p className="text-xs text-green-700">
+                                  {document.repairResults.fixesApplied} issue{document.repairResults.fixesApplied !== 1 ? 's' : ''} automatically fixed
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  try {
+                                    // Convert base64 to blob for download
+                                    const base64Data = document.repairResults.repairedDocument
+                                    if (!base64Data) {
+                                      console.error('No repaired document data available')
+                                      showToast('Repaired document is not available. Please try repairing again.', 'error')
+                                      return
+                                    }
+                                    const byteCharacters = atob(base64Data)
+                                    const byteNumbers = new Array(byteCharacters.length)
+                                    for (let i = 0; i < byteCharacters.length; i++) {
+                                      byteNumbers[i] = byteCharacters.charCodeAt(i)
+                                    }
+                                    const byteArray = new Uint8Array(byteNumbers)
+                                    const blob = new Blob([byteArray], { type: document.type || 'application/pdf' })
+                                    const url = URL.createObjectURL(blob)
+                                    // Use window.document to avoid conflict with the document variable (uploaded document)
+                                    const link = window.document.createElement('a')
+                                    link.href = url
+                                    link.download = `repaired_${document.name}`
+                                    window.document.body.appendChild(link)
+                                    link.click()
+                                    window.document.body.removeChild(link)
+                                    URL.revokeObjectURL(url)
+                                    showToast('Document downloaded successfully!', 'success')
+                                  } catch (error) {
+                                    console.error('Download error:', error)
+                                    showToast(`Failed to download document: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
+                                  }
+                                }}
+                                className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Download Repaired Document
+                              </button>
+                            </div>
                           </div>
-                        )}
-                        {document.scanResults.metadata.pagesAnalyzed && (
-                          <div className="mt-1">
-                            Pages Analyzed: {document.scanResults.metadata.pagesAnalyzed}
+                        ) : document.repairResults.fixesApplied === 0 && document.repairResults.suggestionsProvided > 0 ? (
+                          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg mb-4">
+                            <div className="flex items-center">
+                              <AlertTriangle className="h-5 w-5 text-blue-600 mr-2" />
+                              <div>
+                                <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                                  Suggestions Provided
+                                </h4>
+                                <p className="text-xs text-blue-700">
+                                  No automatic fixes were applied. Review the suggestions below and make manual fixes to your document.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {/* Repair Plan - What AI Will Fix */}
+                        {document.repairResults.repairPlan && document.repairResults.repairPlan.length > 0 && (
+                          <div className="space-y-3">
+                            <h3 className="text-lg font-medium text-gray-900">AI Repair Plan</h3>
+                            
+                            {/* Automatic Fixes */}
+                            {document.repairResults.repairPlan.filter((p: any) => p.fixType === 'automatic').length > 0 && (
+                              <div className="space-y-2">
+                                <h4 className="text-sm font-semibold text-green-800 flex items-center">
+                                  <Sparkles className="h-4 w-4 mr-2" />
+                                  Automatic Fixes ({document.repairResults.repairPlan.filter((p: any) => p.fixType === 'automatic').length})
+                                </h4>
+                                {document.repairResults.repairPlan
+                                  .filter((p: any) => p.fixType === 'automatic')
+                                  .map((fix: any, index: number) => (
+                                    <div key={fix.issueId} className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <div className="text-sm font-medium text-gray-900 mb-1">
+                                            {index + 1}. {fix.issue}
+                                          </div>
+                                          <div className="text-xs text-gray-700 mb-2">
+                                            Location: {fix.location}
+                                          </div>
+                                          <div className="text-sm text-green-800 bg-white p-2 rounded border border-green-200">
+                                            <span className="font-semibold">AI Will Fix:</span> {fix.aiFix}
+                                          </div>
+                                        </div>
+                                        <span className={`ml-2 px-2 py-1 text-xs rounded ${
+                                          fix.confidence === 'high' ? 'bg-green-200 text-green-800' :
+                                          fix.confidence === 'medium' ? 'bg-yellow-200 text-yellow-800' :
+                                          'bg-gray-200 text-gray-800'
+                                        }`}>
+                                          {fix.confidence} confidence
+                                        </span>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+
+                            {/* Suggestions */}
+                            {document.repairResults.repairPlan.filter((p: any) => p.fixType === 'suggestion').length > 0 && (
+                              <div className="space-y-3 mt-6">
+                                <h4 className="text-base font-semibold text-gray-900 flex items-center">
+                                  <Eye className="h-4 w-4 mr-2 text-gray-700" />
+                                  Manual Fix Suggestions ({document.repairResults.repairPlan.filter((p: any) => p.fixType === 'suggestion').length})
+                                </h4>
+                                {document.repairResults.repairPlan
+                                  .filter((p: any) => p.fixType === 'suggestion')
+                                  .map((fix: any, index: number) => {
+                                    // Parse and extract the suggestion text
+                                    const suggestionText = parseAISuggestion(fix.aiFix || '')
+                                    
+                                    return (
+                                      <div key={fix.issueId} className="p-4 bg-gray-50 border border-gray-300 rounded-lg shadow-sm">
+                                        <div className="flex items-start justify-between">
+                                          <div className="flex-1">
+                                            <div className="text-sm font-semibold text-gray-900 mb-2">
+                                              {index + 1}. {fix.issue}
+                                            </div>
+                                            <div className="text-xs text-gray-600 mb-3">
+                                              <span className="font-medium">Location:</span> {fix.location}
+                                            </div>
+                                            <div className="bg-white p-4 rounded border border-gray-200">
+                                              <div className="text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
+                                                AI Suggestion
+                                              </div>
+                                              <div className="text-sm text-gray-800 leading-relaxed">
+                                                {formatSuggestionDescription(suggestionText)}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

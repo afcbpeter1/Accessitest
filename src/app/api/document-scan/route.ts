@@ -4,6 +4,7 @@ import { ComprehensiveDocumentScanner } from '@/lib/comprehensive-document-scann
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { queryOne, query } from '@/lib/database'
 import { NotificationService } from '@/lib/notification-service'
+import { autoAddDocumentIssuesToBacklog } from '@/lib/backlog-service'
 
 interface DocumentScanRequest {
   fileName: string
@@ -145,6 +146,13 @@ export async function POST(request: NextRequest) {
     
     // Initialize the COMPREHENSIVE document scanner with selected tags
     const scanner = new ComprehensiveDocumentScanner()
+    
+    // Log selected tags for debugging
+    console.log(`🏷️ Selected tags received: ${JSON.stringify(body.selectedTags)}`)
+    console.log(`🏷️ Selected tags type: ${Array.isArray(body.selectedTags) ? 'array' : typeof body.selectedTags}`)
+    if (body.selectedTags && body.selectedTags.length > 0) {
+      console.log(`🏷️ Tag details: ${body.selectedTags.map(t => `"${t}"`).join(', ')}`)
+    }
     
     // Perform COMPREHENSIVE document accessibility scan with cancellation support
     const scanResult = await Promise.race([
@@ -543,15 +551,17 @@ async function enhanceWithAI(scanResult: any, request: DocumentScanRequest, scan
       try {
         console.log(`🤖 Enhancing issue ${i + 1}/${issuesToEnhance.length}:`, issue.description)
         
-        // Create detailed context for AI
+        // Create detailed context for AI with all available information
         const issueContext = `
 Issue: ${issue.description}
 Section: ${issue.section}
 Page: ${issue.pageNumber || 'Unknown'}
 Line: ${issue.lineNumber || 'Unknown'}
 Location: ${issue.elementLocation || 'Unknown'}
+Context: ${issue.context || 'No additional context'}
 WCAG Criterion: ${issue.wcagCriterion || 'Unknown'}
 Section 508 Requirement: ${issue.section508Requirement || 'Unknown'}
+Impact: ${issue.impact || 'Unknown'}
 Document: ${request.fileName}
 File Type: ${request.fileType}
         `.trim()
@@ -561,7 +571,7 @@ File Type: ${request.fileType}
           issue.section,
           request.fileName,
           request.fileType,
-          issue.elementContent,
+          issue.elementContent || issue.context || issue.elementLocation,
           issue.pageNumber
         )
         
@@ -617,128 +627,4 @@ File Type: ${request.fileType}
   }
 }
 
-/**
- * Auto-add document scan issues to product backlog
- */
-async function autoAddDocumentIssuesToBacklog(userId: string, issues: any[], scanHistoryId: string, fileName: string): Promise<void> {
-  try {
-    console.log(`🔄 autoAddDocumentIssuesToBacklog called with:`, {
-      userId,
-      issuesCount: issues.length,
-      scanHistoryId,
-      fileName
-    })
-    
-    const addedItems = []
-    const skippedItems = []
-
-    for (const issue of issues) {
-      try {
-        // Generate unique issue ID based on rule, element, and document
-        const crypto = require('crypto')
-        const issueKey = crypto.createHash('sha256')
-          .update(`${issue.id || issue.description}|${issue.elementLocation || ''}|${fileName}`)
-          .digest('hex').substring(0, 16)
-
-        // Check if this issue already exists for this user
-        // Use description/section for matching since rule_name now uses description
-        const ruleNameForMatching = issue.description || issue.section || 'Accessibility Issue'
-        const existingItem = await queryOne(`
-          SELECT i.id, i.status, i.created_at, i.updated_at 
-          FROM issues i
-          JOIN scan_history sh ON i.first_seen_scan_id = sh.id
-          WHERE sh.user_id = $1 AND i.rule_name = $2 AND sh.file_name = $3
-        `, [userId, ruleNameForMatching, fileName])
-
-        if (existingItem) {
-          // Update last_scan_at for existing items
-          await query(`
-            UPDATE issues 
-            SET updated_at = NOW()
-            WHERE id = $1
-          `, [existingItem.id])
-          
-          skippedItems.push({
-            issueId: issue.id,
-            ruleName: issue.description || issue.section || 'Accessibility Issue',
-            reason: 'Already exists in backlog'
-          })
-          continue
-        }
-
-        // Get the next priority rank
-        const maxRank = await queryOne(`
-          SELECT COALESCE(MAX(rank), 0) as max_rank 
-          FROM issues 
-          WHERE first_seen_scan_id IN (
-            SELECT id FROM scan_history WHERE user_id = $1
-          )
-        `, [userId])
-
-        const nextRank = (maxRank?.max_rank || 0) + 1
-
-        // Insert new issue
-        const result = await queryOne(`
-          INSERT INTO issues (
-            issue_key, rule_id, rule_name, description, impact, wcag_level,
-            total_occurrences, affected_pages, notes,
-            status, priority, rank, story_points, remaining_points,
-            first_seen_scan_id, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-          RETURNING *
-        `, [
-          issueKey,
-          issue.id || issue.description, // rule_id (technical ID)
-          issue.description || issue.section || 'Accessibility Issue', // rule_name (display name)
-          issue.description, 
-          issue.type, 
-          issue.wcagCriterion || 'AA',
-          1, // total_occurrences
-          [`Document: ${fileName}`], // affected_pages
-          issue.recommendation || '', // notes
-          'open', 
-          'medium', 
-          nextRank, 
-          1, // story_points
-          1, // remaining_points
-          scanHistoryId, 
-          new Date().toISOString(), 
-          new Date().toISOString()
-        ])
-
-        addedItems.push({
-          id: result.id,
-          issueId: issue.id,
-          ruleName: issue.description || issue.section || 'Accessibility Issue',
-          impact: issue.type
-        })
-      } catch (error) {
-        console.error(`Error processing document issue ${issue.id}:`, error)
-        skippedItems.push({
-          issueId: issue.id,
-          ruleName: issue.description || issue.section || 'Accessibility Issue',
-          reason: 'Error processing issue'
-        })
-      }
-    }
-
-    console.log('✅ Document backlog auto-creation result:', {
-      total: issues.length,
-      added: addedItems.length,
-      skipped: skippedItems.length
-    })
-    
-    // Return summary for API response
-    return {
-      success: true,
-      total: issues.length,
-      added: addedItems.length,
-      skipped: skippedItems.length,
-      addedItems,
-      skippedItems
-    }
-  } catch (error) {
-    console.error('Error auto-adding document issues to backlog:', error)
-    throw error
-  }
-}
+// Note: autoAddDocumentIssuesToBacklog is now imported from @/lib/backlog-service

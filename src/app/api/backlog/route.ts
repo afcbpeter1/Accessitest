@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
           if (typeof issue.url === 'string' && issue.url.startsWith('Document:')) {
             domain = 'document-scan'
           } else {
-            domain = new URL(issue.url).hostname
+          domain = new URL(issue.url).hostname
           }
         } else {
           // For document scans, url might be null, use file_name from scan_history
@@ -78,9 +78,9 @@ export async function GET(request: NextRequest) {
           if (issue.url.startsWith('Document:')) {
             domain = 'document-scan'
           } else {
-            const urlMatch = issue.url.match(/(?:https?:\/\/)?([^\/\s]+)/)
-            if (urlMatch) {
-              domain = urlMatch[1]
+          const urlMatch = issue.url.match(/(?:https?:\/\/)?([^\/\s]+)/)
+          if (urlMatch) {
+            domain = urlMatch[1]
             } else {
               domain = 'document-scan'
             }

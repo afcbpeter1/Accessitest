@@ -188,34 +188,60 @@ Provide a specific, actionable fix for this exact element.`;
       console.log('📍 Claude API: Page:', pageNumber);
       console.log('📄 Claude API: Element:', elementContent || 'Not provided');
       
-      const systemPrompt = `You are an expert document accessibility consultant specializing in Section 508 compliance. Provide detailed, actionable recommendations for fixing document accessibility issues.
+      const systemPrompt = `You are an expert document accessibility consultant specializing in Section 508 compliance and WCAG 2.1 standards. Provide detailed, step-by-step remediation instructions for fixing document accessibility issues.
 
-Guidelines:
-- Keep responses under 300 words
-- Provide specific, step-by-step instructions
-- Include relevant tools or software features when applicable
-- Focus on practical, implementable solutions
-- Consider the document type (PDF, Word, PowerPoint, etc.)
-- Reference Section 508 standards when relevant
-- Include specific Section 508 requirements (36 CFR § 1194.22)
-- Provide actionable steps that can be implemented immediately
+CRITICAL GUIDELINES:
+- Provide DETAILED step-by-step instructions that can be followed immediately
+- Include specific menu paths, button names, and tool locations
+- Mention the exact document editing software (Adobe Acrobat, Microsoft Word, etc.)
+- Break down complex fixes into numbered steps (Step 1, Step 2, etc.)
+- Include keyboard shortcuts when applicable
+- Provide specific values or settings when relevant
+- Explain WHY each step is important for accessibility
+- Reference the exact Section 508 requirement (e.g., 36 CFR § 1194.22(a))
+- Consider the user may not be an accessibility expert
 
-Format your response as:
-1. Brief explanation of the issue and Section 508 requirement (2-3 sentences)
-2. Step-by-step solution with specific instructions
-3. Tools or software features to use (if applicable)
-4. Why this fix improves accessibility and ensures Section 508 compliance (1-2 sentences)`;
+REQUIRED FORMAT:
+1. ISSUE EXPLANATION (2-3 sentences)
+   - What the issue is
+   - Why it violates Section 508/WCAG
+   - The specific requirement being violated
 
-      const userPrompt = `Analyze this document accessibility issue and provide a detailed fix:
+2. STEP-BY-STEP SOLUTION
+   - Number each step clearly (Step 1:, Step 2:, etc.)
+   - Include exact menu paths: "Go to File > Properties > Advanced"
+   - Mention specific tools or panels to open
+   - Provide exact values or settings to change
+   - Include keyboard shortcuts in parentheses: (Ctrl+D)
 
-Document: ${fileName}
-File Type: ${fileType}
-Issue: ${issueDescription}
-Section: ${section}
-${pageNumber ? `Page: ${pageNumber}` : ''}
-${elementContent ? `Offending Element: ${elementContent}` : ''}
+3. VERIFICATION STEPS
+   - How to verify the fix worked
+   - What to check to ensure compliance
 
-Provide a comprehensive, actionable solution for this document accessibility issue that ensures Section 508 compliance.`;
+4. ADDITIONAL NOTES (if applicable)
+   - Alternative methods if available
+   - Best practices for preventing this issue
+   - Related accessibility considerations
+
+Keep total response between 200-400 words, prioritizing clarity and actionability.`;
+
+      const userPrompt = `Analyze this document accessibility issue and provide detailed step-by-step remediation instructions:
+
+DOCUMENT INFORMATION:
+- File Name: ${fileName}
+- File Type: ${fileType}
+- Issue: ${issueDescription}
+- Section: ${section}
+${pageNumber ? `- Page Number: ${pageNumber}` : ''}
+${elementContent ? `- Problematic Element: ${elementContent.substring(0, 200)}` : ''}
+
+Please provide:
+1. A clear explanation of why this violates Section 508/WCAG
+2. Detailed step-by-step instructions specific to ${fileType} files
+3. Exact menu paths, tool locations, and settings to change
+4. How to verify the fix was successful
+
+Focus on practical, actionable steps that someone can follow immediately in their document editor.`;
 
       console.log('📤 Claude API: Sending document analysis request...');
       const response = await this.makeRateLimitedRequest(() => 
@@ -229,6 +255,94 @@ Provide a comprehensive, actionable solution for this document accessibility iss
     } catch (error) {
       console.error('❌ Claude API document analysis error:', error);
       return this.getDocumentFallbackSuggestion(issueDescription, fileType);
+    }
+  }
+
+  /**
+   * Generate AI-powered repair analysis - determines what can be auto-fixed
+   */
+  async generateRepairAnalysis(
+    issue: any,
+    fileName: string,
+    fileType: string
+  ): Promise<{
+    canAutoFix: boolean
+    whatWillBeFixed: string
+    suggestion?: string
+    confidence: 'high' | 'medium' | 'low'
+  }> {
+    try {
+      const systemPrompt = `You are an expert document accessibility repair AI. Analyze each issue and determine:
+1. Can this be automatically fixed? (yes/no)
+2. What exactly will be fixed? (be specific)
+3. Your confidence level (high/medium/low)
+
+For automatic fixes, provide clear description of what will be changed.
+For suggestions, provide what the user should do manually.
+
+RESPONSE FORMAT (JSON):
+{
+  "canAutoFix": true/false,
+  "whatWillBeFixed": "Specific description of what will be automatically fixed",
+  "suggestion": "If canAutoFix is false, what user should do manually",
+  "confidence": "high/medium/low"
+}`;
+
+      const userPrompt = `Analyze this accessibility issue and determine if it can be automatically fixed:
+
+Issue: ${issue.description}
+Category: ${issue.category}
+Location: ${issue.elementLocation || `Page ${issue.pageNumber || 'Unknown'}`}
+Context: ${issue.context || 'No additional context'}
+File Type: ${fileType}
+File Name: ${fileName}
+
+Can this be automatically fixed? What will be changed?`;
+
+      const response = await this.makeRateLimitedRequest(() =>
+        this.callClaudeAPI([
+          { role: 'user', content: userPrompt }
+        ], systemPrompt)
+      );
+
+      // Try to parse JSON response
+      try {
+        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return {
+            canAutoFix: parsed.canAutoFix || false,
+            whatWillBeFixed: parsed.whatWillBeFixed || response,
+            suggestion: parsed.suggestion,
+            confidence: parsed.confidence || 'medium'
+          };
+        }
+      } catch (parseError) {
+        // If JSON parse fails, extract from text
+      }
+
+      // Fallback: extract from text response
+      const canAutoFix = response.toLowerCase().includes('yes') || 
+                        response.toLowerCase().includes('can be automatically fixed') ||
+                        response.toLowerCase().includes('automatic fix')
+      
+      return {
+        canAutoFix,
+        whatWillBeFixed: response.substring(0, 200),
+        confidence: canAutoFix ? 'high' : 'medium'
+      };
+    } catch (error) {
+      console.error('❌ AI repair analysis error:', error);
+      // Default fallback
+      const simpleFixes = ['alt text', 'title', 'language', 'heading'];
+      const issueLower = issue.description.toLowerCase();
+      const canAutoFix = simpleFixes.some(fix => issueLower.includes(fix));
+      
+      return {
+        canAutoFix,
+        whatWillBeFixed: canAutoFix ? `Will automatically fix: ${issue.description}` : issue.remediation || 'Manual fix required',
+        confidence: canAutoFix ? 'high' : 'low'
+      };
     }
   }
 

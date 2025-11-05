@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { query } from '@/lib/database'
-import { getPlanTypeFromPriceId, getCreditAmountFromPriceId } from '@/lib/stripe-config'
+import { getPlanTypeFromPriceId, getCreditAmountFromPriceId, CREDIT_AMOUNTS } from '@/lib/stripe-config'
 import { sendReceiptEmail, ReceiptData } from '@/lib/receipt-email-service'
 import { NotificationService } from '@/lib/notification-service'
 
@@ -124,7 +124,10 @@ export async function POST(request: NextRequest) {
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
   console.log('🛒 Processing checkout session completed:', session.id)
-  console.log('📋 Session metadata:', session.metadata)
+  console.log('📋 Session metadata:', JSON.stringify(session.metadata, null, 2))
+  console.log('📋 Session customer_email:', session.customer_email)
+  console.log('📋 Session customer:', session.customer)
+  console.log('📋 Session payment_status:', session.payment_status)
   
   let { userId, priceId, type } = session.metadata || {}
   
@@ -148,12 +151,42 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       } else {
         console.error(`❌ User not found with email: ${customerEmail}`)
       }
+    } else {
+      console.error(`❌ No customer email available to look up user`)
+    }
+  }
+  
+  // If priceId is missing, try to get it from line items
+  if (!priceId) {
+    console.log('⚠️ priceId missing in metadata, trying to get from line items')
+    try {
+      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 })
+      if (lineItems.data.length > 0 && lineItems.data[0].price) {
+        priceId = lineItems.data[0].price.id
+        console.log(`✅ Found priceId from line items: ${priceId}`)
+      }
+    } catch (error) {
+      console.error('❌ Error retrieving line items:', error)
+    }
+  }
+  
+  // If type is missing, try to determine it from priceId
+  if (!type && priceId) {
+    const { isSubscriptionPriceId, isCreditPriceId } = await import('@/lib/stripe-config')
+    if (isCreditPriceId(priceId)) {
+      type = 'credits'
+      console.log(`✅ Determined type as 'credits' from priceId`)
+    } else if (isSubscriptionPriceId(priceId)) {
+      type = 'subscription'
+      console.log(`✅ Determined type as 'subscription' from priceId`)
     }
   }
   
   if (!userId || userId.trim() === '' || !priceId) {
     console.error('❌ Missing required metadata in checkout session:', { userId, priceId, type })
     console.error('⚠️ Cannot process purchase without userId. Customer email:', session.customer_email)
+    console.error('⚠️ Session ID:', session.id)
+    console.error('⚠️ This purchase will NOT be processed. Manual intervention required.')
     return
   }
 
@@ -161,6 +194,59 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
   if (type === 'credits') {
     await handleCreditPurchase(userId, priceId)
+  } else if (type === 'subscription') {
+    // Handle subscription purchase (Complete Access, Web Scan Only, Document Scan Only)
+    // For subscriptions, we need to wait for customer.subscription.created event
+    // But we can also check if subscription already exists and activate it immediately
+    console.log(`📋 Subscription purchase detected for user ${userId}, priceId: ${priceId}`)
+    
+    // Check if this session has a subscription ID
+    if (session.subscription) {
+      console.log(`✅ Subscription ID found in session: ${session.subscription}`)
+      // Retrieve the subscription to get full details
+      try {
+        const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
+        console.log(`📋 Subscription details:`, subscription.id, subscription.status)
+        
+        // If subscription is active, activate unlimited credits immediately
+        if (subscription.status === 'active' || subscription.status === 'trialing') {
+          const planType = getPlanTypeFromPriceId(priceId)
+          console.log(`✅ Activating subscription plan ${planType} for user ${userId}`)
+          
+          await query('BEGIN')
+          try {
+            // Update user plan
+            await query(
+              `UPDATE users SET plan_type = $1, stripe_subscription_id = $2, updated_at = NOW() 
+               WHERE id = $3`,
+              [planType, subscription.id, userId]
+            )
+            
+            // Set unlimited credits for subscription users
+            await query(
+              `UPDATE user_credits 
+               SET unlimited_credits = true, updated_at = NOW() 
+               WHERE user_id = $1`,
+              [userId]
+            )
+            
+            await query('COMMIT')
+            console.log(`✅ User ${userId} upgraded to ${planType} with unlimited credits`)
+            
+            // Create notification
+            await NotificationService.notifySubscriptionActivated(userId, planType)
+          } catch (error) {
+            await query('ROLLBACK')
+            throw error
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error retrieving subscription:', error)
+        // Don't fail the webhook - subscription.created event will handle it
+      }
+    } else {
+      console.log('⚠️ No subscription ID in session yet - subscription.created event will handle activation')
+    }
   }
 
   // Send receipt email
@@ -169,11 +255,49 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
 async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   console.log('Processing subscription created:', subscription.id)
+  console.log('📋 Subscription metadata:', subscription.metadata)
   
-  const { userId, planType } = subscription.metadata || {}
+  let { userId, planType } = subscription.metadata || {}
   
-  if (!userId || !planType) {
-    console.error('Missing metadata in subscription')
+  // If userId is missing, try to look up user by customer email
+  if (!userId || userId.trim() === '') {
+    console.log('⚠️ userId missing in subscription metadata, attempting to look up by customer email')
+    
+    try {
+      const customer = await stripe.customers.retrieve(subscription.customer as string)
+      if (!customer.deleted && 'email' in customer && customer.email) {
+        console.log(`🔍 Looking up user by email: ${customer.email}`)
+        const userResult = await query(
+          `SELECT id FROM users WHERE email = $1 LIMIT 1`,
+          [customer.email]
+        )
+        
+        if (userResult.rows && userResult.rows.length > 0) {
+          userId = userResult.rows[0].id
+          console.log(`✅ Found user ${userId} by email ${customer.email}`)
+        } else {
+          console.error(`❌ User not found with email: ${customer.email}`)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error looking up user by customer email:', error)
+    }
+  }
+  
+  // If planType is missing, try to determine it from the subscription price
+  if (!planType) {
+    console.log('⚠️ planType missing in subscription metadata, attempting to determine from price')
+    if (subscription.items && subscription.items.data.length > 0) {
+      const priceId = subscription.items.data[0].price.id
+      planType = getPlanTypeFromPriceId(priceId)
+      console.log(`📋 Determined planType: ${planType} from priceId: ${priceId}`)
+    }
+  }
+  
+  if (!userId || userId.trim() === '' || !planType) {
+    console.error('❌ Missing required information in subscription:', { userId, planType })
+    console.error('⚠️ Subscription ID:', subscription.id)
+    console.error('⚠️ Customer ID:', subscription.customer)
     return
   }
 
@@ -334,9 +458,13 @@ async function handleCreditPurchase(userId: string, priceId: string, creditAmoun
     console.log(`🎫 Processing credit purchase for user ${userId}, priceId: ${priceId}`)
     const credits = creditAmount || getCreditAmountFromPriceId(priceId)
     console.log(`💰 Credit amount: ${credits}`)
+    console.log(`📋 Credit amount source: ${creditAmount ? 'provided parameter' : 'from priceId mapping'}`)
     
     if (credits <= 0) {
-      console.error('Invalid credit amount:', credits)
+      console.error('❌ Invalid credit amount:', credits)
+      console.error('❌ PriceId:', priceId)
+      console.error('❌ This usually means the priceId is not in CREDIT_AMOUNTS mapping')
+      console.error('❌ Available credit price IDs:', Object.keys(CREDIT_AMOUNTS).join(', '))
       return
     }
 

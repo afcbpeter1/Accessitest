@@ -42,9 +42,9 @@ export default function DocumentScan() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Document 508 Compliance Scanner</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">AI Document Repairer</h1>
           <p className="text-gray-600 mt-1">
-            Upload documents to check for Section 508 compliance and accessibility issues
+            Upload documents to automatically fix accessibility issues using AI. Get repaired documents ready to download.
           </p>
         </div>
 
@@ -125,8 +125,8 @@ export default function DocumentScan() {
                      <Sparkles className="h-5 w-5 text-purple-600" />
                    </div>
                    <div>
-                     <p className="text-sm font-medium text-gray-900">AI-Powered Fixes</p>
-                     <p className="text-xs text-gray-500">Intelligent remediation suggestions</p>
+                     <p className="text-sm font-medium text-gray-900">AI-Powered Repair</p>
+                     <p className="text-xs text-gray-500">Automatically fixes issues and provides suggestions</p>
                    </div>
                  </div>
                  <div className="flex items-start space-x-3">
