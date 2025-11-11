@@ -128,11 +128,18 @@ export async function POST(request: NextRequest) {
     // Step 2: Generate repair plan using AI
     console.log(`🤖 Step 2: Generating repair plan with AI...`)
     const repairService = new DocumentRepairService()
+    
+        // Check if rebuild mode is requested
+        // Default to true - we need rebuild to apply most fixes (tables, lists, structure)
+        // But rebuild will copy document exactly first, then apply fixes in-place
+        const rebuildWithFixes = body.rebuildWithFixes !== false // Default to true - enables all fixes
+    
     const { repairPlan, repairedDocument } = await repairService.repairDocument(
       fileBuffer,
       fileName,
       fileType,
-      scanResult.issues
+      scanResult.issues,
+      rebuildWithFixes // Pass rebuild option
     )
 
     const automaticFixes = repairPlan.filter(p => p.fixType === 'automatic')
@@ -140,7 +147,54 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Repair plan generated: ${automaticFixes.length} automatic fixes, ${suggestions.length} suggestions`)
 
-    // Step 3: Save scan results to database (for history and backlog)
+    // Step 3: Verify repair by scanning the repaired document (no extra credit charge)
+    let verificationScanResult = null
+    let verificationComparison = null
+    
+    if (repairedDocument) {
+      try {
+        console.log(`🔍 Step 3: Verifying repair by scanning repaired document...`)
+        const verificationScanner = new ComprehensiveDocumentScanner()
+        verificationScanResult = await verificationScanner.scanDocument(
+          repairedDocument,
+          `repaired_${fileName}`,
+          fileType,
+          undefined, // All tests
+          () => false // No cancellation
+        )
+        
+        console.log(`✅ Verification scan complete: Found ${verificationScanResult.issues?.length || 0} issues in repaired document`)
+        
+        // Compare original vs repaired
+        const originalIssueCount = scanResult.issues?.length || 0
+        const repairedIssueCount = verificationScanResult.issues?.length || 0
+        const issuesFixed = originalIssueCount - repairedIssueCount
+        const fixSuccessRate = originalIssueCount > 0 
+          ? ((issuesFixed / originalIssueCount) * 100).toFixed(1)
+          : '100.0'
+        
+        verificationComparison = {
+          originalIssues: originalIssueCount,
+          repairedIssues: repairedIssueCount,
+          issuesFixed: issuesFixed,
+          issuesRemaining: repairedIssueCount,
+          fixSuccessRate: `${fixSuccessRate}%`,
+          allIssuesFixed: repairedIssueCount === 0,
+          verificationScanResults: verificationScanResult
+        }
+        
+        console.log(`📊 Repair verification: ${issuesFixed} issues fixed (${fixSuccessRate}% success rate)`)
+      } catch (verificationError) {
+        console.warn('⚠️ Verification scan failed (non-critical):', verificationError)
+        // Don't fail the repair if verification fails
+        verificationComparison = {
+          error: 'Verification scan failed',
+          message: verificationError instanceof Error ? verificationError.message : 'Unknown error'
+        }
+      }
+    }
+
+    // Step 4: Save scan results to database (for history and backlog)
     const repairDuration = ((Date.now() - startTime) / 1000)
     let scanHistoryId: string | null = null
     let backlogResult = null
@@ -170,7 +224,8 @@ export async function POST(request: NextRequest) {
           repairPlan: repairPlan,
           fixesApplied: automaticFixes.length,
           suggestionsProvided: suggestions.length,
-          repairedDocumentAvailable: !!repairedDocument
+          repairedDocumentAvailable: !!repairedDocument,
+          verificationResults: verificationComparison
         },
         totalIssues: scanResult.issues.length,
         criticalIssues: criticalCount,
@@ -206,7 +261,7 @@ export async function POST(request: NextRequest) {
       // Don't fail the repair if database save fails
     }
 
-    // Step 4: Return repair plan and repaired document
+    // Step 5: Return repair plan and repaired document with verification results
     return NextResponse.json({
       success: true,
       repairPlan,
@@ -217,7 +272,8 @@ export async function POST(request: NextRequest) {
       repairDuration: `${repairDuration.toFixed(2)}s`,
       fileName,
       scanHistoryId,
-      backlogAdded: backlogResult
+      backlogAdded: backlogResult,
+      verification: verificationComparison // Include verification results
     })
 
   } catch (error) {

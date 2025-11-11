@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Upload, FileText, AlertTriangle, CheckCircle, X, Download, Eye, Sparkles, CreditCard, Plus, ChevronUp, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
-import ScanHistory from './ScanHistory'
 import CollapsibleIssue from './CollapsibleIssue'
 import { useScan } from '@/contexts/ScanContext'
 import { authenticatedFetch } from '@/lib/auth-utils'
@@ -86,7 +85,7 @@ function formatSuggestionDescription(description: string) {
     if (trimmedLine.startsWith('## ')) {
       const headingText = trimmedLine.substring(3).trim()
       elements.push(
-        <h4 key={index} className="text-base font-semibold text-gray-900 mt-4 mb-2">
+        <h4 key={index} className="text-base font-semibold text-black mt-4 mb-2">
           {headingText}
         </h4>
       )
@@ -97,7 +96,7 @@ function formatSuggestionDescription(description: string) {
     if (trimmedLine.startsWith('# ')) {
       const headingText = trimmedLine.substring(2).trim()
       elements.push(
-        <h3 key={index} className="text-lg font-bold text-gray-900 mt-4 mb-3">
+        <h3 key={index} className="text-lg font-bold text-black mt-4 mb-3">
           {headingText}
         </h3>
       )
@@ -110,8 +109,8 @@ function formatSuggestionDescription(description: string) {
       const [, number, content] = numberedMatch
       elements.push(
         <p key={index} className="mb-2 ml-4">
-          <span className="font-semibold text-gray-900">{stepNumber}.</span>{' '}
-          <span className="text-gray-800">{content.trim()}</span>
+          <span className="font-semibold text-black">{stepNumber}.</span>{' '}
+          <span className="text-black">{content.trim()}</span>
         </p>
       )
       stepNumber++
@@ -123,8 +122,8 @@ function formatSuggestionDescription(description: string) {
       const content = trimmedLine.replace(/^[-*]\s+/, '')
       elements.push(
         <p key={index} className="mb-1 ml-4">
-          <span className="text-gray-700">•</span>{' '}
-          <span className="text-gray-800">{content}</span>
+          <span className="text-black">•</span>{' '}
+          <span className="text-black">{content}</span>
         </p>
       )
       inList = true
@@ -137,7 +136,7 @@ function formatSuggestionDescription(description: string) {
     
     // Regular paragraph
     elements.push(
-      <p key={index} className="mb-2 text-gray-800" dangerouslySetInnerHTML={{ __html: formattedText }} />
+      <p key={index} className="mb-2 text-black" dangerouslySetInnerHTML={{ __html: formattedText }} />
     )
   })
   
@@ -152,6 +151,24 @@ interface UploadedDocument {
   uploadDate: Date
   status: 'uploading' | 'uploaded' | 'scanning' | 'completed' | 'error'
   fileContent?: string // Base64 encoded file content for scanning
+  repairResults?: {
+    repairPlan: any[]
+    repairedDocument?: string | null
+    fixesApplied: number
+    suggestionsProvided: number
+    originalIssues: number
+    verification?: {
+      originalIssues: number
+      repairedIssues: number
+      issuesFixed: number
+      issuesRemaining: number
+      fixSuccessRate: string
+      allIssuesFixed: boolean
+      verificationScanResults?: any
+      error?: string
+      message?: string
+    } | null
+  }
   scanResults?: {
     is508Compliant: boolean
     overallScore?: number
@@ -696,7 +713,23 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         repairedDocument: result.repairedDocument,
         fixesApplied: result.fixesApplied || 0,
         suggestionsProvided: result.suggestionsProvided || 0,
-        originalIssues: result.originalIssues || 0
+        originalIssues: result.originalIssues || 0,
+        verification: result.verification || null // Include verification results
+      }
+      
+      // Log verification results if available
+      if (result.verification && !result.verification.error) {
+        addScanLog('')
+        addScanLog('🔍 Verification Scan Results:')
+        addScanLog(`   Original Issues: ${result.verification.originalIssues}`)
+        addScanLog(`   Issues After Repair: ${result.verification.repairedIssues}`)
+        addScanLog(`   Issues Fixed: ${result.verification.issuesFixed}`)
+        addScanLog(`   Success Rate: ${result.verification.fixSuccessRate}`)
+        if (result.verification.allIssuesFixed) {
+          addScanLog('   ✅ All issues successfully fixed!')
+        } else {
+          addScanLog(`   ⚠️ ${result.verification.issuesRemaining} issue(s) still remain`)
+        }
       }
       
       addScanLog(`✅ Repair completed in ${result.repairDuration || 'N/A'}`)
@@ -877,24 +910,6 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                    </ul>
                  </div>
 
-                 {/* What We Detect & Suggest */}
-                 <div className="mb-3 p-3 bg-white rounded border border-blue-200">
-                   <h5 className="text-xs font-semibold text-blue-800 mb-2 flex items-center">
-                     <Eye className="h-3 w-3 mr-1" />
-                     What We Detect & Provide Suggestions For:
-                   </h5>
-                   <ul className="text-xs text-gray-700 space-y-1 ml-5 list-disc">
-                     <li><strong>Real Detection:</strong> Document structure (headings, lists, tables from parsed document structure)</li>
-                     <li><strong>Real Detection:</strong> Missing alt text on images (from actual image tags in document)</li>
-                     <li><strong>Real Detection:</strong> Missing document title and language metadata</li>
-                     <li><strong>Real Detection:</strong> Non-descriptive links (from actual link elements in document)</li>
-                     <li><strong>Real Detection:</strong> GIF/animated images (detects GIF file signatures)</li>
-                     <li><strong>Real Detection:</strong> Form fields without labels (from actual form elements in PDF/HTML)</li>
-                     <li><strong>Real Detection:</strong> Color contrast (when document provides color data - PDFs with extracted colors)</li>
-                     <li><strong>Text Pattern Matching:</strong> Media, scripts, plug-ins, timing, keyboard traps - searches document text for keywords</li>
-                     <li><strong>16 Section 508 compliance tests run automatically</strong> - mix of real document structure analysis and text pattern matching</li>
-                   </ul>
-                 </div>
                </div>
              </div>
            </div>
@@ -1005,9 +1020,6 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
           </div>
         </div>
       </div>
-
-                    {/* Scan History */}
-       <ScanHistory type="document" />
 
       {/* Uploaded Documents */}
       {uploadedDocuments.length > 0 && (
@@ -1124,8 +1136,72 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                           </div>
                         </div>
 
+                        {/* Verification Results */}
+                        {document.repairResults.verification && !document.repairResults.verification.error && (
+                          <div className={`p-4 border rounded-lg mb-4 ${
+                            document.repairResults.verification.allIssuesFixed
+                              ? 'bg-green-50 border-green-200'
+                              : 'bg-yellow-50 border-yellow-200'
+                          }`}>
+                            <div className="flex items-start gap-3">
+                              {document.repairResults.verification.allIssuesFixed ? (
+                                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                              ) : (
+                                <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                              )}
+                              <div className="flex-1">
+                                <h4 className={`text-sm font-semibold mb-2 ${
+                                  document.repairResults.verification.allIssuesFixed
+                                    ? 'text-green-900'
+                                    : 'text-yellow-900'
+                                }`}>
+                                  {document.repairResults.verification.allIssuesFixed
+                                    ? '✅ Verification: All Issues Fixed!'
+                                    : '⚠️ Verification: Some Issues Remain'}
+                                </h4>
+                                <div className="grid grid-cols-2 gap-3 text-xs">
+                                  <div>
+                                    <span className="text-gray-600">Original Issues:</span>
+                                    <span className="ml-2 font-semibold text-gray-900">
+                                      {document.repairResults.verification.originalIssues}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-600">After Repair:</span>
+                                    <span className="ml-2 font-semibold text-gray-900">
+                                      {document.repairResults.verification.repairedIssues}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-600">Issues Fixed:</span>
+                                    <span className="ml-2 font-semibold text-green-700">
+                                      {document.repairResults.verification.issuesFixed}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-gray-600">Success Rate:</span>
+                                    <span className={`ml-2 font-semibold ${
+                                      document.repairResults.verification.allIssuesFixed
+                                        ? 'text-green-700'
+                                        : 'text-yellow-700'
+                                    }`}>
+                                      {document.repairResults.verification.fixSuccessRate}
+                                    </span>
+                                  </div>
+                                </div>
+                                {!document.repairResults.verification.allIssuesFixed && (
+                                  <p className="text-xs text-yellow-800 mt-2">
+                                    {document.repairResults.verification.issuesRemaining} issue(s) still need manual fixes. 
+                                    Review the suggestions below.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Download Repaired Document */}
-                        {document.repairResults.repairedDocument ? (
+                        {document.repairResults?.repairedDocument ? (
                           <div className="p-4 bg-green-50 border border-green-200 rounded-lg mb-4">
                             <div className="flex items-center justify-between">
                               <div>
@@ -1140,7 +1216,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                                 onClick={() => {
                                   try {
                                     // Convert base64 to blob for download
-                                    const base64Data = document.repairResults.repairedDocument
+                                    const base64Data = document.repairResults?.repairedDocument
                                     if (!base64Data) {
                                       console.error('No repaired document data available')
                                       showToast('Repaired document is not available. Please try repairing again.', 'error')
@@ -1209,14 +1285,19 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                                     <div key={fix.issueId} className="p-3 bg-green-50 border border-green-200 rounded-lg">
                                       <div className="flex items-start justify-between">
                                         <div className="flex-1">
-                                          <div className="text-sm font-medium text-gray-900 mb-1">
+                                          <div className="text-sm font-medium text-black mb-1">
                                             {index + 1}. {fix.issue}
                                           </div>
-                                          <div className="text-xs text-gray-700 mb-2">
+                                          <div className="text-xs text-black mb-2">
                                             Location: {fix.location}
                                           </div>
-                                          <div className="text-sm text-green-800 bg-white p-2 rounded border border-green-200">
-                                            <span className="font-semibold">AI Will Fix:</span> {fix.aiFix}
+                                          <div className="bg-white p-3 rounded border border-green-200">
+                                            <div className="text-xs font-semibold text-black mb-2 uppercase tracking-wide">
+                                              AI Will Fix
+                                            </div>
+                                            <div className="text-sm text-black leading-relaxed">
+                                              {formatSuggestionDescription(parseAISuggestion(fix.aiFix || ''))}
+                                            </div>
                                           </div>
                                         </div>
                                         <span className={`ml-2 px-2 py-1 text-xs rounded ${
@@ -1249,17 +1330,17 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                                       <div key={fix.issueId} className="p-4 bg-gray-50 border border-gray-300 rounded-lg shadow-sm">
                                         <div className="flex items-start justify-between">
                                           <div className="flex-1">
-                                            <div className="text-sm font-semibold text-gray-900 mb-2">
+                                            <div className="text-sm font-semibold text-black mb-2">
                                               {index + 1}. {fix.issue}
                                             </div>
-                                            <div className="text-xs text-gray-600 mb-3">
+                                            <div className="text-xs text-black mb-3">
                                               <span className="font-medium">Location:</span> {fix.location}
                                             </div>
                                             <div className="bg-white p-4 rounded border border-gray-200">
-                                              <div className="text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">
+                                              <div className="text-xs font-semibold text-black mb-2 uppercase tracking-wide">
                                                 AI Suggestion
                                               </div>
-                                              <div className="text-sm text-gray-800 leading-relaxed">
+                                              <div className="text-sm text-black leading-relaxed">
                                                 {formatSuggestionDescription(suggestionText)}
                                               </div>
                                             </div>

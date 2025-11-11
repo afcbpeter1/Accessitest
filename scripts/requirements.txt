@@ -1,0 +1,3 @@
+# Python dependencies for PDF repair
+pymupdf>=1.23.0
+

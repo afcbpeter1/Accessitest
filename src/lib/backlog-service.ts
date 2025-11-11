@@ -31,9 +31,10 @@ export async function autoAddDocumentIssuesToBacklog(
     for (const issue of issues) {
       try {
         // Generate unique issue ID based on rule, element, and document
+        // issue_key is VARCHAR(50) in database, so ensure it fits
         const issueKey = crypto.createHash('sha256')
           .update(`${issue.id || issue.description}|${issue.elementLocation || ''}|${fileName}`)
-          .digest('hex').substring(0, 16)
+          .digest('hex').substring(0, 50) // VARCHAR(50) - use full 50 chars
 
         // Check if this issue already exists for this user
         // Use description/section for matching since rule_name now uses description
@@ -74,15 +75,36 @@ export async function autoAddDocumentIssuesToBacklog(
 
         // Insert new issue
         // Truncate values to fit database constraints
-        const status = 'open' // VARCHAR(10) - should fit
-        const priority = issue.type === 'critical' ? 'high' : issue.type === 'serious' ? 'high' : issue.type === 'moderate' ? 'medium' : 'low' // Map to priority
-        const wcagLevel = (issue.wcagCriterion || 'AA').substring(0, 50) // Truncate if too long
-        const impact = (issue.type || 'moderate').substring(0, 50) // Map type to impact, truncate to 50
+        // status is VARCHAR(10) - must be one of: 'open', 'in_progress', 'resolved', 'closed'
+        // NOTE: 'in_progress' is 12 chars but schema says VARCHAR(10) - this is a schema bug
+        // For now, we'll use 'open' which is 4 chars and fits
+        const status = 'open' // This is 4 chars, fits VARCHAR(10)
         
-        // Ensure all string fields are properly truncated
-        const safeStatus = status.substring(0, 10) // Ensure it fits VARCHAR(10)
-        const safePriority = priority.substring(0, 20) // Ensure it fits VARCHAR(20)
-        const safeImpact = impact.substring(0, 50) // Ensure it fits VARCHAR(50)
+        // Map issue.type to priority (VARCHAR(20))
+        let priority = 'low'
+        if (issue.type === 'critical' || issue.type === 'serious') {
+          priority = 'high'
+        } else if (issue.type === 'moderate') {
+          priority = 'medium'
+        }
+        const safePriority = String(priority).substring(0, 20) // VARCHAR(20)
+        
+        // wcag_level is VARCHAR(50) - truncate wcagCriterion
+        const wcagLevel = String(issue.wcagCriterion || 'AA').substring(0, 50) // VARCHAR(50)
+        
+        // impact is VARCHAR(50) - truncate issue.type
+        const impact = String(issue.type || 'moderate').substring(0, 50) // VARCHAR(50)
+        const safeImpact = impact.substring(0, 50) // VARCHAR(50)
+        
+        // Ensure status fits VARCHAR(10) - use 'open' which is safe
+        const safeStatus = 'open' // Hardcode to 'open' to ensure it fits VARCHAR(10)
+        
+        // Ensure all string values are properly converted and truncated
+        const safeIssueKey = String(issueKey).substring(0, 50) // VARCHAR(50)
+        const safeRuleId = String(issue.id || issue.description || '').substring(0, 255) // VARCHAR(255)
+        const safeRuleName = String(issue.description || issue.section || 'Accessibility Issue').substring(0, 255) // VARCHAR(255)
+        const safeDescription = String(issue.description || '').substring(0, 1000) // TEXT but truncate for safety
+        const safeNotes = String(issue.recommendation || '').substring(0, 5000) // TEXT but truncate for safety
         
         const result = await queryOne(`
           INSERT INTO issues (
@@ -93,23 +115,23 @@ export async function autoAddDocumentIssuesToBacklog(
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
           RETURNING *
         `, [
-          issueKey,
-          (issue.id || issue.description || '').substring(0, 255), // rule_id (truncate)
-          (issue.description || issue.section || 'Accessibility Issue').substring(0, 255), // rule_name (truncate)
-          (issue.description || '').substring(0, 1000), // description (truncate)
-          safeImpact, // impact (truncate to 50)
-          wcagLevel.substring(0, 50), // wcag_level (truncate to 50)
+          safeIssueKey, // issue_key (VARCHAR(50))
+          safeRuleId, // rule_id (VARCHAR(255))
+          safeRuleName, // rule_name (VARCHAR(255))
+          safeDescription, // description (TEXT)
+          safeImpact, // impact (VARCHAR(50))
+          wcagLevel, // wcag_level (VARCHAR(50))
           1, // total_occurrences
-          [`Document: ${fileName}`], // affected_pages
-          (issue.recommendation || '').substring(0, 5000), // notes (truncate)
-          safeStatus, // status (truncate to 10)
-          safePriority, // priority (truncate to 20)
-          nextRank, 
-          1, // story_points
-          1, // remaining_points
-          scanHistoryId, 
-          new Date().toISOString(), 
-          new Date().toISOString()
+          [`Document: ${fileName}`], // affected_pages (TEXT[])
+          safeNotes, // notes (TEXT)
+          safeStatus, // status (VARCHAR(10)) - must be 'open' to fit
+          safePriority, // priority (VARCHAR(20))
+          nextRank, // rank (INTEGER)
+          1, // story_points (INTEGER)
+          1, // remaining_points (INTEGER)
+          scanHistoryId, // first_seen_scan_id (UUID)
+          new Date().toISOString(), // created_at
+          new Date().toISOString() // updated_at
         ])
 
         addedItems.push({

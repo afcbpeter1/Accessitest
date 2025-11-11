@@ -371,7 +371,15 @@ Can this be automatically fixed? What will be changed?`;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const response = await fetch(this.apiUrl, {
+        console.log(`📡 Claude API: Making request (attempt ${attempt}/${maxRetries})...`)
+        
+        // Create a timeout promise (60 seconds)
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Request timeout after 60 seconds')), 60000)
+        })
+        
+        // Create the fetch request
+        const fetchPromise = fetch(this.apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -379,7 +387,10 @@ Can this be automatically fixed? What will be changed?`;
             'anthropic-version': '2023-06-01'
           },
           body: JSON.stringify(requestBody)
-        });
+        })
+        
+        // Race between fetch and timeout
+        const response = await Promise.race([fetchPromise, timeoutPromise])
 
         console.log('📡 Claude API: Response status:', response.status, response.statusText);
 
@@ -456,6 +467,112 @@ Can this be automatically fixed? What will be changed?`;
     } catch (error) {
       console.error('Claude API test failed:', error);
       return false;
+    }
+  }
+
+  /**
+   * Identify headings in document text using AI
+   */
+  async identifyHeadings(documentText: string): Promise<{ headings: Array<{ text: string; level: number; page?: number }> }> {
+    try {
+      const prompt = `Analyze the following document text and identify what should be headings. Return a JSON object with an array of headings, each with:
+- "text": the heading text
+- "level": heading level (1-6, where 1 is main title, 2 is major section, etc.)
+- "page": page number if available (default to 1)
+
+Document text:
+${documentText.substring(0, 4000)}
+
+Return ONLY valid JSON in this format:
+{
+  "headings": [
+    {"text": "Main Title", "level": 1, "page": 1},
+    {"text": "Section Name", "level": 2, "page": 1}
+  ]
+}`;
+
+      const response = await this.makeRateLimitedRequest(() => 
+        this.callClaudeAPI([{ role: 'user', content: prompt }])
+      );
+
+      // Parse JSON response
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return parsed;
+      }
+
+      return { headings: [] };
+    } catch (error) {
+      console.error('Error identifying headings:', error);
+      return { headings: [] };
+    }
+  }
+
+  /**
+   * Identify language of text content using AI
+   */
+  async identifyLanguage(text: string): Promise<{ language: string; confidence?: string }> {
+    try {
+      const prompt = `Identify the language of the following text and return ONLY a JSON object with the ISO 639-1 language code (e.g., "en", "fr", "es", "de"):
+
+Text: "${text.substring(0, 500)}"
+
+Return ONLY valid JSON:
+{"language": "fr", "confidence": "high"}`;
+
+      const response = await this.makeRateLimitedRequest(() => 
+        this.callClaudeAPI([{ role: 'user', content: prompt }])
+      );
+
+      // Parse JSON response
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return parsed;
+      }
+
+      return { language: 'en', confidence: 'low' };
+    } catch (error) {
+      console.error('Error identifying language:', error);
+      return { language: 'en', confidence: 'low' };
+    }
+  }
+
+  /**
+   * Analyze reading order of document content using AI
+   */
+  async analyzeReadingOrder(content: string): Promise<{ orderedLines: string[] }> {
+    try {
+      const lines = content.split('\n').filter(line => line.trim().length > 0);
+      const prompt = `Analyze the following document content and return the lines in the correct logical reading order (top-to-bottom, left-to-right). Return ONLY a JSON object with an array of ordered lines:
+
+Content:
+${content.substring(0, 4000)}
+
+Return ONLY valid JSON:
+{"orderedLines": ["First line", "Second line", "Third line"]}`;
+
+      const response = await this.makeRateLimitedRequest(() => 
+        this.callClaudeAPI([{ role: 'user', content: prompt }])
+      );
+
+      // Parse JSON response
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.orderedLines && Array.isArray(parsed.orderedLines)) {
+          return parsed;
+        }
+      }
+
+      // Fallback: return original order
+      return { orderedLines: lines };
+    } catch (error) {
+      console.error('Error analyzing reading order:', error);
+      // Fallback: return original order
+      const lines = content.split('\n').filter(line => line.trim().length > 0);
+      return { orderedLines: lines };
     }
   }
 }
