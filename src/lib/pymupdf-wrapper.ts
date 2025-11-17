@@ -84,21 +84,41 @@ export class PyMuPDFWrapper {
       ].join(' ')
 
       console.log(`🐍 Running PyMuPDF rebuild with fixes: ${cmd}`)
+      console.log(`📋 Fixes being passed to Python: ${JSON.stringify(options.fixes, null, 2).substring(0, 500)}...`)
+      console.log(`📋 Total fixes: ${options.fixes.length}`)
 
       // Execute Python script
       const { stdout, stderr } = await execAsync(cmd, {
         maxBuffer: 10 * 1024 * 1024 // 10MB buffer
       })
 
-      if (stderr && !stderr.includes('WARNING') && !stderr.includes('INFO')) {
+      console.log(`📄 Python script stdout: ${stdout}`)
+      if (stderr) {
+        console.log(`📄 Python script stderr: ${stderr}`)
+      }
+
+      if (stderr && !stderr.includes('WARNING') && !stderr.includes('INFO') && !stderr.includes('SUCCESS')) {
         console.error(`❌ PyMuPDF error: ${stderr}`)
         throw new Error(`PyMuPDF rebuild failed: ${stderr}`)
+      }
+
+      // Check if output file exists and has content
+      try {
+        const stats = await fs.stat(options.outputPath)
+        console.log(`📊 Rebuilt PDF size: ${stats.size} bytes`)
+        if (stats.size === 0) {
+          throw new Error('PyMuPDF output file is empty')
+        }
+      } catch (statError) {
+        console.error(`❌ Cannot read output file: ${statError}`)
+        throw new Error(`PyMuPDF output file not found or empty: ${options.outputPath}`)
       }
 
       console.log(`✅ PyMuPDF rebuild complete: ${stdout}`)
 
       // Read rebuilt PDF
       const repairedBuffer = await fs.readFile(options.outputPath)
+      console.log(`✅ Read rebuilt PDF: ${repairedBuffer.length} bytes`)
 
       // Cleanup
       await fs.unlink(fixesJsonPath).catch(() => {})

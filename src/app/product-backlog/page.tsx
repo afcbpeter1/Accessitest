@@ -27,6 +27,7 @@ interface BacklogItem {
   created_at: string
   updated_at: string
   comment_count: number
+  total_occurrences?: number
 }
 
 interface Comment {
@@ -426,7 +427,7 @@ ${item.element_html || 'N/A'}
                                 >
                                   <div className="flex items-start justify-between">
                                     <div className="flex-1">
-                                      <div className="flex items-center gap-3 mb-2">
+                                      <div className="flex items-center gap-3 mb-2 flex-wrap">
                                         <span className="text-sm font-medium text-gray-500">
                                           #{index + 1}
                                         </span>
@@ -436,10 +437,22 @@ ${item.element_html || 'N/A'}
                                         <span className="text-xs text-gray-500">
                                           {item.wcag_level}
                                         </span>
+                                        {/* Show duplicate indicator if this issue appears multiple times */}
+                                        {item.total_occurrences && item.total_occurrences > 1 && (
+                                          <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full border border-purple-200 flex items-center gap-1" title={`This issue appears ${item.total_occurrences} times`}>
+                                            <span>🔄</span>
+                                            <span>Duplicate ({item.total_occurrences}x)</span>
+                                          </span>
+                                        )}
                                       </div>
                                       
                                       <h3 className="font-medium text-gray-900 mb-1">
                                         {item.rule_name}
+                                        {item.total_occurrences && item.total_occurrences > 1 && (
+                                          <span className="ml-2 text-xs font-normal text-purple-600">
+                                            (appears {item.total_occurrences} times)
+                                          </span>
+                                        )}
                                       </h3>
                                       
                                       <p className="text-sm text-gray-600 mb-3">

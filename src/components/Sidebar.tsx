@@ -234,22 +234,24 @@ export default function Sidebar({ children }: SidebarProps) {
   }
 
   return (
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-sm">
+      <div className="w-64 bg-[#0B1220] shadow-sm flex flex-col">
         {/* Logo */}
-        <div className="flex items-center px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center px-6 py-4 border-b border-gray-700">
           <div className="flex items-center space-x-2">
-            <img 
-              src="/allytest.png" 
-              alt="A11ytest.ai Logo" 
-              className="h-8 w-auto object-contain" 
-            />
+            <div className="bg-white p-2 rounded-lg">
+              <img 
+                src="/allytest.png" 
+                alt="A11ytest.ai Logo" 
+                className="h-8 w-auto object-contain" 
+              />
+            </div>
           </div>
         </div>
 
         {/* Navigation */}
-        <nav className="mt-6 px-3">
+        <nav className="mt-6 px-3 flex-1">
           <div className="space-y-1">
             {navigation.map((item) => {
               const isActive = pathname === item.href
@@ -260,13 +262,13 @@ export default function Sidebar({ children }: SidebarProps) {
                   href={item.href}
                   className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
                     isActive
-                      ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-600'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      ? 'bg-blue-600 text-white border-r-2 border-blue-400'
+                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                   }`}
                 >
                   <item.icon
                     className={`mr-3 h-5 w-5 ${
-                      isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-500'
+                      isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'
                     }`}
                   />
                   {item.name}
@@ -275,14 +277,22 @@ export default function Sidebar({ children }: SidebarProps) {
             })}
           </div>
         </nav>
+
+        {/* Sidebar Footer - connects to main footer */}
+        <div className="border-t border-gray-700 px-6 py-4 bg-[#0B1220]">
+          <div className="flex items-center justify-center">
+            <p className="text-gray-400 text-xs">
+              &copy; {new Date().getFullYear()}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
+          <div className="flex items-center justify-end">
             <div className="flex items-center space-x-4">
               {/* Credit Display */}
               {!loading && user && (
@@ -421,9 +431,23 @@ export default function Sidebar({ children }: SidebarProps) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 overflow-y-auto">
           {children}
         </main>
+
+        {/* Footer - extends to match sidebar height */}
+        <footer className="bg-[#0B1220] text-white py-4">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <p className="text-gray-400 text-sm">
+                Professional accessibility testing platform
+              </p>
+              <p className="text-gray-400 text-sm">
+                &copy; {new Date().getFullYear()}. All rights reserved.
+              </p>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   )

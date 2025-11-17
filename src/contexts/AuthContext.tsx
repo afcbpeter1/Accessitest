@@ -50,15 +50,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refreshAuth()
     
+    // Ensure token refresh service is initialized in browser
+    tokenRefreshService.ensureInitialized()
+    
     // Start token refresh service if user is authenticated
+    // The service is a singleton and starts automatically, but we verify it's working
     if (isAuthenticated()) {
-      console.log('🔄 Starting token refresh service for sliding expiration')
+      console.log('🔄 Token refresh service active - will refresh token on activity')
+      // Reset inactivity timer when user is authenticated
+      tokenRefreshService.resetInactivityTimer()
     }
     
     // Listen for storage changes (e.g., when user logs in from another tab)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'accessToken' || e.key === 'user') {
         refreshAuth()
+        // Reset inactivity timer when token is set
+        if (e.key === 'accessToken' && e.newValue) {
+          tokenRefreshService.resetInactivityTimer()
+        }
       }
     }
     

@@ -291,20 +291,32 @@ export async function POST(request: NextRequest) {
 
         // Auto-add issues to product backlog
         // scanHistoryResult is the ID string, not an object
+        console.log('🔍 Backlog addition check (enhanced):', {
+          hasIssues: !!enhancedResult.issues,
+          issuesCount: enhancedResult.issues?.length || 0,
+          hasScanHistoryResult: !!scanHistoryResult,
+          scanHistoryResultType: typeof scanHistoryResult,
+          scanHistoryResultValue: scanHistoryResult
+        })
+        
         if (enhancedResult.issues && enhancedResult.issues.length > 0 && scanHistoryResult) {
           console.log(`🔄 Attempting to add ${enhancedResult.issues.length} enhanced document issues to backlog...`)
           try {
             backlogResult = await autoAddDocumentIssuesToBacklog(user.userId, enhancedResult.issues, scanHistoryResult, body.fileName)
-            console.log('✅ Document issues automatically added to product backlog:', backlogResult)
+            console.log('✅ Document issues automatically added to product backlog:', JSON.stringify(backlogResult, null, 2))
           } catch (backlogError) {
             console.error('❌ Failed to auto-add document issues to backlog:', backlogError)
+            if (backlogError instanceof Error) {
+              console.error('❌ Error stack:', backlogError.stack)
+            }
             backlogResult = { success: false, error: backlogError instanceof Error ? backlogError.message : 'Unknown error' }
           }
         } else {
-          console.log('⚠️ Skipping backlog addition - no enhanced issues or missing scanHistoryResult:', {
+          console.warn('⚠️ Skipping backlog addition - no enhanced issues or missing scanHistoryResult:', {
             hasIssues: enhancedResult.issues && enhancedResult.issues.length > 0,
             issuesCount: enhancedResult.issues?.length || 0,
-            hasScanHistoryResult: !!scanHistoryResult
+            hasScanHistoryResult: !!scanHistoryResult,
+            scanHistoryResult: scanHistoryResult
           })
         }
       } catch (error) {
@@ -386,20 +398,32 @@ export async function POST(request: NextRequest) {
 
       // Auto-add issues to product backlog
       // scanHistoryResult is the ID string, not an object
+      console.log('🔍 Backlog addition check:', {
+        hasIssues: !!scanResult.issues,
+        issuesCount: scanResult.issues?.length || 0,
+        hasScanHistoryResult: !!scanHistoryResult,
+        scanHistoryResultType: typeof scanHistoryResult,
+        scanHistoryResultValue: scanHistoryResult
+      })
+      
       if (scanResult.issues && scanResult.issues.length > 0 && scanHistoryResult) {
         console.log(`🔄 Attempting to add ${scanResult.issues.length} document issues to backlog...`)
         try {
           backlogResult = await autoAddDocumentIssuesToBacklog(user.userId, scanResult.issues, scanHistoryResult, body.fileName)
-          console.log('✅ Document issues automatically added to product backlog:', backlogResult)
+          console.log('✅ Document issues automatically added to product backlog:', JSON.stringify(backlogResult, null, 2))
         } catch (backlogError) {
           console.error('❌ Failed to auto-add document issues to backlog:', backlogError)
+          if (backlogError instanceof Error) {
+            console.error('❌ Error stack:', backlogError.stack)
+          }
           backlogResult = { success: false, error: backlogError instanceof Error ? backlogError.message : 'Unknown error' }
         }
       } else {
-        console.log('⚠️ Skipping backlog addition - no issues or missing scanHistoryResult:', {
+        console.warn('⚠️ Skipping backlog addition - no issues or missing scanHistoryResult:', {
           hasIssues: scanResult.issues && scanResult.issues.length > 0,
           issuesCount: scanResult.issues?.length || 0,
-          hasScanHistoryResult: !!scanHistoryResult
+          hasScanHistoryResult: !!scanHistoryResult,
+          scanHistoryResult: scanHistoryResult
         })
       }
     } catch (error) {

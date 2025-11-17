@@ -471,25 +471,25 @@ export class ComprehensiveDocumentScanner {
         }
       } catch (fallbackError) {
         console.error('❌ Fallback parsing also failed:', fallbackError)
-        return { 
-          text: buffer.toString('utf-8').substring(0, 1000) + '... [PDF content extraction failed]',
-          pages: 1,
-          imageCount: 0,
-          tableCount: 0,
-          linkCount: 0,
-          imageAnalysis: {
-            totalImages: 0,
-            imagesWithAltText: 0,
-            imagesWithoutAltText: 0,
-            decorativeImages: 0,
-            informativeImages: 0,
-            complexImages: 0,
-            imageIssues: [],
-            imagesByPage: {}
-          },
-          pageAnalysis: []
-        }
+      return { 
+        text: buffer.toString('utf-8').substring(0, 1000) + '... [PDF content extraction failed]',
+        pages: 1,
+        imageCount: 0,
+        tableCount: 0,
+        linkCount: 0,
+        imageAnalysis: {
+          totalImages: 0,
+          imagesWithAltText: 0,
+          imagesWithoutAltText: 0,
+          decorativeImages: 0,
+          informativeImages: 0,
+          complexImages: 0,
+          imageIssues: [],
+          imagesByPage: {}
+        },
+        pageAnalysis: []
       }
+    }
     }
   }
 
@@ -618,23 +618,23 @@ export class ComprehensiveDocumentScanner {
           pageAnalysis: this.createDetailedPageAnalysis(text, pages)
         }
       } catch (fallbackError) {
-        return { 
-          text: buffer.toString('utf-8').substring(0, 1000) + '... [Word document content extracted]',
-          pages: 1,
-          imageCount: 0,
-          tableCount: 0,
-          linkCount: 0,
-          imageAnalysis: {
-            totalImages: 0,
-            imagesWithAltText: 0,
-            imagesWithoutAltText: 0,
-            decorativeImages: 0,
-            informativeImages: 0,
-            complexImages: 0,
-            imageIssues: [],
-            imagesByPage: {}
-          },
-          pageAnalysis: []
+      return { 
+        text: buffer.toString('utf-8').substring(0, 1000) + '... [Word document content extracted]',
+        pages: 1,
+        imageCount: 0,
+        tableCount: 0,
+        linkCount: 0,
+        imageAnalysis: {
+          totalImages: 0,
+          imagesWithAltText: 0,
+          imagesWithoutAltText: 0,
+          decorativeImages: 0,
+          informativeImages: 0,
+          complexImages: 0,
+          imageIssues: [],
+          imagesByPage: {}
+        },
+        pageAnalysis: []
         }
       }
     }
@@ -1084,32 +1084,32 @@ export class ComprehensiveDocumentScanner {
     // This ensures that when user selects specific Section 508 tests, only those tests run
     if (!hasSection508Tags) {
       console.log(`🔍 Running general WCAG compliance checks (no Section 508 tags selected)`)
-      
+    
       // Text analysis - use parsed structure if available
       const textIssues = this.analyzeTextAccessibility(documentContent, documentType, pagesAnalyzed, parsedStructure)
-      issues.push(...textIssues)
+    issues.push(...textIssues)
 
-      // Check for cancellation after text analysis
-      if (isCancelled && isCancelled()) {
-        throw new Error('Scan was cancelled by user')
-      }
+    // Check for cancellation after text analysis
+    if (isCancelled && isCancelled()) {
+      throw new Error('Scan was cancelled by user')
+    }
 
       // Structure analysis - use real parsed structure if available
       const structureIssues = this.analyzeStructureAccessibility(documentContent, documentType, pagesAnalyzed, parsedStructure)
-      issues.push(...structureIssues)
+    issues.push(...structureIssues)
 
-      // Check for cancellation after structure analysis
-      if (isCancelled && isCancelled()) {
-        throw new Error('Scan was cancelled by user')
-      }
+    // Check for cancellation after structure analysis
+    if (isCancelled && isCancelled()) {
+      throw new Error('Scan was cancelled by user')
+    }
 
       // Image analysis - use parsed structure for real image data
       const imageIssues = this.analyzeImageAccessibility(imageAnalysis, documentType, pagesAnalyzed, parsedStructure)
-      issues.push(...imageIssues)
+    issues.push(...imageIssues)
 
-      // Check for cancellation after image analysis
-      if (isCancelled && isCancelled()) {
-        throw new Error('Scan was cancelled by user')
+    // Check for cancellation after image analysis
+    if (isCancelled && isCancelled()) {
+      throw new Error('Scan was cancelled by user')
       }
 
       // Additional WCAG Level AA checks
@@ -1712,24 +1712,24 @@ export class ComprehensiveDocumentScanner {
       }
     } else {
       // Fallback to text search if no parsed structure
-      const titleLocation = findIssueLocation('Title:', 1)
-      if (!documentContent.includes('Title:') && !documentContent.includes('TITLE:')) {
-        issues.push({
-          id: `issue_${Date.now()}_title`,
-          type: 'serious',
-          category: 'structure',
-          description: 'Document missing title',
-          section: 'Document Structure',
-          pageNumber: titleLocation.page,
-          lineNumber: titleLocation.line,
-          elementLocation: 'Document header',
-          context: 'No document title found',
-          wcagCriterion: 'WCAG 2.1 AA - 2.4.2 Page Titled',
-          section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
-          impact: this.calculateImpact('serious'),
-          remediation: 'Add a descriptive and unique document title that clearly identifies the content.'
-        })
-      }
+    const titleLocation = findIssueLocation('Title:', 1)
+    if (!documentContent.includes('Title:') && !documentContent.includes('TITLE:')) {
+      issues.push({
+        id: `issue_${Date.now()}_title`,
+        type: 'serious',
+        category: 'structure',
+        description: 'Document missing title',
+        section: 'Document Structure',
+        pageNumber: titleLocation.page,
+        lineNumber: titleLocation.line,
+        elementLocation: 'Document header',
+                    context: 'No document title found',
+            wcagCriterion: 'WCAG 2.1 AA - 2.4.2 Page Titled',
+            section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
+        impact: this.calculateImpact('serious'),
+        remediation: 'Add a descriptive and unique document title that clearly identifies the content.'
+      })
+    }
     }
 
     // Check for language declaration - use REAL metadata if available
@@ -1754,23 +1754,23 @@ export class ComprehensiveDocumentScanner {
       }
     } else {
       // Fallback to text search if no parsed structure
-      const langLocation = findIssueLocation('language:', 1)
-      if (!documentContent.includes('lang=') && !documentContent.includes('language:')) {
-        issues.push({
-          id: `issue_${Date.now()}_lang`,
-          type: 'serious',
-          category: 'structure',
-          description: 'Missing document language declaration',
-          section: 'Document Structure',
-          pageNumber: langLocation.page,
-          lineNumber: langLocation.line,
-          elementLocation: 'Document element',
-          context: 'No language declaration found',
-          wcagCriterion: 'WCAG 2.1 AA - 3.1.1 Language of Page',
-          section508Requirement: '36 CFR § 1194.22(a) - Readability and Language',
-          impact: this.calculateImpact('serious'),
-          remediation: 'Add language declaration to the document.'
-        })
+    const langLocation = findIssueLocation('language:', 1)
+    if (!documentContent.includes('lang=') && !documentContent.includes('language:')) {
+      issues.push({
+        id: `issue_${Date.now()}_lang`,
+        type: 'serious',
+        category: 'structure',
+        description: 'Missing document language declaration',
+        section: 'Document Structure',
+        pageNumber: langLocation.page,
+        lineNumber: langLocation.line,
+        elementLocation: 'Document element',
+                    context: 'No language declaration found',
+            wcagCriterion: 'WCAG 2.1 AA - 3.1.1 Language of Page',
+            section508Requirement: '36 CFR § 1194.22(a) - Readability and Language',
+        impact: this.calculateImpact('serious'),
+        remediation: 'Add language declaration to the document.'
+      })
       }
     }
 
@@ -1802,28 +1802,28 @@ export class ComprehensiveDocumentScanner {
       }
     } else {
       // Fallback to text pattern matching if no parsed structure
-      const hasHeadings = lines.some(line => 
-        /^[A-Z][A-Z\s]+$/.test(line.trim()) && line.trim().length < 100 && line.trim().length > 3
-      )
-      const wordCount = documentContent.split(/\s+/).length
-      
-      // Only flag missing headings if document has substantial content (more than 50 words)
-      if (!hasHeadings && wordCount > 50) {
-        issues.push({
-          id: `issue_${Date.now()}_no_headings`,
-          type: 'serious',
-          category: 'structure',
-          description: 'Document lacks heading structure',
-          section: 'Document Structure',
-          pageNumber: 1,
-          lineNumber: 1,
-          elementLocation: 'Document body',
-          context: `No headings found in document with ${wordCount} words`,
-          wcagCriterion: 'WCAG 2.1 AA - 1.3.1 Info and Relationships',
-          section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
-          impact: this.calculateImpact('serious'),
-          remediation: 'Use built-in heading styles (Heading 1, Heading 2, etc.) in a logical, hierarchical order to organize content.'
-        })
+    const hasHeadings = lines.some(line => 
+      /^[A-Z][A-Z\s]+$/.test(line.trim()) && line.trim().length < 100 && line.trim().length > 3
+    )
+    const wordCount = documentContent.split(/\s+/).length
+    
+    // Only flag missing headings if document has substantial content (more than 50 words)
+    if (!hasHeadings && wordCount > 50) {
+      issues.push({
+        id: `issue_${Date.now()}_no_headings`,
+        type: 'serious',
+        category: 'structure',
+        description: 'Document lacks heading structure',
+        section: 'Document Structure',
+        pageNumber: 1,
+        lineNumber: 1,
+        elementLocation: 'Document body',
+                    context: `No headings found in document with ${wordCount} words`,
+            wcagCriterion: 'WCAG 2.1 AA - 1.3.1 Info and Relationships',
+            section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
+        impact: this.calculateImpact('serious'),
+        remediation: 'Use built-in heading styles (Heading 1, Heading 2, etc.) in a logical, hierarchical order to organize content.'
+      })
       }
     }
 
@@ -1929,59 +1929,59 @@ export class ComprehensiveDocumentScanner {
       })
     } else {
       // Fallback to imageAnalysis if no parsed structure
-      const findImagePages = (): number[] => {
-        const pagesWithImages: number[] = []
-        
-        if (imageAnalysis.totalImages > 0) {
+    const findImagePages = (): number[] => {
+      const pagesWithImages: number[] = []
+      
+      if (imageAnalysis.totalImages > 0) {
           const maxPagesWithImages = Math.min(5, pagesAnalyzed)
-          for (let i = 1; i <= maxPagesWithImages; i++) {
-            pagesWithImages.push(i)
-          }
+        for (let i = 1; i <= maxPagesWithImages; i++) {
+          pagesWithImages.push(i)
         }
-        
+      }
+      
         return pagesWithImages.length > 0 ? pagesWithImages : [1]
-      }
+    }
 
-      const imagePages = findImagePages()
+    const imagePages = findImagePages()
 
-      // Check for images without alt text
-      if (imageAnalysis.imagesWithoutAltText > 0) {
-        const targetPage = imagePages[0] || 1
-        issues.push({
-          id: `issue_${Date.now()}_images_no_alt`,
-          type: 'serious',
-          category: 'image',
-          description: `${imageAnalysis.imagesWithoutAltText} image(s) missing alternative text`,
-          section: 'Images and Graphics',
-          pageNumber: targetPage,
-          lineNumber: 1,
-          elementLocation: 'Document images',
-          context: `${imageAnalysis.totalImages} total images found across ${imagePages.length} pages`,
-          wcagCriterion: 'WCAG 2.1 AA - 1.1.1 Non-text Content',
-          section508Requirement: '36 CFR § 1194.22(a) - Non-Text Content',
-          impact: this.calculateImpact('serious'),
-          remediation: 'Add descriptive alternative text to all images that convey information.'
-        })
-      }
+    // Check for images without alt text
+    if (imageAnalysis.imagesWithoutAltText > 0) {
+      const targetPage = imagePages[0] || 1
+      issues.push({
+        id: `issue_${Date.now()}_images_no_alt`,
+        type: 'serious',
+        category: 'image',
+        description: `${imageAnalysis.imagesWithoutAltText} image(s) missing alternative text`,
+        section: 'Images and Graphics',
+        pageNumber: targetPage,
+        lineNumber: 1,
+        elementLocation: 'Document images',
+                    context: `${imageAnalysis.totalImages} total images found across ${imagePages.length} pages`,
+            wcagCriterion: 'WCAG 2.1 AA - 1.1.1 Non-text Content',
+            section508Requirement: '36 CFR § 1194.22(a) - Non-Text Content',
+        impact: this.calculateImpact('serious'),
+        remediation: 'Add descriptive alternative text to all images that convey information.'
+      })
+    }
 
-      // Check for complex images
-      if (imageAnalysis.complexImages > 0) {
-        const targetPage = imagePages.length > 1 ? imagePages[1] : imagePages[0] || 1
-        issues.push({
-          id: `issue_${Date.now()}_complex_images`,
-          type: 'moderate',
-          category: 'image',
-          description: `${imageAnalysis.complexImages} complex image(s) detected (charts, graphs, diagrams)`,
-          section: 'Images and Graphics',
-          pageNumber: targetPage,
-          lineNumber: 1,
-          elementLocation: 'Document complex images',
-          context: 'Complex images require detailed descriptions',
-          wcagCriterion: 'WCAG 2.1 AA - 1.1.1 Non-text Content',
-          section508Requirement: '36 CFR § 1194.22(a) - Non-Text Content',
-          impact: this.calculateImpact('moderate'),
-          remediation: 'Provide detailed descriptions for complex images including charts, graphs, and diagrams.'
-        })
+    // Check for complex images
+    if (imageAnalysis.complexImages > 0) {
+      const targetPage = imagePages.length > 1 ? imagePages[1] : imagePages[0] || 1
+      issues.push({
+        id: `issue_${Date.now()}_complex_images`,
+        type: 'moderate',
+        category: 'image',
+        description: `${imageAnalysis.complexImages} complex image(s) detected (charts, graphs, diagrams)`,
+        section: 'Images and Graphics',
+        pageNumber: targetPage,
+        lineNumber: 1,
+        elementLocation: 'Document complex images',
+                    context: 'Complex images require detailed descriptions',
+            wcagCriterion: 'WCAG 2.1 AA - 1.1.1 Non-text Content',
+            section508Requirement: '36 CFR § 1194.22(a) - Non-Text Content',
+        impact: this.calculateImpact('moderate'),
+        remediation: 'Provide detailed descriptions for complex images including charts, graphs, and diagrams.'
+      })
       }
     }
 
@@ -2128,28 +2128,28 @@ export class ComprehensiveDocumentScanner {
       })
     } else {
       // Fallback to keyword matching if no parsed structure
-      const imageRegex = /(figure|image|photo|picture|graphic|chart|diagram)\s+\d+/gi
-      const lines = documentContent.split('\n')
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        if (imageRegex.test(line)) {
-          const hasDescription = this.hasNearbyDescription(lines, i, 3)
-          if (!hasDescription) {
-            issues.push({
-              id: `1194_22a_${Date.now()}_${i}`,
-              type: 'serious',
-              category: 'image',
-              description: 'Image missing text alternative (1194.22(a))',
-              section: 'Section 508 - Text Alternatives',
-              pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
-              lineNumber: i + 1,
-              elementLocation: line.substring(0, 50),
-              context: 'All non-text content must have text alternatives',
-              wcagCriterion: 'WCAG 2.1 AA - 1.1.1 Non-text Content',
-              section508Requirement: '36 CFR § 1194.22(a) - Text Alternatives',
-              impact: this.calculateImpact('serious'),
-              remediation: 'Add descriptive text alternatives for all images, charts, and graphics.'
-            })
+    const imageRegex = /(figure|image|photo|picture|graphic|chart|diagram)\s+\d+/gi
+    const lines = documentContent.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (imageRegex.test(line)) {
+        const hasDescription = this.hasNearbyDescription(lines, i, 3)
+        if (!hasDescription) {
+          issues.push({
+            id: `1194_22a_${Date.now()}_${i}`,
+            type: 'serious',
+            category: 'image',
+            description: 'Image missing text alternative (1194.22(a))',
+            section: 'Section 508 - Text Alternatives',
+            pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
+            lineNumber: i + 1,
+            elementLocation: line.substring(0, 50),
+            context: 'All non-text content must have text alternatives',
+            wcagCriterion: 'WCAG 2.1 AA - 1.1.1 Non-text Content',
+            section508Requirement: '36 CFR § 1194.22(a) - Text Alternatives',
+            impact: this.calculateImpact('serious'),
+            remediation: 'Add descriptive text alternatives for all images, charts, and graphics.'
+          })
           }
         }
       }
@@ -2195,27 +2195,27 @@ export class ComprehensiveDocumentScanner {
     } else {
       // Fallback to keyword matching
       const mediaRegex = /(video|audio|podcast|webinar|presentation.*video|recording|\.(mp4|avi|mov|wmv|flv|webm|mp3|wav|aac|ogg|wma)$)/i
-      const lines = documentContent.split('\n')
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        if (mediaRegex.test(line)) {
-          const hasAlternatives = /caption|transcript|description|alternative/i.test(line)
-          if (!hasAlternatives) {
-            issues.push({
-              id: `1194_22b_${Date.now()}_${i}`,
-              type: 'serious',
-              category: 'media',
-              description: 'Synchronized media missing alternatives (1194.22(b))',
-              section: 'Section 508 - Media Alternatives',
-              pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
-              lineNumber: i + 1,
-              elementLocation: line.substring(0, 50),
-              context: 'Synchronized media must have captions or alternatives',
-              wcagCriterion: 'WCAG 2.1 AA - 1.2.1 Audio-only and Video-only',
-              section508Requirement: '36 CFR § 1194.22(b) - Synchronized Media',
-              impact: this.calculateImpact('serious'),
-              remediation: 'Provide captions for video with audio, transcripts for audio-only content.'
-            })
+    const lines = documentContent.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (mediaRegex.test(line)) {
+        const hasAlternatives = /caption|transcript|description|alternative/i.test(line)
+        if (!hasAlternatives) {
+          issues.push({
+            id: `1194_22b_${Date.now()}_${i}`,
+            type: 'serious',
+            category: 'media',
+            description: 'Synchronized media missing alternatives (1194.22(b))',
+            section: 'Section 508 - Media Alternatives',
+            pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
+            lineNumber: i + 1,
+            elementLocation: line.substring(0, 50),
+            context: 'Synchronized media must have captions or alternatives',
+            wcagCriterion: 'WCAG 2.1 AA - 1.2.1 Audio-only and Video-only',
+            section508Requirement: '36 CFR § 1194.22(b) - Synchronized Media',
+            impact: this.calculateImpact('serious'),
+            remediation: 'Provide captions for video with audio, transcripts for audio-only content.'
+          })
           }
         }
       }
@@ -2258,9 +2258,9 @@ export class ComprehensiveDocumentScanner {
     } else {
       // Fallback to text pattern matching
       const lines = documentContent.split('\n')
-      const headings = lines.filter(line => 
-        /^[A-Z][A-Z\s]+$/.test(line.trim()) && line.trim().length < 100 && line.trim().length > 3
-      )
+    const headings = lines.filter(line => 
+      /^[A-Z][A-Z\s]+$/.test(line.trim()) && line.trim().length < 100 && line.trim().length > 3
+    )
     
     if (headings.length > 0) {
       // Check if headings follow logical hierarchy
@@ -2286,12 +2286,8 @@ export class ComprehensiveDocumentScanner {
     }
     } // Close the else block
     
-    // Check for list structure
-    const listIssues = this.checkListStructure(documentContent, (index) => ({
-      page: Math.floor(index / (lines.length / pagesAnalyzed)) + 1,
-      line: index + 1
-    }))
-    issues.push(...listIssues)
+    // Note: List structure checking is already done in the main analyzeComprehensive method
+    // to avoid duplicate issues. This method focuses on information relationships.
     
     return issues
   }
@@ -2345,25 +2341,25 @@ export class ComprehensiveDocumentScanner {
       }
     } else {
       // Fallback to basic text analysis
-      const lines = documentContent.split('\n')
-      const meaningfulSequence = this.checkMeaningfulSequence(lines)
-      
-      if (!meaningfulSequence.isValid) {
-        issues.push({
-          id: `1194_22d_${Date.now()}_sequence`,
-          type: 'moderate',
-          category: 'structure',
-          description: 'Document lacks meaningful sequence (1194.22(d))',
-          section: 'Section 508 - Meaningful Sequence',
-          pageNumber: meaningfulSequence.page || 1,
-          lineNumber: meaningfulSequence.line || 1,
-          elementLocation: 'Document content flow',
-          context: 'Content must be presented in a meaningful sequence',
-          wcagCriterion: 'WCAG 2.1 AA - 1.3.2 Meaningful Sequence',
-          section508Requirement: '36 CFR § 1194.22(d) - Meaningful Sequence',
-          impact: this.calculateImpact('moderate'),
-          remediation: 'Ensure content flows in a logical, meaningful sequence.'
-        })
+    const lines = documentContent.split('\n')
+    const meaningfulSequence = this.checkMeaningfulSequence(lines)
+    
+    if (!meaningfulSequence.isValid) {
+      issues.push({
+        id: `1194_22d_${Date.now()}_sequence`,
+        type: 'moderate',
+        category: 'structure',
+        description: 'Document lacks meaningful sequence (1194.22(d))',
+        section: 'Section 508 - Meaningful Sequence',
+        pageNumber: meaningfulSequence.page || 1,
+        lineNumber: meaningfulSequence.line || 1,
+        elementLocation: 'Document content flow',
+        context: 'Content must be presented in a meaningful sequence',
+        wcagCriterion: 'WCAG 2.1 AA - 1.3.2 Meaningful Sequence',
+        section508Requirement: '36 CFR § 1194.22(d) - Meaningful Sequence',
+        impact: this.calculateImpact('moderate'),
+        remediation: 'Ensure content flows in a logical, meaningful sequence.'
+      })
       }
     }
     
@@ -2394,21 +2390,21 @@ export class ComprehensiveDocumentScanner {
         const hasAdditionalIndicators = /(symbol|icon|text|label|marker|pattern|shape|size|bold|italic|underline)/i.test(line)
         
         if (!hasAdditionalIndicators) {
-          issues.push({
-            id: `1194_22e_${Date.now()}_${i}`,
-            type: 'serious',
-            category: 'color',
-            description: 'Information conveyed by color alone (1194.22(e))',
-            section: 'Section 508 - Color Usage',
-            pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
-            lineNumber: i + 1,
-            elementLocation: line.substring(0, 50),
+        issues.push({
+          id: `1194_22e_${Date.now()}_${i}`,
+          type: 'serious',
+          category: 'color',
+          description: 'Information conveyed by color alone (1194.22(e))',
+          section: 'Section 508 - Color Usage',
+          pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
+          lineNumber: i + 1,
+          elementLocation: line.substring(0, 50),
             context: 'Information appears to rely solely on color without additional indicators',
-            wcagCriterion: 'WCAG 2.1 AA - 1.4.1 Use of Color',
-            section508Requirement: '36 CFR § 1194.22(e) - Color Alone',
-            impact: this.calculateImpact('serious'),
+          wcagCriterion: 'WCAG 2.1 AA - 1.4.1 Use of Color',
+          section508Requirement: '36 CFR § 1194.22(e) - Color Alone',
+          impact: this.calculateImpact('serious'),
             remediation: 'Use additional indicators (text labels, symbols, patterns, icons) beyond color to convey information.'
-          })
+        })
         }
       }
     }
@@ -2523,33 +2519,33 @@ export class ComprehensiveDocumentScanner {
       } // Close the else block for colorPairs
     } else {
       // Fallback to keyword matching if no parsed structure
-      const contrastIssues = [
-        'light gray text',
-        'pale text',
-        'low contrast',
-        'hard to read',
-        'faint text'
-      ]
-      
-      const lines = documentContent.split('\n')
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        if (contrastIssues.some(issue => line.toLowerCase().includes(issue))) {
-          issues.push({
-            id: `1194_22f_${Date.now()}_${i}`,
-            type: 'moderate',
-            category: 'color',
-            description: 'Potential contrast issues detected (1194.22(f))',
-            section: 'Section 508 - Contrast',
-            pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
-            lineNumber: i + 1,
-            elementLocation: line.substring(0, 50),
+    const contrastIssues = [
+      'light gray text',
+      'pale text',
+      'low contrast',
+      'hard to read',
+      'faint text'
+    ]
+    
+    const lines = documentContent.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (contrastIssues.some(issue => line.toLowerCase().includes(issue))) {
+        issues.push({
+          id: `1194_22f_${Date.now()}_${i}`,
+          type: 'moderate',
+          category: 'color',
+          description: 'Potential contrast issues detected (1194.22(f))',
+          section: 'Section 508 - Contrast',
+          pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
+          lineNumber: i + 1,
+          elementLocation: line.substring(0, 50),
             context: 'Text must have sufficient contrast ratio (4.5:1 for normal text, 3:1 for large text)',
-            wcagCriterion: 'WCAG 2.1 AA - 1.4.3 Contrast (Minimum)',
-            section508Requirement: '36 CFR § 1194.22(f) - Contrast',
-            impact: this.calculateImpact('moderate'),
+          wcagCriterion: 'WCAG 2.1 AA - 1.4.3 Contrast (Minimum)',
+          section508Requirement: '36 CFR § 1194.22(f) - Contrast',
+          impact: this.calculateImpact('moderate'),
             remediation: 'Ensure text has sufficient contrast ratio. Use a contrast checker tool to verify 4.5:1 for normal text or 3:1 for large text.'
-          })
+        })
         }
       }
     }
@@ -2630,33 +2626,33 @@ export class ComprehensiveDocumentScanner {
       })
     } else {
       // Fallback to keyword matching
-      const keyboardIssues = [
-        'mouse only',
-        'click only',
-        'touch only',
-        'no keyboard',
-        'keyboard not supported'
-      ]
-      
-      const lines = documentContent.split('\n')
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        if (keyboardIssues.some(issue => line.toLowerCase().includes(issue))) {
-          issues.push({
-            id: `1194_22h_${Date.now()}_${i}`,
-            type: 'serious',
-            category: 'navigation',
-            description: 'Keyboard accessibility issues detected (1194.22(h))',
-            section: 'Section 508 - Keyboard Accessibility',
-            pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
-            lineNumber: i + 1,
-            elementLocation: line.substring(0, 50),
-            context: 'All functionality must be keyboard accessible',
-            wcagCriterion: 'WCAG 2.1 AA - 2.1.1 Keyboard',
-            section508Requirement: '36 CFR § 1194.22(h) - Keyboard',
-            impact: this.calculateImpact('serious'),
-            remediation: 'Ensure all interactive elements are keyboard accessible.'
-          })
+    const keyboardIssues = [
+      'mouse only',
+      'click only',
+      'touch only',
+      'no keyboard',
+      'keyboard not supported'
+    ]
+    
+    const lines = documentContent.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (keyboardIssues.some(issue => line.toLowerCase().includes(issue))) {
+        issues.push({
+          id: `1194_22h_${Date.now()}_${i}`,
+          type: 'serious',
+          category: 'navigation',
+          description: 'Keyboard accessibility issues detected (1194.22(h))',
+          section: 'Section 508 - Keyboard Accessibility',
+          pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
+          lineNumber: i + 1,
+          elementLocation: line.substring(0, 50),
+          context: 'All functionality must be keyboard accessible',
+          wcagCriterion: 'WCAG 2.1 AA - 2.1.1 Keyboard',
+          section508Requirement: '36 CFR § 1194.22(h) - Keyboard',
+          impact: this.calculateImpact('serious'),
+          remediation: 'Ensure all interactive elements are keyboard accessible.'
+        })
         }
       }
     }
@@ -2706,33 +2702,33 @@ export class ComprehensiveDocumentScanner {
       }
     } else {
       // Fallback to keyword matching
-      const trapPatterns = [
-        'keyboard trap',
-        'focus trap',
-        'stuck in form',
-        'cannot escape',
-        'no way out'
-      ]
-      
-      const lines = documentContent.split('\n')
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        if (trapPatterns.some(pattern => line.toLowerCase().includes(pattern))) {
-          issues.push({
-            id: `1194_22i_${Date.now()}_${i}`,
-            type: 'serious',
-            category: 'navigation',
-            description: 'Potential keyboard trap detected (1194.22(i))',
-            section: 'Section 508 - No Keyboard Trap',
-            pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
-            lineNumber: i + 1,
-            elementLocation: line.substring(0, 50),
-            context: 'Users must be able to navigate away from all content',
-            wcagCriterion: 'WCAG 2.1 AA - 2.1.2 No Keyboard Trap',
-            section508Requirement: '36 CFR § 1194.22(i) - No Keyboard Trap',
-            impact: this.calculateImpact('serious'),
+    const trapPatterns = [
+      'keyboard trap',
+      'focus trap',
+      'stuck in form',
+      'cannot escape',
+      'no way out'
+    ]
+    
+    const lines = documentContent.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (trapPatterns.some(pattern => line.toLowerCase().includes(pattern))) {
+        issues.push({
+          id: `1194_22i_${Date.now()}_${i}`,
+          type: 'serious',
+          category: 'navigation',
+          description: 'Potential keyboard trap detected (1194.22(i))',
+          section: 'Section 508 - No Keyboard Trap',
+          pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
+          lineNumber: i + 1,
+          elementLocation: line.substring(0, 50),
+          context: 'Users must be able to navigate away from all content',
+          wcagCriterion: 'WCAG 2.1 AA - 2.1.2 No Keyboard Trap',
+          section508Requirement: '36 CFR § 1194.22(i) - No Keyboard Trap',
+          impact: this.calculateImpact('serious'),
             remediation: 'Ensure users can navigate away from all content using standard keyboard commands (Tab, Esc, Arrow keys).'
-          })
+        })
         }
       }
     }
@@ -2758,21 +2754,21 @@ export class ComprehensiveDocumentScanner {
         const hasAdjustment = /(extend|increase|adjust|more.*time|additional.*time|disable.*timeout)/i.test(line)
         
         if (!hasAdjustment) {
-          issues.push({
-            id: `1194_22j_${Date.now()}_${i}`,
-            type: 'moderate',
-            category: 'navigation',
+        issues.push({
+          id: `1194_22j_${Date.now()}_${i}`,
+          type: 'moderate',
+          category: 'navigation',
             description: 'Time limits detected without adjustment option (1194.22(j))',
-            section: 'Section 508 - Timing',
-            pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
-            lineNumber: i + 1,
-            elementLocation: line.substring(0, 50),
+          section: 'Section 508 - Timing',
+          pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
+          lineNumber: i + 1,
+          elementLocation: line.substring(0, 50),
             context: 'Time limits must be adjustable or users must have sufficient time (at least 20 seconds with warning)',
-            wcagCriterion: 'WCAG 2.1 AA - 2.2.1 Timing Adjustable',
-            section508Requirement: '36 CFR § 1194.22(j) - Timing',
-            impact: this.calculateImpact('moderate'),
+          wcagCriterion: 'WCAG 2.1 AA - 2.2.1 Timing Adjustable',
+          section508Requirement: '36 CFR § 1194.22(j) - Timing',
+          impact: this.calculateImpact('moderate'),
             remediation: 'Provide option to extend time limits or ensure default time is sufficient (20+ seconds for actions). Warn users before timeout.'
-          })
+        })
         }
       }
     }
@@ -2819,26 +2815,26 @@ export class ComprehensiveDocumentScanner {
     } else {
       console.log(`🎬 No parsedStructure.images available, using fallback keyword matching`)
       // Fallback to keyword matching if no parsed structure
-      const flashingRegex = /(flash|blink|flicker|strobe|animation.*fast)/i
-      const lines = documentContent.split('\n')
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        if (flashingRegex.test(line)) {
-          issues.push({
-            id: `1194_22k_${Date.now()}_${i}`,
-            type: 'critical',
-            category: 'layout',
-            description: 'Flashing content detected (1194.22(k))',
-            section: 'Section 508 - Flashing',
-            pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
-            lineNumber: i + 1,
-            elementLocation: line.substring(0, 50),
-            context: 'Content must not flash more than 3 times per second',
-            wcagCriterion: 'WCAG 2.1 AA - 2.3.1 Three Flashes or Below Threshold',
-            section508Requirement: '36 CFR § 1194.22(k) - Flashing',
-            impact: this.calculateImpact('critical'),
-            remediation: 'Remove or modify flashing content to prevent seizures.'
-          })
+    const flashingRegex = /(flash|blink|flicker|strobe|animation.*fast)/i
+    const lines = documentContent.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (flashingRegex.test(line)) {
+        issues.push({
+          id: `1194_22k_${Date.now()}_${i}`,
+          type: 'critical',
+          category: 'layout',
+          description: 'Flashing content detected (1194.22(k))',
+          section: 'Section 508 - Flashing',
+          pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
+          lineNumber: i + 1,
+          elementLocation: line.substring(0, 50),
+          context: 'Content must not flash more than 3 times per second',
+          wcagCriterion: 'WCAG 2.1 AA - 2.3.1 Three Flashes or Below Threshold',
+          section508Requirement: '36 CFR § 1194.22(k) - Flashing',
+          impact: this.calculateImpact('critical'),
+          remediation: 'Remove or modify flashing content to prevent seizures.'
+        })
         }
       }
     }
@@ -2883,21 +2879,21 @@ export class ComprehensiveDocumentScanner {
       // Fallback for basic text check
       const basicTextOnlyRegex = /(text.*only|accessible.*version|alternative.*format|plain.*text)/i
       if (!basicTextOnlyRegex.test(documentContent)) {
-        issues.push({
-          id: `1194_22l_${Date.now()}_text_only`,
-          type: 'moderate',
-          category: 'structure',
-          description: 'Text-only alternative not provided (1194.22(l))',
-          section: 'Section 508 - Text-only Page',
-          pageNumber: 1,
-          lineNumber: 1,
-          elementLocation: 'Document',
-          context: 'Complex documents should provide text-only alternatives',
-          wcagCriterion: 'WCAG 2.1 AA - 1.1.1 Non-text Content',
-          section508Requirement: '36 CFR § 1194.22(l) - Text-only Page',
-          impact: this.calculateImpact('moderate'),
-          remediation: 'Provide a text-only alternative for complex documents.'
-        })
+      issues.push({
+        id: `1194_22l_${Date.now()}_text_only`,
+        type: 'moderate',
+        category: 'structure',
+        description: 'Text-only alternative not provided (1194.22(l))',
+        section: 'Section 508 - Text-only Page',
+        pageNumber: 1,
+        lineNumber: 1,
+        elementLocation: 'Document',
+        context: 'Complex documents should provide text-only alternatives',
+        wcagCriterion: 'WCAG 2.1 AA - 1.1.1 Non-text Content',
+        section508Requirement: '36 CFR § 1194.22(l) - Text-only Page',
+        impact: this.calculateImpact('moderate'),
+        remediation: 'Provide a text-only alternative for complex documents.'
+      })
       }
     }
     
@@ -2922,21 +2918,21 @@ export class ComprehensiveDocumentScanner {
         const hasKeyboardAlternative = /(keyboard|tab|enter|space|accessible|noscript)/i.test(line)
         
         if (!hasKeyboardAlternative) {
-          issues.push({
-            id: `1194_22m_${Date.now()}_${i}`,
-            type: 'moderate',
-            category: 'navigation',
+        issues.push({
+          id: `1194_22m_${Date.now()}_${i}`,
+          type: 'moderate',
+          category: 'navigation',
             description: 'Script detected without keyboard accessibility (1194.22(m))',
-            section: 'Section 508 - Scripts',
-            pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
-            lineNumber: i + 1,
-            elementLocation: line.substring(0, 50),
+          section: 'Section 508 - Scripts',
+          pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
+          lineNumber: i + 1,
+          elementLocation: line.substring(0, 50),
             context: 'Scripts must be keyboard accessible or have non-script alternatives',
             wcagCriterion: 'WCAG 2.1 AA - 2.1.1 Keyboard, 4.1.2 Name, Role, Value',
-            section508Requirement: '36 CFR § 1194.22(m) - Scripts',
-            impact: this.calculateImpact('moderate'),
+          section508Requirement: '36 CFR § 1194.22(m) - Scripts',
+          impact: this.calculateImpact('moderate'),
             remediation: 'Ensure scripts are keyboard accessible. Provide non-script alternatives for critical functionality. Test with JavaScript disabled.'
-          })
+        })
         }
       }
     }
@@ -2961,21 +2957,21 @@ export class ComprehensiveDocumentScanner {
         const hasAlternative = /(alternative|accessible.*version|html5|fallback|without.*plugin)/i.test(line)
         
         if (!hasAlternative) {
-          issues.push({
-            id: `1194_22n_${Date.now()}_${i}`,
-            type: 'serious',
-            category: 'media',
+        issues.push({
+          id: `1194_22n_${Date.now()}_${i}`,
+          type: 'serious',
+          category: 'media',
             description: 'Plug-in required without accessible alternative (1194.22(n))',
-            section: 'Section 508 - Plug-ins',
-            pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
-            lineNumber: i + 1,
-            elementLocation: line.substring(0, 50),
+          section: 'Section 508 - Plug-ins',
+          pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
+          lineNumber: i + 1,
+          elementLocation: line.substring(0, 50),
             context: 'Plug-ins must be accessible or have HTML5/accessible alternatives',
-            wcagCriterion: 'WCAG 2.1 AA - 1.1.1 Non-text Content',
-            section508Requirement: '36 CFR § 1194.22(n) - Plug-ins',
-            impact: this.calculateImpact('serious'),
+          wcagCriterion: 'WCAG 2.1 AA - 1.1.1 Non-text Content',
+          section508Requirement: '36 CFR § 1194.22(n) - Plug-ins',
+          impact: this.calculateImpact('serious'),
             remediation: 'Provide accessible alternatives for plug-in content. Replace Flash/Java applets with HTML5 equivalents or provide alternative accessible content.'
-          })
+        })
         }
       }
     }
@@ -3033,29 +3029,29 @@ export class ComprehensiveDocumentScanner {
     } else {
       // Fallback to keyword matching
       const formRegex = /(form|input|submit|required|mandatory|field)/i
-      const lines = documentContent.split('\n')
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        if (formRegex.test(line)) {
-          const hasLabels = /label/i.test(line) || /for=/i.test(line)
-          const hasErrorHandling = /error/i.test(line) || /invalid/i.test(line)
-          
-          if (!hasLabels || !hasErrorHandling) {
-            issues.push({
-              id: `1194_22o_${Date.now()}_${i}`,
-              type: 'serious',
-              category: 'form',
-              description: 'Form accessibility issues detected (1194.22(o))',
-              section: 'Section 508 - Electronic Forms',
-              pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
-              lineNumber: i + 1,
-              elementLocation: line.substring(0, 50),
-              context: 'Forms must have proper labels and error handling',
-              wcagCriterion: 'WCAG 2.1 AA - 3.3.2 Labels or Instructions',
-              section508Requirement: '36 CFR § 1194.22(o) - Electronic Forms',
-              impact: this.calculateImpact('serious'),
-              remediation: 'Add proper labels, error handling, and keyboard navigation to forms.'
-            })
+    const lines = documentContent.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (formRegex.test(line)) {
+        const hasLabels = /label/i.test(line) || /for=/i.test(line)
+        const hasErrorHandling = /error/i.test(line) || /invalid/i.test(line)
+        
+        if (!hasLabels || !hasErrorHandling) {
+          issues.push({
+            id: `1194_22o_${Date.now()}_${i}`,
+            type: 'serious',
+            category: 'form',
+            description: 'Form accessibility issues detected (1194.22(o))',
+            section: 'Section 508 - Electronic Forms',
+            pageNumber: Math.floor(i / (lines.length / pagesAnalyzed)) + 1,
+            lineNumber: i + 1,
+            elementLocation: line.substring(0, 50),
+            context: 'Forms must have proper labels and error handling',
+            wcagCriterion: 'WCAG 2.1 AA - 3.3.2 Labels or Instructions',
+            section508Requirement: '36 CFR § 1194.22(o) - Electronic Forms',
+            impact: this.calculateImpact('serious'),
+            remediation: 'Add proper labels, error handling, and keyboard navigation to forms.'
+          })
           }
         }
       }
@@ -4572,8 +4568,9 @@ export class ComprehensiveDocumentScanner {
     const issueGroups = new Map<string, ComprehensiveDocumentIssue[]>()
     
     for (const issue of issues) {
-      // Create a key based on issue type, description, and section
-      const key = `${issue.type}_${issue.description}_${issue.section}`
+      // Create a key based on issue type, description, section, and WCAG criterion
+      // This ensures we catch duplicates even if they come from different code paths
+      const key = `${issue.type}_${issue.description}_${issue.section}_${issue.wcagCriterion || ''}`
       
       if (!issueGroups.has(key)) {
         issueGroups.set(key, [])

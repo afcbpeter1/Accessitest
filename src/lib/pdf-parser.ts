@@ -557,10 +557,47 @@ export class PDFParser {
    */
   private extractLanguage(doc: PDFDocument): string | null {
     try {
-      // Language is often in PDF metadata or document info dictionary
-      // pdf-lib doesn't directly expose this, but we can check keywords/metadata
+      // Language is stored in the document catalog's Lang key
+      // pdf-lib doesn't directly expose this, but we can access it via the PDFDocument's internal structure
+      // Try to get language from document catalog
+      const context = (doc as any).context
+      if (!context || !context.trailerInfo || !context.trailerInfo.Root) {
+        return null
+      }
+      
+      const rootRef = context.trailerInfo.Root
+      const catalog = context.lookup(rootRef)
+      
+      if (catalog) {
+        // Try to get Lang key - it might be a PDFName or PDFString
+        const langRef = catalog.get('Lang')
+        if (langRef) {
+          // If it's a reference, look it up
+          let langValue: string = ''
+          if (typeof langRef === 'object' && 'encodedName' in langRef) {
+            // PDFName - get the encoded name
+            langValue = langRef.encodedName || ''
+          } else if (typeof langRef === 'string') {
+            langValue = langRef
+          } else {
+            // Try to get string representation
+            langValue = langRef.toString() || ''
+          }
+          
+          // Remove leading slash if present (PDF names start with /)
+          const lang = langValue.replace(/^\//, '').trim()
+          if (lang && /^[a-z]{2}(-[A-Z]{2})?$/i.test(lang)) {
+            // Extract just the 2-letter code (remove region code)
+            const langCode = lang.toLowerCase().split('-')[0].split('_')[0]
+            if (langCode && langCode.length === 2) {
+              return langCode
+            }
+          }
+        }
+      }
       return null
-    } catch {
+    } catch (error) {
+      // Silently fail - language extraction is optional
       return null
     }
   }

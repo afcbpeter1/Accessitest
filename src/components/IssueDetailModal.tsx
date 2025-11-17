@@ -275,26 +275,43 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                   )}
 
                   {/* Suggested Fix */}
-                  {issue.scan_data?.suggestions && issue.scan_data.suggestions.length > 0 && (
-                    <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-3">🔧 Suggested Fix</h4>
-                      <div className="space-y-4">
-                        {issue.scan_data.suggestions.map((suggestion: any, index: number) => (
-                          <div key={index} className="bg-white border border-gray-200 rounded p-3">
-                            <div className="flex items-center gap-2 mb-2">
-                            </div>
-                            <div className="text-gray-700 mb-3">
-                              {suggestion.description ? (
-                                <div className="whitespace-pre-line">
-                                  {suggestion.description
-                                    .replace(/2\. Specific code fix:\s*/g, '')
-                                    .replace(/3\./g, '2.')
-                                  }
-                                </div>
-                              ) : (
-                                'No description available'
-                              )}
-                            </div>
+                  {(() => {
+                    // Get suggestions from scan_data, or fallback to top-level suggestions, or notes field
+                    const suggestions = issue.scan_data?.suggestions || issue.suggestions || []
+                    const hasNotes = issue.failure_summary || issue.notes
+                    const isDocumentScan = issue.domain === 'document-scan' || (issue.url && typeof issue.url === 'string' && issue.url.startsWith('Document:'))
+                    
+                    // For document scans, if no suggestions but we have notes, create a suggestion from notes
+                    if (suggestions.length === 0 && isDocumentScan && hasNotes) {
+                      suggestions.push({
+                        description: issue.failure_summary || issue.notes,
+                        type: 'ai_suggestion'
+                      })
+                    }
+                    
+                    return suggestions.length > 0 ? (
+                      <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                        <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                          <span>🔧</span>
+                          <span>AI-Generated Suggested Fix</span>
+                        </h4>
+                        <div className="space-y-4">
+                          {suggestions.map((suggestion: any, index: number) => (
+                            <div key={index} className="bg-white border border-gray-200 rounded p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                              </div>
+                              <div className="text-gray-700 mb-3">
+                                {suggestion.description ? (
+                                  <div className="whitespace-pre-line">
+                                    {suggestion.description
+                                      .replace(/2\. Specific code fix:\s*/g, '')
+                                      .replace(/3\./g, '2.')
+                                    }
+                                  </div>
+                                ) : (
+                                  'No description available'
+                                )}
+                              </div>
                             
                             {/* Affected Element Code */}
                             {suggestion.affectedElement && (
@@ -319,8 +336,8 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                         ))}
                       </div>
                     </div>
-                  )}
-
+                    ) : null
+                  })()}
 
                   {/* Visual Evidence */}
                   {issue.scan_data?.screenshots && (issue.scan_data.screenshots.viewport || issue.scan_data.screenshots.fullPage || (issue.scan_data.screenshots.elements && Array.isArray(issue.scan_data.screenshots.elements))) && (

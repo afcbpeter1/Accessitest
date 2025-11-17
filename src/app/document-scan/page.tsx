@@ -1,109 +1,28 @@
 'use client'
 
-import React, { useState } from 'react'
-import { FileText, Shield, CheckCircle, AlertTriangle, Info, Sparkles } from 'lucide-react'
+import React from 'react'
+import { Info } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import DocumentUpload from '@/components/DocumentUpload'
 import AutoFixCapabilities from '@/components/AutoFixCapabilities'
 
-interface DocumentScanStats {
-  totalDocuments: number
-  compliantDocuments: number
-  nonCompliantDocuments: number
-  totalIssues: number
-  criticalIssues: number
-  seriousIssues: number
-}
-
 export default function DocumentScan() {
-  const [scanStats, setScanStats] = useState<DocumentScanStats>({
-    totalDocuments: 0,
-    compliantDocuments: 0,
-    nonCompliantDocuments: 0,
-    totalIssues: 0,
-    criticalIssues: 0,
-    seriousIssues: 0
-  })
-
-  const handleScanComplete = (document: any) => {
-    if (document.scanResults) {
-      setScanStats(prev => ({
-        totalDocuments: prev.totalDocuments + 1,
-        compliantDocuments: prev.compliantDocuments + (document.scanResults.is508Compliant ? 1 : 0),
-        nonCompliantDocuments: prev.nonCompliantDocuments + (document.scanResults.is508Compliant ? 0 : 1),
-        totalIssues: prev.totalIssues + document.scanResults.summary.total,
-        criticalIssues: prev.criticalIssues + document.scanResults.summary.critical,
-        seriousIssues: prev.seriousIssues + document.scanResults.summary.serious
-      }))
-    }
-  }
 
   return (
     <Sidebar>
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">AI Document Repairer</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">AI Document Accessibility Scanner</h1>
           <p className="text-gray-600 mt-1">
-            Upload documents to automatically fix accessibility issues using AI. Get repaired documents ready to download.
+            Upload documents to scan for accessibility issues. AI will analyze each issue and provide detailed step-by-step suggestions for fixing them.
           </p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <FileText className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Total Documents</p>
-                <p className="text-lg font-semibold text-gray-900">{scanStats.totalDocuments}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Compliant</p>
-                <p className="text-lg font-semibold text-gray-900">{scanStats.compliantDocuments}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <AlertTriangle className="h-6 w-6 text-red-600" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Non-Compliant</p>
-                <p className="text-lg font-semibold text-gray-900">{scanStats.nonCompliantDocuments}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className="card">
-            <div className="flex items-center">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <Shield className="h-6 w-6 text-orange-600" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Total Issues</p>
-                <p className="text-lg font-semibold text-gray-900">{scanStats.totalIssues}</p>
-              </div>
-            </div>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
           {/* Main Content */}
           <div className="xl:col-span-3">
-            <DocumentUpload onScanComplete={handleScanComplete} />
+            <DocumentUpload />
           </div>
 
           {/* Sidebar */}

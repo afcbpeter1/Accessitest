@@ -51,6 +51,20 @@ export default function ScanHistory() {
   )
 }
 
+// Function to get accessible color classes based on accessibility score
+// Uses WCAG-compliant color combinations (text-{color}-800 on bg-{color}-100)
+function getScoreColor(score: number): string {
+  if (score >= 90) {
+    return 'bg-green-100 text-green-800' // Excellent (90-100)
+  } else if (score >= 70) {
+    return 'bg-yellow-100 text-yellow-800' // Good (70-89)
+  } else if (score >= 50) {
+    return 'bg-orange-100 text-orange-800' // Needs improvement (50-69)
+  } else {
+    return 'bg-red-100 text-red-800' // Poor/Failing (0-49)
+  }
+}
+
 function ScanHistoryContent() {
   const [scans, setScans] = useState<ScanHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -493,7 +507,7 @@ function ScanHistoryContent() {
                           
                           {scan.overallScore && (
                             <div className="mt-2">
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getScoreColor(scan.overallScore)}`}>
                                 Score: {scan.overallScore}/100
                               </span>
                             </div>

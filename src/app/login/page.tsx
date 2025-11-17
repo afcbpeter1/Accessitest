@@ -48,6 +48,10 @@ export default function LoginPage() {
         localStorage.setItem('accessToken', data.token)
         localStorage.setItem('user', JSON.stringify(data.user))
         
+        // Reset inactivity timer on login
+        const { tokenRefreshService } = await import('@/lib/token-refresh-service')
+        tokenRefreshService.resetInactivityTimer()
+        
         // Redirect to dashboard
         router.push('/dashboard')
       } else {

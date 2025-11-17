@@ -90,6 +90,17 @@ export async function GET(request: NextRequest) {
         }
       }
       
+      // Check if this is a document scan to extract AI recommendations
+      const isDocumentScan = issue.file_name || (issue.url && typeof issue.url === 'string' && issue.url.startsWith('Document:'))
+      const documentSuggestions = isDocumentScan && issue.notes ? [{
+        description: issue.notes,
+        priority: issue.priority || 'medium',
+        impact: issue.impact || 'moderate',
+        type: 'ai_suggestion',
+        aiFix: issue.notes,
+        whatWillBeFixed: issue.notes
+      }] : []
+      
       return {
         id: issue.id,
         issue_id: issue.id,
@@ -111,13 +122,38 @@ export async function GET(request: NextRequest) {
         created_at: issue.created_at,
         updated_at: issue.updated_at,
         comment_count: 0,
+        total_occurrences: issue.total_occurrences || 1,
         // Add fields that CollapsibleIssue expects
         affectedUrls: [],
         offendingElements: [],
-        suggestions: [],
+        suggestions: documentSuggestions,
         // Add detailed scan data for the detailed view
         scan_data: (() => {
-          // Try to find remediation item by exact rule name match first
+          // Check if this is a document scan (has file_name in scan_history)
+          const isDocumentScan = issue.file_name || (issue.url && typeof issue.url === 'string' && issue.url.startsWith('Document:'))
+          
+          // For document scans, AI recommendations are stored in the notes field
+          if (isDocumentScan && issue.notes) {
+            // Convert notes (which contains the AI recommendation) into suggestions format
+            const documentSuggestion = {
+              description: issue.notes,
+              priority: issue.priority || 'medium',
+              impact: issue.impact || 'moderate',
+              type: 'ai_suggestion'
+            }
+            
+            return {
+              suggestions: [documentSuggestion],
+              offending_elements: [],
+              total_occurrences: issue.total_occurrences,
+              affected_pages: issue.affected_pages,
+              help_url: issue.help_url,
+              help_text: issue.help_text,
+              screenshots: null
+            }
+          }
+          
+          // For web scans, try to find remediation item by exact rule name match first
           let remediationItem = issue.scan_results?.remediationReport?.find((r: any) => r.ruleName === issue.rule_name)
           
           // If not found, try to find by partial match (rule name contains the issue rule name)
@@ -152,6 +188,8 @@ export async function GET(request: NextRequest) {
           
           // Debug: Log what we found
           console.log('🔍 Debug suggestions for', issue.rule_name, {
+            isDocumentScan,
+            hasNotes: !!issue.notes,
             foundRemediationItem: !!remediationItem,
             suggestionsCount: suggestions.length,
             matchedRuleName: remediationItem?.ruleName,

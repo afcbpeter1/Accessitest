@@ -164,6 +164,10 @@ export default function SignupPage() {
         localStorage.setItem('accessToken', data.token)
         localStorage.setItem('user', JSON.stringify(data.user))
         
+        // Reset inactivity timer on login
+        const { tokenRefreshService } = await import('@/lib/token-refresh-service')
+        tokenRefreshService.resetInactivityTimer()
+        
         // Redirect to dashboard after a short delay
         setTimeout(() => {
           router.push('/dashboard')
