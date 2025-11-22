@@ -12,7 +12,9 @@ import {
   Trash2,
   Eye,
   ExternalLink,
-  RotateCcw
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
@@ -71,17 +73,22 @@ function ScanHistoryContent() {
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [rerunningId, setRerunningId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalScans, setTotalScans] = useState(0)
+  const scansPerPage = 10
   
   // Modal management
   const { modalState, showAlert, showConfirm, closeModal, handleConfirm } = useModal()
 
   useEffect(() => {
     loadScanHistory()
-  }, [])
+  }, [currentPage])
 
   const loadScanHistory = async () => {
+    setLoading(true)
     try {
-      const response = await authenticatedFetch('/api/scan-history')
+      const offset = (currentPage - 1) * scansPerPage
+      const response = await authenticatedFetch(`/api/scan-history?limit=${scansPerPage}&offset=${offset}`)
       
       if (!response.ok) {
         if (response.status === 503) {
@@ -94,6 +101,7 @@ function ScanHistoryContent() {
       
       if (data.success) {
         setScans(data.scans)
+        setTotalScans(data.total || 0)
       } else {
         // Show user-friendly error message
         let errorMessage = data.error || 'Failed to load scan history'
@@ -209,8 +217,9 @@ function ScanHistoryContent() {
       const data = await response.json()
       
           if (data.success) {
-            setScans(scans.filter(scan => scan.id !== scanId))
             showAlert('Scan Deleted', 'The scan has been successfully deleted.', 'success')
+            // Reload scan history to update the list
+            loadScanHistory()
           } else {
             showAlert('Delete Failed', data.error || 'Failed to delete scan', 'error')
           }
@@ -335,7 +344,7 @@ function ScanHistoryContent() {
             </p>
           </div>
           <div className="text-sm text-gray-500">
-            {scans.length} scan{scans.length !== 1 ? 's' : ''} total
+            {totalScans} scan{totalScans !== 1 ? 's' : ''} total
           </div>
         </div>
 
@@ -424,135 +433,81 @@ function ScanHistoryContent() {
           </div>
         ) : (
           <div className="bg-white rounded-lg border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-lg font-medium text-gray-900">Recent Scans</h2>
+              <span className="text-sm text-gray-500">
+                Showing {((currentPage - 1) * scansPerPage) + 1}-{Math.min(currentPage * scansPerPage, totalScans)} of {totalScans}
+              </span>
             </div>
             <div className="divide-y divide-gray-200">
               {scans.map((scan) => {
                 const IconComponent = getScanIcon(scan.scanType)
                 return (
-                  <div key={scan.id} className="p-6 hover:bg-gray-50">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-4">
-                        <div className="flex-shrink-0">
-                          <div className={`p-2 rounded-lg ${
-                            scan.scanType === 'web' ? 'bg-blue-100' : 'bg-green-100'
-                          }`}>
-                            <IconComponent className={`h-5 w-5 ${
-                              scan.scanType === 'web' ? 'text-blue-600' : 'text-green-600'
-                            }`} />
-                          </div>
+                  <Link
+                    key={scan.id}
+                    href={`/scan-history/${scan.id}`}
+                    className="block p-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div className={`p-2 rounded-lg ${
+                          scan.scanType === 'web' ? 'bg-blue-100' : 'bg-green-100'
+                        }`}>
+                          <IconComponent className={`h-5 w-5 ${
+                            scan.scanType === 'web' ? 'text-blue-600' : 'text-green-600'
+                          }`} />
                         </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <h3 className="text-lg font-medium text-gray-900 truncate">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium text-gray-500 uppercase">
+                              {scan.scanType === 'web' ? 'Web Scan' : 'Document Scan'}
+                            </span>
+                            <span className="text-gray-300">•</span>
+                            <span className="text-sm text-gray-900 font-medium">
                               {scan.scanTitle}
-                            </h3>
-                            {getComplianceStatus(scan)}
+                            </span>
                           </div>
-                          
-                          <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
-                            <div className="flex items-center">
-                              <Calendar className="h-4 w-4 mr-1" />
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className="text-xs text-gray-500">
                               {formatDate(scan.createdAt)}
-                            </div>
-                            <div className="flex items-center">
-                              <Clock className="h-4 w-4 mr-1" />
-                              {formatDuration(scan.scanDurationSeconds)}
-                            </div>
-                            {scan.scanType === 'web' && scan.pagesScanned && (
-                              <div className="flex items-center">
-                                <Globe className="h-4 w-4 mr-1" />
-                                {scan.pagesScanned} page{scan.pagesScanned !== 1 ? 's' : ''}
-                              </div>
-                            )}
-                            {scan.scanType === 'document' && scan.pagesAnalyzed && (
-                              <div className="flex items-center">
-                                <FileText className="h-4 w-4 mr-1" />
-                                {scan.pagesAnalyzed} page{scan.pagesAnalyzed !== 1 ? 's' : ''}
-                              </div>
-                            )}
+                            </span>
                           </div>
-                          
-                          <div className="flex items-center space-x-4">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm font-medium text-gray-700">Issues:</span>
-                              <span className="text-sm text-gray-600">
-                                {(scan.criticalIssues || 0) + (scan.seriousIssues || 0) + (scan.moderateIssues || 0) + (scan.minorIssues || 0)}
-                              </span>
-                            </div>
-                            
-                            {scan.criticalIssues > 0 && (
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor('critical')}`}>
-                                {scan.criticalIssues} Critical
-                              </span>
-                            )}
-                            {scan.seriousIssues > 0 && (
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor('serious')}`}>
-                                {scan.seriousIssues} Serious
-                              </span>
-                            )}
-                            {scan.moderateIssues > 0 && (
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor('moderate')}`}>
-                                {scan.moderateIssues} Moderate
-                              </span>
-                            )}
-                            {scan.minorIssues > 0 && (
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor('minor')}`}>
-                                {scan.minorIssues} Minor
-                              </span>
-                            )}
-                          </div>
-                          
-                          {scan.overallScore && (
-                            <div className="mt-2">
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getScoreColor(scan.overallScore)}`}>
-                                Score: {scan.overallScore}/100
-                              </span>
-                            </div>
-                          )}
                         </div>
                       </div>
-                      
                       <div className="flex items-center space-x-2">
-                        <Link
-                          href={`/scan-history/${scan.id}`}
-                          className="inline-flex items-center px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Link>
-                        <button
-                          onClick={() => rerunScan(scan.id)}
-                          disabled={rerunningId === scan.id}
-                          className="inline-flex items-center px-3 py-1 text-sm text-green-600 hover:text-green-800 disabled:opacity-50"
-                        >
-                          {rerunningId === scan.id ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-                          ) : (
-                            <RotateCcw className="h-4 w-4 mr-1" />
-                          )}
-                          Rerun
-                        </button>
-                        <button
-                          onClick={() => deleteScan(scan.id)}
-                          disabled={deletingId === scan.id}
-                          className="inline-flex items-center px-3 py-1 text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
-                        >
-                          {deletingId === scan.id ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                          ) : (
-                            <Trash2 className="h-4 w-4 mr-1" />
-                          )}
-                          Delete
-                        </button>
+                        <Eye className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm text-gray-600">View Details</span>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 )
               })}
             </div>
+            
+            {/* Pagination */}
+            {totalScans > scansPerPage && (
+              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span>Previous</span>
+                </button>
+                <span className="text-sm text-gray-700">
+                  Page {currentPage} of {Math.ceil(totalScans / scansPerPage)}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalScans / scansPerPage), prev + 1))}
+                  disabled={currentPage >= Math.ceil(totalScans / scansPerPage)}
+                  className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
         )}
 

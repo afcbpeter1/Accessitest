@@ -298,14 +298,20 @@ function deduplicateIssuesAcrossPages(results: any[]): any[] {
         existingIssue.occurrences = (existingIssue.occurrences || 1) + 1
         existingIssue.affectedPages = (existingIssue.affectedPages || 1) + 1
         
-        // Update the description to reflect multiple occurrences
-        if (existingIssue.occurrences > 1) {
-          existingIssue.description = `${existingIssue.description} (Found on ${existingIssue.occurrences} pages)`
+        // Clean up description - remove any existing "(Found on X pages)" text to avoid duplicates
+        if (existingIssue.description) {
+          existingIssue.description = existingIssue.description.replace(/\s*\(Found on \d+ pages?\)/g, '').trim()
         }
       } else {
         // New issue - add to map
+        // Clean up description - remove any existing "(Found on X pages)" text
+        const cleanDescription = issue.description 
+          ? issue.description.replace(/\s*\(Found on \d+ pages?\)/g, '').trim()
+          : issue.description
+        
         issueMap.set(key, {
           ...issue,
+          description: cleanDescription,
           occurrences: 1,
           affectedPages: 1
         })

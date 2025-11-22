@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
       success: true,
       userId: user.userId,
       credits: creditData.credits_remaining,
+      creditsRemaining: creditData.credits_remaining, // Include for unlimited users to show saved credits
       unlimitedCredits: creditData.unlimited_credits,
       planType: creditData.plan_type,
       scanHistory: scanHistory.rows,

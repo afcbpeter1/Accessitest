@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   ChevronDown, 
   ChevronRight, 
@@ -193,7 +193,19 @@ export default function CollapsibleIssue({
   console.log('🔍 CollapsibleIssue received scanType:', scanType, 'for issue:', issueId);
   const [isExpanded, setIsExpanded] = useState(false) // Start collapsed by default
   const [copied, setCopied] = useState(false)
+  const [screenshotFadeIn, setScreenshotFadeIn] = useState(false)
   // const { showToast, ToastContainer } = useToast()
+
+  // Trigger fade-in animation when screenshots are available
+  useEffect(() => {
+    if (screenshots && (screenshots.viewport || screenshots.elements?.length > 0)) {
+      // Small delay to ensure smooth animation
+      const timer = setTimeout(() => {
+        setScreenshotFadeIn(true)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [screenshots])
 
   const handleCopy = async () => {
     const issueText = `Issue: ${ruleName}
@@ -382,11 +394,16 @@ Affected URLs: ${affectedUrls.join(', ')}`
               {screenshots.viewport && (
                 <div className="mb-4">
                   <div className="text-xs text-gray-600 mb-2">Website Screenshot:</div>
-                  <div className="border border-gray-200 rounded overflow-hidden max-w-full">
+                  <div className="border border-gray-200 rounded overflow-hidden max-w-full relative">
                     <img 
                       src={screenshots.viewport}
                       alt={`Screenshot of ${affectedUrls[0]}`}
-                      className="w-full h-auto max-h-40 sm:max-h-48 md:max-h-56 object-cover cursor-pointer hover:opacity-90 transition-opacity rounded"
+                      className="w-full h-auto max-h-40 sm:max-h-48 md:max-h-56 object-cover cursor-pointer hover:opacity-90 transition-all duration-1000 ease-out rounded"
+                      style={{
+                        opacity: screenshotFadeIn ? 1 : 0,
+                        filter: screenshotFadeIn ? 'blur(0px)' : 'blur(10px)',
+                        transform: screenshotFadeIn ? 'scale(1)' : 'scale(0.98)',
+                      }}
                       onClick={() => window.open(screenshots.viewport, '_blank')}
                     />
                   </div>
@@ -400,14 +417,29 @@ Affected URLs: ${affectedUrls.join(', ')}`
                   <div className="text-xs text-gray-600 mb-2">Affected Elements:</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {screenshots.elements.map((element, index) => (
-                      <div key={index} className="border border-gray-200 rounded overflow-hidden">
+                      <div 
+                        key={index} 
+                        className={`border border-gray-200 rounded overflow-hidden transition-all duration-700 ease-out ${
+                          screenshotFadeIn 
+                            ? 'opacity-100 translate-y-0' 
+                            : 'opacity-0 translate-y-2'
+                        }`}
+                        style={{
+                          transitionDelay: screenshotFadeIn ? `${index * 100}ms` : '0ms',
+                        }}
+                      >
                         <div className="p-2 bg-gray-50 text-xs text-gray-600">
                           {element.selector}
                         </div>
                         <img 
                           src={element.screenshot}
                           alt={`Screenshot of ${element.selector}`}
-                          className="w-full h-auto max-h-24 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                          className="w-full h-auto max-h-24 object-contain cursor-pointer hover:opacity-90 transition-all duration-700 ease-out"
+                          style={{
+                            opacity: screenshotFadeIn ? 1 : 0,
+                            filter: screenshotFadeIn ? 'blur(0px)' : 'blur(8px)',
+                            transform: screenshotFadeIn ? 'scale(1)' : 'scale(0.95)',
+                          }}
                           onClick={() => window.open(element.screenshot, '_blank')}
                         />
                         <div className="p-1 text-xs text-gray-500 text-center">

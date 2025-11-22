@@ -139,6 +139,63 @@ export class ScanHistoryService {
   }
 
   /**
+   * Get scan history for a user with pagination
+   */
+  static async getScanHistoryPaginated(userId: string, limit: number = 10, offset: number = 0): Promise<{ scans: ScanHistoryItem[], total: number }> {
+    console.log('🔍 ScanHistoryService.getScanHistoryPaginated called for user:', userId, 'limit:', limit, 'offset:', offset)
+    
+    try {
+      // Get total count
+      const countResult = await queryOne(
+        `SELECT COUNT(*) as total FROM scan_history WHERE user_id = $1`,
+        [userId]
+      )
+      const total = parseInt(countResult.total || '0')
+
+      // Get paginated results
+      const results = await query(
+        `SELECT 
+          id, scan_type, scan_title, url, file_name, file_type,
+          total_issues, critical_issues, serious_issues, moderate_issues, minor_issues,
+          pages_scanned, pages_analyzed, overall_score, is_508_compliant, scan_duration_seconds,
+          created_at, updated_at
+        FROM scan_history 
+        WHERE user_id = $1 
+        ORDER BY created_at DESC 
+        LIMIT $2 OFFSET $3`,
+        [userId, limit, offset]
+      )
+      
+      console.log('✅ Query successful, found', results.rows.length, 'rows out of', total, 'total')
+      const scans = results.rows.map(row => ({
+        id: row.id,
+        scanType: row.scan_type,
+        scanTitle: row.scan_title,
+        url: row.url,
+        fileName: row.file_name,
+        fileType: row.file_type,
+        totalIssues: row.total_issues,
+        criticalIssues: row.critical_issues,
+        seriousIssues: row.serious_issues,
+        moderateIssues: row.moderate_issues,
+        minorIssues: row.minor_issues,
+        pagesScanned: row.pages_scanned,
+        pagesAnalyzed: row.pages_analyzed,
+        overallScore: row.overall_score,
+        is508Compliant: row.is_508_compliant,
+        scanDurationSeconds: row.scan_duration_seconds,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }))
+
+      return { scans, total }
+    } catch (error) {
+      console.error('❌ Error in getScanHistoryPaginated:', error)
+      throw error
+    }
+  }
+
+  /**
    * Get detailed scan result by ID
    */
   static async getScanDetails(scanId: string, userId: string): Promise<ScanHistoryDetails | null> {

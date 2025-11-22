@@ -116,7 +116,7 @@ export class NotificationService {
     const planNames: Record<string, string> = {
       'web_only': 'Web Scan Only',
       'document_only': 'Document Scan Only',
-      'complete_access': 'Complete Access',
+      'complete_access': 'Unlimited Access',
       'free': 'Free'
     }
     return planNames[planType] || planType

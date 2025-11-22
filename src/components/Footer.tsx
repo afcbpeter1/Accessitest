@@ -82,9 +82,26 @@ export default function Footer() {
 
           {/* Separator */}
           <div className="border-t border-[#4A5568] mt-8 pt-4">
-            <p className="text-center text-[#A0AEC0] text-sm">
+            <p className="text-center text-[#A0AEC0] text-sm mb-4">
               © {currentYear} AccessScan. All rights reserved.
             </p>
+            <div className="flex flex-wrap justify-center items-center gap-2 text-sm text-[#A0AEC0]">
+              <Link href="/privacy-policy" className="hover:text-white transition-colors">
+                Privacy Policy
+              </Link>
+              <span>•</span>
+              <Link href="/terms-of-service" className="hover:text-white transition-colors">
+                Terms of Service
+              </Link>
+              <span>•</span>
+              <Link href="/cookie-policy" className="hover:text-white transition-colors">
+                Cookie Policy
+              </Link>
+              <span>•</span>
+              <Link href="/accessibility-statement" className="hover:text-white transition-colors">
+                Accessibility Statement
+              </Link>
+            </div>
           </div>
         </div>
       </footer>

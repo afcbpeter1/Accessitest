@@ -149,14 +149,30 @@ export default function NewScan() {
       setActiveScanId(activeScan.scanId)
       setIsScanning(activeScan.status === 'scanning' || activeScan.status === 'analyzing' || activeScan.status === 'crawling')
       
+      // Restore URL and pages if available
+      if (activeScan.url && !url) {
+        setUrl(activeScan.url)
+      }
+      
       // If scan is complete, show results
       if (activeScan.status === 'complete') {
         // The scan results should already be loaded from the API
         setActiveScanId(null)
         setIsScanning(false)
+      } else {
+        // For active scans, ensure we show the progress UI
+        // The scanProgress will be available via activeScanId
+        console.log('📊 Active scan restored - showing progress UI')
+      }
+    } else {
+      // No active scans - clear the active scan ID
+      if (activeScanId) {
+        console.log('🧹 No active scans found - clearing active scan ID')
+        setActiveScanId(null)
+        setIsScanning(false)
       }
     }
-  }, [activeScans])
+  }, [activeScans, url, activeScanId])
 
   // Auto-start scan when coming from rerun
   useEffect(() => {
@@ -499,10 +515,6 @@ export default function NewScan() {
       }
       
       console.log('📡 Starting to read scan response stream...')
-
-      // Generate a scanId for tracking (this should match what the backend generates)
-      const scanId = `web_scan_${Date.now()}`
-      setActiveScanId(scanId)
 
       let buffer = ''
       
@@ -1232,48 +1244,55 @@ export default function NewScan() {
                     )}
 
                 {/* Scan Progress */}
-                {scanProgress && (
+                {(scanProgress || (isScanning && activeScanId)) && (
                   <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-3">
                         <div className="flex-shrink-0">
-                          {scanProgress.status === 'crawling' && (
+                          {(!scanProgress || scanProgress.status === 'crawling') && (
                             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                               <Search className="h-4 w-4 text-blue-600 animate-pulse" />
                             </div>
                           )}
-                          {scanProgress.status === 'scanning' && (
+                          {scanProgress?.status === 'scanning' && (
                             <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                               <CheckCircle className="h-4 w-4 text-green-600 animate-pulse" />
                             </div>
                           )}
-                          {scanProgress.status === 'analyzing' && (
+                          {scanProgress?.status === 'analyzing' && (
                             <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
                               <FileText className="h-4 w-4 text-purple-600 animate-pulse" />
                             </div>
                           )}
-                          {scanProgress.status === 'complete' && (
+                          {scanProgress?.status === 'complete' && (
                             <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                               <CheckCircle className="h-4 w-4 text-green-600" />
+                            </div>
+                          )}
+                          {!scanProgress && isScanning && (
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                              <Search className="h-4 w-4 text-blue-600 animate-pulse" />
                             </div>
                           )}
                         </div>
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900">
-                            {scanProgress.status === 'crawling' && 'Discovering Pages'}
-                            {scanProgress.status === 'scanning' && 'Scanning Pages'}
-                            {scanProgress.status === 'analyzing' && 'Analyzing Results'}
-                            {scanProgress.status === 'complete' && 'Scan Complete'}
+                            {!scanProgress && isScanning && 'Scan in Progress'}
+                            {scanProgress?.status === 'crawling' && 'Discovering Pages'}
+                            {scanProgress?.status === 'scanning' && 'Scanning Pages'}
+                            {scanProgress?.status === 'analyzing' && 'Analyzing Results'}
+                            {scanProgress?.status === 'complete' && 'Scan Complete'}
                           </h3>
                           <p className="text-sm text-gray-600">
-                            {scanProgress.status === 'crawling' && 'Finding all pages on your website...'}
-                            {scanProgress.status === 'scanning' && 'Checking accessibility compliance...'}
-                            {scanProgress.status === 'analyzing' && 'Generating detailed report...'}
-                            {scanProgress.status === 'complete' && 'All done! Check results below.'}
+                            {!scanProgress && isScanning && 'Your scan is running in the background. Progress will appear here shortly.'}
+                            {scanProgress?.status === 'crawling' && 'Finding all pages on your website...'}
+                            {scanProgress?.status === 'scanning' && 'Checking accessibility compliance...'}
+                            {scanProgress?.status === 'analyzing' && 'Generating detailed report...'}
+                            {scanProgress?.status === 'complete' && 'All done! Check results below.'}
                           </p>
                         </div>
                       </div>
-                      {scanProgress.totalPages > 0 && (
+                      {scanProgress && scanProgress.totalPages > 0 && (
                         <div className="text-right">
                           <div className="text-2xl font-bold text-blue-600">
                           {scanProgress.currentPage} / {scanProgress.totalPages}
@@ -1284,23 +1303,25 @@ export default function NewScan() {
                     </div>
                     
                     {/* Progress Bar */}
-                    <div className="w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500 ease-out shadow-sm"
-                        style={{ 
-                          width: scanProgress.totalPages > 0 
-                            ? `${(scanProgress.currentPage / scanProgress.totalPages) * 100}%` 
-                            : scanProgress.status === 'crawling' ? '50%' 
-                            : scanProgress.status === 'scanning' ? '75%'
-                            : scanProgress.status === 'analyzing' ? '90%'
-                            : scanProgress.status === 'complete' ? '100%'
-                            : '0%' 
-                        }}
-                      ></div>
-                    </div>
+                    {scanProgress && (
+                      <div className="w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500 ease-out shadow-sm"
+                          style={{ 
+                            width: scanProgress.totalPages > 0 
+                              ? `${(scanProgress.currentPage / scanProgress.totalPages) * 100}%` 
+                              : scanProgress.status === 'crawling' ? '50%' 
+                              : scanProgress.status === 'scanning' ? '75%'
+                              : scanProgress.status === 'analyzing' ? '90%'
+                              : scanProgress.status === 'complete' ? '100%'
+                              : '0%' 
+                          }}
+                        ></div>
+                      </div>
+                    )}
                     
                     {/* Discovery Progress Details */}
-                    {scanProgress.status === 'crawling' && (
+                    {scanProgress && scanProgress.status === 'crawling' && (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-blue-800 font-semibold">🔍 Live Discovery Progress</span>
@@ -1335,7 +1356,7 @@ export default function NewScan() {
                     )}
 
                     {/* Scanning Progress Details */}
-                    {(scanProgress.status === 'scanning' || scanProgress.status === 'analyzing') && (
+                    {scanProgress && (scanProgress.status === 'scanning' || scanProgress.status === 'analyzing') && (
                       <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-green-800 font-semibold">🔍 Live Scanning Progress</span>
@@ -1361,17 +1382,19 @@ export default function NewScan() {
                     )}
                     
                     {/* Current Status */}
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-700">{scanProgress.message}</p>
-                    {scanProgress.currentUrl && (
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                          <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                            {scanProgress.currentUrl}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    {scanProgress && (
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-gray-700">{scanProgress.message}</p>
+                        {scanProgress.currentUrl && (
+                          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                            <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                              {scanProgress.currentUrl}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

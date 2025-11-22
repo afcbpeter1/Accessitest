@@ -72,7 +72,16 @@ export default function GlobalScanStatus() {
             return `Document: ${scan.fileName}`
           }
           if (scan.type === 'web' && scan.url) {
-            return `Website: ${new URL(scan.url).hostname}`
+            try {
+              // Try to parse as absolute URL
+              const url = new URL(scan.url)
+              return `Website: ${url.hostname}`
+            } catch {
+              // If it's not a valid absolute URL, try to extract hostname from relative URL
+              // or just display the URL as-is (truncated if too long)
+              const displayUrl = scan.url.length > 50 ? scan.url.substring(0, 50) + '...' : scan.url
+              return `Website: ${displayUrl}`
+            }
           }
           return `${scan.type === 'document' ? 'Document' : 'Web'} Scan`
         }

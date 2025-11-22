@@ -80,13 +80,24 @@ export default function Sidebar({ children }: SidebarProps) {
     
     // Listen for refresh events from other components
     const handleRefreshUserData = () => {
-      if (token) {
+      const currentToken = localStorage.getItem('accessToken')
+      if (currentToken) {
         loadUserData()
         loadNotifications()
       }
     }
     
     window.addEventListener('refreshUserData', handleRefreshUserData)
+    
+    // Check if we're returning from a successful purchase (check URL params)
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('success') === 'true') {
+      // Refetch user data after a short delay to let webhook process
+      setTimeout(() => {
+        loadUserData()
+        loadNotifications()
+      }, 1500)
+    }
     
     return () => {
       window.removeEventListener('refreshUserData', handleRefreshUserData)
@@ -213,22 +224,46 @@ export default function Sidebar({ children }: SidebarProps) {
     }
   }
 
+  const getPlanDisplayName = (plan: string) => {
+    switch (plan) {
+      case 'free': return 'Pay as You Go'
+      case 'web_only': return 'Web Only'
+      case 'document_only': return 'Document Only'
+      case 'complete_access': return 'Unlimited Access'
+      default: return 'Pay as You Go'
+    }
+  }
+
   const getCreditDisplay = () => {
     if (!user) return null
     
     if (user.unlimitedCredits) {
       return (
-        <div className="flex items-center space-x-1 text-green-600">
-          <Zap className="h-4 w-4" />
-          <span className="text-sm font-medium">Unlimited</span>
+        <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 text-green-600">
+            <span className="text-lg font-bold">∞</span>
+            {user.creditsRemaining > 0 && (
+              <span className="text-xs text-gray-500">({user.creditsRemaining} saved)</span>
+            )}
+          </div>
+          <div className="h-4 w-px bg-gray-300"></div>
+          <span className="text-sm text-gray-600 font-medium">
+            {getPlanDisplayName(user.plan)}
+          </span>
         </div>
       )
     }
     
     return (
-      <div className="flex items-center space-x-1 text-blue-600">
-        <CreditCard className="h-4 w-4" />
-        <span className="text-sm font-medium">{user.creditsRemaining}</span>
+      <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1 text-blue-600">
+          <CreditCard className="h-4 w-4" />
+          <span className="text-sm font-medium">{user.creditsRemaining}</span>
+        </div>
+        <div className="h-4 w-px bg-gray-300"></div>
+        <span className="text-sm text-gray-600 font-medium">
+          {getPlanDisplayName(user.plan)}
+        </span>
       </div>
     )
   }
@@ -236,9 +271,9 @@ export default function Sidebar({ children }: SidebarProps) {
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* Sidebar */}
-      <div className="w-64 bg-[#0B1220] shadow-sm flex flex-col">
+      <div className="w-64 bg-white shadow-sm flex flex-col border-r border-gray-200">
         {/* Logo */}
-        <div className="flex items-center px-6 py-4 border-b border-gray-700">
+        <div className="flex items-center px-6 py-4 border-b border-gray-200">
           <div className="flex items-center space-x-2">
             <div className="bg-white p-2 rounded-lg">
               <img 
@@ -263,12 +298,12 @@ export default function Sidebar({ children }: SidebarProps) {
                   className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
                     isActive
                       ? 'bg-blue-600 text-white border-r-2 border-blue-400'
-                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
                   <item.icon
                     className={`mr-3 h-5 w-5 ${
-                      isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'
+                      isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'
                     }`}
                   />
                   {item.name}
@@ -277,15 +312,6 @@ export default function Sidebar({ children }: SidebarProps) {
             })}
           </div>
         </nav>
-
-        {/* Sidebar Footer - connects to main footer */}
-        <div className="border-t border-gray-700 px-6 py-4 bg-[#0B1220]">
-          <div className="flex items-center justify-center">
-            <p className="text-gray-400 text-xs">
-              &copy; {new Date().getFullYear()}
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* Main content area */}
@@ -434,20 +460,6 @@ export default function Sidebar({ children }: SidebarProps) {
         <main className="flex-1 p-6 overflow-y-auto">
           {children}
         </main>
-
-        {/* Footer - extends to match sidebar height */}
-        <footer className="bg-[#0B1220] text-white py-4">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <p className="text-gray-400 text-sm">
-                Professional accessibility testing platform
-              </p>
-              <p className="text-gray-400 text-sm">
-                &copy; {new Date().getFullYear()}. All rights reserved.
-              </p>
-            </div>
-          </div>
-        </footer>
       </div>
     </div>
   )

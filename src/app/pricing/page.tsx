@@ -33,38 +33,10 @@ export default function Pricing() {
 
   const subscriptionPlans: PricingPlan[] = [
     {
-      name: 'Web Scan Only',
-      description: 'Unlimited website accessibility scans',
-      price: 29,
-      yearlyPrice: 278, // $29 × 12 × 0.8 = $278.40/year
-      features: [
-        'Unlimited website scans',
-        'WCAG 2.2 compliance testing',
-        'Detailed accessibility reports',
-        'AI-powered recommendations',
-        'Multi-page scanning'
-      ],
-      unlimited: true
-    },
-    {
-      name: 'Document Scan Only',
-      description: 'Unlimited document accessibility scans',
-      price: 39,
-      yearlyPrice: 374, // $39 × 12 × 0.8 = $374.40/year
-      features: [
-        'Unlimited document scans',
-        'Section 508 compliance testing',
-        'PDF, Word, PowerPoint support',
-        'AI-powered recommendations',
-        'Detailed issue breakdowns'
-      ],
-      unlimited: true
-    },
-    {
-      name: 'Complete Access',
+      name: 'Unlimited Access',
       description: 'Both web and document scanning',
-      price: 59,
-      yearlyPrice: 566, // $59 × 12 × 0.8 = $566.40/year
+      price: 29.99,
+      yearlyPrice: 287.90, // $29.99 × 12 × 0.8 = $287.90/year
       features: [
         'Unlimited website scans',
         'Unlimited document scans',
@@ -112,18 +84,10 @@ export default function Pricing() {
       // Determine the correct price ID based on plan and billing cycle
       let priceId = ''
       
-      if (plan.name === 'Web Scan Only') {
-        priceId = billingCycle === 'monthly' 
-          ? STRIPE_PRICE_IDS.subscriptions.webScanMonthly
-          : STRIPE_PRICE_IDS.subscriptions.webScanYearly
-      } else if (plan.name === 'Document Scan Only') {
+      if (plan.name === 'Unlimited Access') {
         priceId = billingCycle === 'monthly'
-          ? STRIPE_PRICE_IDS.subscriptions.documentScanMonthly
-          : STRIPE_PRICE_IDS.subscriptions.documentScanYearly
-      } else if (plan.name === 'Complete Access') {
-        priceId = billingCycle === 'monthly'
-          ? STRIPE_PRICE_IDS.subscriptions.completeAccessMonthly
-          : STRIPE_PRICE_IDS.subscriptions.completeAccessYearly
+          ? STRIPE_PRICE_IDS.subscriptions.unlimitedMonthly
+          : STRIPE_PRICE_IDS.subscriptions.unlimitedYearly
       }
 
       // Create checkout session
@@ -241,11 +205,11 @@ export default function Pricing() {
               </span>
             </button>
           </div>
-            </div>
+        </div>
 
         {/* Subscription Plans */}
         <div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-6 items-stretch max-w-md mx-auto">
             {subscriptionPlans.map((plan) => (
               <div
                 key={plan.name}

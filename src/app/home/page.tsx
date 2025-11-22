@@ -1141,111 +1141,23 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Web Scan Only</h3>
-                  <div className="text-3xl font-bold text-gray-900 mb-2">
-                    ${billingCycle === 'monthly' ? '29' : '278'}
-                    <span className="text-lg text-gray-700">
-                      /{billingCycle === 'monthly' ? 'month' : 'year'}
-                    </span>
-                  </div>
-                  {billingCycle === 'yearly' && (
-                    <div className="text-sm text-green-600 mb-4">
-                      <p>Save $70 per year</p>
-                      <p className="text-xs text-gray-500 mt-1">Billed annually</p>
-                    </div>
-                  )}
-                  <ul className="text-left space-y-2 mb-6">
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">3 free scans</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">No card details up front</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">Unlimited website scans</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">WCAG 2.2 compliance</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">AI recommendations</span>
-                    </li>
-                  </ul>
-                  <Link 
-                    href="/signup" 
-                    className="w-full bg-primary-600 text-white py-3 px-4 rounded-lg hover:bg-primary-700 transition-colors font-medium"
-                  >
-                    Get Started
-                  </Link>
-                </div>
-
-                <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Document Scan Only</h3>
-                  <div className="text-3xl font-bold text-gray-900 mb-2">
-                    ${billingCycle === 'monthly' ? '39' : '374'}
-                    <span className="text-lg text-gray-700">
-                      /{billingCycle === 'monthly' ? 'month' : 'year'}
-                    </span>
-                  </div>
-                  {billingCycle === 'yearly' && (
-                    <div className="text-sm text-green-600 mb-4">
-                      <p>Save $94 per year</p>
-                      <p className="text-xs text-gray-500 mt-1">Billed annually</p>
-                    </div>
-                  )}
-                  <ul className="text-left space-y-2 mb-6">
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">3 free scans</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">No card details up front</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">Unlimited document scans</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">Section 508 compliance</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">PDF, Word, PowerPoint support</span>
-                    </li>
-                  </ul>
-                  <Link 
-                    href="/signup" 
-                    className="w-full bg-primary-600 text-white py-3 px-4 rounded-lg hover:bg-primary-700 transition-colors font-medium"
-                  >
-                    Get Started
-                  </Link>
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
                 <div className="bg-white rounded-lg border-2 border-primary-500 p-6 text-center relative">
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                     <span className="bg-primary-500 text-white px-3 py-1 rounded-full text-sm font-medium">
                       Most Popular
                     </span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Complete Access</h3>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Unlimited Access</h3>
                   <div className="text-3xl font-bold text-gray-900 mb-2">
-                    ${billingCycle === 'monthly' ? '59' : '566'}
+                    ${billingCycle === 'monthly' ? '29.99' : '287.90'}
                     <span className="text-lg text-gray-700">
                       /{billingCycle === 'monthly' ? 'month' : 'year'}
                     </span>
                   </div>
                   {billingCycle === 'yearly' && (
                     <div className="text-sm text-green-600 mb-4">
-                      <p>Save $142 per year</p>
+                      <p>Save $72 per year</p>
                       <p className="text-xs text-gray-500 mt-1">Billed annually</p>
                     </div>
                   )}

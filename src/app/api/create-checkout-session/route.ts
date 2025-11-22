@@ -6,12 +6,8 @@ import { query } from '@/lib/database'
 function getPlanNameFromPriceId(priceId: string): string {
   // Map price IDs to plan names
   const planNames: Record<string, string> = {
-    'price_1S696uDlESHKijI24XIbzGdH': 'Web Scan Only - Monthly',
-    'price_1S698gDlESHKijI2hVtPhtvZ': 'Web Scan Only - Yearly',
-    'price_1S69A4DlESHKijI2LNv4j2SI': 'Document Scan Only - Monthly',
-    'price_1S69CADlESHKijI2SMX0XF1k': 'Document Scan Only - Yearly',
-    'price_1S69D4DlESHKijI2LG4FvwyO': 'Complete Access - Monthly',
-    'price_1S69DvDlESHKijI2p2FIcY5a': 'Complete Access - Yearly',
+    'price_1SWNfpDlESHKijI261EHN47W': 'Unlimited Monthly',
+    'price_1SWNgrDlESHKijI27OB0Qyg5': 'Unlimited Yearly',
     'price_1S69FNDlESHKijI2GkCApIWQ': 'Starter Pack',
     'price_1S69G7DlESHKijI2Eb3uIxHZ': 'Professional Pack',
     'price_1S69GqDlESHKijI2PsvK4k4o': 'Business Pack',

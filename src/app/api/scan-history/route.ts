@@ -9,7 +9,8 @@ export async function GET(request: NextRequest) {
     console.log('✅ User authenticated:', user.email)
     
     const url = new URL(request.url)
-    const limit = parseInt(url.searchParams.get('limit') || '50')
+    const limit = parseInt(url.searchParams.get('limit') || '10')
+    const offset = parseInt(url.searchParams.get('offset') || '0')
     const scanId = url.searchParams.get('scanId')
 
     if (scanId) {
@@ -28,14 +29,17 @@ export async function GET(request: NextRequest) {
         scan: scanDetails
       })
     } else {
-      // Get scan history list
-      console.log('📋 Fetching scan history for user:', user.userId)
-      const scanHistory = await ScanHistoryService.getScanHistory(user.userId, limit)
-      console.log('✅ Found', scanHistory.length, 'scans in history')
+      // Get scan history list with pagination
+      console.log('📋 Fetching scan history for user:', user.userId, 'limit:', limit, 'offset:', offset)
+      const { scans, total } = await ScanHistoryService.getScanHistoryPaginated(user.userId, limit, offset)
+      console.log('✅ Found', scans.length, 'scans in history (total:', total, ')')
       
       return NextResponse.json({
         success: true,
-        scans: scanHistory
+        scans,
+        total,
+        limit,
+        offset
       })
     }
   } catch (error) {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Settings, CreditCard, User, Bell, Shield, LogOut, Save, AlertCircle } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 
@@ -255,11 +256,11 @@ export default function SettingsPage() {
 
   const getPlanDisplayName = (plan: string) => {
     switch (plan) {
-      case 'free': return 'Free Trial'
+      case 'free': return 'Pay as You Go'
       case 'web_only': return 'Web Only'
       case 'document_only': return 'Document Only'
-      case 'complete_access': return 'Complete Access'
-      default: return 'Free Trial'
+      case 'complete_access': return 'Unlimited Access'
+      default: return 'Pay as You Go'
     }
   }
 
@@ -406,7 +407,7 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-lg font-medium text-gray-900">
-                          {user ? getPlanDisplayName(user.plan) : 'Free Trial'}
+                          {user ? getPlanDisplayName(user.plan) : 'Pay as You Go'}
                         </h3>
                         <p className="text-sm text-gray-500">
                           {user ? getPlanDescription(user.plan) : '3 free credits to get started'}
@@ -455,7 +456,7 @@ export default function SettingsPage() {
                           <p className="text-lg font-semibold text-primary-600 mt-2">$29/month</p>
                         </div>
                         <div className="border border-primary-200 rounded-lg p-4 bg-primary-50">
-                          <h5 className="font-medium text-gray-900">Complete Access</h5>
+                          <h5 className="font-medium text-gray-900">Unlimited Access</h5>
                           <p className="text-sm text-gray-600 mt-1">All features included</p>
                           <p className="text-lg font-semibold text-primary-600 mt-2">$59/month</p>
                         </div>
@@ -465,10 +466,58 @@ export default function SettingsPage() {
                   
                   <div className="flex space-x-3">
                     {user && user.plan === 'free' ? (
-                      <button className="btn-primary">Upgrade Plan</button>
+                      <Link href="/pricing" className="btn-primary">Upgrade Plan</Link>
                     ) : (
                       <button className="btn-secondary">Manage Subscription</button>
                     )}
+                  </div>
+                  
+                  {/* Email Preferences Section */}
+                  <div className="mt-8 pt-8 border-t border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Subscription Email Preferences</h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      We automatically send you emails for important subscription events. These are transactional emails that help you stay informed about your account.
+                    </p>
+                    <div className="space-y-4">
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-start">
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium text-blue-900 mb-1">Payment Confirmation Emails</h4>
+                            <p className="text-sm text-blue-700">
+                              You'll receive an email each time your subscription payment is processed (monthly or yearly). 
+                              This includes payment details, invoice ID, and your next billing date.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <div className="flex items-start">
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium text-amber-900 mb-1">Cancellation Emails</h4>
+                            <p className="text-sm text-amber-700">
+                              If you cancel your subscription, you'll receive an email confirming the cancellation, 
+                              when your access ends, and information about any saved credits you have.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-start">
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium text-green-900 mb-1">Subscription Activation Emails</h4>
+                            <p className="text-sm text-green-700">
+                              When you first subscribe, you'll receive a welcome email with your subscription details and receipt.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                        <p className="text-xs text-gray-600">
+                          <strong>Note:</strong> These are transactional emails related to your subscription and payments. 
+                          They cannot be disabled as they contain important account information. All emails are sent to: <strong>{user?.email}</strong>
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

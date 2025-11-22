@@ -372,19 +372,8 @@ ${item.element_html || 'N/A'}
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-gray-900">Product Backlog</h1>
               <p className="mt-2 text-gray-600">
-                Automated ticketing system for accessibility issues. Issues are automatically created from scans and can be moved to sprints.
+                Manage accessibility issues from your scans and organize them into sprints.
               </p>
-              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                  <div>
-                    <h3 className="text-sm font-medium text-blue-900">Automated Ticketing</h3>
-                    <p className="text-sm text-blue-700">
-                      Issues are automatically created when scans detect new problems. Previously fixed issues that return after 7+ days will be reopened.
-                    </p>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

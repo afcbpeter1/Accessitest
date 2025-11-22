@@ -2,12 +2,8 @@
 export const STRIPE_PRICE_IDS = {
   // Subscription Plans
   subscriptions: {
-    webScanMonthly: 'price_1S696uDlESHKijI24XIbzGdH',
-    webScanYearly: 'price_1S698gDlESHKijI2hVtPhtvZ',
-    documentScanMonthly: 'price_1S69A4DlESHKijI2LNv4j2SI',
-    documentScanYearly: 'price_1S69CADlESHKijI2SMX0XF1k',
-    completeAccessMonthly: 'price_1S69D4DlESHKijI2LG4FvwyO',
-    completeAccessYearly: 'price_1S69DvDlESHKijI2p2FIcY5a',
+    unlimitedMonthly: 'price_1SWNfpDlESHKijI261EHN47W',
+    unlimitedYearly: 'price_1SWNgrDlESHKijI27OB0Qyg5',
   },
   
   // Credit Packages
@@ -21,12 +17,8 @@ export const STRIPE_PRICE_IDS = {
 
 // Plan type mappings for database storage
 export const PLAN_TYPES = {
-  'price_1S696uDlESHKijI24XIbzGdH': 'web_only',
-  'price_1S698gDlESHKijI2hVtPhtvZ': 'web_only',
-  'price_1S69A4DlESHKijI2LNv4j2SI': 'document_only',
-  'price_1S69CADlESHKijI2SMX0XF1k': 'document_only',
-  'price_1S69D4DlESHKijI2LG4FvwyO': 'complete_access',
-  'price_1S69DvDlESHKijI2p2FIcY5a': 'complete_access',
+  'price_1SWNfpDlESHKijI261EHN47W': 'complete_access',
+  'price_1SWNgrDlESHKijI27OB0Qyg5': 'complete_access',
 }
 
 // Credit amounts for credit packages

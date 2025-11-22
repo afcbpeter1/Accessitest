@@ -6,6 +6,7 @@ import Link from 'next/link'
 
 interface CreditData {
   credits: number
+  creditsRemaining?: number
   unlimitedCredits: boolean
   planType: string
   canScan: boolean
@@ -22,6 +23,15 @@ export default function CreditDisplay({ className = '', showBuyButton = true }: 
 
   useEffect(() => {
     loadCreditData()
+    
+    // Check if we're returning from a successful purchase (check URL params)
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('success') === 'true') {
+      // Refetch credit data after a short delay to let webhook process
+      setTimeout(() => {
+        loadCreditData()
+      }, 1500)
+    }
   }, [])
 
   const loadCreditData = async () => {
@@ -58,12 +68,30 @@ export default function CreditDisplay({ className = '', showBuyButton = true }: 
     return null
   }
 
+  const getPlanDisplayName = (planType: string) => {
+    switch (planType) {
+      case 'free': return 'Pay as You Go'
+      case 'web_only': return 'Web Only'
+      case 'document_only': return 'Document Only'
+      case 'complete_access': return 'Unlimited Access'
+      default: return 'Pay as You Go'
+    }
+  }
+
   const getCreditDisplay = () => {
     if (creditData.unlimitedCredits) {
       return (
-        <div className="flex items-center space-x-2 text-green-600">
-          <Zap className="h-5 w-5" />
-          <span className="font-medium">Unlimited</span>
+        <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 text-green-600">
+            <span className="text-xl font-bold">∞</span>
+            {creditData.credits && creditData.credits > 0 && (
+              <span className="text-xs text-gray-500">({creditData.credits} saved)</span>
+            )}
+          </div>
+          <div className="h-4 w-px bg-gray-300"></div>
+          <span className="text-sm text-gray-600 font-medium">
+            {getPlanDisplayName(creditData.planType)}
+          </span>
         </div>
       )
     }
@@ -72,16 +100,22 @@ export default function CreditDisplay({ className = '', showBuyButton = true }: 
     const isNoCredits = creditData.credits === 0
 
     return (
-      <div className={`flex items-center space-x-2 ${isNoCredits ? 'text-red-600' : isLowCredits ? 'text-orange-600' : 'text-blue-600'}`}>
-        {isNoCredits ? (
-          <AlertTriangle className="h-5 w-5" />
-        ) : (
-          <CreditCard className="h-5 w-5" />
-        )}
-        <span className="font-medium">{creditData.credits}</span>
-        {isLowCredits && !isNoCredits && (
-          <span className="text-xs text-orange-500">Low</span>
-        )}
+      <div className="flex items-center space-x-2">
+        <div className={`flex items-center space-x-1 ${isNoCredits ? 'text-red-600' : isLowCredits ? 'text-orange-600' : 'text-blue-600'}`}>
+          {isNoCredits ? (
+            <AlertTriangle className="h-5 w-5" />
+          ) : (
+            <CreditCard className="h-5 w-5" />
+          )}
+          <span className="font-medium">{creditData.credits}</span>
+          {isLowCredits && !isNoCredits && (
+            <span className="text-xs text-orange-500">Low</span>
+          )}
+        </div>
+        <div className="h-4 w-px bg-gray-300"></div>
+        <span className="text-sm text-gray-600 font-medium">
+          {getPlanDisplayName(creditData.planType)}
+        </span>
       </div>
     )
   }
