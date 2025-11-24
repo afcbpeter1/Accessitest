@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Settings, CreditCard, User, Bell, Shield, LogOut, Save, AlertCircle } from 'lucide-react'
+import { Settings, CreditCard, User, Bell, Shield, LogOut, Save, AlertCircle, X, CheckCircle } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 
 interface UserData {
@@ -20,6 +20,26 @@ interface UserData {
   emailVerified: boolean
   createdAt: string
   lastLogin?: string
+  subscription?: {
+    id: string
+    status: string
+    billingPeriod: string
+    cancelAtPeriodEnd: boolean
+    currentPeriodEnd: string | null
+  } | null
+}
+
+interface SubscriptionData {
+  id: string
+  status: string
+  planName: string
+  amount: string
+  billingPeriod: string
+  nextBillingDate: string | null
+  accessEndDate: string | null
+  cancelAtPeriodEnd: boolean
+  currentPeriodStart: string | null
+  currentPeriodEnd: string | null
 }
 
 interface NotificationPreferences {
@@ -35,6 +55,9 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [subscription, setSubscription] = useState<SubscriptionData | null>(null)
+  const [loadingSubscription, setLoadingSubscription] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
     scanCompletion: true,
     criticalIssues: true,
@@ -68,6 +91,13 @@ export default function SettingsPage() {
     loadUserData()
     loadNotificationPreferences()
   }, [])
+
+  // Load subscription when subscription tab is active and user has subscription
+  useEffect(() => {
+    if (activeTab === 'subscription' && user && user.plan !== 'free') {
+      loadSubscription()
+    }
+  }, [activeTab, user])
 
   const loadUserData = async () => {
     try {
@@ -118,6 +148,93 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error('Failed to load notification preferences:', error)
+    }
+  }
+
+  const loadSubscription = async () => {
+    setLoadingSubscription(true)
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      const response = await fetch('/api/subscription', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setSubscription(data.subscription)
+      }
+    } catch (error) {
+      console.error('Failed to load subscription:', error)
+      setMessage({ type: 'error', text: 'Failed to load subscription details' })
+    } finally {
+      setLoadingSubscription(false)
+    }
+  }
+
+  const handleCancelSubscription = async () => {
+    setSaving(true)
+    setMessage(null)
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch('/api/subscription', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setMessage({ 
+          type: 'success', 
+          text: 'Your subscription will be cancelled at the end of the current billing period. You will continue to have access until then.' 
+        })
+        setShowCancelConfirm(false)
+        // Reload subscription to show updated status
+        await loadSubscription()
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to cancel subscription' })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to cancel subscription' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleReactivateSubscription = async () => {
+    setSaving(true)
+    setMessage(null)
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch('/api/subscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ action: 'reactivate' })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setMessage({ 
+          type: 'success', 
+          text: 'Subscription reactivated successfully!' 
+        })
+        // Reload subscription to show updated status
+        await loadSubscription()
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to reactivate subscription' })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to reactivate subscription' })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -403,74 +520,203 @@ export default function SettingsPage() {
               <div className="card">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Subscription</h2>
                 <div className="space-y-4">
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900">
-                          {user ? getPlanDisplayName(user.plan) : 'Pay as You Go'}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {user ? getPlanDescription(user.plan) : '3 free credits to get started'}
-                        </p>
-                      </div>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        Active
-                      </span>
-                    </div>
-                    {user && (
-                      <div className="mt-4 space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Credits Remaining:</span>
-                          <span className="font-medium">
-                            {user.unlimitedCredits ? 'Unlimited' : user.creditsRemaining}
+                  {user && user.plan === 'free' ? (
+                    <>
+                      <div className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-lg font-medium text-gray-900">Pay as You Go</h3>
+                            <p className="text-sm text-gray-500">3 free credits to get started</p>
+                          </div>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Active
                           </span>
                         </div>
-                        {!user.unlimitedCredits && (
+                        <div className="mt-4 space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Credits Remaining:</span>
+                            <span className="font-medium">{user.creditsRemaining}</span>
+                          </div>
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600">Credits Used:</span>
                             <span className="font-medium">{user.creditsUsed}</span>
                           </div>
-                        )}
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Member Since:</span>
-                          <span className="font-medium">
-                            {new Date(user.createdAt).toLocaleDateString()}
-                          </span>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600">Member Since:</span>
+                            <span className="font-medium">
+                              {new Date(user.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    )}
-                  </div>
-                  
-                  {user && user.plan === 'free' && (
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-gray-900">Upgrade Options:</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="border border-gray-200 rounded-lg p-4">
-                          <h5 className="font-medium text-gray-900">Web Only</h5>
-                          <p className="text-sm text-gray-600 mt-1">Unlimited web scans</p>
-                          <p className="text-lg font-semibold text-primary-600 mt-2">$29/month</p>
+                      
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-gray-900">Upgrade Options:</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <h5 className="font-medium text-gray-900">Web Only</h5>
+                            <p className="text-sm text-gray-600 mt-1">Unlimited web scans</p>
+                            <p className="text-lg font-semibold text-primary-600 mt-2">$29/month</p>
+                          </div>
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <h5 className="font-medium text-gray-900">Document Only</h5>
+                            <p className="text-sm text-gray-600 mt-1">Unlimited document scans</p>
+                            <p className="text-lg font-semibold text-primary-600 mt-2">$29/month</p>
+                          </div>
+                          <div className="border border-primary-200 rounded-lg p-4 bg-primary-50">
+                            <h5 className="font-medium text-gray-900">Unlimited Access</h5>
+                            <p className="text-sm text-gray-600 mt-1">All features included</p>
+                            <p className="text-lg font-semibold text-primary-600 mt-2">$59/month</p>
+                          </div>
                         </div>
-                        <div className="border border-gray-200 rounded-lg p-4">
-                          <h5 className="font-medium text-gray-900">Document Only</h5>
-                          <p className="text-sm text-gray-600 mt-1">Unlimited document scans</p>
-                          <p className="text-lg font-semibold text-primary-600 mt-2">$29/month</p>
+                      </div>
+                      
+                      <div className="flex space-x-3">
+                        <Link href="/pricing" className="btn-primary">Upgrade Plan</Link>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {loadingSubscription ? (
+                        <div className="flex items-center justify-center py-8">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
                         </div>
-                        <div className="border border-primary-200 rounded-lg p-4 bg-primary-50">
-                          <h5 className="font-medium text-gray-900">Unlimited Access</h5>
-                          <p className="text-sm text-gray-600 mt-1">All features included</p>
-                          <p className="text-lg font-semibold text-primary-600 mt-2">$59/month</p>
+                      ) : subscription ? (
+                        <>
+                          <div className="border border-gray-200 rounded-lg p-6">
+                            <div className="flex items-center justify-between mb-4">
+                              <div>
+                                <h3 className="text-lg font-medium text-gray-900">{subscription.planName}</h3>
+                                <p className="text-sm text-gray-500 mt-1">
+                                  {subscription.amount} per {subscription.billingPeriod === 'monthly' ? 'month' : 'year'}
+                                </p>
+                              </div>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                subscription.cancelAtPeriodEnd 
+                                  ? 'bg-amber-100 text-amber-800' 
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                                {subscription.cancelAtPeriodEnd ? 'Cancelling' : 'Active'}
+                              </span>
+                            </div>
+
+                            {subscription.cancelAtPeriodEnd && subscription.accessEndDate && (
+                              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                <div className="flex items-start">
+                                  <AlertCircle className="h-5 w-5 text-amber-600 mr-2 mt-0.5" />
+                                  <div>
+                                    <p className="text-sm font-medium text-amber-900">Subscription Cancelled</p>
+                                    <p className="text-sm text-amber-700 mt-1">
+                                      Your subscription will end on {new Date(subscription.accessEndDate).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                      })}. You'll continue to have access until then.
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="space-y-3 pt-4 border-t border-gray-200">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Billing Period:</span>
+                                <span className="font-medium capitalize">{subscription.billingPeriod}</span>
+                              </div>
+                              {subscription.nextBillingDate && !subscription.cancelAtPeriodEnd && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-600">Next Billing Date:</span>
+                                  <span className="font-medium">
+                                    {new Date(subscription.nextBillingDate).toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric'
+                                    })}
+                                  </span>
+                                </div>
+                              )}
+                              {subscription.currentPeriodEnd && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-600">
+                                    {subscription.cancelAtPeriodEnd ? 'Access Ends:' : 'Current Period Ends:'}
+                                  </span>
+                                  <span className="font-medium">
+                                    {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric'
+                                    })}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Status:</span>
+                                <span className="font-medium capitalize">{subscription.status}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex space-x-3">
+                            {subscription.cancelAtPeriodEnd ? (
+                              <button
+                                onClick={handleReactivateSubscription}
+                                className="btn-primary"
+                                disabled={saving}
+                              >
+                                {saving ? 'Reactivating...' : 'Reactivate Subscription'}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setShowCancelConfirm(true)}
+                                className="btn-secondary flex items-center space-x-2"
+                                disabled={saving}
+                              >
+                                <X className="h-4 w-4" />
+                                <span>Cancel Subscription</span>
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="border border-gray-200 rounded-lg p-4">
+                          <p className="text-sm text-gray-600">No active subscription found.</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Cancel Confirmation Modal */}
+                  {showCancelConfirm && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Cancel Subscription?</h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Your subscription will remain active until the end of your current billing period. 
+                          You'll continue to have full access until {subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          }) : 'the period ends'}. After that, you'll be switched back to the free plan and can use any saved credits you have.
+                        </p>
+                        <div className="flex space-x-3 justify-end">
+                          <button
+                            onClick={() => setShowCancelConfirm(false)}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                            disabled={saving}
+                          >
+                            Keep Subscription
+                          </button>
+                          <button
+                            onClick={handleCancelSubscription}
+                            className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md"
+                            disabled={saving}
+                          >
+                            {saving ? 'Cancelling...' : 'Cancel Subscription'}
+                          </button>
                         </div>
                       </div>
                     </div>
                   )}
-                  
-                  <div className="flex space-x-3">
-                    {user && user.plan === 'free' ? (
-                      <Link href="/pricing" className="btn-primary">Upgrade Plan</Link>
-                    ) : (
-                      <button className="btn-secondary">Manage Subscription</button>
-                    )}
-                  </div>
                   
                   {/* Email Preferences Section */}
                   <div className="mt-8 pt-8 border-t border-gray-200">

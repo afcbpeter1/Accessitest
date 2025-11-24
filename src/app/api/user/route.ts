@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-middleware'
 import { queryOne } from '@/lib/database'
+import Stripe from 'stripe'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-08-27.basil',
+})
 
 async function handleGetUser(request: NextRequest, user: any) {
   try {
@@ -20,6 +25,29 @@ async function handleGetUser(request: NextRequest, user: any) {
       )
     }
 
+    // Get subscription details if user has one
+    let subscriptionDetails = null
+    if (userData.stripe_subscription_id) {
+      try {
+        const subscription = await stripe.subscriptions.retrieve(userData.stripe_subscription_id)
+        const price = subscription.items.data[0]?.price
+        const billingPeriod = price?.recurring?.interval === 'month' ? 'monthly' : 'yearly'
+        
+        subscriptionDetails = {
+          id: subscription.id,
+          status: subscription.status,
+          billingPeriod,
+          cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+          currentPeriodEnd: subscription.current_period_end
+            ? new Date(subscription.current_period_end * 1000).toISOString()
+            : null,
+        }
+      } catch (error) {
+        // Subscription not found in Stripe, ignore
+        console.log('Subscription not found in Stripe:', error)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       user: {
@@ -36,7 +64,8 @@ async function handleGetUser(request: NextRequest, user: any) {
         creditsUsed: userData.credits_used || 0,
         unlimitedCredits: userData.unlimited_credits || false,
         createdAt: userData.created_at,
-        lastLogin: userData.last_login
+        lastLogin: userData.last_login,
+        subscription: subscriptionDetails
       }
     })
   } catch (error) {

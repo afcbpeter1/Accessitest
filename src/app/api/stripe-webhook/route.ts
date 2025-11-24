@@ -500,17 +500,92 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   console.log('💳 Processing invoice.payment_succeeded:', invoice.id)
+  console.log('📋 Invoice details:', {
+    id: invoice.id,
+    subscription: invoice.subscription,
+    billing_reason: invoice.billing_reason,
+    customer: invoice.customer,
+    customer_email: invoice.customer_email,
+    amount_paid: invoice.amount_paid,
+    has_lines: !!invoice.lines?.data?.length,
+    line_items_count: invoice.lines?.data?.length || 0
+  })
+  
+  // Check if this is a subscription invoice
+  // Sometimes invoice.subscription might be a string ID or null
+  const subscriptionId = typeof invoice.subscription === 'string' 
+    ? invoice.subscription 
+    : invoice.subscription || null
+  
+  // Also check line items to see if they're subscription items
+  const hasSubscriptionItems = invoice.lines?.data?.some(
+    line => line.price?.recurring !== null && line.price?.recurring !== undefined
+  ) || false
+  
+  console.log('🔍 Subscription check:', {
+    subscriptionId,
+    hasSubscriptionItems,
+    billing_reason: invoice.billing_reason
+  })
   
   // Only process subscription invoices (skip one-time payments)
-  if (!invoice.subscription) {
+  if (!subscriptionId && !hasSubscriptionItems) {
     console.log('⚠️ Invoice is not for a subscription, skipping')
+    console.log('📋 This appears to be a one-time payment invoice')
+    return
+  }
+  
+  // If we have subscription items but no subscription ID, try to find it
+  let subscription: Stripe.Subscription | null = null
+  if (subscriptionId) {
+    subscription = await stripe.subscriptions.retrieve(subscriptionId)
+  } else if (hasSubscriptionItems && invoice.customer) {
+    // Try to find the subscription by looking up customer's subscriptions
+    // Check active, trialing, and past_due subscriptions
+    console.log('⚠️ No subscription ID in invoice, looking up customer subscriptions')
+    try {
+      // First try active subscriptions
+      let subscriptions = await stripe.subscriptions.list({
+        customer: invoice.customer as string,
+        status: 'active',
+        limit: 1
+      })
+      
+      // If no active, try trialing
+      if (subscriptions.data.length === 0) {
+        subscriptions = await stripe.subscriptions.list({
+          customer: invoice.customer as string,
+          status: 'trialing',
+          limit: 1
+        })
+      }
+      
+      // If still none, try past_due
+      if (subscriptions.data.length === 0) {
+        subscriptions = await stripe.subscriptions.list({
+          customer: invoice.customer as string,
+          status: 'past_due',
+          limit: 1
+        })
+      }
+      
+      if (subscriptions.data.length > 0) {
+        subscription = subscriptions.data[0]
+        console.log('✅ Found subscription:', subscription.id, 'status:', subscription.status)
+      } else {
+        console.log('⚠️ No matching subscription found for customer')
+      }
+    } catch (error) {
+      console.error('❌ Error looking up subscription:', error)
+    }
+  }
+  
+  if (!subscription) {
+    console.log('⚠️ Could not find subscription for invoice, skipping')
     return
   }
 
   try {
-    // Get subscription details
-    const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string)
-    
     // Get userId and planType from invoice line items metadata (for initial subscription)
     let userId: string | null = null
     let planType: string | null = null

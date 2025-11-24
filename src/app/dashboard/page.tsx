@@ -39,10 +39,13 @@ function DashboardContent() {
   const [timeRange, setTimeRange] = useState<string>('30d')
   const [isLoading, setIsLoading] = useState(true)
   const [analytics, setAnalytics] = useState<any>(null)
+  const [issuesOverTimePage, setIssuesOverTimePage] = useState(1)
+  const itemsPerPage = 10
 
   // Load scan history and analytics
   useEffect(() => {
     loadDashboardData()
+    setIssuesOverTimePage(1) // Reset to first page when filters change
   }, [selectedWebsite, timeRange])
 
   const loadDashboardData = async () => {
@@ -174,15 +177,28 @@ function DashboardContent() {
       }
     }
     
-    // Create chart data
-    const chartData = filteredScans.map(scan => ({
-      date: new Date(scan.createdAt).toLocaleDateString(),
-      total: (scan.criticalIssues || 0) + (scan.seriousIssues || 0) + (scan.moderateIssues || 0) + (scan.minorIssues || 0),
-      critical: scan.criticalIssues || 0,
-      serious: scan.seriousIssues || 0,
-      moderate: scan.moderateIssues || 0,
-      minor: scan.minorIssues || 0
-    }))
+    // Create chart data with scan details, sorted by most recent first
+    const chartData = filteredScans
+      .map(scan => ({
+        scanId: scan.id || scan.scanId,
+        date: new Date(scan.createdAt).toLocaleDateString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        }),
+        dateTime: new Date(scan.createdAt),
+        total: (scan.criticalIssues || 0) + (scan.seriousIssues || 0) + (scan.moderateIssues || 0) + (scan.minorIssues || 0),
+        critical: scan.criticalIssues || 0,
+        serious: scan.seriousIssues || 0,
+        moderate: scan.moderateIssues || 0,
+        minor: scan.minorIssues || 0,
+        scanType: scan.scanType || scan.type || 'web',
+        url: scan.url,
+        fileName: scan.fileName,
+        fileType: scan.fileType,
+        pagesAnalyzed: scan.pagesAnalyzed || 1
+      }))
+      .sort((a, b) => b.dateTime.getTime() - a.dateTime.getTime()) // Sort by most recent first
     
     // Count scan types
     const webScans = filteredScans.filter(scan => scan.scanType === 'web').length
@@ -390,28 +406,97 @@ function DashboardContent() {
                 </h3>
               </div>
               <div className="space-y-3">
-                {analytics.chartData.map((data: any, index: number) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="text-sm font-medium text-gray-900">{data.date}</div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-gray-900">{data.total} total</div>
-                        <div className="text-xs text-gray-500">
-                          {data.critical}C {data.serious}S {data.moderate}M {data.minor}m
+                {analytics.chartData
+                  .slice((issuesOverTimePage - 1) * itemsPerPage, issuesOverTimePage * itemsPerPage)
+                  .map((data: any, index: number) => {
+                    const maxTotal = Math.max(...analytics.chartData.map((d: any) => d.total), 1)
+                    const scanUrl = data.scanId ? `/scan-history/${data.scanId}` : '#'
+                    
+                    return (
+                      <Link 
+                        key={data.scanId || index} 
+                        href={scanUrl}
+                        className="block"
+                      >
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <div className="text-sm font-medium text-gray-900">{data.date}</div>
+                              <span className={`text-xs px-2 py-0.5 rounded ${
+                                data.scanType === 'web' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-purple-100 text-purple-800'
+                              }`}>
+                                {data.scanType === 'web' ? 'Web' : 'Document'}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-600 truncate">
+                              {data.scanType === 'web' ? (
+                                <span className="flex items-center">
+                                  <Globe className="h-3 w-3 mr-1" />
+                                  {data.url || 'N/A'}
+                                </span>
+                              ) : (
+                                <span className="flex items-center">
+                                  <Upload className="h-3 w-3 mr-1" />
+                                  {data.fileName || 'Document'} {data.fileType ? `(${data.fileType})` : ''}
+                                </span>
+                              )}
+                            </div>
+                            {data.pagesAnalyzed > 1 && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                {data.pagesAnalyzed} page{data.pagesAnalyzed !== 1 ? 's' : ''} analyzed
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-4 ml-4">
+                            <div className="text-right">
+                              <div className="text-sm font-medium text-gray-900">{data.total} total</div>
+                              <div className="text-xs text-gray-500">
+                                {data.critical}C {data.serious}S {data.moderate}M {data.minor}m
+                              </div>
+                            </div>
+                            <div className="w-20 bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-red-500 h-2 rounded-full" 
+                                style={{ width: `${Math.min((data.total / maxTotal) * 100, 100)}%` }}
+                              ></div>
+                            </div>
+                            <Eye className="h-4 w-4 text-gray-400" />
+                          </div>
                         </div>
-                      </div>
-                      <div className="w-20 bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-red-500 h-2 rounded-full" 
-                          style={{ width: `${Math.min((data.total / Math.max(...analytics.chartData.map((d: any) => d.total))) * 100, 100)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                      </Link>
+                    )
+                  })}
               </div>
+              
+              {/* Pagination */}
+              {analytics.chartData.length > itemsPerPage && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                  <div className="text-sm text-gray-600">
+                    Showing {(issuesOverTimePage - 1) * itemsPerPage + 1} to {Math.min(issuesOverTimePage * itemsPerPage, analytics.chartData.length)} of {analytics.chartData.length} scans
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setIssuesOverTimePage(prev => Math.max(1, prev - 1))}
+                      disabled={issuesOverTimePage === 1}
+                      className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-gray-700">
+                      Page {issuesOverTimePage} of {Math.ceil(analytics.chartData.length / itemsPerPage)}
+                    </span>
+                    <button
+                      onClick={() => setIssuesOverTimePage(prev => Math.min(Math.ceil(analytics.chartData.length / itemsPerPage), prev + 1))}
+                      disabled={issuesOverTimePage >= Math.ceil(analytics.chartData.length / itemsPerPage)}
+                      className="px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Issue Breakdown */}
