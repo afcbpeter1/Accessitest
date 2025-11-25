@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-middleware'
 import { queryOne } from '@/lib/database'
 import Stripe from 'stripe'
+import { sendSubscriptionReactivationEmail } from '@/lib/subscription-email-service'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -12,7 +13,7 @@ async function handleGetSubscription(request: NextRequest, user: any) {
   try {
     // Get user's subscription ID from database
     const userData = await queryOne(
-      `SELECT stripe_subscription_id, plan_type FROM users WHERE id = $1`,
+      `SELECT stripe_subscription_id, plan_type, email FROM users WHERE id = $1`,
       [user.userId]
     )
 
@@ -24,42 +25,243 @@ async function handleGetSubscription(request: NextRequest, user: any) {
       })
     }
 
-    // Get subscription details from Stripe
-    const subscription = await stripe.subscriptions.retrieve(userData.stripe_subscription_id)
+    // First, verify the subscription exists and get it from Stripe
+    let subscription: Stripe.Subscription
+    let subscriptionFound = false
+    
+    try {
+      subscription = await stripe.subscriptions.retrieve(userData.stripe_subscription_id, {
+        expand: ['latest_invoice', 'customer']
+      })
+      
+      // Verify this subscription is actually active and belongs to this user
+      if (subscription.status === 'active' || subscription.status === 'trialing') {
+        subscriptionFound = true
+      }
+    } catch (error: any) {
+      console.error('❌ Subscription not found in Stripe:', error.message)
+      
+      // If subscription not found, try to find it by customer email
+      if (userData.email) {
+        try {
+          const customers = await stripe.customers.list({
+            email: userData.email,
+            limit: 1
+          })
+          
+          if (customers.data.length > 0) {
+            const customer = customers.data[0]
+            
+            // Get active subscriptions for this customer
+            const subscriptions = await stripe.subscriptions.list({
+              customer: customer.id,
+              status: 'all',
+              limit: 10
+            })
+            
+            // Find the most recent active subscription
+            const activeSubscription = subscriptions.data.find(sub => 
+              sub.status === 'active' || sub.status === 'trialing'
+            ) || subscriptions.data[0]
+            
+            if (activeSubscription) {
+              subscription = await stripe.subscriptions.retrieve(activeSubscription.id, {
+                expand: ['latest_invoice', 'customer']
+              })
+              
+              // Update database with correct subscription ID
+              await queryOne(
+                `UPDATE users SET stripe_subscription_id = $1, updated_at = NOW() WHERE id = $2`,
+                [activeSubscription.id, user.userId]
+              )
+            } else {
+              return NextResponse.json({
+                success: true,
+                subscription: null,
+                message: 'No active subscription found'
+              })
+            }
+          } else {
+            return NextResponse.json({
+              success: true,
+              subscription: null,
+              message: 'No customer found in Stripe'
+            })
+          }
+        } catch (searchError) {
+          console.error('❌ Error searching for subscription:', searchError)
+          return NextResponse.json({
+            success: true,
+            subscription: null,
+            message: 'Subscription not found in Stripe'
+          })
+        }
+      } else {
+        return NextResponse.json({
+          success: true,
+          subscription: null,
+          message: 'Subscription not found in Stripe'
+        })
+      }
+    }
+    
+    // Always verify we have the most recent active subscription
+    if (userData.email) {
+      try {
+        // Get customer by email to find the correct subscription
+        const customers = await stripe.customers.list({
+          email: userData.email,
+          limit: 1
+        })
+        
+        if (customers.data.length > 0) {
+          const customer = customers.data[0]
+          const allSubscriptions = await stripe.subscriptions.list({
+            customer: customer.id,
+            status: 'all',
+            limit: 10
+          })
+          
+          // Find the most recent active subscription (sort by created date, most recent first)
+          const activeSubscriptions = allSubscriptions.data
+            .filter(sub => sub.status === 'active' || sub.status === 'trialing')
+            .sort((a, b) => b.created - a.created) // Most recent first
+          
+          if (activeSubscriptions.length > 0) {
+            const mostRecentActive = activeSubscriptions[0]
+            
+            // If it's different from what we have, use the correct one
+            if (mostRecentActive.id !== subscription.id) {
+              subscription = await stripe.subscriptions.retrieve(mostRecentActive.id, {
+                expand: ['latest_invoice', 'customer']
+              })
+              
+              // Update database with correct subscription ID
+              await queryOne(
+                `UPDATE users SET stripe_subscription_id = $1, updated_at = NOW() WHERE id = $2`,
+                [mostRecentActive.id, user.userId]
+              )
+            }
+          }
+        }
+      } catch (verifyError) {
+        console.error('Error verifying subscription:', verifyError)
+      }
+    }
+    
+    // ALWAYS get dates from UPCOMING invoice - it shows the CURRENT billing period
+    // The latest paid invoice only shows the period that was just paid, not the current period
+    let invoicePeriodStart: number | null = null
+    let invoicePeriodEnd: number | null = null
+    let invoiceSource = 'none'
+    
+    try {
+      // ALWAYS use upcoming invoice - it shows the current billing period (25 Nov to 25 Dec)
+      // The latest invoice shows the period that was just paid (which might be the same start/end)
+      let invoiceToUse: Stripe.Invoice | null = null
+      
+      try {
+        const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+          subscription: subscription.id
+        })
+        invoiceToUse = upcomingInvoice
+        invoiceSource = 'upcoming_invoice'
+      } catch (upcomingError: any) {
+        // If upcoming invoice fails, try to calculate from subscription + billing interval
+        const billingInterval = subscription.items.data[0]?.price?.recurring?.interval
+        const billingIntervalCount = subscription.items.data[0]?.price?.recurring?.interval_count || 1
+        
+        // Use subscription created date or current period start if available
+        const periodStart = subscription.current_period_start || subscription.created
+        
+        if (periodStart && billingInterval === 'month') {
+          const startDate = new Date(periodStart * 1000)
+          const endDate = new Date(startDate)
+          endDate.setMonth(endDate.getMonth() + billingIntervalCount)
+          
+          invoicePeriodStart = periodStart
+          invoicePeriodEnd = Math.floor(endDate.getTime() / 1000)
+          invoiceSource = 'calculated_from_subscription'
+        }
+      }
+      
+      if (invoiceToUse) {
+        invoicePeriodStart = invoiceToUse.period_start || null
+        invoicePeriodEnd = invoiceToUse.period_end || null
+        
+        // Validate that dates are different
+        if (invoicePeriodStart && invoicePeriodEnd && invoicePeriodStart === invoicePeriodEnd) {
+          // Calculate from subscription
+          const billingInterval = subscription.items.data[0]?.price?.recurring?.interval
+          const billingIntervalCount = subscription.items.data[0]?.price?.recurring?.interval_count || 1
+          
+          if (billingInterval === 'month' && invoicePeriodStart) {
+            const startDate = new Date(invoicePeriodStart * 1000)
+            const endDate = new Date(startDate)
+            endDate.setMonth(endDate.getMonth() + billingIntervalCount)
+            invoicePeriodEnd = Math.floor(endDate.getTime() / 1000)
+            invoiceSource = 'calculated_from_invoice_start'
+          }
+        }
+      }
+    } catch (invoiceError) {
+      console.error('Error getting invoice:', invoiceError)
+    }
 
     // Get price details
     const price = subscription.items.data[0]?.price
     const billingPeriod = price?.recurring?.interval === 'month' ? 'monthly' : 'yearly'
     const amount = price ? `$${(price.unit_amount || 0) / 100}` : 'N/A'
 
-    // Calculate next billing date
-    const nextBillingDate = subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000)
+    // Get dates from Stripe - ALWAYS prioritize invoice dates as they're more reliable
+    let currentPeriodStart: string | null = null
+    let currentPeriodEnd: string | null = null
+    
+    // Use invoice dates if available (more reliable than subscription object)
+    if (invoicePeriodStart && invoicePeriodEnd) {
+      currentPeriodStart = new Date(invoicePeriodStart * 1000).toISOString()
+      currentPeriodEnd = new Date(invoicePeriodEnd * 1000).toISOString()
+    } else {
+      // Fallback to subscription dates if invoice dates not available
+      if (subscription.current_period_start && typeof subscription.current_period_start === 'number') {
+        currentPeriodStart = new Date(subscription.current_period_start * 1000).toISOString()
+      } else if (subscription.current_period_start) {
+        currentPeriodStart = new Date(subscription.current_period_start as any).toISOString()
+      }
+      
+      if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
+        currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString()
+      } else if (subscription.current_period_end) {
+        currentPeriodEnd = new Date(subscription.current_period_end as any).toISOString()
+      }
+    }
+
+    // Next billing date is the same as current period end for active subscriptions
+    const nextBillingDate = !subscription.cancel_at_period_end && currentPeriodEnd
+      ? currentPeriodEnd
       : null
 
-    // Calculate access end date (when subscription will end)
-    const accessEndDate = subscription.cancel_at_period_end && subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000)
+    // Access end date is when subscription will end if cancelled
+    const accessEndDate = subscription.cancel_at_period_end && currentPeriodEnd
+      ? currentPeriodEnd
       : null
+
+    const subscriptionData = {
+      id: subscription.id,
+      status: subscription.status,
+      planName: getPlanNameFromPriceId(price?.id || ''),
+      amount,
+      billingPeriod,
+      nextBillingDate,
+      accessEndDate,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+      currentPeriodStart,
+      currentPeriodEnd,
+    }
 
     return NextResponse.json({
       success: true,
-      subscription: {
-        id: subscription.id,
-        status: subscription.status,
-        planName: getPlanNameFromPriceId(price?.id || ''),
-        amount,
-        billingPeriod,
-        nextBillingDate: nextBillingDate?.toISOString() || null,
-        accessEndDate: accessEndDate?.toISOString() || null,
-        cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
-        currentPeriodStart: subscription.current_period_start
-          ? new Date(subscription.current_period_start * 1000).toISOString()
-          : null,
-        currentPeriodEnd: subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toISOString()
-          : null,
-      }
+      subscription: subscriptionData
     })
   } catch (error: any) {
     console.error('Error fetching subscription:', error)
@@ -131,9 +333,9 @@ async function handleCancelSubscription(request: NextRequest, user: any) {
 // Reactivate subscription (if cancelled but not yet ended)
 async function handleReactivateSubscription(request: NextRequest, user: any) {
   try {
-    // Get user's subscription ID from database
+    // Get user's subscription ID, email, and name from database
     const userData = await queryOne(
-      `SELECT stripe_subscription_id FROM users WHERE id = $1`,
+      `SELECT stripe_subscription_id, email, first_name, last_name FROM users WHERE id = $1`,
       [user.userId]
     )
 
@@ -151,6 +353,91 @@ async function handleReactivateSubscription(request: NextRequest, user: any) {
         cancel_at_period_end: false
       }
     )
+
+    // Get subscription details for email
+    const price = subscription.items.data[0]?.price
+    const planName = getPlanNameFromPriceId(price?.id || '')
+    const billingPeriod = price?.recurring?.interval === 'month' ? 'Monthly' : 'Yearly'
+    
+    // Calculate next billing date - try multiple sources
+    let nextBillingDate: string | null = null
+    
+    // First, try to get from current_period_end
+    if (subscription.current_period_end) {
+      nextBillingDate = new Date(subscription.current_period_end * 1000).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    } else {
+      // Try to get from upcoming invoice
+      try {
+        const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+          subscription: subscription.id
+        })
+        if (upcomingInvoice.period_end) {
+          nextBillingDate = new Date(upcomingInvoice.period_end * 1000).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })
+        }
+      } catch (invoiceError) {
+        console.log('Could not retrieve upcoming invoice for next billing date')
+      }
+      
+      // If still no date, calculate from billing interval
+      if (!nextBillingDate && subscription.current_period_start) {
+        const billingInterval = price?.recurring?.interval || 'month'
+        const intervalCount = price?.recurring?.interval_count || 1
+        const periodStart = new Date(subscription.current_period_start * 1000)
+        const periodEnd = new Date(periodStart)
+        
+        if (billingInterval === 'month') {
+          periodEnd.setMonth(periodEnd.getMonth() + intervalCount)
+        } else if (billingInterval === 'year') {
+          periodEnd.setFullYear(periodEnd.getFullYear() + intervalCount)
+        }
+        
+        nextBillingDate = periodEnd.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+      }
+    }
+
+    const reactivationDate = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+
+    // Send reactivation email
+    if (userData.email) {
+      // Get user's name
+      const firstName = userData.first_name || ''
+      const lastName = userData.last_name || ''
+      const customerName = (firstName || lastName) ? `${firstName} ${lastName}`.trim() : undefined
+      
+      console.log('📧 Sending subscription reactivation email:', {
+        to: userData.email,
+        plan: planName,
+        reactivationDate,
+        nextBillingDate
+      })
+      
+      await sendSubscriptionReactivationEmail({
+        customerEmail: userData.email,
+        customerName,
+        planName,
+        reactivationDate,
+        nextBillingDate: nextBillingDate || undefined,
+        billingPeriod: billingPeriod as 'Monthly' | 'Yearly'
+      })
+      
+      console.log('✅ Subscription reactivation email sent successfully')
+    }
 
     return NextResponse.json({
       success: true,
@@ -178,16 +465,105 @@ function getPlanNameFromPriceId(priceId: string): string {
   return planNames[priceId] || 'Unknown Plan'
 }
 
+// Sync/verify subscription link with Stripe
+async function handleSyncSubscription(request: NextRequest, user: any) {
+  try {
+    // Get user data
+    const userData = await queryOne(
+      `SELECT stripe_subscription_id, plan_type, email FROM users WHERE id = $1`,
+      [user.userId]
+    )
+
+    if (!userData || !userData.email) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    // Find customer in Stripe by email
+    const customers = await stripe.customers.list({
+      email: userData.email,
+      limit: 1
+    })
+
+    if (customers.data.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: 'No customer found in Stripe',
+        message: 'No Stripe customer exists for this email'
+      })
+    }
+
+    const customer = customers.data[0]
+
+    // Get all subscriptions for this customer
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customer.id,
+      status: 'all',
+      limit: 10
+    })
+
+    // Find the most recent active subscription
+    const activeSubscription = subscriptions.data.find(sub => 
+      sub.status === 'active' || sub.status === 'trialing'
+    ) || subscriptions.data.find(sub => sub.status !== 'canceled' && sub.status !== 'unpaid')
+
+    if (!activeSubscription) {
+      return NextResponse.json({
+        success: false,
+        error: 'No active subscription found',
+        message: 'No active subscription found in Stripe for this customer'
+      })
+    }
+
+    // Update database with correct subscription ID
+    await queryOne(
+      `UPDATE users SET stripe_subscription_id = $1, updated_at = NOW() WHERE id = $2`,
+      [activeSubscription.id, user.userId]
+    )
+
+    // Get full subscription details
+    const subscription = await stripe.subscriptions.retrieve(activeSubscription.id, {
+      expand: ['latest_invoice', 'customer']
+    })
+
+    return NextResponse.json({
+      success: true,
+      message: 'Subscription synced successfully',
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        currentPeriodStart: subscription.current_period_start
+          ? new Date(subscription.current_period_start * 1000).toISOString()
+          : null,
+        currentPeriodEnd: subscription.current_period_end
+          ? new Date(subscription.current_period_end * 1000).toISOString()
+          : null,
+      }
+    })
+  } catch (error: any) {
+    console.error('Error syncing subscription:', error)
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to sync subscription' },
+      { status: 500 }
+    )
+  }
+}
+
 export const GET = requireAuth(handleGetSubscription)
 export const DELETE = requireAuth(handleCancelSubscription)
 export const POST = requireAuth(async (request: NextRequest, user: any) => {
   const body = await request.json()
   if (body.action === 'reactivate') {
     return handleReactivateSubscription(request, user)
+  } else if (body.action === 'sync') {
+    return handleSyncSubscription(request, user)
   }
   return NextResponse.json(
     { success: false, error: 'Invalid action' },
     { status: 400 }
   )
 })
+
 

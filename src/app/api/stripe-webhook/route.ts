@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { query } from '@/lib/database'
+import { query, queryOne } from '@/lib/database'
 import { getPlanTypeFromPriceId, getCreditAmountFromPriceId, CREDIT_AMOUNTS } from '@/lib/stripe-config'
 import { sendReceiptEmail, ReceiptData } from '@/lib/receipt-email-service'
 import { sendSubscriptionPaymentEmail, sendSubscriptionCancellationEmail } from '@/lib/subscription-email-service'
@@ -372,24 +372,183 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   console.log('Processing subscription updated:', subscription.id)
   
-  const { userId, planType } = subscription.metadata || {}
+  let { userId, planType } = subscription.metadata || {}
+  
+  // If userId is missing, try to look up user by subscription ID
+  if (!userId) {
+    console.log('⚠️ userId missing in subscription metadata, attempting to look up by subscription ID')
+    try {
+      const userResult = await query(
+        `SELECT id, email FROM users WHERE stripe_subscription_id = $1 LIMIT 1`,
+        [subscription.id]
+      )
+      
+      if (userResult.rows && userResult.rows.length > 0) {
+        userId = userResult.rows[0].id
+        console.log(`✅ Found user ${userId} by subscription ID ${subscription.id}`)
+      } else {
+        // Try to get user by customer email
+        try {
+          const customer = await stripe.customers.retrieve(subscription.customer as string)
+          if (!customer.deleted && 'email' in customer && customer.email) {
+            console.log(`🔍 Looking up user by email: ${customer.email}`)
+            const userResult = await query(
+              `SELECT id FROM users WHERE email = $1 LIMIT 1`,
+              [customer.email]
+            )
+            
+            if (userResult.rows && userResult.rows.length > 0) {
+              userId = userResult.rows[0].id
+              console.log(`✅ Found user ${userId} by email ${customer.email}`)
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error looking up user by customer email:', error)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error looking up user by subscription ID:', error)
+    }
+  }
   
   if (!userId) {
-    console.error('Missing userId in subscription metadata')
+    console.error('❌ Missing userId - cannot process subscription update')
     return
   }
 
   try {
-    // Update subscription status
+    // Check if subscription is being cancelled (cancel_at_period_end is true)
+    const isCancelling = subscription.cancel_at_period_end === true
+    const wasCancelling = subscription.status === 'canceled' || subscription.status === 'unpaid'
+    
+    // Get plan name from subscription
+    let planName = 'Unlimited Access'
+    if (subscription.items && subscription.items.data.length > 0) {
+      const priceId = subscription.items.data[0].price.id
+      planName = getPlanNameFromPriceId(priceId)
+    }
+    
+    // If planType is missing, try to determine it from the subscription price
+    if (!planType && subscription.items && subscription.items.data.length > 0) {
+      const priceId = subscription.items.data[0].price.id
+      planType = getPlanTypeFromPriceId(priceId)
+      console.log(`📋 Determined planType: ${planType} from priceId: ${priceId}`)
+    }
+    
+    // Update subscription status in database
+    const newPlanType = (subscription.status === 'active' && !isCancelling) ? (planType || 'complete_access') : 'free'
     await query(
       `UPDATE users SET plan_type = $1, updated_at = NOW() 
        WHERE stripe_subscription_id = $2`,
-      [subscription.status === 'active' ? planType : 'free', subscription.id]
+      [newPlanType, subscription.id]
     )
 
-    console.log(`Updated subscription ${subscription.id} status: ${subscription.status}`)
+    console.log(`✅ Updated subscription ${subscription.id} status: ${subscription.status}, cancel_at_period_end: ${isCancelling}`)
+    
+    // If subscription is being cancelled, send cancellation email
+    if (isCancelling && !wasCancelling) {
+      console.log('📧 Subscription cancellation detected - sending cancellation email')
+      
+      // Get user email and name
+      let userEmail: string | null = null
+      let userName: string | null = null
+      let savedCredits = 0
+      
+      try {
+        const userData = await query(
+          `SELECT u.email, u.first_name, u.last_name, uc.credits_remaining
+           FROM users u
+           LEFT JOIN user_credits uc ON u.id = uc.user_id
+           WHERE u.id = $1`,
+          [userId]
+        )
+        
+        if (userData.rows && userData.rows.length > 0) {
+          userEmail = userData.rows[0].email
+          savedCredits = userData.rows[0].credits_remaining || 0
+          // Combine first and last name if available
+          const firstName = userData.rows[0].first_name || ''
+          const lastName = userData.rows[0].last_name || ''
+          if (firstName || lastName) {
+            userName = `${firstName} ${lastName}`.trim()
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error getting user data for cancellation email:', error)
+      }
+      
+      if (userEmail) {
+        const cancellationDate = new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })
+        
+        // Calculate access end date - should be end of current billing period
+        let accessEndDate: string
+        if (subscription.current_period_end && subscription.current_period_end > subscription.current_period_start) {
+          // Use the period end from Stripe (this should be one month/year after start)
+          accessEndDate = new Date(subscription.current_period_end * 1000).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })
+          console.log(`📅 Using Stripe current_period_end: ${accessEndDate}`)
+        } else {
+          // If period_end is missing or same as start, calculate based on billing interval
+          console.log('⚠️ current_period_end is missing or invalid, calculating from billing interval')
+          const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000) : new Date()
+          const billingInterval = subscription.items?.data[0]?.price?.recurring?.interval || 'month'
+          const intervalCount = subscription.items?.data[0]?.price?.recurring?.interval_count || 1
+          
+          const periodEnd = new Date(periodStart)
+          if (billingInterval === 'month') {
+            periodEnd.setMonth(periodEnd.getMonth() + intervalCount)
+          } else if (billingInterval === 'year') {
+            periodEnd.setFullYear(periodEnd.getFullYear() + intervalCount)
+          } else if (billingInterval === 'day') {
+            periodEnd.setDate(periodEnd.getDate() + intervalCount)
+          } else if (billingInterval === 'week') {
+            periodEnd.setDate(periodEnd.getDate() + (intervalCount * 7))
+          }
+          
+          accessEndDate = periodEnd.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })
+          console.log(`📅 Calculated access end date: ${accessEndDate} (from ${billingInterval} interval, period start: ${periodStart.toLocaleDateString()})`)
+        }
+        
+        console.log('📧 Sending subscription cancellation email:', {
+          to: userEmail,
+          plan: planName,
+          cancellationDate,
+          accessEndDate,
+          savedCredits,
+          current_period_start: subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toLocaleDateString() : 'N/A',
+          current_period_end: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toLocaleDateString() : 'N/A'
+        })
+        
+        await sendSubscriptionCancellationEmail({
+          customerEmail: userEmail,
+          customerName: userName || undefined,
+          planName,
+          cancellationDate,
+          accessEndDate,
+          savedCredits: savedCredits > 0 ? savedCredits : undefined
+        })
+        
+        console.log('✅ Subscription cancellation email sent successfully')
+      } else {
+        console.error('❌ No user email found - cannot send cancellation email')
+      }
+      
+      // Create notification for subscription cancellation
+      await NotificationService.notifySubscriptionCancelled(userId)
+    }
   } catch (error) {
-    console.error('Error updating subscription:', error)
+    console.error('❌ Error updating subscription:', error)
   }
 }
 
@@ -401,12 +560,13 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   try {
     // Get user info before updating
     let userEmail: string | null = null
+    let userName: string | null = null
     let savedCredits = 0
     let planName = 'Unlimited Access'
     
     if (userId) {
       const userData = await query(
-        `SELECT u.email, uc.credits_remaining, u.plan_type
+        `SELECT u.email, u.first_name, u.last_name, uc.credits_remaining, u.plan_type
          FROM users u
          LEFT JOIN user_credits uc ON u.id = uc.user_id
          WHERE u.id = $1`,
@@ -416,11 +576,16 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       if (userData.rows && userData.rows.length > 0) {
         userEmail = userData.rows[0].email
         savedCredits = userData.rows[0].credits_remaining || 0
+        const firstName = userData.rows[0].first_name || ''
+        const lastName = userData.rows[0].last_name || ''
+        if (firstName || lastName) {
+          userName = `${firstName} ${lastName}`.trim()
+        }
       }
     } else {
       // Try to get user by subscription ID
       const userData = await query(
-        `SELECT u.id, u.email, uc.credits_remaining, u.plan_type
+        `SELECT u.id, u.email, u.first_name, u.last_name, uc.credits_remaining, u.plan_type
          FROM users u
          LEFT JOIN user_credits uc ON u.id = uc.user_id
          WHERE u.stripe_subscription_id = $1`,
@@ -430,6 +595,11 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       if (userData.rows && userData.rows.length > 0) {
         userEmail = userData.rows[0].email
         savedCredits = userData.rows[0].credits_remaining || 0
+        const firstName = userData.rows[0].first_name || ''
+        const lastName = userData.rows[0].last_name || ''
+        if (firstName || lastName) {
+          userName = `${firstName} ${lastName}`.trim()
+        }
       }
     }
     
@@ -473,16 +643,56 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
           month: 'long',
           day: 'numeric'
         })
-        const accessEndDate = subscription.current_period_end 
-          ? new Date(subscription.current_period_end * 1000).toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            })
-          : cancellationDate
+        
+        // Calculate access end date - should be end of current billing period
+        let accessEndDate: string
+        if (subscription.current_period_end && subscription.current_period_end > subscription.current_period_start) {
+          // Use the period end from Stripe (this should be one month/year after start)
+          accessEndDate = new Date(subscription.current_period_end * 1000).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })
+          console.log(`📅 Using Stripe current_period_end: ${accessEndDate}`)
+        } else {
+          // If period_end is missing or same as start, calculate based on billing interval
+          console.log('⚠️ current_period_end is missing or invalid, calculating from billing interval')
+          const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000) : new Date()
+          const billingInterval = subscription.items?.data[0]?.price?.recurring?.interval || 'month'
+          const intervalCount = subscription.items?.data[0]?.price?.recurring?.interval_count || 1
+          
+          const periodEnd = new Date(periodStart)
+          if (billingInterval === 'month') {
+            periodEnd.setMonth(periodEnd.getMonth() + intervalCount)
+          } else if (billingInterval === 'year') {
+            periodEnd.setFullYear(periodEnd.getFullYear() + intervalCount)
+          } else if (billingInterval === 'day') {
+            periodEnd.setDate(periodEnd.getDate() + intervalCount)
+          } else if (billingInterval === 'week') {
+            periodEnd.setDate(periodEnd.getDate() + (intervalCount * 7))
+          }
+          
+          accessEndDate = periodEnd.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })
+          console.log(`📅 Calculated access end date: ${accessEndDate} (from ${billingInterval} interval, period start: ${periodStart.toLocaleDateString()})`)
+        }
+        
+        console.log('📧 Sending subscription cancellation email (from deleted handler):', {
+          to: userEmail,
+          plan: planName,
+          cancellationDate,
+          accessEndDate,
+          savedCredits,
+          current_period_start: subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toLocaleDateString() : 'N/A',
+          current_period_end: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toLocaleDateString() : 'N/A'
+        })
         
         await sendSubscriptionCancellationEmail({
           customerEmail: userEmail,
+          customerName: userName || undefined,
           planName,
           cancellationDate,
           accessEndDate,
@@ -500,92 +710,17 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   console.log('💳 Processing invoice.payment_succeeded:', invoice.id)
-  console.log('📋 Invoice details:', {
-    id: invoice.id,
-    subscription: invoice.subscription,
-    billing_reason: invoice.billing_reason,
-    customer: invoice.customer,
-    customer_email: invoice.customer_email,
-    amount_paid: invoice.amount_paid,
-    has_lines: !!invoice.lines?.data?.length,
-    line_items_count: invoice.lines?.data?.length || 0
-  })
-  
-  // Check if this is a subscription invoice
-  // Sometimes invoice.subscription might be a string ID or null
-  const subscriptionId = typeof invoice.subscription === 'string' 
-    ? invoice.subscription 
-    : invoice.subscription || null
-  
-  // Also check line items to see if they're subscription items
-  const hasSubscriptionItems = invoice.lines?.data?.some(
-    line => line.price?.recurring !== null && line.price?.recurring !== undefined
-  ) || false
-  
-  console.log('🔍 Subscription check:', {
-    subscriptionId,
-    hasSubscriptionItems,
-    billing_reason: invoice.billing_reason
-  })
   
   // Only process subscription invoices (skip one-time payments)
-  if (!subscriptionId && !hasSubscriptionItems) {
+  if (!invoice.subscription) {
     console.log('⚠️ Invoice is not for a subscription, skipping')
-    console.log('📋 This appears to be a one-time payment invoice')
-    return
-  }
-  
-  // If we have subscription items but no subscription ID, try to find it
-  let subscription: Stripe.Subscription | null = null
-  if (subscriptionId) {
-    subscription = await stripe.subscriptions.retrieve(subscriptionId)
-  } else if (hasSubscriptionItems && invoice.customer) {
-    // Try to find the subscription by looking up customer's subscriptions
-    // Check active, trialing, and past_due subscriptions
-    console.log('⚠️ No subscription ID in invoice, looking up customer subscriptions')
-    try {
-      // First try active subscriptions
-      let subscriptions = await stripe.subscriptions.list({
-        customer: invoice.customer as string,
-        status: 'active',
-        limit: 1
-      })
-      
-      // If no active, try trialing
-      if (subscriptions.data.length === 0) {
-        subscriptions = await stripe.subscriptions.list({
-          customer: invoice.customer as string,
-          status: 'trialing',
-          limit: 1
-        })
-      }
-      
-      // If still none, try past_due
-      if (subscriptions.data.length === 0) {
-        subscriptions = await stripe.subscriptions.list({
-          customer: invoice.customer as string,
-          status: 'past_due',
-          limit: 1
-        })
-      }
-      
-      if (subscriptions.data.length > 0) {
-        subscription = subscriptions.data[0]
-        console.log('✅ Found subscription:', subscription.id, 'status:', subscription.status)
-      } else {
-        console.log('⚠️ No matching subscription found for customer')
-      }
-    } catch (error) {
-      console.error('❌ Error looking up subscription:', error)
-    }
-  }
-  
-  if (!subscription) {
-    console.log('⚠️ Could not find subscription for invoice, skipping')
     return
   }
 
   try {
+    // Get subscription details
+    const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string)
+    
     // Get userId and planType from invoice line items metadata (for initial subscription)
     let userId: string | null = null
     let planType: string | null = null
@@ -766,6 +901,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 
         await sendSubscriptionPaymentEmail({
           customerEmail,
+          customerName: customerName || undefined,
           planName,
           amount,
           billingPeriod: billingPeriod as 'Monthly' | 'Yearly',
@@ -955,8 +1091,29 @@ async function sendReceiptEmailFromSession(session: Stripe.Checkout.Session) {
     const creditAmount = getCreditAmountFromPriceId(priceId)
     const amount = `$${(session.amount_total || 0) / 100}`
 
+    // Get user name from database
+    let customerName: string | undefined = undefined
+    if (customerEmail) {
+      try {
+        const userData = await query(
+          `SELECT first_name, last_name FROM users WHERE email = $1 LIMIT 1`,
+          [customerEmail]
+        )
+        if (userData.rows && userData.rows.length > 0) {
+          const firstName = userData.rows[0].first_name || ''
+          const lastName = userData.rows[0].last_name || ''
+          if (firstName || lastName) {
+            customerName = `${firstName} ${lastName}`.trim()
+          }
+        }
+      } catch (error) {
+        console.error('Error getting user name for receipt email:', error)
+      }
+    }
+
     const receiptData: ReceiptData = {
       customerEmail,
+      customerName,
       planName,
       amount,
       type: type as 'subscription' | 'credits',
@@ -1013,8 +1170,29 @@ async function sendReceiptEmailFromSubscription(subscription: Stripe.Subscriptio
       (price.recurring.interval === 'month' ? 'Monthly' : 'Yearly') : 
       undefined
 
+    // Get user name from database
+    let customerName: string | undefined = undefined
+    if (customer.email) {
+      try {
+        const userData = await query(
+          `SELECT first_name, last_name FROM users WHERE email = $1 LIMIT 1`,
+          [customer.email]
+        )
+        if (userData.rows && userData.rows.length > 0) {
+          const firstName = userData.rows[0].first_name || ''
+          const lastName = userData.rows[0].last_name || ''
+          if (firstName || lastName) {
+            customerName = `${firstName} ${lastName}`.trim()
+          }
+        }
+      } catch (error) {
+        console.error('Error getting user name for receipt email:', error)
+      }
+    }
+
     const receiptData: ReceiptData = {
       customerEmail: customer.email,
+      customerName,
       planName,
       amount,
       type: 'subscription',
@@ -1065,8 +1243,45 @@ async function sendReceiptEmailFromPaymentIntent(paymentIntent: Stripe.PaymentIn
     const amount = `$${(paymentIntent.amount || 0) / 100}`
     const credits = creditAmount ? parseInt(creditAmount) : undefined
 
+    // Get user name from database (try userId first, then email)
+    let customerName: string | undefined = undefined
+    if (userId) {
+      try {
+        const userData = await query(
+          `SELECT first_name, last_name FROM users WHERE id = $1 LIMIT 1`,
+          [userId]
+        )
+        if (userData.rows && userData.rows.length > 0) {
+          const firstName = userData.rows[0].first_name || ''
+          const lastName = userData.rows[0].last_name || ''
+          if (firstName || lastName) {
+            customerName = `${firstName} ${lastName}`.trim()
+          }
+        }
+      } catch (error) {
+        console.error('Error getting user name for receipt email:', error)
+      }
+    } else if (customerEmail) {
+      try {
+        const userData = await query(
+          `SELECT first_name, last_name FROM users WHERE email = $1 LIMIT 1`,
+          [customerEmail]
+        )
+        if (userData.rows && userData.rows.length > 0) {
+          const firstName = userData.rows[0].first_name || ''
+          const lastName = userData.rows[0].last_name || ''
+          if (firstName || lastName) {
+            customerName = `${firstName} ${lastName}`.trim()
+          }
+        }
+      } catch (error) {
+        console.error('Error getting user name for receipt email:', error)
+      }
+    }
+
     const receiptData: ReceiptData = {
       customerEmail,
+      customerName,
       planName,
       amount,
       type: 'credits',

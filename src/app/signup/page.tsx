@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Shield, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { validatePassword } from '@/lib/password-validation'
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -56,8 +57,10 @@ export default function SignupPage() {
   }
 
   const validateForm = () => {
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long')
+    // Validate password strength
+    const passwordValidation = validatePassword(formData.password)
+    if (!passwordValidation.valid) {
+      setError(passwordValidation.error || 'Password does not meet requirements')
       return false
     }
     if (formData.password !== formData.confirmPassword) {
@@ -317,7 +320,7 @@ export default function SignupPage() {
                 </button>
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                Must be at least 8 characters long
+                Must be at least 8 characters long and contain at least one number and one special character
               </p>
             </div>
 

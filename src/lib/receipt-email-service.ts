@@ -1,6 +1,24 @@
 import { Resend } from 'resend'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-development')
+
+// Get logo as base64 for email embedding (most reliable for email clients)
+function getLogoUrl(): string {
+  try {
+    // Try to load from local file first (more reliable)
+    const logoPath = join(process.cwd(), 'public', 'allytest.png')
+    const logoBuffer = readFileSync(logoPath)
+    const base64Logo = logoBuffer.toString('base64')
+    return `data:image/png;base64,${base64Logo}`
+  } catch (error) {
+    console.error('❌ Error loading local logo file, using Cloudinary URL:', error)
+    // Fallback to Cloudinary URL if local file not found
+    // Use direct Cloudinary URL (make sure it's publicly accessible)
+    return 'https://res.cloudinary.com/dyzzpsxov/image/upload/v1764106136/allytest_vmuws6.png'
+  }
+}
 
 export interface ReceiptData {
   customerEmail: string
@@ -29,6 +47,9 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
 
     const subject = `Receipt for ${planName} - A11ytest.ai`
     
+    // Use Cloudinary logo URL with white background
+    const logoUrl = getLogoUrl()
+    
     const htmlContent = `
       <!DOCTYPE html>
       <html lang="en">
@@ -37,186 +58,291 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Receipt - A11ytest.ai</title>
         <style>
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
           body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: #1f2937;
+            background-color: #f3f4f6;
+            padding: 40px 20px;
+          }
+          .email-wrapper {
             max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
-            background-color: #f9fafb;
-          }
-          .container {
-            background-color: white;
-            border-radius: 8px;
-            padding: 30px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            background-color: #ffffff;
           }
           .header {
+            background: #ffffff;
+            padding: 40px 30px;
             text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #0B1220;
+            border-radius: 8px 8px 0 0;
+            border-bottom: 2px solid #e5e7eb;
           }
-          .logo {
-            font-size: 24px;
-            font-weight: bold;
+          .logo-container {
+            margin-bottom: 20px;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+          }
+          .logo-img {
+            max-width: 180px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+            background: #ffffff;
+          }
+          .header-title {
+            font-size: 28px;
+            font-weight: 700;
             color: #0B1220;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+            letter-spacing: -0.5px;
           }
-          .title {
-            font-size: 20px;
-            font-weight: 600;
-            color: #1f2937;
-            margin-bottom: 10px;
-          }
-          .subtitle {
+          .header-subtitle {
             color: #6b7280;
             font-size: 16px;
+            font-weight: 400;
           }
-          .receipt-details {
-            background-color: #f9fafb;
-            border-radius: 6px;
-            padding: 20px;
-            margin: 20px 0;
+          .content {
+            padding: 40px 30px;
+          }
+          .greeting {
+            font-size: 18px;
+            color: #1f2937;
+            margin-bottom: 30px;
+            font-weight: 500;
+          }
+          .receipt-card {
+            background: linear-gradient(to bottom, #f9fafb 0%, #ffffff 100%);
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+          }
+          .receipt-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #0B1220;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #e5e7eb;
           }
           .detail-row {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 10px;
-            padding: 8px 0;
-            border-bottom: 1px solid #e5e7eb;
+            align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px solid #f3f4f6;
           }
-          .detail-row:last-child {
+          .detail-row:last-of-type {
             border-bottom: none;
-            font-weight: 600;
-            font-size: 18px;
-            color: #0B1220;
+            padding-top: 20px;
+            margin-top: 8px;
+            border-top: 2px solid #e5e7eb;
           }
           .detail-label {
             color: #6b7280;
+            font-size: 15px;
+            font-weight: 500;
           }
           .detail-value {
             color: #1f2937;
-            font-weight: 500;
+            font-weight: 600;
+            font-size: 15px;
+            text-align: right;
           }
-          .next-steps {
-            background-color: #eff6ff;
+          .detail-row:last-of-type .detail-value {
+            font-size: 24px;
+            color: #0B1220;
+            font-weight: 700;
+          }
+          .info-box {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
             border-left: 4px solid #3b82f6;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 0 6px 6px 0;
+            border-radius: 8px;
+            padding: 24px;
+            margin: 30px 0;
           }
-          .next-steps h3 {
+          .info-box-title {
             color: #1e40af;
-            margin-top: 0;
-            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
           }
-          .next-steps ul {
+          .info-box-list {
+            color: #1e40af;
             margin: 0;
-            padding-left: 20px;
+            padding-left: 24px;
+            line-height: 1.8;
           }
-          .next-steps li {
+          .info-box-list li {
             margin-bottom: 8px;
-            color: #1e40af;
+          }
+          .cta-container {
+            text-align: center;
+            margin: 40px 0 30px;
           }
           .cta-button {
             display: inline-block;
-            background-color: #0B1220;
-            color: white;
-            padding: 12px 24px;
+            background: linear-gradient(135deg, #0B1220 0%, #1f2937 100%);
+            color: #ffffff !important;
+            padding: 16px 32px;
             text-decoration: none;
-            border-radius: 6px;
+            border-radius: 8px;
             font-weight: 600;
-            margin: 20px 0;
-            text-align: center;
+            font-size: 16px;
+            box-shadow: 0 4px 6px rgba(11, 18, 32, 0.2);
+            transition: transform 0.2s, box-shadow 0.2s;
           }
           .cta-button:hover {
-            background-color: #1f2937;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(11, 18, 32, 0.3);
           }
           .footer {
+            background-color: #f9fafb;
+            padding: 30px;
             text-align: center;
-            margin-top: 30px;
-            padding-top: 20px;
             border-top: 1px solid #e5e7eb;
+            border-radius: 0 0 8px 8px;
+          }
+          .footer-text {
             color: #6b7280;
             font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 12px;
           }
-          .support-link {
+          .footer-link {
             color: #0B1220;
             text-decoration: none;
+            font-weight: 500;
           }
-          .support-link:hover {
+          .footer-link:hover {
             text-decoration: underline;
+          }
+          .transaction-id {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #4b5563;
+            word-break: break-all;
+          }
+          @media only screen and (max-width: 600px) {
+            body {
+              padding: 20px 10px;
+            }
+            .header {
+              padding: 30px 20px;
+            }
+            .content {
+              padding: 30px 20px;
+            }
+            .receipt-card {
+              padding: 20px;
+            }
+            .detail-row {
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 4px;
+            }
+            .detail-value {
+              text-align: left;
+            }
           }
         </style>
       </head>
       <body>
-        <div class="container">
+        <div class="email-wrapper">
           <div class="header">
-            <div class="logo">A11ytest.ai</div>
-            <div class="title">Payment Receipt</div>
-            <div class="subtitle">Thank you for your purchase!</div>
+            <div class="logo-container">
+              <div class="header-title" style="font-size: 32px; font-weight: 700; color: #0B1220; letter-spacing: -1px;">A11ytest.ai</div>
+            </div>
+            <div class="header-title" style="margin-top: 20px;">Payment Receipt</div>
+            <div class="header-subtitle">Thank you for your purchase</div>
           </div>
 
-          <div class="receipt-details">
-            <div class="detail-row">
-              <span class="detail-label">Plan:</span>
-              <span class="detail-value">${planName}</span>
+          <div class="content">
+            <div class="greeting" style="margin-bottom: 40px;">
+              ${receiptData.customerName ? `Hello ${receiptData.customerName},` : 'Hello,'}
             </div>
-            <div class="detail-row">
-              <span class="detail-label">Type:</span>
-              <span class="detail-value">${type === 'subscription' ? 'Subscription' : 'Credit Package'}</span>
-            </div>
-            ${billingPeriod ? `
-            <div class="detail-row">
-              <span class="detail-label">Billing Period:</span>
-              <span class="detail-value">${billingPeriod}</span>
-            </div>
-            ` : ''}
-            ${creditAmount ? `
-            <div class="detail-row">
-              <span class="detail-label">Credits Added:</span>
-              <span class="detail-value">${creditAmount} scans</span>
-            </div>
-            ` : ''}
-            <div class="detail-row">
-              <span class="detail-label">Transaction ID:</span>
-              <span class="detail-value">${transactionId}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Date:</span>
-              <span class="detail-value">${date}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Total Amount:</span>
-              <span class="detail-value">${amount}</span>
-            </div>
-          </div>
+            
+            <p style="font-size: 16px; color: #1f2937; line-height: 1.8; margin-bottom: 30px;">
+              We are pleased to confirm that your payment has been successfully processed.
+            </p>
 
-          <div class="next-steps">
-            <h3>What's Next?</h3>
-            <ul>
-              ${type === 'subscription' ? `
-              <li>Your subscription is now active and ready to use</li>
-              <li>Access all premium features immediately</li>
-              ` : `
-              <li>Your credits have been added to your account</li>
-              <li>Start running accessibility scans right away</li>
-              `}
-              <li>Check your dashboard for usage details</li>
-            </ul>
-          </div>
+            <div class="receipt-card">
+              <div class="receipt-title">Receipt Details</div>
+              
+              <div class="detail-row">
+                <span class="detail-label">Plan</span>
+                <span class="detail-value">${planName}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Type</span>
+                <span class="detail-value">${type === 'subscription' ? 'Subscription' : 'Credit Package'}</span>
+              </div>
+              ${billingPeriod ? `
+              <div class="detail-row">
+                <span class="detail-label">Billing Period</span>
+                <span class="detail-value">${billingPeriod}</span>
+              </div>
+              ` : ''}
+              ${creditAmount ? `
+              <div class="detail-row">
+                <span class="detail-label">Credits Added</span>
+                <span class="detail-value">${creditAmount} scans</span>
+              </div>
+              ` : ''}
+              <div class="detail-row">
+                <span class="detail-label">Transaction ID</span>
+                <span class="detail-value transaction-id">${transactionId}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Date</span>
+                <span class="detail-value">${date}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Total Amount</span>
+                <span class="detail-value">${amount}</span>
+              </div>
+            </div>
 
-          <div style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_BASE_URL}/dashboard" class="cta-button">
-              Go to Dashboard
-            </a>
+            <div class="info-box">
+              <div class="info-box-title">
+                <span>✨ What's Next?</span>
+              </div>
+              <ul class="info-box-list">
+                ${type === 'subscription' ? `
+                <li>Your subscription is now active and ready to use</li>
+                <li>Access all premium features immediately</li>
+                ` : `
+                <li>Your credits have been added to your account</li>
+                <li>Start running accessibility scans right away</li>
+                `}
+                <li>Check your dashboard for usage details</li>
+              </ul>
+            </div>
+
+            <div class="cta-container">
+              <a href="${process.env.NEXT_PUBLIC_BASE_URL}/dashboard" class="cta-button">
+                Go to Dashboard
+              </a>
+            </div>
           </div>
 
           <div class="footer">
-            <p>Need help? <a href="${process.env.NEXT_PUBLIC_BASE_URL}/settings" class="support-link">Contact Support</a></p>
-            <p>This is an automated receipt. Please keep this email for your records.</p>
+            <p class="footer-text">
+              Need help? <a href="${process.env.NEXT_PUBLIC_BASE_URL}/settings" class="footer-link">Contact Support</a>
+            </p>
+            <p class="footer-text" style="margin-bottom: 0;">
+              This is an automated receipt. Please keep this email for your records.
+            </p>
           </div>
         </div>
       </body>

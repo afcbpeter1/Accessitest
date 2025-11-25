@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-middleware'
 import { queryOne, query } from '@/lib/database'
 import bcrypt from 'bcryptjs'
+import { validatePassword } from '@/lib/password-validation'
 
 async function handleChangePassword(request: NextRequest, user: any) {
   try {
@@ -15,9 +16,11 @@ async function handleChangePassword(request: NextRequest, user: any) {
       )
     }
 
-    if (newPassword.length < 8) {
+    // Validate password strength
+    const passwordValidation = validatePassword(newPassword)
+    if (!passwordValidation.valid) {
       return NextResponse.json(
-        { success: false, error: 'New password must be at least 8 characters long' },
+        { success: false, error: passwordValidation.error },
         { status: 400 }
       )
     }

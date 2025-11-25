@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import { queryOne, query } from '@/lib/database'
 import { VPNDetector } from '@/lib/vpn-detector'
 import { EmailService } from '@/lib/email-service'
+import { validatePassword } from '@/lib/password-validation'
 
 // Database user interface
 interface User {
@@ -155,6 +156,15 @@ async function handleRegister(email: string, password: string, name: string, com
   if (!email || !password || !name) {
     return NextResponse.json(
       { success: false, error: 'Email, password, and name are required' },
+      { status: 400 }
+    )
+  }
+
+  // Validate password strength
+  const passwordValidation = validatePassword(password)
+  if (!passwordValidation.valid) {
+    return NextResponse.json(
+      { success: false, error: passwordValidation.error },
       { status: 400 }
     )
   }

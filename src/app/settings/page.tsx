@@ -58,6 +58,8 @@ export default function SettingsPage() {
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null)
   const [loadingSubscription, setLoadingSubscription] = useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
     scanCompletion: true,
     criticalIssues: true,
@@ -92,9 +94,10 @@ export default function SettingsPage() {
     loadNotificationPreferences()
   }, [])
 
-  // Load subscription when subscription tab is active and user has subscription
+  // Load subscription when subscription tab is active
+  // Always try to load subscription - it will return null if user doesn't have one
   useEffect(() => {
-    if (activeTab === 'subscription' && user && user.plan !== 'free') {
+    if (activeTab === 'subscription') {
       loadSubscription()
     }
   }, [activeTab, user])
@@ -143,8 +146,13 @@ export default function SettingsPage() {
       })
 
       const data = await response.json()
-      if (data.success) {
-        setNotificationPrefs(data.preferences)
+      if (data.success && data.preferences) {
+        setNotificationPrefs({
+          scanCompletion: data.preferences.scanCompletion ?? true,
+          criticalIssues: data.preferences.criticalIssues ?? true,
+          weeklyReports: data.preferences.weeklyReports ?? false,
+          securityAlerts: data.preferences.securityAlerts ?? true
+        })
       }
     } catch (error) {
       console.error('Failed to load notification preferences:', error)
@@ -155,7 +163,9 @@ export default function SettingsPage() {
     setLoadingSubscription(true)
     try {
       const token = localStorage.getItem('accessToken')
-      if (!token) return
+      if (!token) {
+        return
+      }
 
       const response = await fetch('/api/subscription', {
         headers: {
@@ -164,11 +174,14 @@ export default function SettingsPage() {
       })
 
       const data = await response.json()
+      
       if (data.success) {
         setSubscription(data.subscription)
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to load subscription details' })
       }
     } catch (error) {
-      console.error('Failed to load subscription:', error)
+      console.error('❌ Error loading subscription:', error)
       setMessage({ type: 'error', text: 'Failed to load subscription details' })
     } finally {
       setLoadingSubscription(false)
@@ -224,10 +237,12 @@ export default function SettingsPage() {
       if (data.success) {
         setMessage({ 
           type: 'success', 
-          text: 'Subscription reactivated successfully!' 
+          text: 'Subscription reactivated successfully! Your subscription will continue to renew automatically.' 
         })
-        // Reload subscription to show updated status
-        await loadSubscription()
+        // Reload subscription to show updated status - add small delay to ensure Stripe has updated
+        setTimeout(async () => {
+          await loadSubscription()
+        }, 1000)
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to reactivate subscription' })
       }
@@ -237,6 +252,7 @@ export default function SettingsPage() {
       setSaving(false)
     }
   }
+
 
   const handleAccountUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -288,8 +304,10 @@ export default function SettingsPage() {
       return
     }
 
-    if (passwordForm.newPassword.length < 8) {
-      setMessage({ type: 'error', text: 'New password must be at least 8 characters long' })
+    // Validate password strength
+    const passwordValidation = await import('@/lib/password-validation').then(m => m.validatePassword(passwordForm.newPassword))
+    if (!passwordValidation.valid) {
+      setMessage({ type: 'error', text: passwordValidation.error || 'Password does not meet requirements' })
       setSaving(false)
       return
     }
@@ -328,6 +346,12 @@ export default function SettingsPage() {
 
     try {
       const token = localStorage.getItem('accessToken')
+      if (!notificationPrefs) {
+        setMessage({ type: 'error', text: 'Notification preferences not loaded' })
+        setSaving(false)
+        return
+      }
+      
       const response = await fetch('/api/notifications', {
         method: 'PUT',
         headers: {
@@ -368,6 +392,59 @@ export default function SettingsPage() {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('user')
       router.push('/login')
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true)
+    setMessage(null)
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        setMessage({ type: 'error', text: 'Not authenticated' })
+        setDeletingAccount(false)
+        return
+      }
+
+      const response = await fetch('/api/account/delete', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Stop token refresh service
+        if (typeof window !== 'undefined') {
+          try {
+            const { tokenRefreshService } = await import('@/lib/token-refresh-service')
+            tokenRefreshService.stop()
+          } catch (error) {
+            // Ignore if service not available
+          }
+        }
+        
+        // Clear all local storage and session storage
+        localStorage.clear()
+        sessionStorage.clear()
+        
+        // Immediately redirect to home page after account deletion
+        // Using window.location.href ensures a complete page reload and clears all state
+        window.location.href = '/home'
+        return // Exit early to prevent any further execution
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to delete account' })
+        setDeletingAccount(false)
+        setShowDeleteConfirm(false)
+      }
+    } catch (error) {
+      console.error('Error deleting account:', error)
+      setMessage({ type: 'error', text: 'Failed to delete account' })
+      setDeletingAccount(false)
+      setShowDeleteConfirm(false)
     }
   }
 
@@ -520,69 +597,12 @@ export default function SettingsPage() {
               <div className="card">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Subscription</h2>
                 <div className="space-y-4">
-                  {user && user.plan === 'free' ? (
+                  {loadingSubscription ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                    </div>
+                  ) : subscription ? (
                     <>
-                      <div className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h3 className="text-lg font-medium text-gray-900">Pay as You Go</h3>
-                            <p className="text-sm text-gray-500">3 free credits to get started</p>
-                          </div>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Active
-                          </span>
-                        </div>
-                        <div className="mt-4 space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Credits Remaining:</span>
-                            <span className="font-medium">{user.creditsRemaining}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Credits Used:</span>
-                            <span className="font-medium">{user.creditsUsed}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Member Since:</span>
-                            <span className="font-medium">
-                              {new Date(user.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <h4 className="text-sm font-medium text-gray-900">Upgrade Options:</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div className="border border-gray-200 rounded-lg p-4">
-                            <h5 className="font-medium text-gray-900">Web Only</h5>
-                            <p className="text-sm text-gray-600 mt-1">Unlimited web scans</p>
-                            <p className="text-lg font-semibold text-primary-600 mt-2">$29/month</p>
-                          </div>
-                          <div className="border border-gray-200 rounded-lg p-4">
-                            <h5 className="font-medium text-gray-900">Document Only</h5>
-                            <p className="text-sm text-gray-600 mt-1">Unlimited document scans</p>
-                            <p className="text-lg font-semibold text-primary-600 mt-2">$29/month</p>
-                          </div>
-                          <div className="border border-primary-200 rounded-lg p-4 bg-primary-50">
-                            <h5 className="font-medium text-gray-900">Unlimited Access</h5>
-                            <p className="text-sm text-gray-600 mt-1">All features included</p>
-                            <p className="text-lg font-semibold text-primary-600 mt-2">$59/month</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex space-x-3">
-                        <Link href="/pricing" className="btn-primary">Upgrade Plan</Link>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {loadingSubscription ? (
-                        <div className="flex items-center justify-center py-8">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-                        </div>
-                      ) : subscription ? (
-                        <>
                           <div className="border border-gray-200 rounded-lg p-6">
                             <div className="flex items-center justify-between mb-4">
                               <div>
@@ -623,24 +643,28 @@ export default function SettingsPage() {
                                 <span className="text-gray-600">Billing Period:</span>
                                 <span className="font-medium capitalize">{subscription.billingPeriod}</span>
                               </div>
-                              {subscription.nextBillingDate && !subscription.cancelAtPeriodEnd && (
+                              
+                              {/* Current Period - Show as date range like Stripe */}
+                              {subscription.currentPeriodStart && subscription.currentPeriodEnd ? (
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Next Billing Date:</span>
-                                  <span className="font-medium">
-                                    {new Date(subscription.nextBillingDate).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'long',
-                                      day: 'numeric'
+                                  <span className="text-gray-600">Current Period:</span>
+                                  <span className="font-medium text-gray-900">
+                                    {new Date(subscription.currentPeriodStart).toLocaleDateString('en-GB', {
+                                      day: 'numeric',
+                                      month: 'short'
+                                    })} to {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-GB', {
+                                      day: 'numeric',
+                                      month: 'short'
                                     })}
                                   </span>
                                 </div>
-                              )}
-                              {subscription.currentPeriodEnd && (
+                              ) : null}
+                              
+                              {/* Next Payment Due - Only show if subscription is active and not cancelled */}
+                              {!subscription.cancelAtPeriodEnd && subscription.currentPeriodEnd && (
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">
-                                    {subscription.cancelAtPeriodEnd ? 'Access Ends:' : 'Current Period Ends:'}
-                                  </span>
-                                  <span className="font-medium">
+                                  <span className="text-gray-600">Next Payment Due:</span>
+                                  <span className="font-medium text-gray-900">
                                     {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-US', {
                                       year: 'numeric',
                                       month: 'long',
@@ -649,6 +673,21 @@ export default function SettingsPage() {
                                   </span>
                                 </div>
                               )}
+                              
+                              {/* Subscription Ends - Only show if cancelled */}
+                              {subscription.cancelAtPeriodEnd && subscription.accessEndDate && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-600">Subscription Ends:</span>
+                                  <span className="font-medium text-amber-700">
+                                    {new Date(subscription.accessEndDate).toLocaleDateString('en-US', {
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric'
+                                    })}
+                                  </span>
+                                </div>
+                              )}
+                              
                               <div className="flex justify-between text-sm">
                                 <span className="text-gray-600">Status:</span>
                                 <span className="font-medium capitalize">{subscription.status}</span>
@@ -656,34 +695,64 @@ export default function SettingsPage() {
                             </div>
                           </div>
 
-                          <div className="flex space-x-3">
-                            {subscription.cancelAtPeriodEnd ? (
-                              <button
-                                onClick={handleReactivateSubscription}
-                                className="btn-primary"
-                                disabled={saving}
-                              >
-                                {saving ? 'Reactivating...' : 'Reactivate Subscription'}
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => setShowCancelConfirm(true)}
-                                className="btn-secondary flex items-center space-x-2"
-                                disabled={saving}
-                              >
-                                <X className="h-4 w-4" />
-                                <span>Cancel Subscription</span>
-                              </button>
-                            )}
+                          <div className="flex flex-col space-y-3">
+                            <div className="flex space-x-3">
+                              {subscription.cancelAtPeriodEnd ? (
+                                <button
+                                  onClick={handleReactivateSubscription}
+                                  className="btn-primary"
+                                  disabled={saving}
+                                >
+                                  {saving ? 'Reactivating...' : 'Reactivate Subscription'}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => setShowCancelConfirm(true)}
+                                  className="btn-secondary flex items-center space-x-2"
+                                  disabled={saving}
+                                >
+                                  <X className="h-4 w-4" />
+                                  <span>Cancel Subscription</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </>
                       ) : (
-                        <div className="border border-gray-200 rounded-lg p-4">
-                          <p className="text-sm text-gray-600">No active subscription found.</p>
-                        </div>
+                        <>
+                          <div className="border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h3 className="text-lg font-medium text-gray-900">Pay as You Go</h3>
+                                <p className="text-sm text-gray-500">3 free credits to get started</p>
+                              </div>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Active
+                              </span>
+                            </div>
+                            <div className="mt-4 space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Credits Remaining:</span>
+                                <span className="font-medium">{user?.creditsRemaining || 0}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Credits Used:</span>
+                                <span className="font-medium">{user?.creditsUsed || 0}</span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-gray-600">Member Since:</span>
+                                <span className="font-medium">
+                                  {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex space-x-3">
+                            <Link href="/pricing" className="btn-primary">Upgrade Plan</Link>
+                          </div>
+                        </>
                       )}
-                    </>
-                  )}
 
                   {/* Cancel Confirmation Modal */}
                   {showCancelConfirm && (
@@ -780,7 +849,7 @@ export default function SettingsPage() {
                     </div>
                     <input 
                       type="checkbox" 
-                      checked={notificationPrefs.scanCompletion}
+                      checked={notificationPrefs?.scanCompletion ?? true}
                       onChange={(e) => setNotificationPrefs({...notificationPrefs, scanCompletion: e.target.checked})}
                       className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" 
                     />
@@ -792,7 +861,7 @@ export default function SettingsPage() {
                     </div>
                     <input 
                       type="checkbox" 
-                      checked={notificationPrefs.criticalIssues}
+                      checked={notificationPrefs?.criticalIssues ?? true}
                       onChange={(e) => setNotificationPrefs({...notificationPrefs, criticalIssues: e.target.checked})}
                       className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" 
                     />
@@ -804,7 +873,7 @@ export default function SettingsPage() {
                     </div>
                     <input 
                       type="checkbox" 
-                      checked={notificationPrefs.weeklyReports}
+                      checked={notificationPrefs?.weeklyReports ?? false}
                       onChange={(e) => setNotificationPrefs({...notificationPrefs, weeklyReports: e.target.checked})}
                       className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" 
                     />
@@ -816,7 +885,7 @@ export default function SettingsPage() {
                     </div>
                     <input 
                       type="checkbox" 
-                      checked={notificationPrefs.securityAlerts}
+                      checked={notificationPrefs?.securityAlerts ?? true}
                       onChange={(e) => setNotificationPrefs({...notificationPrefs, securityAlerts: e.target.checked})}
                       className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" 
                     />
@@ -834,55 +903,132 @@ export default function SettingsPage() {
             )}
 
             {activeTab === 'security' && (
-              <div className="card">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Security Settings</h2>
-                <form onSubmit={handlePasswordChange} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Current Password</label>
-                    <input 
-                      type="password" 
-                      className="input-field mt-1" 
-                      value={passwordForm.currentPassword}
-                      onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
-                      required
-                    />
+              <div className="space-y-6">
+                <div className="card">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Security Settings</h2>
+                  <form onSubmit={handlePasswordChange} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Current Password</label>
+                      <input 
+                        type="password" 
+                        className="input-field mt-1" 
+                        value={passwordForm.currentPassword}
+                        onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">New Password</label>
+                      <input 
+                        type="password" 
+                        className="input-field mt-1" 
+                        value={passwordForm.newPassword}
+                        onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                        required
+                        minLength={8}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                      Password must be at least 8 characters long and contain at least one number and one special character
+                    </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                      <input 
+                        type="password" 
+                        className="input-field mt-1" 
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <button 
+                      type="submit" 
+                      className="btn-primary flex items-center space-x-2"
+                      disabled={saving}
+                    >
+                      <Save className="h-4 w-4" />
+                      <span>{saving ? 'Changing...' : 'Change Password'}</span>
+                    </button>
+                  </form>
+                </div>
+
+                {/* Delete Account Section */}
+                <div className="card border-red-200 bg-red-50">
+                  <div className="border-b border-red-200 pb-4 mb-4">
+                    <h2 className="text-lg font-semibold text-red-900">Delete Account</h2>
+                    <p className="text-sm text-red-700 mt-1">
+                      Permanently delete your account and all associated data. This action cannot be undone.
+                    </p>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">New Password</label>
-                    <input 
-                      type="password" 
-                      className="input-field mt-1" 
-                      value={passwordForm.newPassword}
-                      onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                      required
-                      minLength={8}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Password must be at least 8 characters long</p>
+                  <div className="space-y-3">
+                    <div className="bg-white p-4 rounded border border-red-200">
+                      <p className="text-sm font-medium text-gray-900 mb-2">This will delete:</p>
+                      <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
+                        <li>Your account and profile information</li>
+                        <li>All scan history and results</li>
+                        <li>All saved credits and transaction history</li>
+                        <li>All notifications and preferences</li>
+                        <li>All product backlog items and issues</li>
+                        <li>Your active subscription (if any)</li>
+                      </ul>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="btn-danger flex items-center space-x-2"
+                      disabled={deletingAccount}
+                    >
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{deletingAccount ? 'Deleting...' : 'Delete My Account'}</span>
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
-                    <input 
-                      type="password" 
-                      className="input-field mt-1" 
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <button 
-                    type="submit" 
-                    className="btn-primary flex items-center space-x-2"
-                    disabled={saving}
-                  >
-                    <Save className="h-4 w-4" />
-                    <span>{saving ? 'Changing...' : 'Change Password'}</span>
-                  </button>
-                </form>
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Delete Account Confirmation Modal - Outside tabs so it's always accessible */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <AlertCircle className="h-6 w-6 text-red-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Delete Account</h3>
+            </div>
+            <p className="text-sm text-gray-700 mb-6">
+              Are you absolutely sure you want to delete your account? This action cannot be undone and will permanently delete:
+            </p>
+            <ul className="text-sm text-gray-600 mb-6 space-y-1 list-disc list-inside">
+              <li>All your scan history and results</li>
+              <li>All saved credits and transaction history</li>
+              <li>All notifications and preferences</li>
+              <li>All product backlog items and issues</li>
+              <li>Your active subscription (if any)</li>
+            </ul>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false)
+                  setDeletingAccount(false)
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                disabled={deletingAccount}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                disabled={deletingAccount}
+              >
+                {deletingAccount ? 'Deleting...' : 'Yes, Delete My Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Sidebar>
   )
 }

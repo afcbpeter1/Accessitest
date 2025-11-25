@@ -250,9 +250,11 @@ export default function HomePage() {
       return
     }
     
-    // Validate password
-    if (signupData.password.length < 8) {
-      setSignupError('Password must be at least 8 characters long')
+    // Validate password strength
+    const { validatePassword } = await import('@/lib/password-validation')
+    const passwordValidation = validatePassword(signupData.password)
+    if (!passwordValidation.valid) {
+      setSignupError(passwordValidation.error || 'Password does not meet requirements')
       return
     }
     
@@ -961,7 +963,7 @@ export default function HomePage() {
                               placeholder="Create a password"
                             />
                             <p className="text-xs text-gray-500 mt-1">
-                              Must be at least 8 characters long
+                              Must be at least 8 characters long and contain at least one number and one special character
                             </p>
                           </div>
                           

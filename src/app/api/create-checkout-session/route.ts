@@ -75,6 +75,33 @@ export async function POST(request: NextRequest) {
     const isSubscription = isSubscriptionPriceId(priceId)
     const isCredit = isCreditPriceId(priceId)
 
+    // For subscriptions, check if user already has an active subscription
+    if (isSubscription && userId) {
+      const userData = await query(
+        `SELECT stripe_subscription_id, plan_type FROM users WHERE id = $1`,
+        [userId]
+      )
+      
+      if (userData.rows && userData.rows.length > 0 && userData.rows[0].stripe_subscription_id) {
+        const existingSubscriptionId = userData.rows[0].stripe_subscription_id
+        
+        try {
+          // Check if the existing subscription is still active
+          const existingSubscription = await stripe.subscriptions.retrieve(existingSubscriptionId)
+          
+          if (existingSubscription.status === 'active' || existingSubscription.status === 'trialing') {
+            return NextResponse.json({ 
+              error: 'You already have an active subscription. Please cancel your current subscription before starting a new one.',
+              existingSubscriptionId: existingSubscriptionId
+            }, { status: 400 })
+          }
+        } catch (error) {
+          // Subscription not found in Stripe, user can create a new one
+          console.log('Existing subscription not found in Stripe, allowing new subscription creation')
+        }
+      }
+    }
+
     // Get price details for success URL
     const price = await stripe.prices.retrieve(priceId)
     const planName = getPlanNameFromPriceId(priceId)

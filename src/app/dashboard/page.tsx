@@ -187,10 +187,10 @@ function DashboardContent() {
           year: 'numeric'
         }),
         dateTime: new Date(scan.createdAt),
-        total: (scan.criticalIssues || 0) + (scan.seriousIssues || 0) + (scan.moderateIssues || 0) + (scan.minorIssues || 0),
-        critical: scan.criticalIssues || 0,
-        serious: scan.seriousIssues || 0,
-        moderate: scan.moderateIssues || 0,
+      total: (scan.criticalIssues || 0) + (scan.seriousIssues || 0) + (scan.moderateIssues || 0) + (scan.minorIssues || 0),
+      critical: scan.criticalIssues || 0,
+      serious: scan.seriousIssues || 0,
+      moderate: scan.moderateIssues || 0,
         minor: scan.minorIssues || 0,
         scanType: scan.scanType || scan.type || 'web',
         url: scan.url,
@@ -421,7 +421,7 @@ function DashboardContent() {
                         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center space-x-2 mb-1">
-                              <div className="text-sm font-medium text-gray-900">{data.date}</div>
+                      <div className="text-sm font-medium text-gray-900">{data.date}</div>
                               <span className={`text-xs px-2 py-0.5 rounded ${
                                 data.scanType === 'web' 
                                   ? 'bg-blue-100 text-blue-800' 
@@ -448,23 +448,23 @@ function DashboardContent() {
                                 {data.pagesAnalyzed} page{data.pagesAnalyzed !== 1 ? 's' : ''} analyzed
                               </div>
                             )}
-                          </div>
+                    </div>
                           <div className="flex items-center space-x-4 ml-4">
-                            <div className="text-right">
-                              <div className="text-sm font-medium text-gray-900">{data.total} total</div>
-                              <div className="text-xs text-gray-500">
-                                {data.critical}C {data.serious}S {data.moderate}M {data.minor}m
-                              </div>
-                            </div>
-                            <div className="w-20 bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-red-500 h-2 rounded-full" 
-                                style={{ width: `${Math.min((data.total / maxTotal) * 100, 100)}%` }}
-                              ></div>
-                            </div>
-                            <Eye className="h-4 w-4 text-gray-400" />
-                          </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium text-gray-900">{data.total} total</div>
+                        <div className="text-xs text-gray-500">
+                          {data.critical}C {data.serious}S {data.moderate}M {data.minor}m
                         </div>
+                      </div>
+                      <div className="w-20 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-red-500 h-2 rounded-full" 
+                                style={{ width: `${Math.min((data.total / maxTotal) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                            <Eye className="h-4 w-4 text-gray-400" />
+                    </div>
+                  </div>
                       </Link>
                     )
                   })}
