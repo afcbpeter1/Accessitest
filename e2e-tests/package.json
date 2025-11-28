@@ -1,0 +1,25 @@
+{
+  "name": "accessitest-e2e-tests",
+  "version": "1.0.0",
+  "description": "Playwright end-to-end tests for Accessitest application",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:auth": "playwright test tests/auth",
+    "test:scan": "playwright test tests/scan",
+    "test:dashboard": "playwright test tests/dashboard",
+    "test:backlog": "playwright test tests/backlog",
+    "test:issues": "playwright test tests/issues",
+    "test:sprint": "playwright test tests/sprint",
+    "test:settings": "playwright test tests/settings",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}
+

@@ -1,19 +1,30 @@
 import { v2 as cloudinary } from 'cloudinary'
 
-// Configure Cloudinary
+// Configure Cloudinary - SECURITY: All credentials must be provided via environment variables
+const cloud_name = process.env.CLOUDINARY_CLOUD_NAME
+const api_key = process.env.CLOUDINARY_API_KEY
+const api_secret = process.env.CLOUDINARY_API_SECRET
+
+// If CLOUDINARY_URL is provided, use it (it contains all credentials)
 if (process.env.CLOUDINARY_URL) {
-  // Parse the CLOUDINARY_URL if provided
   cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dyzzpsxov',
-    api_key: process.env.CLOUDINARY_API_KEY || '889181634366452',
-    api_secret: process.env.CLOUDINARY_API_SECRET || '5nHMKvoyXjsgxS36GhLtJV0xNrw',
+    cloud_name: cloud_name,
+    api_key: api_key,
+    api_secret: api_secret,
   })
 } else {
-  // Fallback to individual environment variables
+  // Require individual environment variables - no fallbacks for security
+  if (!cloud_name || !api_key || !api_secret) {
+    throw new Error(
+      'Cloudinary credentials must be set in environment variables. ' +
+      'Provide either CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET'
+    )
+  }
+  
   cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
+    cloud_name: cloud_name,
+    api_key: api_key,
+    api_secret: api_secret,
   })
 }
 

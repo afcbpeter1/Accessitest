@@ -8,11 +8,28 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Temporarily bypass authentication to restore access
-    const user = { userId: '09d7030b-e612-4226-b695-beefb3e97936' }
+    // SECURITY: Require authentication and verify ownership
+    const user = await getAuthenticatedUser(request)
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { storyPoints, remainingPoints, assignee, description, priorityRank } = await request.json()
 
+    // SECURITY: First verify the issue belongs to the user
+    const ownershipCheck = await pool.query(`
+      SELECT i.id 
+      FROM issues i
+      JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+      WHERE i.id = $1 AND sh.user_id = $2
+    `, [params.id, user.userId])
+
+    if (ownershipCheck.rows.length === 0) {
+      return NextResponse.json(
+        { error: 'Issue not found or access denied' },
+        { status: 404 }
+      )
+    }
 
     // Update the issue in the issues table
     const updateFields = []
@@ -59,12 +76,19 @@ export async function PUT(
     // Add the issue ID to the values
     values.push(params.id)
 
+    // SECURITY: Update only if issue belongs to user (double-check in WHERE clause)
     const query = `
       UPDATE issues 
       SET ${updateFields.join(', ')}
-      WHERE id = $${paramIndex}
+      WHERE id = $${paramIndex} 
+        AND EXISTS (
+          SELECT 1 FROM scan_history sh 
+          WHERE sh.id = issues.first_seen_scan_id 
+          AND sh.user_id = $${paramIndex + 1}
+        )
     `
-
+    
+    values.push(user.userId)
 
     const result = await pool.query(query, values)
 

@@ -1,0 +1,16 @@
+{
+  "name": "accessitest-load-tests",
+  "version": "1.0.0",
+  "description": "k6 load testing suite for Accessitest application",
+  "type": "module",
+  "scripts": {
+    "test": "k6 run scripts/api-load-test.js",
+    "test:auth": "k6 run scripts/auth-load-test.js",
+    "test:api": "k6 run scripts/api-load-test.js",
+    "test:scan": "k6 run scripts/scan-load-test.js",
+    "test:spike": "k6 run scripts/spike-test.js",
+    "test:stress": "k6 run scripts/stress-test.js",
+    "test:smoke": "k6 run scripts/smoke-test.js"
+  },
+  "dependencies": {}
+}
