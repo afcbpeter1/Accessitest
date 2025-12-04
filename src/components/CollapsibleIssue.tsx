@@ -22,6 +22,31 @@ import {
 function formatSuggestionDescription(description: string) {
   if (!description) return description
   
+  // Helper function to process inline markdown (bold, etc.)
+  const processInlineMarkdown = (text: string): (string | JSX.Element)[] => {
+    const parts: (string | JSX.Element)[] = []
+    let lastIndex = 0
+    const boldRegex = /\*\*(.+?)\*\*/g
+    let match
+    
+    while ((match = boldRegex.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index))
+      }
+      // Add the bold text
+      parts.push(<strong key={`bold-${match.index}`} className="font-semibold">{match[1]}</strong>)
+      lastIndex = match.index + match[0].length
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex))
+    }
+    
+    return parts.length > 0 ? parts : [text]
+  }
+  
   // Split by lines and process each line
   const lines = description.split('\n')
   const elements: JSX.Element[] = []
@@ -35,32 +60,47 @@ function formatSuggestionDescription(description: string) {
     if (!trimmedLine) {
       if (inList) {
         inList = false
-        elements.push(<br key={`br-${index}`} />)
-      } else {
-        elements.push(<br key={`br-${index}`} />)
       }
+      elements.push(<br key={`br-${index}`} />)
+      return
+    }
+    
+    // Handle markdown-style headings (### Heading - smallest)
+    if (trimmedLine.startsWith('### ')) {
+      const headingText = trimmedLine.substring(4).trim()
+      const processedText = processInlineMarkdown(headingText)
+      elements.push(
+        <h5 key={index} className="text-sm font-semibold text-gray-900 mt-4 mb-2">
+          {processedText}
+        </h5>
+      )
+      stepNumber = 1 // Reset step number after heading
       return
     }
     
     // Handle markdown-style headings (## Heading)
     if (trimmedLine.startsWith('## ')) {
       const headingText = trimmedLine.substring(3).trim()
+      const processedText = processInlineMarkdown(headingText)
       elements.push(
         <h4 key={index} className="text-base font-semibold text-gray-900 mt-4 mb-2">
-          {headingText}
+          {processedText}
         </h4>
       )
+      stepNumber = 1 // Reset step number after heading
       return
     }
     
     // Handle markdown-style headings (# Heading)
     if (trimmedLine.startsWith('# ')) {
       const headingText = trimmedLine.substring(2).trim()
+      const processedText = processInlineMarkdown(headingText)
       elements.push(
         <h3 key={index} className="text-lg font-bold text-gray-900 mt-4 mb-3">
-          {headingText}
+          {processedText}
         </h3>
       )
+      stepNumber = 1 // Reset step number after heading
       return
     }
     
@@ -68,37 +108,40 @@ function formatSuggestionDescription(description: string) {
     const numberedMatch = trimmedLine.match(/^(?:Step\s+)?(\d+)[\.:]\s*(.+)$/i)
     if (numberedMatch) {
       const [, number, content] = numberedMatch
+      const processedContent = processInlineMarkdown(content.trim())
       elements.push(
         <p key={index} className="mb-2 ml-4">
           <span className="font-semibold text-gray-900">{stepNumber}.</span>{' '}
-          <span className="text-gray-800">{content.trim()}</span>
+          <span className="text-gray-800">{processedContent}</span>
         </p>
       )
       stepNumber++
+      inList = true
       return
     }
     
-    // Handle bullet points (- Item or * Item)
-    if (trimmedLine.match(/^[-*]\s+/)) {
-      const content = trimmedLine.replace(/^[-*]\s+/, '')
+    // Handle bullet points (- Item or * Item or • Item)
+    if (trimmedLine.match(/^[-*•]\s+/)) {
+      const content = trimmedLine.replace(/^[-*•]\s+/, '')
+      const processedContent = processInlineMarkdown(content)
       elements.push(
         <p key={index} className="mb-1 ml-4">
           <span className="text-gray-600">•</span>{' '}
-          <span className="text-gray-800">{content}</span>
+          <span className="text-gray-800">{processedContent}</span>
         </p>
       )
       inList = true
       return
     }
     
-    // Handle bold text (**text** or **text**)
-    let formattedText = trimmedLine
-    formattedText = formattedText.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    
-    // Regular paragraph
+    // Regular paragraph - process inline markdown
+    const processedText = processInlineMarkdown(trimmedLine)
     elements.push(
-      <p key={index} className="mb-2 text-gray-800" dangerouslySetInnerHTML={{ __html: formattedText }} />
+      <p key={index} className="mb-2 text-gray-800 leading-relaxed">
+        {processedText}
+      </p>
     )
+    inList = false
   })
   
   return <div className="space-y-1">{elements}</div>

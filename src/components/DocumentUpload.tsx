@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Upload, FileText, AlertTriangle, CheckCircle, X, Download, Eye, Sparkles, CreditCard, Plus, ChevronUp, ChevronDown, Wrench, RefreshCw } from 'lucide-react'
+import { Upload, FileText, AlertTriangle, CheckCircle, X, Download, Eye, Sparkles, CreditCard, Plus, ChevronUp, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import CollapsibleIssue from './CollapsibleIssue'
 import { useScan } from '@/contexts/ScanContext'
@@ -75,6 +75,31 @@ function parseAISuggestion(aiFix: string): string {
 function formatSuggestionDescription(description: string) {
   if (!description) return description
   
+  // Helper function to process inline markdown (bold, etc.)
+  const processInlineMarkdown = (text: string): (string | JSX.Element)[] => {
+    const parts: (string | JSX.Element)[] = []
+    let lastIndex = 0
+    const boldRegex = /\*\*(.+?)\*\*/g
+    let match
+    
+    while ((match = boldRegex.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index))
+      }
+      // Add the bold text
+      parts.push(<strong key={`bold-${match.index}`} className="font-semibold">{match[1]}</strong>)
+      lastIndex = match.index + match[0].length
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex))
+    }
+    
+    return parts.length > 0 ? parts : [text]
+  }
+  
   // Split by lines and process each line
   const lines = description.split('\n')
   const elements: JSX.Element[] = []
@@ -88,32 +113,47 @@ function formatSuggestionDescription(description: string) {
     if (!trimmedLine) {
       if (inList) {
         inList = false
-        elements.push(<br key={`br-${index}`} />)
-      } else {
-        elements.push(<br key={`br-${index}`} />)
       }
+      elements.push(<br key={`br-${index}`} />)
+      return
+    }
+    
+    // Handle markdown-style headings (### Heading - smallest)
+    if (trimmedLine.startsWith('### ')) {
+      const headingText = trimmedLine.substring(4).trim()
+      const processedText = processInlineMarkdown(headingText)
+      elements.push(
+        <h5 key={index} className="text-sm font-semibold text-gray-900 mt-4 mb-2">
+          {processedText}
+        </h5>
+      )
+      stepNumber = 1 // Reset step number after heading
       return
     }
     
     // Handle markdown-style headings (## Heading)
     if (trimmedLine.startsWith('## ')) {
       const headingText = trimmedLine.substring(3).trim()
+      const processedText = processInlineMarkdown(headingText)
       elements.push(
-        <h4 key={index} className="text-base font-semibold text-black mt-4 mb-2">
-          {headingText}
+        <h4 key={index} className="text-base font-semibold text-gray-900 mt-4 mb-2">
+          {processedText}
         </h4>
       )
+      stepNumber = 1 // Reset step number after heading
       return
     }
     
     // Handle markdown-style headings (# Heading)
     if (trimmedLine.startsWith('# ')) {
       const headingText = trimmedLine.substring(2).trim()
+      const processedText = processInlineMarkdown(headingText)
       elements.push(
-        <h3 key={index} className="text-lg font-bold text-black mt-4 mb-3">
-          {headingText}
+        <h3 key={index} className="text-lg font-bold text-gray-900 mt-4 mb-3">
+          {processedText}
         </h3>
       )
+      stepNumber = 1 // Reset step number after heading
       return
     }
     
@@ -121,37 +161,40 @@ function formatSuggestionDescription(description: string) {
     const numberedMatch = trimmedLine.match(/^(?:Step\s+)?(\d+)[\.:]\s*(.+)$/i)
     if (numberedMatch) {
       const [, number, content] = numberedMatch
+      const processedContent = processInlineMarkdown(content.trim())
       elements.push(
         <p key={index} className="mb-2 ml-4">
-          <span className="font-semibold text-black">{stepNumber}.</span>{' '}
-          <span className="text-black">{content.trim()}</span>
+          <span className="font-semibold text-gray-900">{stepNumber}.</span>{' '}
+          <span className="text-gray-700">{processedContent}</span>
         </p>
       )
       stepNumber++
+      inList = true
       return
     }
     
-    // Handle bullet points (- Item or * Item)
-    if (trimmedLine.match(/^[-*]\s+/)) {
-      const content = trimmedLine.replace(/^[-*]\s+/, '')
+    // Handle bullet points (- Item or * Item or • Item)
+    if (trimmedLine.match(/^[-*•]\s+/)) {
+      const content = trimmedLine.replace(/^[-*•]\s+/, '')
+      const processedContent = processInlineMarkdown(content)
       elements.push(
         <p key={index} className="mb-1 ml-4">
-          <span className="text-black">•</span>{' '}
-          <span className="text-black">{content}</span>
+          <span className="text-gray-700">•</span>{' '}
+          <span className="text-gray-700">{processedContent}</span>
         </p>
       )
       inList = true
       return
     }
     
-    // Handle bold text (**text** or **text**)
-    let formattedText = trimmedLine
-    formattedText = formattedText.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    
-    // Regular paragraph
+    // Regular paragraph - process inline markdown
+    const processedText = processInlineMarkdown(trimmedLine)
     elements.push(
-      <p key={index} className="mb-2 text-black" dangerouslySetInnerHTML={{ __html: formattedText }} />
+      <p key={index} className="mb-2 text-gray-700 leading-relaxed">
+        {processedText}
+      </p>
     )
+    inList = false
   })
   
   return <div className="space-y-1">{elements}</div>
@@ -225,8 +268,40 @@ interface UploadedDocument {
       imageCount?: number
       tableCount?: number
       linkCount?: number
+      taggedPdfAvailable?: boolean
+    }
+    taggedPdfBase64?: string // Base64 encoded tagged PDF
+    taggedPdfFileName?: string // Filename for the tagged PDF
+    detailedReport?: {
+      filename: string
+      reportCreatedBy: string
+      organization: string
+      summary: {
+        needsManualCheck: number
+        passedManually: number
+        failedManually: number
+        skipped: number
+        passed: number
+        failed: number
+      }
+      categories: {
+        [categoryName: string]: Array<{
+          ruleName: string
+          status: 'Passed' | 'Failed' | 'Needs manual check' | 'Skipped'
+          description: string
+          page?: number
+          location?: string
+          elementId?: string
+          elementType?: string
+          elementContent?: string
+          elementTag?: string
+        }>
+      }
+      autoTagged?: boolean
     }
   }
+  taggedPdfBase64?: string // Base64 encoded tagged PDF (stored at document level)
+  taggedPdfFileName?: string // Filename for the tagged PDF
   error?: string
 }
 
@@ -721,125 +796,87 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     }
   }
 
-  const fixPDF = async (documentId: string) => {
-    const document = uploadedDocuments.find(doc => doc.id === documentId)
-    if (!document) {
-      addScanLog('❌ Document not found')
+  // Note: fixPDF function removed - PDFs are already auto-tagged during the scan process
+  // The scan workflow: Auto-tag → Check accessibility → AI remediation → Download tagged PDF
+
+  // Download tagged PDF function
+  const downloadTaggedPDF = (uploadedDoc: UploadedDocument) => {
+    // Check both locations for tagged PDF
+    const taggedPdfBase64 = uploadedDoc.taggedPdfBase64 || uploadedDoc.scanResults?.taggedPdfBase64
+    const taggedPdfFileName = uploadedDoc.taggedPdfFileName || uploadedDoc.scanResults?.taggedPdfFileName
+    
+    if (!taggedPdfBase64) {
+      console.error('Tagged PDF not available:', {
+        hasDocumentTaggedPdf: !!uploadedDoc.taggedPdfBase64,
+        hasScanResultsTaggedPdf: !!uploadedDoc.scanResults?.taggedPdfBase64,
+        documentKeys: Object.keys(uploadedDoc),
+        scanResultsKeys: uploadedDoc.scanResults ? Object.keys(uploadedDoc.scanResults) : 'no scanResults'
+      })
+      showToast('Tagged PDF not available', 'error')
       return
     }
-
-    if (!document.fileContent) {
-      addScanLog('❌ Document content is missing - please re-upload the document')
-      return
-    }
-
-    if (!document.type.toLowerCase().includes('pdf')) {
-      addScanLog('❌ This feature only works with PDF files')
-      return
-    }
-
-    // Update status to scanning
-    setUploadedDocuments(prev => 
-      prev.map(doc => 
-        doc.id === documentId 
-          ? { ...doc, status: 'scanning' }
-          : doc
-      )
-    )
-
-    addScanLog('🏷️ Starting PDF repair using Adobe PDF Services...')
-    addScanLog('📋 Step 1: Auto-tagging PDF for accessibility...')
-    setIsScanning(true)
 
     try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) {
-        addScanLog('❌ Authentication required. Please log in again.')
-        setIsScanning(false)
-        return
-      }
-
-      // Convert base64 fileContent back to File for FormData
-      const fileBlob = await fetch(`data:${document.type};base64,${document.fileContent}`)
-        .then(res => res.blob())
-      const file = new File([fileBlob], document.name, { type: document.type })
-
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('fileName', document.name)
-
-      addScanLog('🔄 Calling Adobe PDF Services API...')
-
-      const response = await fetch('/api/pdf-repair', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData
+      const base64 = taggedPdfBase64
+      const fileName = taggedPdfFileName || uploadedDoc.name.replace(/\.pdf$/i, '_tagged.pdf')
+      
+      console.log('📥 Starting download:', {
+        fileName,
+        base64Length: base64.length,
+        base64Preview: base64.substring(0, 50) + '...'
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'PDF repair failed')
-      }
-
-      const result = await response.json()
-
-      if (!result.success) {
-        throw new Error(result.error || 'PDF repair failed')
-      }
-
-      addScanLog('✅ PDF successfully auto-tagged!')
-      addScanLog(`🔍 Step 2: Rescanning to verify fixes...`)
-      addScanLog(`📊 Original: ${result.originalScan.issues.length} issues`)
-      addScanLog(`📊 After fix: ${result.repairedScan.issues.length} issues`)
       
-      if (result.improvement.issuesFixed > 0) {
-        addScanLog(`✅ Fixed ${result.improvement.issuesFixed} issue(s)!`)
-        addScanLog(`📈 Score improved: ${result.originalScan.score} → ${result.repairedScan.score}`)
-      } else {
-        addScanLog(`⚠️ No issues were automatically fixed`)
+      // Validate base64 string
+      if (!base64 || base64.length < 100) {
+        throw new Error('Invalid base64 data: too short or empty')
       }
-
-      // Update document with repaired PDF and new scan results
-      const repairedPdfBase64 = result.repairedPdf
       
-      setUploadedDocuments(prev => 
-        prev.map(doc => 
-          doc.id === documentId 
-            ? { 
-                ...doc, 
-                status: 'completed',
-                fileContent: repairedPdfBase64, // Update with repaired PDF
-                scanResults: result.repairedScan, // Update with new scan results
-                repairResults: {
-                  originalScan: result.originalScan,
-                  repairedScan: result.repairedScan,
-                  improvement: result.improvement,
-                  repairPlan: result.repairPlan
-                }
-              }
-            : doc
-        )
-      )
-
-      showToast('PDF repaired successfully!', 'success')
+      // Convert base64 to blob
+      let byteCharacters
+      try {
+        byteCharacters = atob(base64)
+      } catch (error) {
+        throw new Error(`Failed to decode base64: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
       
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      const blob = new Blob([byteArray], { type: 'application/pdf' })
+      
+      console.log('✅ Blob created:', {
+        size: blob.size,
+        type: blob.type
+      })
+      
+      // Create download link - use window.document to avoid naming conflict
+      const url = URL.createObjectURL(blob)
+      const link = window.document.createElement('a')
+      link.href = url
+      link.download = fileName
+      link.style.display = 'none'
+      window.document.body.appendChild(link)
+      link.click()
+      
+      // Clean up after a short delay
+      setTimeout(() => {
+        window.document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+      }, 100)
+      
+      console.log('✅ Download triggered successfully')
+      showToast('Tagged PDF downloaded successfully!', 'success')
     } catch (error) {
-      console.error('❌ PDF repair error:', error)
-      addScanLog(`❌ Error: ${error instanceof Error ? error.message : 'Failed to repair PDF'}`)
-      
-      setUploadedDocuments(prev => 
-        prev.map(doc => 
-          doc.id === documentId 
-            ? { ...doc, status: 'completed' } // Revert to completed (don't mark as error)
-            : doc
-        )
-      )
-      
-      showToast(error instanceof Error ? error.message : 'Failed to repair PDF', 'error')
-    } finally {
-      setIsScanning(false)
+      console.error('❌ Error downloading tagged PDF:', error)
+      console.error('Error details:', {
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : 'No stack trace',
+        base64Length: taggedPdfBase64?.length,
+        fileName: taggedPdfFileName
+      })
+      showToast(`Failed to download tagged PDF: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
     }
   }
 
@@ -1032,6 +1069,19 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
       const scanResult = result.result
       
+      // Store tagged PDF if available (check both result.result and result root level)
+      const taggedPdfBase64 = result.taggedPdfBase64 || scanResult?.taggedPdfBase64
+      const taggedPdfFileName = result.taggedPdfFileName || scanResult?.taggedPdfFileName
+      
+      console.log('📥 Scan result received:', {
+        hasTaggedPdfInResult: !!result.taggedPdfBase64,
+        hasTaggedPdfInScanResult: !!scanResult?.taggedPdfBase64,
+        taggedPdfFileName: taggedPdfFileName,
+        issuesCount: scanResult?.issues?.length || 0,
+        hasDetailedReport: !!scanResult?.detailedReport,
+        detailedReportCategories: scanResult?.detailedReport ? Object.keys(scanResult.detailedReport.categories || {}) : []
+      })
+      
       // Animate progress to 100% smoothly
       const completeProgress = setInterval(() => {
         setScanProgress(prev => {
@@ -1054,6 +1104,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       }
       
       // Update document with scan results (no repair results)
+      // Store tagged PDF at document level, not inside scanResults
       setUploadedDocuments(prev => 
         prev.map(doc => 
           doc.id === documentId 
@@ -1061,6 +1112,9 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                 ...doc, 
                 status: 'completed',
                 scanResults: scanResult,
+                // Store tagged PDF separately for easy access
+                taggedPdfBase64: taggedPdfBase64,
+                taggedPdfFileName: taggedPdfFileName,
                 repairResults: undefined // No repair results - just scan
               }
             : doc
@@ -1214,7 +1268,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                <div className="flex-1">
                  <h4 className="text-md font-semibold text-gray-900 mb-2">AI-Powered Document Accessibility Scanner</h4>
                  <p className="text-sm text-gray-700 mb-3">
-                   Upload your document and AI will scan for accessibility issues, analyze each one, and provide detailed step-by-step suggestions for fixing them. All issues are automatically added to your product backlog.
+                   Upload your document and our system will automatically process it, run comprehensive accessibility checks, and provide AI-powered remediation suggestions for each issue found. All issues are automatically added to your product backlog.
                  </p>
                  
                  {/* What We Do */}
@@ -1224,10 +1278,10 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                      What We Do:
                    </h5>
                    <ul className="text-xs text-gray-700 space-y-1 ml-5 list-disc">
-                     <li><strong>Scan:</strong> Comprehensive accessibility analysis (WCAG 2.1 AA, Section 508)</li>
-                     <li><strong>Analyze:</strong> AI-powered suggestions for each issue</li>
+                     <li><strong>For PDFs:</strong> Auto-tag using Adobe PDF Services, run Acrobat accessibility tests (PDF/UA, WCAG 2.1 AA), generate AI remediation steps, and provide downloadable tagged PDF</li>
+                     <li><strong>For Other Formats:</strong> Comprehensive accessibility analysis with AI-powered suggestions for each issue</li>
                      <li><strong>Track:</strong> Issues automatically added to product backlog</li>
-                     <li><strong>Guide:</strong> Step-by-step remediation instructions</li>
+                     <li><strong>Guide:</strong> Step-by-step remediation instructions with element-level details</li>
                    </ul>
                  </div>
 
@@ -1359,32 +1413,6 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                         </button>
                       )}
                       
-                      {/* Show Fix PDF button for scanned PDFs */}
-                      {document.status === 'completed' && 
-                       document.type.toLowerCase().includes('pdf') && 
-                       document.scanResults && 
-                       document.scanResults.issues && 
-                       document.scanResults.issues.length > 0 && (
-                        <button
-                          onClick={() => fixPDF(document.id)}
-                          disabled={!document.fileContent || isScanning}
-                          className="px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed font-medium flex items-center gap-1"
-                          title="Fix PDF using Adobe PDF Services (auto-tags PDF, then rescans to verify)"
-                        >
-                          {isScanning ? (
-                            <>
-                              <RefreshCw className="h-3 w-3 animate-spin" />
-                              Fixing...
-                            </>
-                          ) : (
-                            <>
-                              <Wrench className="h-3 w-3" />
-                              Fix PDF
-                            </>
-                          )}
-                        </button>
-                      )}
-                      
                       <button
                         onClick={() => removeDocument(document.id)}
                         className="text-gray-400 hover:text-red-600 transition-colors p-1"
@@ -1410,22 +1438,6 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
             )}
           </div>
         )}
-
-        {/* PDF Tagging Notice */}
-        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-start">
-            <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-blue-900 mb-1">
-                For PDFs: Tag your document in Acrobat first
-              </p>
-              <p className="text-xs text-blue-700">
-                In Adobe Acrobat Pro, go to <strong>Prepare for Accessibility</strong> &gt; <strong>Automatically tag for PDF</strong>. 
-                Then use <strong>View</strong> &gt; <strong>Show/Hide</strong> &gt; <strong>Side Panels</strong> &gt; <strong>Accessibility Tags</strong> to review and fix tags.
-              </p>
-            </div>
-          </div>
-        </div>
 
         {/* Upload Area */}
         <div 
@@ -1536,6 +1548,22 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                       </div>
                     )}
 
+                    {/* Download Tagged PDF Button */}
+                    {(document.taggedPdfBase64 || document.scanResults?.taggedPdfBase64) && (
+                      <div className="mt-3 mb-3">
+                        <button
+                          onClick={() => downloadTaggedPDF(document)}
+                          className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                        >
+                          <Download className="h-4 w-4" />
+                          <span>Download Fixed PDF (Auto-Tagged)</span>
+                        </button>
+                        <p className="text-xs text-gray-500 mt-1">
+                          This PDF has been automatically tagged for accessibility by Adobe PDF Services
+                        </p>
+                      </div>
+                    )}
+
                     {/* AI Suggestions - Show issues with AI recommendations */}
                     {document.scanResults.issues && document.scanResults.issues.length > 0 && (
                       <div className="space-y-4 mt-4">
@@ -1588,9 +1616,30 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                                       </span>
                                     )}
                                   </div>
-                                  <div className="text-xs text-gray-600 mb-2">
-                                    <span className="font-medium">Location:</span> {issue.elementLocation || issue.section || 'Document'}
-                                    {issue.pageNumber && ` • Page ${issue.pageNumber}`}
+                                  <div className="text-xs text-gray-600 mb-2 space-y-1">
+                                    <div>
+                                      <span className="font-medium">Location:</span> {issue.elementLocation || issue.section || 'Document'}
+                                      {issue.pageNumber && <span className="ml-1 font-semibold text-blue-600">(Page {issue.pageNumber})</span>}
+                                    </div>
+                                    {(issue.elementId || issue.elementType || issue.elementContent) && (
+                                      <div className="flex flex-wrap gap-2 mt-1">
+                                        {issue.elementId && (
+                                          <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-mono">
+                                            ID: {issue.elementId}
+                                          </span>
+                                        )}
+                                        {issue.elementType && (
+                                          <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs">
+                                            Type: {issue.elementType}
+                                          </span>
+                                        )}
+                                        {issue.elementContent && (
+                                          <span className="px-2 py-0.5 bg-gray-50 text-gray-700 rounded text-xs italic max-w-md truncate" title={issue.elementContent}>
+                                            Content: {issue.elementContent.substring(0, 50)}{issue.elementContent.length > 50 ? '...' : ''}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -1642,6 +1691,137 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                             <p className="text-xs text-green-700">
                               This document appears to be accessible and compliant with WCAG 2.1 AA standards.
                             </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Debug: Show if detailedReport is missing */}
+                    {!document.scanResults.detailedReport && (
+                      <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-800">
+                          ⚠️ Detailed report not available. Check console logs for report download status.
+                        </p>
+                        <p className="text-xs text-yellow-700 mt-1">
+                          Report structure: {JSON.stringify(Object.keys(document.scanResults || {}))}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Detailed Acrobat-Style Report */}
+                    {document.scanResults.detailedReport && (
+                      <div className="mt-6 border border-gray-300 rounded-lg bg-white">
+                        <div className="p-4 bg-gray-50 border-b border-gray-300">
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">Accessibility Report</h3>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <div><strong>Filename:</strong> {document.scanResults.detailedReport.filename}</div>
+                            <div><strong>Report created by:</strong> {document.scanResults.detailedReport.reportCreatedBy}</div>
+                            <div><strong>Organization:</strong> {document.scanResults.detailedReport.organization}</div>
+                            {document.scanResults.detailedReport.autoTagged && (
+                              <div className="text-xs text-blue-600 mt-2">
+                                ✓ Document was auto-tagged by Adobe PDF Services
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Summary */}
+                        <div className="p-4 border-b border-gray-200">
+                          <h4 className="font-semibold text-gray-900 mb-3">Summary</h4>
+                          <p className="text-sm text-gray-700 mb-3">
+                            The checker found problems which may prevent the document from being fully accessible.
+                          </p>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                            <div>
+                              <span className="text-gray-600">Needs manual check:</span>
+                              <span className="ml-2 font-semibold text-blue-600">
+                                {document.scanResults.detailedReport.summary.needsManualCheck}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Passed manually:</span>
+                              <span className="ml-2 font-semibold text-gray-700">
+                                {document.scanResults.detailedReport.summary.passedManually}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Failed manually:</span>
+                              <span className="ml-2 font-semibold text-gray-700">
+                                {document.scanResults.detailedReport.summary.failedManually}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Skipped:</span>
+                              <span className="ml-2 font-semibold text-gray-700">
+                                {document.scanResults.detailedReport.summary.skipped}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Passed:</span>
+                              <span className="ml-2 font-semibold text-green-600">
+                                {document.scanResults.detailedReport.summary.passed}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Failed:</span>
+                              <span className="ml-2 font-semibold text-red-600">
+                                {document.scanResults.detailedReport.summary.failed}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Detailed Report by Category */}
+                        <div className="p-4">
+                          <h4 className="font-semibold text-gray-900 mb-4">Detailed Report</h4>
+                          <div className="space-y-6">
+                            {Object.entries(document.scanResults.detailedReport.categories).map(([categoryName, checks]) => (
+                              <div key={categoryName} className="border border-gray-200 rounded-lg">
+                                <div className="p-3 bg-gray-50 border-b border-gray-200">
+                                  <h5 className="font-semibold text-gray-900">{categoryName}</h5>
+                                </div>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead className="bg-gray-50">
+                                      <tr>
+                                        <th className="px-4 py-2 text-left font-semibold text-gray-700 border-b border-gray-200">Rule Name</th>
+                                        <th className="px-4 py-2 text-left font-semibold text-gray-700 border-b border-gray-200">Status</th>
+                                        <th className="px-4 py-2 text-left font-semibold text-gray-700 border-b border-gray-200">Description</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {checks.map((check, index) => (
+                                        <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                                          <td className="px-4 py-2 text-gray-900">{check.ruleName}</td>
+                                          <td className="px-4 py-2">
+                                            <span className={`px-2 py-1 text-xs rounded font-medium ${
+                                              check.status === 'Failed' ? 'bg-red-100 text-red-800' :
+                                              check.status === 'Needs manual check' ? 'bg-blue-100 text-blue-800' :
+                                              check.status === 'Skipped' ? 'bg-gray-100 text-gray-800' :
+                                              'bg-green-100 text-green-800'
+                                            }`}>
+                                              {check.status}
+                                            </span>
+                                            {check.page && (
+                                              <span className="ml-2 text-xs text-gray-500">Page {check.page}</span>
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-2 text-gray-700">
+                                            {check.description}
+                                            {check.location && (
+                                              <div className="text-xs text-gray-500 mt-1">Location: {check.location}</div>
+                                            )}
+                                            {check.elementId && (
+                                              <div className="text-xs text-gray-500">Element ID: {check.elementId}</div>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>

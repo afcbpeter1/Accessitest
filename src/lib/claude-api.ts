@@ -178,8 +178,11 @@ Provide a specific, actionable fix for this exact element.`;
     section: string,
     fileName: string,
     fileType: string,
+    elementLocation?: string,
+    pageNumber?: number,
     elementContent?: string,
-    pageNumber?: number
+    elementId?: string,
+    elementType?: string
   ): Promise<string> {
     try {
       console.log('🚀 Claude API: Starting document analysis for', fileName);
@@ -188,69 +191,49 @@ Provide a specific, actionable fix for this exact element.`;
       console.log('📍 Claude API: Page:', pageNumber);
       console.log('📄 Claude API: Element:', elementContent || 'Not provided');
       
-      const systemPrompt = `You are an expert Adobe Acrobat Pro accessibility consultant specializing in Section 508 compliance and WCAG 2.1 standards. Provide detailed, step-by-step remediation instructions for fixing PDF accessibility issues IN ADOBE ACROBAT PRO.
+      const systemPrompt = `You are an expert PDF accessibility consultant. Provide precise, actionable instructions for fixing PDF accessibility issues.
 
-CRITICAL GUIDELINES FOR PDF FIXES:
-- ALL instructions must be specific to Adobe Acrobat Pro (not Word, not other tools)
-- Provide EXACT menu paths: "Go to Tools > Accessibility > Add Tags to Document"
-- Include exact panel names: "Open the Tags panel (View > Show/Hide > Side Panels > Accessibility Tags)"
-- Reference the EXACT page number and element location from the issue
-- Break down complex fixes into numbered steps (Step 1:, Step 2:, etc.)
-- Include keyboard shortcuts when applicable: (Alt+T, A, A) or (F6)
-- Provide specific values or settings to change
-- Explain WHERE to find the element (page number, approximate location)
-- Explain WHY each step is important for accessibility
-- Reference the exact Section 508 requirement (e.g., 36 CFR § 1194.22(a))
-- Consider the user may not be an accessibility expert
+CRITICAL RULES:
+1. The user has ALREADY scanned this PDF - NEVER tell them to run the accessibility checker
+2. Use whatever information is provided - work with what you have
+3. If element details are provided, use them. If not, use the issue description and location
+4. Provide instructions specific to THIS issue, not generic guidance
 
-REQUIRED FORMAT:
-1. ISSUE EXPLANATION (2-3 sentences)
-   - What the issue is and WHERE it is (page number, element location)
-   - Why it violates Section 508/WCAG
-   - The specific requirement being violated
+INFORMATION PROVIDED:
+${pageNumber ? `- Page: ${pageNumber}` : '- Page: Not specified'}
+${elementLocation ? `- Location: ${elementLocation}` : '- Location: Not specified'}
+${elementId ? `- Element ID: ${elementId}` : '- Element ID: Not provided'}
+${elementType ? `- Element Type: ${elementType}` : '- Element Type: Not provided'}
+${elementContent ? `- Element Content: ${elementContent.substring(0, 200)}` : '- Element Content: Not provided'}
+- Issue Description: ${issueDescription}
 
-2. STEP-BY-STEP ACROBAT SOLUTION
-   - Number each step clearly (Step 1:, Step 2:, etc.)
-   - Include exact Acrobat menu paths: "Go to Tools > Accessibility > Add Tags to Document"
-   - Mention specific panels to open: "Open the Tags panel: View > Show/Hide > Side Panels > Accessibility Tags"
-   - Tell user WHERE to find the element: "Navigate to page ${pageNumber || 'X'}, locate the [element description]"
-   - Provide exact actions: "Right-click the image > Edit Image > Add Alternative Text"
-   - Include keyboard shortcuts: (Alt+T, A, A) or (F6)
-   - Provide exact values to enter
+YOUR RESPONSE MUST:
+1. Start by stating what information you have (page number, location, element details if available)
+2. Use the issue description to understand what needs fixing
+3. Give step-by-step instructions to fix THIS specific issue
+4. Use correct Acrobat panel names: "Prepare for accessibility" panel, "Tags panel"
+5. NEVER mention running the accessibility checker - we've already done that
+6. If element details are missing, use the issue description and location to provide targeted guidance
 
-3. VERIFICATION STEPS
-   - How to verify the fix worked in Acrobat
-   - Run Accessibility Checker: "Tools > Accessibility > Full Check"
-   - What to check to ensure compliance
+FORMAT:
+1. Element Location: State what you know about where this issue is (use available information)
+2. Issue Explanation: Brief explanation of THIS specific issue based on the description
+3. Step-by-Step Fix: Instructions to fix THIS specific issue (use issue description to guide you)
+4. Verification: How to verify THIS specific fix worked
 
-4. ADDITIONAL NOTES (if applicable)
-   - Alternative methods if available
-   - Best practices for preventing this issue
-   - Related accessibility considerations
+Keep instructions clear, practical, and specific. Work with whatever information is available. Avoid keyboard shortcuts.`;
 
-IMPORTANT: Since we cannot programmatically fix PDFs, focus on giving users EXACT instructions they can follow in Acrobat Pro to fix the issue themselves. Be very specific about where to click, what to select, and what values to enter.
+      const userPrompt = `Fix this PDF accessibility issue. We've already scanned and identified the problem:
 
-Keep total response between 300-500 words, prioritizing clarity and actionability.`;
+File: ${fileName}
+Issue: ${issueDescription}
+${pageNumber ? `Page: ${pageNumber}` : 'Page: Not specified'}
+${elementLocation ? `Location: ${elementLocation}` : 'Location: Not specified'}
+${elementId ? `Element ID: ${elementId}` : ''}
+${elementType ? `Element Type: ${elementType}` : ''}
+${elementContent ? `Content: ${elementContent.substring(0, 200)}` : ''}
 
-      const userPrompt = `Analyze this PDF accessibility issue and provide detailed step-by-step remediation instructions for Adobe Acrobat Pro:
-
-DOCUMENT INFORMATION:
-- File Name: ${fileName}
-- File Type: ${fileType}
-- Issue: ${issueDescription}
-- Section: ${section}
-${pageNumber ? `- Page Number: ${pageNumber}` : ''}
-${elementContent ? `- Problematic Element: ${elementContent.substring(0, 200)}` : ''}
-
-IMPORTANT: Provide instructions SPECIFIC TO ADOBE ACROBAT PRO. Include:
-1. Exact menu paths in Acrobat (e.g., "Tools > Accessibility > Add Tags to Document")
-2. Exact panel names (e.g., "Tags panel: View > Show/Hide > Side Panels > Accessibility Tags")
-3. Where to find the element (page number: ${pageNumber || 'X'}, element description)
-4. Exact actions to take (right-click, select, enter values)
-5. Keyboard shortcuts if available (Alt+T, A, A or F6)
-6. How to verify using Acrobat's Accessibility Checker
-
-Focus on practical, actionable steps that someone can follow immediately in Adobe Acrobat Pro. Be very specific about WHERE to click and WHAT to do.`;
+Provide instructions to fix THIS issue. Use the issue description to understand what needs fixing. If element details are provided, use them. If not, use the issue description and location to provide targeted guidance. Do NOT tell them to run the accessibility checker - we've already done that.`;
 
       console.log('📤 Claude API: Sending document analysis request...');
       const response = await this.makeRateLimitedRequest(() => 

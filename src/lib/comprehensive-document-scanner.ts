@@ -2115,37 +2115,37 @@ export class ComprehensiveDocumentScanner {
     console.log(`📋 Found ${actualHeadings.length} actual heading tags (H1-H6) in structure tree`)
     
     if (actualHeadings.length === 0) {
-      const wordCount = documentContent.split(/\s+/).length
-      if (wordCount > 50) {
-        issues.push({
-          id: `issue_${Date.now()}_no_headings`,
-          type: 'serious',
-          category: 'structure',
-          description: 'Document lacks heading structure',
-          section: 'Document Structure',
-          pageNumber: 1,
-          lineNumber: 1,
-          elementLocation: 'Document body',
+        const wordCount = documentContent.split(/\s+/).length
+        if (wordCount > 50) {
+          issues.push({
+            id: `issue_${Date.now()}_no_headings`,
+            type: 'serious',
+            category: 'structure',
+            description: 'Document lacks heading structure',
+            section: 'Document Structure',
+            pageNumber: 1,
+            lineNumber: 1,
+            elementLocation: 'Document body',
           context: `No H1-H6 heading tags found in PDF structure tree (document has ${wordCount} words)`,
-          wcagCriterion: 'WCAG 2.1 AA - 1.3.1 Info and Relationships',
-          section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
-          impact: this.calculateImpact('serious'),
+            wcagCriterion: 'WCAG 2.1 AA - 1.3.1 Info and Relationships',
+            section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
+            impact: this.calculateImpact('serious'),
           remediation: 'Use built-in heading styles (Heading 1, Heading 2, etc.) in a logical, hierarchical order to organize content. In Acrobat: Use the Tags panel to tag headings as H1, H2, H3, etc.'
-        })
+          })
       }
     } else {
       // Check heading hierarchy (H1 should come before H2, etc.)
       let previousLevel = 0
       for (const heading of actualHeadings) {
         if (heading.level > previousLevel + 1) {
-          issues.push({
+      issues.push({
             id: `issue_${Date.now()}_heading_hierarchy_${heading.page}`,
             type: 'moderate',
-            category: 'structure',
+        category: 'structure',
             description: 'Heading hierarchy skipped',
-            section: 'Document Structure',
+        section: 'Document Structure',
             pageNumber: heading.page || 1,
-            lineNumber: 1,
+        lineNumber: 1,
             elementLocation: `H${heading.level} heading`,
             context: `Heading level H${heading.level} appears without H${previousLevel + 1}`,
             wcagCriterion: 'WCAG 2.1 AA - 1.3.1 Info and Relationships',
@@ -2161,8 +2161,8 @@ export class ComprehensiveDocumentScanner {
     // WCAG 2.4.6 Headings and Labels (AA): Check for descriptive headings - use ACTUAL structure tree
     // Reuse actualHeadings from above (already extracted)
     
-    // Check if headings are descriptive (not just generic terms)
-    const genericTerms = ['introduction', 'overview', 'summary', 'conclusion', 'background', 'methods', 'results', 'discussion']
+      // Check if headings are descriptive (not just generic terms)
+        const genericTerms = ['introduction', 'overview', 'summary', 'conclusion', 'background', 'methods', 'results', 'discussion']
     for (const heading of actualHeadings) {
       const headingText = (heading.text || '').toLowerCase()
       if (genericTerms.some(term => headingText.includes(term)) && headingText.length < 20) {
@@ -2175,9 +2175,9 @@ export class ComprehensiveDocumentScanner {
           pageNumber: heading.page || 1,
           lineNumber: 1,
           elementLocation: heading.text?.substring(0, 50) || 'Heading',
-          context: 'Headings should be descriptive and specific to the content',
-          wcagCriterion: 'WCAG 2.1 AA - 2.4.6 Headings and Labels',
-          section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
+                      context: 'Headings should be descriptive and specific to the content',
+            wcagCriterion: 'WCAG 2.1 AA - 2.4.6 Headings and Labels',
+            section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
           impact: this.calculateImpact('moderate'),
           remediation: 'Use descriptive headings that clearly indicate the content of each section.'
         })
