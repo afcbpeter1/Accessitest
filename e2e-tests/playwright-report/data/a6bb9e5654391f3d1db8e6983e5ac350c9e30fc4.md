@@ -1,0 +1,7 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - paragraph [ref=e6]: Loading...
+```

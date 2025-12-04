@@ -1,0 +1,198 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - dialog "We use cookies" [ref=e3]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - img [ref=e8]
+          - generic [ref=e10]:
+            - heading "We use cookies" [level=3] [ref=e11]
+            - paragraph [ref=e12]:
+              - text: We use cookies to enhance your browsing experience, analyze site traffic, and personalize content. By clicking "Accept All", you consent to our use of cookies.
+              - link "Learn more" [ref=e13] [cursor=pointer]:
+                - /url: /cookie-policy
+        - generic [ref=e14]:
+          - button "Decline cookies" [ref=e15] [cursor=pointer]: Decline
+          - button "Accept cookies" [ref=e16] [cursor=pointer]: Accept All
+          - button "Close cookie banner" [ref=e17] [cursor=pointer]:
+            - img [ref=e18]
+    - link "Skip to main content" [ref=e21] [cursor=pointer]:
+      - /url: "#main-content"
+    - link "Skip to navigation" [ref=e22] [cursor=pointer]:
+      - /url: "#navigation"
+    - navigation "Main navigation" [ref=e23]:
+      - generic [ref=e25]:
+        - img "Accessibility testing platform logo" [ref=e27]
+        - generic [ref=e28]:
+          - link "Sign in" [ref=e29] [cursor=pointer]:
+            - /url: /login
+          - link "Get Started" [ref=e30] [cursor=pointer]:
+            - /url: /signup
+    - main [ref=e31]:
+      - generic [ref=e32]:
+        - heading "Professional Accessibility Testing Platform" [level=1] [ref=e33]
+        - paragraph [ref=e34]:
+          - text: A11ytest.ai is the leading accessibility testing platform that ensures your documents and websites meet
+          - strong [ref=e35]: ADA compliance
+          - text: ", federal Section 508 requirements, and international WCAG 2.2 AA standards. Our AI-powered technology provides comprehensive accessibility audits for PDFs, Word documents, PowerPoint presentations, and websites, helping organizations achieve full legal compliance and create inclusive digital experiences for all users."
+        - generic [ref=e36]:
+          - link "Get Started" [ref=e37] [cursor=pointer]:
+            - /url: /signup
+            - text: Get Started
+            - img [ref=e38]
+          - link "🎓 Try Playground" [ref=e40] [cursor=pointer]:
+            - /url: /playground
+            - text: 🎓 Try Playground
+            - img [ref=e41]
+          - link "🔍 See Issues Demo" [ref=e44] [cursor=pointer]:
+            - /url: /accessibility-issues
+            - text: 🔍 See Issues Demo
+            - img [ref=e45]
+          - link "🎨 Logo Contrast Checker" [ref=e47] [cursor=pointer]:
+            - /url: /logo-contrast-checker
+            - text: 🎨 Logo Contrast Checker
+            - img [ref=e48]
+    - generic [ref=e52]:
+      - generic [ref=e53]:
+        - heading "Why We're Different" [level=2] [ref=e54]
+        - paragraph [ref=e55]: Unlike other accessibility testing tools that only identify problems, we provide actionable code solutions to fix every issue found.
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - img [ref=e60]
+            - heading "Code Solutions" [level=3] [ref=e63]
+          - paragraph [ref=e64]: Get specific HTML, CSS, and JavaScript code snippets to fix every accessibility issue. No more guessing how to implement fixes.
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - img [ref=e68]
+            - heading "Visual Screenshots" [level=3] [ref=e71]
+          - paragraph [ref=e72]: See exactly where issues are located with annotated screenshots, just like Lighthouse. Visual context for every problem found.
+        - generic [ref=e73]:
+          - generic [ref=e74]:
+            - img [ref=e76]
+            - heading "AI-Powered Fixes" [level=3] [ref=e78]
+          - paragraph [ref=e79]: Our AI analyzes your specific code and generates custom solutions tailored to your website's structure and design.
+    - generic [ref=e81]:
+      - generic [ref=e82]:
+        - heading "Professional Accessibility Testing" [level=2] [ref=e83]
+        - paragraph [ref=e84]: Our accessibility testing platform provides reliable, accurate, and comprehensive accessibility testing solutions for organisations that need to meet federal and international accessibility standards.
+      - generic [ref=e85]:
+        - generic [ref=e86]:
+          - generic [ref=e87]: "16"
+          - generic [ref=e88]: Section 508 Standards
+          - paragraph [ref=e89]: Complete federal compliance testing coverage
+        - generic [ref=e90]:
+          - generic [ref=e91]: 8+
+          - generic [ref=e92]: File Formats Supported
+          - paragraph [ref=e93]: PDF, Word, PowerPoint, HTML, Text + Live websites
+        - generic [ref=e94]:
+          - generic [ref=e95]: WCAG 2.2
+          - generic [ref=e96]: Accessibility Standards
+          - paragraph [ref=e97]: Latest web accessibility guidelines
+        - generic [ref=e98]:
+          - generic [ref=e99]: AI
+          - generic [ref=e100]: Powered Analysis
+          - paragraph [ref=e101]: Intelligent issue detection and recommendations
+    - region "Page sections" [ref=e102]:
+      - tablist [ref=e104]:
+        - tab "Overview" [selected] [ref=e105] [cursor=pointer]
+        - tab "Free Scan" [ref=e106] [cursor=pointer]
+        - tab "Features" [ref=e107] [cursor=pointer]
+        - tab "Compliance" [ref=e108] [cursor=pointer]
+        - tab "Pricing" [ref=e109] [cursor=pointer]
+    - tabpanel "Overview" [ref=e112]:
+      - generic [ref=e113]:
+        - heading "Comprehensive Accessibility Testing for Modern Organizations" [level=2] [ref=e114]
+        - paragraph [ref=e115]: A11ytest.ai revolutionizes accessibility compliance by combining advanced artificial intelligence with comprehensive testing methodologies. Our platform addresses the critical need for organizations to ensure their digital content is accessible to all users, including those with disabilities. Whether you're a government agency requiring Section 508 compliance, a business seeking WCAG 2.2 AA certification, or an educational institution needing accessible document standards, A11ytest.ai provides the tools and expertise to achieve full accessibility compliance.
+        - generic [ref=e116]:
+          - generic [ref=e117]:
+            - img [ref=e118]
+            - heading "🎓 Learn Accessibility Hands-On" [level=3] [ref=e121]
+          - paragraph [ref=e122]: Practice fixing real accessibility issues with our interactive playground. Perfect for developers, designers, and content creators!
+          - generic [ref=e123]:
+            - link "Try the Playground" [ref=e124] [cursor=pointer]:
+              - /url: /playground
+              - text: Try the Playground
+              - img [ref=e125]
+            - link "See Issues Demo" [ref=e127] [cursor=pointer]:
+              - /url: /accessibility-issues
+              - text: See Issues Demo
+              - img [ref=e128]
+            - link "Logo Contrast Checker" [ref=e130] [cursor=pointer]:
+              - /url: /logo-contrast-checker
+              - text: Logo Contrast Checker
+              - img [ref=e131]
+      - generic [ref=e134]:
+        - generic [ref=e135]:
+          - heading "Document Accessibility Testing" [level=3] [ref=e136]
+          - paragraph [ref=e137]: Our advanced document scanning technology provides comprehensive accessibility testing for all major file formats used in modern business and government operations. Whether you're working with PDFs, Word documents, PowerPoint presentations, or HTML files, our platform ensures your content meets the highest accessibility standards required by federal regulations and international guidelines.
+          - generic [ref=e138]:
+            - generic [ref=e139]:
+              - img [ref=e140]
+              - generic [ref=e143]:
+                - generic [ref=e144]: Complete Section 508 Compliance Testing
+                - generic [ref=e145]: Automated testing for all 16 subsections of federal accessibility standards, ensuring your documents meet government requirements
+            - generic [ref=e146]:
+              - img [ref=e147]
+              - generic [ref=e150]:
+                - generic [ref=e151]: Multi-Format Document Support
+                - generic [ref=e152]: Comprehensive testing for PDF, Word, PowerPoint, HTML, and text documents with intelligent content analysis
+            - generic [ref=e153]:
+              - img [ref=e154]
+              - generic [ref=e157]:
+                - generic [ref=e158]: AI-Powered Content Analysis
+                - generic [ref=e159]: Advanced artificial intelligence for intelligent issue detection, automated remediation recommendations, and accessibility scoring
+            - generic [ref=e160]:
+              - img [ref=e161]
+              - generic [ref=e164]:
+                - generic [ref=e165]: Detailed Compliance Reporting
+                - generic [ref=e166]: Comprehensive reports with severity categorization, compliance scoring, and actionable remediation steps
+        - generic [ref=e167]:
+          - heading "Website Accessibility Testing" [level=3] [ref=e168]
+          - paragraph [ref=e169]: Comprehensive web accessibility testing that ensures your websites and web applications meet international accessibility standards and provide an inclusive user experience for all visitors. Our platform provides detailed analysis of your web content with actionable insights for continuous improvement and compliance maintenance.
+          - generic [ref=e170]:
+            - generic [ref=e171]:
+              - img [ref=e172]
+              - generic [ref=e175]:
+                - generic [ref=e176]: WCAG 2.2 Level AA Compliance Testing
+                - generic [ref=e177]: Latest web accessibility guidelines with automated testing for all success criteria and international standards compliance
+            - generic [ref=e178]:
+              - img [ref=e179]
+              - generic [ref=e182]:
+                - generic [ref=e183]: Multi-Page Website Scanning
+                - generic [ref=e184]: Complete website accessibility testing and analysis across entire domains and web applications
+            - generic [ref=e185]:
+              - img [ref=e186]
+              - generic [ref=e189]:
+                - generic [ref=e190]: Real-Time Compliance Reports
+                - generic [ref=e191]: Instant accessibility scoring, detailed issue breakdowns, and prioritized remediation recommendations
+            - generic [ref=e192]:
+              - img [ref=e193]
+              - generic [ref=e196]:
+                - generic [ref=e197]: Interactive Element Testing
+                - generic [ref=e198]: Comprehensive testing of forms, navigation, multimedia content, and dynamic web components
+    - generic [ref=e200]:
+      - heading "Ready to Achieve Full Accessibility Compliance?" [level=2] [ref=e201]
+      - paragraph [ref=e202]: Start your accessibility journey today with our comprehensive testing platform for Section 508 requirements and WCAG 2.2 compliance.
+      - link "Get Started" [ref=e204] [cursor=pointer]:
+        - /url: /signup
+    - contentinfo [ref=e205]:
+      - generic [ref=e206]:
+        - generic [ref=e208]:
+          - img "A11ytest.ai Logo" [ref=e211]
+          - paragraph [ref=e212]: Professional accessibility testing platform for Section 508 compliance, WCAG 2.2 standards, and inclusive digital experiences. AI-powered document and website accessibility testing for government, enterprise, and educational organisations.
+        - generic [ref=e214]:
+          - generic [ref=e215]:
+            - link "Privacy Policy" [ref=e216] [cursor=pointer]:
+              - /url: /privacy-policy
+            - link "Terms of Service" [ref=e217] [cursor=pointer]:
+              - /url: /terms-of-service
+            - link "Cookie Policy" [ref=e218] [cursor=pointer]:
+              - /url: /cookie-policy
+            - link "Accessibility Statement" [ref=e219] [cursor=pointer]:
+              - /url: /accessibility-statement
+          - paragraph [ref=e220]: © 2025 A11ytest.ai. All rights reserved.
+  - alert [ref=e221]
+```

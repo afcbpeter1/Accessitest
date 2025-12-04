@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Upload, FileText, AlertTriangle, CheckCircle, X, Download, Eye, Sparkles, CreditCard, Plus, ChevronUp, ChevronDown } from 'lucide-react'
+import { Upload, FileText, AlertTriangle, CheckCircle, X, Download, Eye, Sparkles, CreditCard, Plus, ChevronUp, ChevronDown, Wrench, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import CollapsibleIssue from './CollapsibleIssue'
 import { useScan } from '@/contexts/ScanContext'
@@ -721,6 +721,128 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     }
   }
 
+  const fixPDF = async (documentId: string) => {
+    const document = uploadedDocuments.find(doc => doc.id === documentId)
+    if (!document) {
+      addScanLog('❌ Document not found')
+      return
+    }
+
+    if (!document.fileContent) {
+      addScanLog('❌ Document content is missing - please re-upload the document')
+      return
+    }
+
+    if (!document.type.toLowerCase().includes('pdf')) {
+      addScanLog('❌ This feature only works with PDF files')
+      return
+    }
+
+    // Update status to scanning
+    setUploadedDocuments(prev => 
+      prev.map(doc => 
+        doc.id === documentId 
+          ? { ...doc, status: 'scanning' }
+          : doc
+      )
+    )
+
+    addScanLog('🏷️ Starting PDF repair using Adobe PDF Services...')
+    addScanLog('📋 Step 1: Auto-tagging PDF for accessibility...')
+    setIsScanning(true)
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        addScanLog('❌ Authentication required. Please log in again.')
+        setIsScanning(false)
+        return
+      }
+
+      // Convert base64 fileContent back to File for FormData
+      const fileBlob = await fetch(`data:${document.type};base64,${document.fileContent}`)
+        .then(res => res.blob())
+      const file = new File([fileBlob], document.name, { type: document.type })
+
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('fileName', document.name)
+
+      addScanLog('🔄 Calling Adobe PDF Services API...')
+
+      const response = await fetch('/api/pdf-repair', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'PDF repair failed')
+      }
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.error || 'PDF repair failed')
+      }
+
+      addScanLog('✅ PDF successfully auto-tagged!')
+      addScanLog(`🔍 Step 2: Rescanning to verify fixes...`)
+      addScanLog(`📊 Original: ${result.originalScan.issues.length} issues`)
+      addScanLog(`📊 After fix: ${result.repairedScan.issues.length} issues`)
+      
+      if (result.improvement.issuesFixed > 0) {
+        addScanLog(`✅ Fixed ${result.improvement.issuesFixed} issue(s)!`)
+        addScanLog(`📈 Score improved: ${result.originalScan.score} → ${result.repairedScan.score}`)
+      } else {
+        addScanLog(`⚠️ No issues were automatically fixed`)
+      }
+
+      // Update document with repaired PDF and new scan results
+      const repairedPdfBase64 = result.repairedPdf
+      
+      setUploadedDocuments(prev => 
+        prev.map(doc => 
+          doc.id === documentId 
+            ? { 
+                ...doc, 
+                status: 'completed',
+                fileContent: repairedPdfBase64, // Update with repaired PDF
+                scanResults: result.repairedScan, // Update with new scan results
+                repairResults: {
+                  originalScan: result.originalScan,
+                  repairedScan: result.repairedScan,
+                  improvement: result.improvement,
+                  repairPlan: result.repairPlan
+                }
+              }
+            : doc
+        )
+      )
+
+      showToast('PDF repaired successfully!', 'success')
+      
+    } catch (error) {
+      console.error('❌ PDF repair error:', error)
+      addScanLog(`❌ Error: ${error instanceof Error ? error.message : 'Failed to repair PDF'}`)
+      
+      setUploadedDocuments(prev => 
+        prev.map(doc => 
+          doc.id === documentId 
+            ? { ...doc, status: 'completed' } // Revert to completed (don't mark as error)
+            : doc
+        )
+      )
+      
+      showToast(error instanceof Error ? error.message : 'Failed to repair PDF', 'error')
+    } finally {
+      setIsScanning(false)
+    }
+  }
+
   const removeDocument = (documentId: string) => {
     // Clear any scan state if this was the current document being scanned
     if (currentScanId && uploadedDocuments.find(doc => doc.id === documentId)?.status === 'scanning') {
@@ -1237,6 +1359,32 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                         </button>
                       )}
                       
+                      {/* Show Fix PDF button for scanned PDFs */}
+                      {document.status === 'completed' && 
+                       document.type.toLowerCase().includes('pdf') && 
+                       document.scanResults && 
+                       document.scanResults.issues && 
+                       document.scanResults.issues.length > 0 && (
+                        <button
+                          onClick={() => fixPDF(document.id)}
+                          disabled={!document.fileContent || isScanning}
+                          className="px-3 py-1.5 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed font-medium flex items-center gap-1"
+                          title="Fix PDF using Adobe PDF Services (auto-tags PDF, then rescans to verify)"
+                        >
+                          {isScanning ? (
+                            <>
+                              <RefreshCw className="h-3 w-3 animate-spin" />
+                              Fixing...
+                            </>
+                          ) : (
+                            <>
+                              <Wrench className="h-3 w-3" />
+                              Fix PDF
+                            </>
+                          )}
+                        </button>
+                      )}
+                      
                       <button
                         onClick={() => removeDocument(document.id)}
                         className="text-gray-400 hover:text-red-600 transition-colors p-1"
@@ -1262,6 +1410,22 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
             )}
           </div>
         )}
+
+        {/* PDF Tagging Notice */}
+        <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start">
+            <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-blue-900 mb-1">
+                For PDFs: Tag your document in Acrobat first
+              </p>
+              <p className="text-xs text-blue-700">
+                In Adobe Acrobat Pro, go to <strong>Prepare for Accessibility</strong> &gt; <strong>Automatically tag for PDF</strong>. 
+                Then use <strong>View</strong> &gt; <strong>Show/Hide</strong> &gt; <strong>Side Panels</strong> &gt; <strong>Accessibility Tags</strong> to review and fix tags.
+              </p>
+            </div>
+          </div>
+        </div>
 
         {/* Upload Area */}
         <div 

@@ -4,8 +4,6 @@ import jwt from 'jsonwebtoken'
 import { queryOne, query } from '@/lib/database'
 import { VPNDetector } from '@/lib/vpn-detector'
 import { EmailService } from '@/lib/email-service'
-import { validatePassword } from '@/lib/password-validation'
-import { withAuthRateLimit } from '@/lib/auth-rate-limiter'
 
 // Database user interface
 interface User {
@@ -21,24 +19,16 @@ interface User {
   last_login?: string
 }
 
-// SECURITY: JWT_SECRET must be set in environment variables - no default fallback
-const JWT_SECRET = process.env.JWT_SECRET
+// JWT secret (in production, use environment variable)
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
-if (!JWT_SECRET || JWT_SECRET === 'your-secret-key-change-in-production') {
-  throw new Error(
-    'JWT_SECRET must be set in environment variables. ' +
-    'Generate a strong random secret (minimum 32 characters) and set it in your .env file.'
-  )
-}
-
-// Apply rate limiting to authentication endpoint
-export const POST = withAuthRateLimit(async (request: NextRequest) => {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { action, email, password, name, company } = body
 
     if (action === 'login') {
-      return await handleLogin(email, password, request)
+      return await handleLogin(email, password)
     } else if (action === 'register') {
       return await handleRegister(email, password, name, company, request)
     } else {
@@ -54,9 +44,9 @@ export const POST = withAuthRateLimit(async (request: NextRequest) => {
       { status: 500 }
     )
   }
-})
+}
 
-async function handleLogin(email: string, password: string, request?: NextRequest) {
+async function handleLogin(email: string, password: string) {
   if (!email || !password) {
     return NextResponse.json(
       { success: false, error: 'Email and password are required' },
@@ -165,15 +155,6 @@ async function handleRegister(email: string, password: string, name: string, com
   if (!email || !password || !name) {
     return NextResponse.json(
       { success: false, error: 'Email, password, and name are required' },
-      { status: 400 }
-    )
-  }
-
-  // Validate password strength
-  const passwordValidation = validatePassword(password)
-  if (!passwordValidation.valid) {
-    return NextResponse.json(
-      { success: false, error: passwordValidation.error },
       { status: 400 }
     )
   }

@@ -165,8 +165,8 @@ export class ComprehensiveDocumentScanner {
             return /[a-zA-Z]/.test(match) ? match : ''
           })
           .replace(/<[^>]+>/g, '') // Remove XML/HTML tags
-          .replace(/^\d+\s+0\s+obj.*?endobj$/gms, '') // Remove PDF object definitions
-          .replace(/stream.*?endstream/gms, '') // Remove PDF stream content
+          .replace(/^\d+\s+0\s+obj[\s\S]*?endobj$/gm, '') // Remove PDF object definitions
+          .replace(/stream[\s\S]*?endstream/gm, '') // Remove PDF stream content
           .trim()
         
         // Count only visible words (more than 2 characters, not just numbers/symbols)
@@ -1077,6 +1077,36 @@ export class ComprehensiveDocumentScanner {
   ): Promise<ComprehensiveDocumentIssue[]> {
     const issues: ComprehensiveDocumentIssue[] = []
 
+    // CRITICAL: Check if PDF has structure tree - required for accurate accessibility checking
+    const structureTree = parsedStructure?.structureTree
+    const hasStructureTree = structureTree && Array.isArray(structureTree) && structureTree.length > 0
+    
+    if (!hasStructureTree) {
+      console.log(`❌ PDF structure tree not found - PDF is untagged. Cannot perform accurate accessibility checks.`)
+      
+      // Return a blocking issue that tells user to tag the PDF first
+      issues.push({
+        id: `issue_${Date.now()}_pdf_untagged`,
+        type: 'critical',
+        category: 'structure',
+        description: 'PDF is not tagged - structure tree not found',
+        section: 'Document Structure',
+        pageNumber: 1,
+        lineNumber: 1,
+        elementLocation: 'Entire document',
+        context: 'This PDF does not have a structure tree. Accessibility checks require a tagged PDF with proper structure elements (headings, lists, tables, images with alt text, etc.).',
+        wcagCriterion: 'WCAG 2.1 AA - Multiple Criteria Require Tagged PDF',
+        section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
+        impact: this.calculateImpact('critical'),
+        remediation: 'Tag the PDF in Adobe Acrobat Pro:\n\n1. Open the PDF in Adobe Acrobat Pro\n2. Go to Prepare for Accessibility > Automatically tag for PDF (or press Alt+T, A, A)\n3. Review and fix the auto-generated tags using the Tags panel: View > Show/Hide > Side Panels > Accessibility Tags\n4. Ensure all headings use H1-H6 tags, images have Alt text, tables have headers, and lists are properly tagged\n5. Save the PDF\n6. Re-upload and scan again\n\nNote: While Acrobat\'s Accessibility Checker identifies issues, our scanner provides:\n- Detailed compliance reporting with specific issue locations\n- Batch processing via API for multiple documents\n- Integration with your workflow\n- AI-powered remediation suggestions\n\nNote: Automated PDF repair is currently limited to metadata fixes (title, language). Structure tree fixes (headings, alt text, tables) must be done manually in Acrobat.\n\nWithout a tagged PDF, we cannot accurately check accessibility - text-based analysis gives false readings.'
+      })
+      
+      // Don't run any other checks - return immediately
+      return issues
+    }
+    
+    console.log(`✅ PDF structure tree found with ${structureTree.length} root elements - proceeding with accessibility checks`)
+
     // Check if Section 508 tags are selected
     const hasSection508Tags = selectedTags && selectedTags.some(tag => tag.startsWith('1194.22'))
     
@@ -1085,7 +1115,7 @@ export class ComprehensiveDocumentScanner {
     if (!hasSection508Tags) {
       console.log(`🔍 Running general WCAG compliance checks (no Section 508 tags selected)`)
     
-      // Text analysis - use parsed structure if available
+      // Text analysis - now we know structure tree exists, so checks will use it
       const textIssues = this.analyzeTextAccessibility(documentContent, documentType, pagesAnalyzed, parsedStructure)
     issues.push(...textIssues)
 
@@ -1190,11 +1220,13 @@ export class ComprehensiveDocumentScanner {
     }
 
     // WCAG 1.3.1 Info and Relationships (A): Use built-in document features for structure
-    // Use parsed structure lists if available, otherwise fall back to text pattern matching
-    const listIssues = parsedStructure?.structure ? 
-      this.checkListStructureReal(parsedStructure.structure.lists, pagesAnalyzed) :
-      this.checkListStructure(documentContent, getPageAndLine)
-    issues.push(...listIssues)
+    // Check actual PDF structure tree for L/LI tags
+    // We know structureTree exists because we checked at the start of analyzeComprehensive
+    const structureTree = parsedStructure?.structureTree
+    const actualLists = this.extractListsFromStructureTree(structureTree)
+    console.log(`📋 Found ${actualLists.length} actual List tags (L) in structure tree`)
+    // Lists found in structure tree are properly tagged - no issues
+    // (We could add checks for list item count, etc. here if needed)
 
     // WCAG 2.4.4 Link Purpose (A): Descriptive link text
     // Use parsed structure links if available
@@ -1204,11 +1236,32 @@ export class ComprehensiveDocumentScanner {
     issues.push(...linkIssues)
 
     // WCAG 1.3.1 Info and Relationships (A): Table structure with headers
-    // Use parsed structure tables if available
-    const tableIssues = parsedStructure?.structure?.tables ? 
-      this.checkTableStructureReal(parsedStructure.structure.tables, pagesAnalyzed) :
-      this.checkTableStructure(documentContent, getPageAndLine)
-    issues.push(...tableIssues)
+    // Check actual PDF structure tree for Table tags with Headers attribute
+    // We know structureTree exists because we checked at the start of analyzeComprehensive
+    const actualTables = this.extractTablesFromStructureTree(structureTree)
+    console.log(`📊 Found ${actualTables.length} actual Table tags in structure tree`)
+    
+    for (const table of actualTables) {
+      if (!table.hasHeaders) {
+        issues.push({
+          id: `issue_${Date.now()}_table_no_headers_structure_${table.page || 0}`,
+          type: 'serious',
+          category: 'structure',
+          description: 'Table missing header row (checked PDF structure tree)',
+          section: 'Document Structure',
+          pageNumber: table.page || 1,
+          lineNumber: 1,
+          elementLocation: `Table tag on page ${table.page || 1}`,
+          context: `Table tag in PDF structure tree does not have Headers attribute`,
+          wcagCriterion: 'WCAG 2.1 AA - 1.3.1 Info and Relationships',
+          section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
+          impact: this.calculateImpact('serious'),
+          remediation: `Add header row to the table in Adobe Acrobat: Right-click table > Table Properties > Set first row as header.`
+        })
+      } else {
+        console.log(`✅ Table on page ${table.page || 'unknown'} has Headers attribute`)
+      }
+    }
 
     // WCAG 1.4.1 Use of Color (A): Color not the only way to convey information
     const colorIssues = this.checkColorUsage(documentContent, getPageAndLine)
@@ -1219,7 +1272,7 @@ export class ComprehensiveDocumentScanner {
     issues.push(...textImageIssues)
 
     // WCAG 3.1.2 Language of Parts (AA): Identify foreign language parts
-    const languageIssues = this.checkLanguageParts(documentContent, getPageAndLine)
+    const languageIssues = this.checkLanguageParts(documentContent, getPageAndLine, parsedStructure)
     issues.push(...languageIssues)
 
     // WCAG 1.2.1 Audio-only and Video-only (A): Check for media references
@@ -1569,37 +1622,313 @@ export class ComprehensiveDocumentScanner {
     return issues
   }
 
-  private checkLanguageParts(documentContent: string, getPageAndLine: (index: number) => { page: number, line: number }): ComprehensiveDocumentIssue[] {
+  private checkLanguageParts(documentContent: string, getPageAndLine: (index: number) => { page: number, line: number }, parsedStructure?: any): ComprehensiveDocumentIssue[] {
     const issues: ComprehensiveDocumentIssue[] = []
     const lines = documentContent.split('\n')
     
     // Check for foreign language indicators - use single regex for efficiency
-    const foreignLanguageRegex = /[àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿαβγδεζηθικλμνξοπρστυφχψωабвгдеёжзийклмнопрстуфхцчшщъыьэюя一-龯あ-んア-ン가-힣अ-हا-ي]/
+    const foreignLanguageRegex = /[àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿαβγδεζηθικλμνξοπρστυφχψωабвгдеёжзийклмнопрстуфхцчшщъыьэюя一-龯あ-んア-ン가-힣अ-हा-ी]/
+    
+    // If we have a structure tree, use it to check for language attributes
+    // We know structureTree exists because we checked at the start of analyzeComprehensive
+    const structureTree = parsedStructure?.structureTree
+    console.log(`✅ Using PDF structure tree with ${structureTree.length} root elements for language checking`)
+    
+    // Find all foreign language text in the document
+    const foreignTextLocations: Array<{ text: string; page: number; line: number; index: number }> = []
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       if (foreignLanguageRegex.test(line)) {
         const { page, line: lineNum } = getPageAndLine(i)
+        foreignTextLocations.push({
+          text: line,
+          page,
+          line: lineNum,
+          index: i
+        })
+      }
+    }
+    
+    console.log(`🔍 Found ${foreignTextLocations.length} lines with foreign language characters`)
+    
+    // For each foreign text location, check if it has a language attribute in the structure tree
+    for (const foreignText of foreignTextLocations) {
+      const hasLanguage = this.checkTagForLanguage(structureTree, foreignText.text)
+      
+      if (!hasLanguage) {
+        console.log(`❌ Foreign text "${foreignText.text.substring(0, 30)}..." has NO language attribute - reporting issue`)
         issues.push({
-          id: `issue_${Date.now()}_foreign_language_${i}`,
+          id: `issue_${Date.now()}_foreign_language_${foreignText.index}`,
           type: 'moderate',
           category: 'structure',
           description: 'Foreign language content detected without language identification',
           section: 'Document Structure',
-          pageNumber: page,
-          lineNumber: lineNum,
-          elementLocation: line.substring(0, 50),
+          pageNumber: foreignText.page,
+          lineNumber: foreignText.line,
+          elementLocation: foreignText.text.substring(0, 50),
           context: 'Foreign language parts must be identified for proper screen reader pronunciation',
           wcagCriterion: 'WCAG 2.1 AA - 3.1.2',
           section508Requirement: '36 CFR § 1194.22(a) - Readability and Language',
           impact: this.calculateImpact('moderate'),
-          remediation: 'Select the foreign language text and set its language property in the document.'
+          remediation: 'Select the foreign language text in Acrobat and set its language property: Right-click > Properties > Tag > Language.'
         })
-        break
+      } else {
+        console.log(`✅ Foreign text "${foreignText.text.substring(0, 30)}..." has language attribute - NO issue`)
       }
     }
     
     return issues
+  }
+  
+  /**
+   * Check if a tag in the structure tree has a language attribute for the given foreign text
+   */
+  private checkTagForLanguage(tags: any[], foreignText: string, parentLanguage?: string, depth: number = 0): boolean {
+    const normalizeLangCode = (lang: string): string => {
+      if (!lang) return ''
+      return lang.toString().toLowerCase().replace(/^\//, '').trim().split('-')[0].split('_')[0]
+    }
+    
+    // Extract keywords from foreign text for matching
+    const foreignKeywords = foreignText.split(/\s+/).filter(word => {
+      const wordLower = word.toLowerCase()
+      return wordLower.length > 2 && /[àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿαβγδεζηθικλμνξοπρστυφχψωабвгдеёжзийклмнопрстуфхцчшщъыьэюя一-龯あ-んア-ン가-힣अ-हा-ी]/.test(wordLower)
+    }).slice(0, 3)
+    
+    for (const tag of tags) {
+      if (!tag) continue
+      
+      // Get all text from this tag and its children
+      const collectAllText = (node: any): string => {
+        let text = node.text || ''
+        if (node.children && Array.isArray(node.children)) {
+          for (const child of node.children) {
+            text += ' ' + collectAllText(child)
+          }
+        }
+        return text.trim()
+      }
+      
+      const allTagText = collectAllText(tag)
+      const containsForeignText = foreignKeywords.some(keyword => 
+        allTagText.toLowerCase().includes(keyword.toLowerCase())
+      ) || (foreignText.length < 20 && allTagText.toLowerCase().includes(foreignText.toLowerCase().substring(0, Math.min(10, foreignText.length))))
+      
+      // Get language from tag (check multiple locations)
+      const tagLang = tag.language || tag.attributes?.Lang || tag.attributes?.lang || tag.attributes?.Language
+      const effectiveLang = tagLang || parentLanguage
+      const normalizedEffectiveLang = effectiveLang ? normalizeLangCode(effectiveLang) : ''
+      const hasLanguage = normalizedEffectiveLang !== '' && normalizedEffectiveLang !== 'en'
+      
+      if (containsForeignText || (depth === 0 && tagLang)) {
+        const indent = '  '.repeat(depth)
+        console.log(`${indent}🔍 [Depth ${depth}] Tag type: ${tag.type}, Tag text: "${allTagText.substring(0, 60)}...", Tag language: "${tagLang || 'none'}", Parent language: "${parentLanguage || 'none'}", Effective: "${normalizedEffectiveLang}", Has language: ${hasLanguage}, Contains foreign: ${containsForeignText}`)
+      }
+      
+      if (containsForeignText && hasLanguage) {
+        console.log(`✅ Found language tag: "${effectiveLang}" (normalized: "${normalizedEffectiveLang}") for text containing "${foreignKeywords[0] || 'foreign text'}..."`)
+        return true
+      }
+      
+      // Check children recursively
+      const currentLanguage = tagLang || parentLanguage
+      if (tag.children && Array.isArray(tag.children) && tag.children.length > 0) {
+        if (this.checkTagForLanguage(tag.children, foreignText, currentLanguage, depth + 1)) {
+          return true
+        }
+      }
+      
+      // Also check if parent has language and this tag contains the foreign text
+      if (parentLanguage && containsForeignText) {
+        const normalizedParentLang = normalizeLangCode(parentLanguage)
+        if (normalizedParentLang !== '' && normalizedParentLang !== 'en') {
+          console.log(`✅ Found parent language: "${parentLanguage}" (normalized: "${normalizedParentLang}") for text containing "${foreignKeywords[0] || 'foreign text'}..."`)
+          return true
+        }
+      }
+    }
+    
+    return false
+  }
+  
+  /**
+   * Extract all tags of a specific type from the structure tree
+   */
+  private extractTagsFromStructureTree(structureTree: any[], tagType: string): any[] {
+    const tags: any[] = []
+    
+    const traverse = (nodes: any[]) => {
+      for (const node of nodes) {
+        if (!node) continue
+        
+        // Check if this node matches the tag type
+        const nodeType = node.type || ''
+        if (nodeType.toLowerCase() === tagType.toLowerCase() || 
+            nodeType.toLowerCase().startsWith(tagType.toLowerCase())) {
+          tags.push(node)
+        }
+        
+        // Recursively check children
+        if (node.children && Array.isArray(node.children)) {
+          traverse(node.children)
+        }
+      }
+    }
+    
+    if (structureTree && Array.isArray(structureTree)) {
+      traverse(structureTree)
+    }
+    
+    return tags
+  }
+  
+  /**
+   * Extract all headings (H1-H6) from structure tree
+   */
+  private extractHeadingsFromStructureTree(structureTree: any[]): Array<{ level: number; text: string; page?: number; tag: any }> {
+    const headings: Array<{ level: number; text: string; page?: number; tag: any }> = []
+    
+    const traverse = (nodes: any[]) => {
+      for (const node of nodes) {
+        if (!node) continue
+        
+        const nodeType = (node.type || '').toLowerCase()
+        // Check for heading tags (H1, H2, H3, H4, H5, H6)
+        if (nodeType === 'h1' || nodeType === 'h2' || nodeType === 'h3' || 
+            nodeType === 'h4' || nodeType === 'h5' || nodeType === 'h6') {
+          const level = parseInt(nodeType.charAt(1)) || 1
+          headings.push({
+            level,
+            text: node.text || '',
+            page: node.page,
+            tag: node
+          })
+        }
+        
+        // Recursively check children
+        if (node.children && Array.isArray(node.children)) {
+          traverse(node.children)
+        }
+      }
+    }
+    
+    if (structureTree && Array.isArray(structureTree)) {
+      traverse(structureTree)
+    }
+    
+    return headings
+  }
+  
+  /**
+   * Extract all images/figures from structure tree with Alt attributes
+   */
+  private extractImagesFromStructureTree(structureTree: any[]): Array<{ altText: string | null; page?: number; tag: any }> {
+    const images: Array<{ altText: string | null; page?: number; tag: any }> = []
+    
+    const traverse = (nodes: any[]) => {
+      for (const node of nodes) {
+        if (!node) continue
+        
+        const nodeType = (node.type || '').toLowerCase()
+        // Check for image/figure tags
+        if (nodeType === 'figure' || nodeType === 'image' || nodeType === 'illustration') {
+          const altText = node.attributes?.Alt || node.attributes?.alt || node.attributes?.ActualText || null
+          images.push({
+            altText: altText ? String(altText) : null,
+            page: node.page,
+            tag: node
+          })
+        }
+        
+        // Recursively check children
+        if (node.children && Array.isArray(node.children)) {
+          traverse(node.children)
+        }
+      }
+    }
+    
+    if (structureTree && Array.isArray(structureTree)) {
+      traverse(structureTree)
+    }
+    
+    return images
+  }
+  
+  /**
+   * Extract all tables from structure tree with Headers attribute
+   */
+  private extractTablesFromStructureTree(structureTree: any[]): Array<{ hasHeaders: boolean; page?: number; tag: any }> {
+    const tables: Array<{ hasHeaders: boolean; page?: number; tag: any }> = []
+    
+    const traverse = (nodes: any[]) => {
+      for (const node of nodes) {
+        if (!node) continue
+        
+        const nodeType = (node.type || '').toLowerCase()
+        // Check for table tags
+        if (nodeType === 'table') {
+          const hasHeaders = !!(node.attributes?.Headers || node.attributes?.headers)
+          tables.push({
+            hasHeaders,
+            page: node.page,
+            tag: node
+          })
+        }
+        
+        // Recursively check children
+        if (node.children && Array.isArray(node.children)) {
+          traverse(node.children)
+        }
+      }
+    }
+    
+    if (structureTree && Array.isArray(structureTree)) {
+      traverse(structureTree)
+    }
+    
+    return tables
+  }
+  
+  /**
+   * Extract all lists from structure tree
+   */
+  private extractListsFromStructureTree(structureTree: any[]): Array<{ type: 'ordered' | 'unordered'; page?: number; tag: any }> {
+    const lists: Array<{ type: 'ordered' | 'unordered'; page?: number; tag: any }> = []
+    
+    const traverse = (nodes: any[]) => {
+      for (const node of nodes) {
+        if (!node) continue
+        
+        const nodeType = (node.type || '').toLowerCase()
+        // Check for list tags (L = List, LI = List Item)
+        if (nodeType === 'l' || nodeType === 'list') {
+          // Try to determine if ordered or unordered by checking children for LI tags
+          const hasListItems = node.children && node.children.some((child: any) => 
+            (child.type || '').toLowerCase() === 'li' || (child.type || '').toLowerCase() === 'lbody'
+          )
+          if (hasListItems) {
+            // Default to unordered, could be enhanced to check for numbering
+            lists.push({
+              type: 'unordered',
+              page: node.page,
+              tag: node
+            })
+          }
+        }
+        
+        // Recursively check children
+        if (node.children && Array.isArray(node.children)) {
+          traverse(node.children)
+        }
+      }
+    }
+    
+    if (structureTree && Array.isArray(structureTree)) {
+      traverse(structureTree)
+    }
+    
+    return lists
   }
 
   private checkTimeBasedMedia(documentContent: string, getPageAndLine: (index: number) => { page: number, line: number }): ComprehensiveDocumentIssue[] {
@@ -1777,82 +2106,78 @@ export class ComprehensiveDocumentScanner {
     // Define lines at the start so it's available for all checks
     const lines = documentContent.split('\n')
 
-    // WCAG 1.3.1 Info and Relationships (A): Check heading structure - use REAL structure if available
-    if (parsedStructure && parsedStructure.structure) {
-      // Use actual parsed headings from PDF structure
-      if (parsedStructure.structure.headings.length === 0) {
-        const wordCount = documentContent.split(/\s+/).length
-        if (wordCount > 50) {
-          issues.push({
-            id: `issue_${Date.now()}_no_headings`,
-            type: 'serious',
-            category: 'structure',
-            description: 'Document lacks heading structure',
-            section: 'Document Structure',
-            pageNumber: 1,
-            lineNumber: 1,
-            elementLocation: 'Document body',
-            context: `No headings found in document with ${wordCount} words (checked actual document structure)`,
-            wcagCriterion: 'WCAG 2.1 AA - 1.3.1 Info and Relationships',
-            section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
-            impact: this.calculateImpact('serious'),
-            remediation: 'Use built-in heading styles (Heading 1, Heading 2, etc.) in a logical, hierarchical order to organize content.'
-          })
-        }
+    // WCAG 1.3.1 Info and Relationships (A): Check heading structure - use ACTUAL PDF structure tree tags
+    // We know structureTree exists because we checked at the start of analyzeComprehensive
+    const structureTree = parsedStructure?.structureTree
+    
+    // Use actual H1-H6 tags from PDF structure tree
+    const actualHeadings = this.extractHeadingsFromStructureTree(structureTree)
+    console.log(`📋 Found ${actualHeadings.length} actual heading tags (H1-H6) in structure tree`)
+    
+    if (actualHeadings.length === 0) {
+      const wordCount = documentContent.split(/\s+/).length
+      if (wordCount > 50) {
+        issues.push({
+          id: `issue_${Date.now()}_no_headings`,
+          type: 'serious',
+          category: 'structure',
+          description: 'Document lacks heading structure',
+          section: 'Document Structure',
+          pageNumber: 1,
+          lineNumber: 1,
+          elementLocation: 'Document body',
+          context: `No H1-H6 heading tags found in PDF structure tree (document has ${wordCount} words)`,
+          wcagCriterion: 'WCAG 2.1 AA - 1.3.1 Info and Relationships',
+          section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
+          impact: this.calculateImpact('serious'),
+          remediation: 'Use built-in heading styles (Heading 1, Heading 2, etc.) in a logical, hierarchical order to organize content. In Acrobat: Use the Tags panel to tag headings as H1, H2, H3, etc.'
+        })
       }
     } else {
-      // Fallback to text pattern matching if no parsed structure
-    const hasHeadings = lines.some(line => 
-      /^[A-Z][A-Z\s]+$/.test(line.trim()) && line.trim().length < 100 && line.trim().length > 3
-    )
-    const wordCount = documentContent.split(/\s+/).length
-    
-    // Only flag missing headings if document has substantial content (more than 50 words)
-    if (!hasHeadings && wordCount > 50) {
-      issues.push({
-        id: `issue_${Date.now()}_no_headings`,
-        type: 'serious',
-        category: 'structure',
-        description: 'Document lacks heading structure',
-        section: 'Document Structure',
-        pageNumber: 1,
-        lineNumber: 1,
-        elementLocation: 'Document body',
-                    context: `No headings found in document with ${wordCount} words`,
+      // Check heading hierarchy (H1 should come before H2, etc.)
+      let previousLevel = 0
+      for (const heading of actualHeadings) {
+        if (heading.level > previousLevel + 1) {
+          issues.push({
+            id: `issue_${Date.now()}_heading_hierarchy_${heading.page}`,
+            type: 'moderate',
+            category: 'structure',
+            description: 'Heading hierarchy skipped',
+            section: 'Document Structure',
+            pageNumber: heading.page || 1,
+            lineNumber: 1,
+            elementLocation: `H${heading.level} heading`,
+            context: `Heading level H${heading.level} appears without H${previousLevel + 1}`,
             wcagCriterion: 'WCAG 2.1 AA - 1.3.1 Info and Relationships',
             section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
-        impact: this.calculateImpact('serious'),
-        remediation: 'Use built-in heading styles (Heading 1, Heading 2, etc.) in a logical, hierarchical order to organize content.'
-      })
+            impact: this.calculateImpact('moderate'),
+            remediation: 'Maintain a logical heading hierarchy. Do not skip heading levels (e.g., H1 to H3).'
+          })
+        }
+        previousLevel = heading.level
       }
     }
 
-    // WCAG 2.4.6 Headings and Labels (AA): Check for descriptive headings
-    const headingLines = lines.filter(line => 
-      /^[A-Z][A-Z\s]+$/.test(line.trim()) && line.trim().length < 100 && line.trim().length > 3
-    )
+    // WCAG 2.4.6 Headings and Labels (AA): Check for descriptive headings - use ACTUAL structure tree
+    // Reuse actualHeadings from above (already extracted)
     
-    if (headingLines.length > 0) {
-      // Check if headings are descriptive (not just generic terms)
-      const genericHeadings = headingLines.filter(heading => {
-        const genericTerms = ['introduction', 'overview', 'summary', 'conclusion', 'background', 'methods', 'results', 'discussion']
-        return genericTerms.some(term => heading.toLowerCase().includes(term))
-      })
-      
-      if (genericHeadings.length > 0) {
-        const { page, line: lineNum } = findIssueLocation(genericHeadings[0], 1)
+    // Check if headings are descriptive (not just generic terms)
+    const genericTerms = ['introduction', 'overview', 'summary', 'conclusion', 'background', 'methods', 'results', 'discussion']
+    for (const heading of actualHeadings) {
+      const headingText = (heading.text || '').toLowerCase()
+      if (genericTerms.some(term => headingText.includes(term)) && headingText.length < 20) {
         issues.push({
-          id: `issue_${Date.now()}_generic_headings`,
+          id: `issue_${Date.now()}_generic_heading_${heading.page}`,
           type: 'moderate',
           category: 'structure',
           description: 'Generic heading labels detected',
           section: 'Document Structure',
-          pageNumber: page,
-          lineNumber: lineNum,
-          elementLocation: genericHeadings[0].substring(0, 50),
-                      context: 'Headings should be descriptive and specific to the content',
-            wcagCriterion: 'WCAG 2.1 AA - 2.4.6 Headings and Labels',
-            section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
+          pageNumber: heading.page || 1,
+          lineNumber: 1,
+          elementLocation: heading.text?.substring(0, 50) || 'Heading',
+          context: 'Headings should be descriptive and specific to the content',
+          wcagCriterion: 'WCAG 2.1 AA - 2.4.6 Headings and Labels',
+          section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
           impact: this.calculateImpact('moderate'),
           remediation: 'Use descriptive headings that clearly indicate the content of each section.'
         })
@@ -1865,10 +2190,44 @@ export class ComprehensiveDocumentScanner {
   private analyzeImageAccessibility(imageAnalysis: ImageAnalysis, documentType: string, pagesAnalyzed: number, parsedStructure?: any): ComprehensiveDocumentIssue[] {
     const issues: ComprehensiveDocumentIssue[] = []
 
-    // Use REAL parsed images if available
+    // Check actual PDF structure tree for Figure/Image tags with Alt attributes
+    // We know structureTree exists because we checked at the start of analyzeComprehensive
+    const structureTree = parsedStructure?.structureTree
+    const structureTreeImages = this.extractImagesFromStructureTree(structureTree)
+    console.log(`🖼️ Found ${structureTreeImages.length} Figure/Image tags in structure tree`)
+    
+    for (const img of structureTreeImages) {
+      if (!img.altText || img.altText.trim() === '') {
+        issues.push({
+          id: `issue_${Date.now()}_missing_alt_structure_${img.page || 0}`,
+          type: 'serious',
+          category: 'image',
+          description: `Image missing alternative text (checked PDF structure tree)`,
+          section: 'Images and Graphics',
+          pageNumber: img.page || 1,
+          lineNumber: 1,
+          elementLocation: `Figure/Image tag on page ${img.page || 1}`,
+          context: `Figure/Image tag in PDF structure tree does not have Alt attribute`,
+          wcagCriterion: 'WCAG 2.1 AA - 1.1.1 Non-text Content',
+          section508Requirement: '36 CFR § 1194.22(a) - Text Alternatives',
+          impact: this.calculateImpact('serious'),
+          remediation: `Add Alt text to the image in Adobe Acrobat: Right-click the image > Edit Image > Add Alternative Text.`
+        })
+      } else {
+        console.log(`✅ Image on page ${img.page || 'unknown'} has Alt text: "${img.altText.substring(0, 30)}..."`)
+      }
+    }
+
+    // Also check parsed images (in case structure tree doesn't capture all images)
     if (parsedStructure && parsedStructure.images && parsedStructure.images.length > 0) {
       // Check each actual image for alt text
       parsedStructure.images.forEach((image: any, index: number) => {
+        // Skip if we already found this image in structure tree
+        const foundInStructureTree = structureTreeImages.some((sti: any) => 
+          sti.page === image.page
+        )
+        if (foundInStructureTree) return
+        
         if (!image.altText || image.altText.trim() === '') {
           issues.push({
             id: `issue_${Date.now()}_missing_alt_text_${image.page}_${index}`,
@@ -2480,7 +2839,7 @@ export class ComprehensiveDocumentScanner {
           if (!result.passesAA) {
             const suggestions = suggestAccessibleColors(pair.foreground)
           const suggestionText = suggestions.length > 0 
-            ? ` Suggested colors: ${suggestions.map(s => `${s.foreground} on ${s.background} (${s.ratio}:1)`).join(', ')}`
+            ? ` Suggested colors: ${suggestions.map((s: any) => `${s.foreground} on ${s.background} (${s.ratio}:1)`).join(', ')}`
             : ''
           
           issues.push({
@@ -4358,7 +4717,7 @@ export class ComprehensiveDocumentScanner {
    */
   private checkLanguageOfParts(documentContent: string, getPageAndLine: (index: number) => { page: number, line: number }, parsedStructure?: any): ComprehensiveDocumentIssue[] {
     // This is already implemented as checkLanguageParts, but we'll ensure it's comprehensive
-    return this.checkLanguageParts(documentContent, getPageAndLine)
+    return this.checkLanguageParts(documentContent, getPageAndLine, parsedStructure)
   }
 
   /**

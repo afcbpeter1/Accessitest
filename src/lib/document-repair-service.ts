@@ -1,9 +1,60 @@
 import { PDFDocument, PDFPage, PDFImage, rgb } from 'pdf-lib'
 import { ClaudeAPI } from './claude-api'
 import { PyMuPDFWrapper, PDFStructureFix } from './pymupdf-wrapper'
+import { getAdobePDFServices, AdobePDFServices } from './adobe-pdf-services'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { tmpdir } from 'os'
+
+/**
+ * Polyfill browser APIs needed by pdfjs-dist v5.x in Node.js environment
+ */
+function setupPdfjsPolyfills() {
+  if (typeof globalThis.DOMMatrix === 'undefined') {
+    // @ts-ignore
+    globalThis.DOMMatrix = class DOMMatrix {
+      constructor(init?: any) {
+        if (init) {
+          this.a = init.a ?? 1
+          this.b = init.b ?? 0
+          this.c = init.c ?? 0
+          this.d = init.d ?? 1
+          this.e = init.e ?? 0
+          this.f = init.f ?? 0
+        } else {
+          this.a = 1
+          this.b = 0
+          this.c = 0
+          this.d = 1
+          this.e = 0
+          this.f = 0
+        }
+      }
+      a: number = 1
+      b: number = 0
+      c: number = 0
+      d: number = 1
+      e: number = 0
+      f: number = 0
+    }
+  }
+  
+  if (typeof globalThis.DOMPoint === 'undefined') {
+    // @ts-ignore
+    globalThis.DOMPoint = class DOMPoint {
+      constructor(x = 0, y = 0, z = 0, w = 1) {
+        this.x = x
+        this.y = y
+        this.z = z
+        this.w = w
+      }
+      x: number
+      y: number
+      z: number
+      w: number
+    }
+  }
+}
 
 export interface RepairPlan {
   issueId: string
@@ -46,6 +97,7 @@ export interface DocumentIssue {
 export class DocumentRepairService {
   private claudeAPI: ClaudeAPI
   private pymupdfWrapper: PyMuPDFWrapper | null = null
+  private adobePDFServices: AdobePDFServices | null
 
   constructor() {
     this.claudeAPI = new ClaudeAPI()
@@ -55,6 +107,13 @@ export class DocumentRepairService {
     } catch (error) {
       console.warn('⚠️ PyMuPDF wrapper not available:', error)
       this.pymupdfWrapper = null
+    }
+    // Initialize Adobe PDF Services if configured
+    this.adobePDFServices = getAdobePDFServices()
+    if (this.adobePDFServices) {
+      console.log('✅ Adobe PDF Services configured - will use for PDF auto-tagging')
+    } else {
+      console.log('⚠️ Adobe PDF Services not configured - PDF auto-tagging unavailable')
     }
   }
 
@@ -83,10 +142,27 @@ export class DocumentRepairService {
 
     console.log(`✅ Repair plan generated: ${automaticFixes.length} automatic fixes, ${suggestions.length} suggestions`)
 
-    // Apply automatic fixes - use rebuild if requested
+    // Apply automatic fixes - use Adobe PDF Services for PDFs if available
     let repairedDocument: Buffer | null = null
-    if (automaticFixes.length > 0) {
-      if (rebuildWithFixes) {
+    if (automaticFixes.length > 0 || (fileType.includes('pdf') && this.adobePDFServices)) {
+      if (fileType.includes('pdf') && this.adobePDFServices) {
+        // Use Adobe PDF Services Auto-Tag API for PDFs
+        console.log(`🏷️ Using Adobe PDF Services to auto-tag PDF...`)
+        const autoTagResult = await this.adobePDFServices.autoTagPDF(fileBuffer)
+        
+        if (autoTagResult.success && autoTagResult.taggedPdfBuffer) {
+          console.log(`✅ PDF successfully auto-tagged by Adobe`)
+          repairedDocument = autoTagResult.taggedPdfBuffer
+        } else {
+          console.warn(`⚠️ Adobe auto-tag failed: ${autoTagResult.error || autoTagResult.message}`)
+          // Fallback to regular repair
+          if (rebuildWithFixes) {
+            repairedDocument = await this.rebuildPDFWithFixes(fileBuffer, automaticFixes, issues, fileName)
+          } else {
+            repairedDocument = await this.applyRegularRepair(fileBuffer, fileType, automaticFixes, issues, fileName)
+          }
+        }
+      } else if (rebuildWithFixes) {
         console.log(`🏗️ Rebuilding document with ${automaticFixes.length} fixes applied...`)
         // Rebuild preserves layout and applies all fixes
         if (fileType.includes('pdf')) {
@@ -1251,7 +1327,13 @@ export class DocumentRepairService {
       
       // Try to extract image data from original PDF using pdfjs-dist
       try {
-        const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js')
+        // Setup polyfills for browser APIs needed by pdfjs-dist v5.x
+        setupPdfjsPolyfills()
+        
+        // For pdfjs-dist v5.x, use dynamic import (ES module)
+        // Import the default export which contains all the functions
+        const pdfjsModule = await import('pdfjs-dist')
+        const pdfjsLib = pdfjsModule.default || pdfjsModule
         const loadingTask = pdfjsLib.getDocument({ data: buffer })
         const pdfDocument = await loadingTask.promise
         
@@ -1334,7 +1416,13 @@ export class DocumentRepairService {
       // This allows us to add structure tags without rebuilding content
       
       try {
-        const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js')
+        // Setup polyfills for browser APIs needed by pdfjs-dist v5.x
+        setupPdfjsPolyfills()
+        
+        // For pdfjs-dist v5.x, use dynamic import (ES module)
+        // Import the default export which contains all the functions
+        const pdfjsModule = await import('pdfjs-dist')
+        const pdfjsLib = pdfjsModule.default || pdfjsModule
         const loadingTask = pdfjsLib.getDocument({ data: buffer })
         const pdfjsDocument = await loadingTask.promise
         

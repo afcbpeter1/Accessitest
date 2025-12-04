@@ -1,0 +1,114 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - img "A11ytest.ai Logo" [ref=e8]
+      - navigation [ref=e9]:
+        - generic [ref=e10]:
+          - link "Dashboard" [ref=e11] [cursor=pointer]:
+            - /url: /
+            - img [ref=e12]
+            - text: Dashboard
+          - link "Web Scan" [ref=e17] [cursor=pointer]:
+            - /url: /new-scan
+            - img [ref=e18]
+            - text: Web Scan
+          - link "Document Scan" [ref=e19] [cursor=pointer]:
+            - /url: /document-scan
+            - img [ref=e20]
+            - text: Document Scan
+          - link "Product Backlog" [ref=e23] [cursor=pointer]:
+            - /url: /product-backlog
+            - img [ref=e24]
+            - text: Product Backlog
+          - link "Sprint Board" [ref=e26] [cursor=pointer]:
+            - /url: /sprint-board
+            - img [ref=e27]
+            - text: Sprint Board
+          - link "Scan History" [ref=e31] [cursor=pointer]:
+            - /url: /scan-history
+            - img [ref=e32]
+            - text: Scan History
+          - link "Pricing" [ref=e36] [cursor=pointer]:
+            - /url: /pricing
+            - img [ref=e37]
+            - text: Pricing
+          - link "Settings" [ref=e39] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e40]
+            - text: Settings
+          - button "Policies" [ref=e44] [cursor=pointer]:
+            - img [ref=e45]
+            - text: Policies
+            - img [ref=e47]
+    - generic [ref=e49]:
+      - banner [ref=e50]:
+        - generic [ref=e52]:
+          - button "Notifications" [ref=e54] [cursor=pointer]:
+            - img [ref=e55]
+          - button "User menu" [ref=e59] [cursor=pointer]:
+            - img [ref=e60]
+            - img [ref=e63]
+      - main [ref=e65]:
+        - generic [ref=e66]:
+          - generic [ref=e67]:
+            - generic [ref=e68]:
+              - heading "Accessibility Dashboard" [level=1] [ref=e69]
+              - paragraph [ref=e70]: Track and analyze your website accessibility over time
+            - generic [ref=e71]:
+              - button "Refresh" [ref=e72] [cursor=pointer]:
+                - img [ref=e73]
+                - text: Refresh
+              - link "New Scan" [ref=e78] [cursor=pointer]:
+                - /url: /new-scan
+                - img [ref=e79]
+                - text: New Scan
+          - generic [ref=e83]:
+            - generic [ref=e84]:
+              - img [ref=e85]
+              - generic [ref=e87]: "Filters:"
+            - generic [ref=e88]:
+              - generic [ref=e89]: "Website:"
+              - combobox [ref=e90]:
+                - option "All Websites" [selected]
+                - option "No websites found - run a web scan first" [disabled]
+            - generic [ref=e91]:
+              - generic [ref=e92]: "Time Range:"
+              - combobox [ref=e93]:
+                - option "Last 7 days"
+                - option "Last 30 days" [selected]
+                - option "Last 90 days"
+          - generic [ref=e96]:
+            - heading "Your Credits" [level=2] [ref=e97]
+            - paragraph [ref=e98]: Manage your scanning credits and subscription
+          - generic [ref=e117]:
+            - generic [ref=e118]:
+              - heading "Recent Scans" [level=3] [ref=e119]
+              - link "View All" [ref=e120] [cursor=pointer]:
+                - /url: /scan-history
+            - paragraph [ref=e123]: Loading recent scans...
+          - generic [ref=e124]:
+            - generic [ref=e125]:
+              - generic [ref=e126]:
+                - heading "Website Scans" [level=3] [ref=e127]
+                - link "New scan" [ref=e128] [cursor=pointer]:
+                  - /url: /new-scan
+              - paragraph [ref=e129]: Scan websites for WCAG 2.2 accessibility compliance and get detailed reports.
+              - link "Start Website Scan" [ref=e130] [cursor=pointer]:
+                - /url: /new-scan
+                - img [ref=e131]
+                - text: Start Website Scan
+            - generic [ref=e134]:
+              - generic [ref=e135]:
+                - heading "Document Scans" [level=3] [ref=e136]
+                - link "New scan" [ref=e137] [cursor=pointer]:
+                  - /url: /document-scan
+              - paragraph [ref=e138]: Upload documents to check for Section 508 compliance and accessibility issues.
+              - link "Start Document Scan" [ref=e139] [cursor=pointer]:
+                - /url: /document-scan
+                - img [ref=e140]
+                - text: Start Document Scan
+```

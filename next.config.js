@@ -14,10 +14,12 @@ const nextConfig = {
       }
     }
     
-    // Allow pdf-parse to work in server-side
+    // Also mark as external in webpack for compatibility
     config.externals = config.externals || []
     if (isServer) {
       config.externals.push('pdf-parse')
+      // Mark pdfjs-dist as external - it will be loaded at runtime via dynamic import
+      config.externals.push('pdfjs-dist')
     }
     
     return config

@@ -20,7 +20,6 @@ import Link from 'next/link'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useScreenReaderAnnounce } from '../../hooks/useScreenReaderAnnounce'
 import LoadingSpinner from '../../components/LoadingSpinner'
-import CookieConsent from '../../components/CookieConsent'
 
 interface ScanResults {
   success: boolean
@@ -251,11 +250,9 @@ export default function HomePage() {
       return
     }
     
-    // Validate password strength
-    const { validatePassword } = await import('@/lib/password-validation')
-    const passwordValidation = validatePassword(signupData.password)
-    if (!passwordValidation.valid) {
-      setSignupError(passwordValidation.error || 'Password does not meet requirements')
+    // Validate password
+    if (signupData.password.length < 8) {
+      setSignupError('Password must be at least 8 characters long')
       return
     }
     
@@ -392,7 +389,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-white" lang="en">
-      <CookieConsent />
       {/* Skip Links for Keyboard Navigation */}
       <a 
         href="#main-content" 
@@ -965,7 +961,7 @@ export default function HomePage() {
                               placeholder="Create a password"
                             />
                             <p className="text-xs text-gray-500 mt-1">
-                              Must be at least 8 characters long and contain at least one number and one special character
+                              Must be at least 8 characters long
                             </p>
                           </div>
                           
@@ -1272,24 +1268,8 @@ export default function HomePage() {
               </p>
             </div>
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8">
-            <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-              <div className="flex flex-wrap justify-center md:justify-start gap-6 text-sm">
-                <Link href="/privacy-policy" className="text-gray-400 hover:text-white transition-colors">
-                  Privacy Policy
-                </Link>
-                <Link href="/terms-of-service" className="text-gray-400 hover:text-white transition-colors">
-                  Terms of Service
-                </Link>
-                <Link href="/cookie-policy" className="text-gray-400 hover:text-white transition-colors">
-                  Cookie Policy
-                </Link>
-                <Link href="/accessibility-statement" className="text-gray-400 hover:text-white transition-colors">
-                  Accessibility Statement
-                </Link>
-              </div>
-              <p className="text-gray-400 text-sm">&copy; 2025 A11ytest.ai. All rights reserved.</p>
-            </div>
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+            <p>&copy; 2025. All rights reserved.</p>
           </div>
         </div>
       </footer>

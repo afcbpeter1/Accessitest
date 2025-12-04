@@ -1,5 +1,55 @@
 import { PDFDocument, PDFPage, PDFForm } from 'pdf-lib'
 
+/**
+ * Polyfill browser APIs needed by pdfjs-dist v5.x in Node.js environment
+ */
+function setupPdfjsPolyfills() {
+  if (typeof globalThis.DOMMatrix === 'undefined') {
+    // @ts-ignore
+    globalThis.DOMMatrix = class DOMMatrix {
+      constructor(init?: any) {
+        if (init) {
+          this.a = init.a ?? 1
+          this.b = init.b ?? 0
+          this.c = init.c ?? 0
+          this.d = init.d ?? 1
+          this.e = init.e ?? 0
+          this.f = init.f ?? 0
+        } else {
+          this.a = 1
+          this.b = 0
+          this.c = 0
+          this.d = 1
+          this.e = 0
+          this.f = 0
+        }
+      }
+      a: number = 1
+      b: number = 0
+      c: number = 0
+      d: number = 1
+      e: number = 0
+      f: number = 0
+    }
+  }
+  
+  if (typeof globalThis.DOMPoint === 'undefined') {
+    // @ts-ignore
+    globalThis.DOMPoint = class DOMPoint {
+      constructor(x = 0, y = 0, z = 0, w = 1) {
+        this.x = x
+        this.y = y
+        this.z = z
+        this.w = w
+      }
+      x: number
+      y: number
+      z: number
+      w: number
+    }
+  }
+}
+
 export interface ParsedPDFStructure {
   text: string
   pages: number
@@ -57,6 +107,30 @@ export interface ParsedPDFStructure {
     hex: string
     page: number
   }>
+  structureTree?: Array<{
+    type: string
+    text?: string
+    language?: string
+    attributes?: {
+      Lang?: string
+      lang?: string
+      Language?: string
+      Alt?: string
+      alt?: string
+      ActualText?: string
+      Headers?: string
+      Scope?: string
+      RowSpan?: string
+      ColSpan?: string
+      MCID?: number
+      StructParent?: number
+      [key: string]: any
+    }
+    mcid?: number
+    structParent?: number
+    children?: any[]
+    page?: number
+  }>
 }
 
 /**
@@ -90,14 +164,20 @@ export class PDFParser {
       // Extract structure from text using pdf-parse result
       const structure = this.extractDocumentStructure(pdfParseResult.text, pdfParseResult.numpages || pages.length)
 
-      // Extract images using pdfjs-dist
-      const images = await this.extractImages(pdfDoc, pages, pdfParseResult.numpages || pages.length, buffer)
+      // Extract images - skip pdfjs-dist (causes ES module errors), use fallback
+      // Images will be detected from text analysis instead
+      const images: Array<{ id: string; page: number; altText: string | null; width: number; height: number; type: string; isAnimated: boolean }> = []
+      console.log('📸 Skipping image extraction (pdfjs-dist not available) - using text-based detection')
 
       // Extract links from text
       const links = this.extractLinks(pdfParseResult.text, pdfParseResult.numpages || pages.length)
 
       // Extract form fields
       const formFields = this.extractFormFields(form, pages.length)
+
+      // Extract structure tree using pdfjs-dist (for language attributes, tags, etc.)
+      const structureTree = await this.extractStructureTree(buffer)
+      console.log(`📋 Structure tree extracted: ${structureTree.length} root elements`)
 
       return {
         text: pdfParseResult.text,
@@ -108,6 +188,7 @@ export class PDFParser {
         links,
         formFields,
         textColors: [], // Will be populated when we add contrast analysis
+        structureTree, // PDF tag structure tree with language attributes
       }
     } catch (error) {
       console.error('❌ PDF parsing error:', error)
@@ -128,8 +209,14 @@ export class PDFParser {
     const images: Array<{ id: string; page: number; altText: string | null; width: number; height: number; type: string; isAnimated: boolean }> = []
     
     try {
+      // Setup polyfills for browser APIs needed by pdfjs-dist v5.x
+      setupPdfjsPolyfills()
+      
       // Use pdfjs-dist to extract images from PDF content streams
-      const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js')
+      // For pdfjs-dist v5.x, use dynamic import (ES module)
+      // Import the default export which contains all the functions
+      const pdfjsModule = await import('pdfjs-dist')
+      const pdfjsLib = pdfjsModule.default || pdfjsModule
       
       if (!buffer) {
         console.warn('⚠️ Buffer not provided for image extraction')
@@ -297,6 +384,88 @@ export class PDFParser {
     }
     
     return images
+  }
+
+  /**
+   * Extract PDF structure tree with language attributes using PyMuPDF
+   * This is much more reliable than pdfjs-dist for server-side use
+   */
+  private async extractStructureTree(buffer: Buffer): Promise<Array<{
+    type: string
+    text?: string
+    language?: string
+    attributes?: {
+      Lang?: string
+      lang?: string
+      Language?: string
+      [key: string]: any
+    }
+    children?: any[]
+    page?: number
+  }>> {
+    try {
+      // Use PyMuPDF via Python script - much more reliable than pdfjs-dist
+      const { exec } = require('child_process')
+      const { promisify } = require('util')
+      const execAsync = promisify(exec)
+      const fs = require('fs/promises')
+      const path = require('path')
+      const { tmpdir } = require('os')
+      
+      // Write PDF to temp file
+      const tempDir = tmpdir()
+      const tempPdfPath = path.join(tempDir, `pdf-structure-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.pdf`)
+      await fs.writeFile(tempPdfPath, buffer)
+      
+      try {
+        // Call Python script to extract structure tree
+        const scriptPath = path.join(process.cwd(), 'scripts', 'extract-pdf-structure.py')
+        const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
+        const cmd = `${pythonCmd} "${scriptPath}" "${tempPdfPath}"`
+        
+        console.log(`🐍 Extracting structure tree using PyMuPDF...`)
+        const { stdout, stderr } = await execAsync(cmd, {
+          maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+        })
+        
+        if (stderr && !stderr.includes('INFO') && !stderr.includes('WARNING')) {
+          console.warn(`⚠️ PyMuPDF stderr: ${stderr}`)
+        }
+        
+        // Parse JSON result
+        const result = JSON.parse(stdout)
+        
+        if (!result.success) {
+          console.warn(`⚠️ PyMuPDF extraction failed: ${result.error || result.message}`)
+          return []
+        }
+        
+        const structureTree = result.structureTree || []
+        console.log(`📋 Extracted structure tree with ${structureTree.length} root elements using PyMuPDF`)
+        
+        // Log language attributes found
+        const findLanguages = (nodes: any[]): void => {
+          for (const node of nodes) {
+            if (node.language) {
+              console.log(`🌐 Found language "${node.language}" in tag type: ${node.type}`)
+            }
+            if (node.children && Array.isArray(node.children)) {
+              findLanguages(node.children)
+            }
+          }
+        }
+        findLanguages(structureTree)
+        
+        return structureTree
+      } finally {
+        // Cleanup temp file
+        await fs.unlink(tempPdfPath).catch(() => {})
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to extract structure tree using PyMuPDF:', error)
+      // Fallback: return empty array (scanner will use text-only detection)
+      return []
+    }
   }
 
   /**

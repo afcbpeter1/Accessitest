@@ -5,7 +5,6 @@ import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { queryOne, query } from '@/lib/database'
 import { NotificationService } from '@/lib/notification-service'
 import { autoAddDocumentIssuesToBacklog } from '@/lib/backlog-service'
-import { validateFileUpload, sanitizeFileName } from '@/lib/file-upload-validator'
 
 interface DocumentScanRequest {
   fileName: string
@@ -58,28 +57,7 @@ export async function POST(request: NextRequest) {
     
     const body: DocumentScanRequest = await request.json()
     
-    // SECURITY: Validate and sanitize file upload
-    const fileValidation = validateFileUpload(
-      body.fileName,
-      body.fileType,
-      body.fileSize,
-      body.fileContent
-    )
-    
-    if (!fileValidation.valid) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: fileValidation.error || 'File validation failed' 
-        },
-        { status: 400 }
-      )
-    }
-    
-    // Use sanitized filename
-    const sanitizedFileName = sanitizeFileName(body.fileName)
-    
-    console.log('🔍 Starting document scan for:', sanitizedFileName)
+    console.log('🔍 Starting document scan for:', body.fileName)
 
     // Check and deduct credits before starting scan
     const scanId = body.scanId || `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -108,11 +86,11 @@ export async function POST(request: NextRequest) {
     // Check if user has unlimited credits
     if (creditData.unlimited_credits) {
       // Unlimited user, log the scan but don't deduct credits
-        await query(
-          `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-           VALUES ($1, $2, $3, $4)`,
-          [user.userId, 'usage', 0, `Document scan: ${sanitizedFileName}`]
-        )
+      await query(
+        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+         VALUES ($1, $2, $3, $4)`,
+        [user.userId, 'usage', 0, `Document scan: ${body.fileName}`]
+      )
     } else {
       // Check if user has enough credits
       if (creditData.credits_remaining < 1) {
@@ -143,7 +121,7 @@ export async function POST(request: NextRequest) {
         await query(
           `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
            VALUES ($1, $2, $3, $4)`,
-          [user.userId, 'usage', -1, `Document scan: ${sanitizedFileName}`]
+          [user.userId, 'usage', -1, `Document scan: ${body.fileName}`]
         )
         
         await query('COMMIT')

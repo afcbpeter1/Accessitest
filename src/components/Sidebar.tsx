@@ -19,7 +19,6 @@ import {
   History,
   AlertTriangle,
   Target,
-  Shield,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -32,13 +31,6 @@ const navigation = [
   { name: 'Scan History', href: '/scan-history', icon: History, current: false },
   { name: 'Pricing', href: '/pricing', icon: DollarSign, current: false },
   { name: 'Settings', href: '/settings', icon: Settings, current: false },
-]
-
-const policiesNavigation = [
-  { name: 'Privacy Policy', href: '/privacy-policy', icon: Shield },
-  { name: 'Terms of Service', href: '/terms-of-service', icon: FileText },
-  { name: 'Cookie Policy', href: '/cookie-policy', icon: FileText },
-  { name: 'Accessibility Statement', href: '/accessibility-statement', icon: Shield },
 ]
 
 interface SidebarProps {
@@ -74,7 +66,6 @@ export default function Sidebar({ children }: SidebarProps) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const [showPolicies, setShowPolicies] = useState(false)
   const [loading, setLoading] = useState(true)
 
   // Load user data and notifications
@@ -295,7 +286,7 @@ export default function Sidebar({ children }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="mt-6 px-3 flex-1 overflow-y-auto">
+        <nav className="mt-6 px-3 flex-1">
           <div className="space-y-1">
             {navigation.map((item) => {
               const isActive = pathname === item.href
@@ -319,49 +310,6 @@ export default function Sidebar({ children }: SidebarProps) {
                 </Link>
               )
             })}
-            
-            {/* Policies Section */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <button
-                onClick={() => setShowPolicies(!showPolicies)}
-                className="group flex items-center w-full px-3 py-2 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors duration-200"
-              >
-                <Shield className="mr-3 h-5 w-5 text-gray-500 group-hover:text-gray-700" />
-                Policies
-                <ChevronDown
-                  className={`ml-auto h-4 w-4 text-gray-500 transition-transform ${
-                    showPolicies ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-              
-              {showPolicies && (
-                <div className="mt-1 ml-8 space-y-1">
-                  {policiesNavigation.map((item) => {
-                    const isActive = pathname === item.href
-                    
-                    return (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
-                          isActive
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                        }`}
-                      >
-                        <item.icon
-                          className={`mr-3 h-4 w-4 ${
-                            isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-700'
-                          }`}
-                        />
-                        {item.name}
-                      </Link>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
           </div>
         </nav>
       </div>
