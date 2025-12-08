@@ -1252,7 +1252,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       {/* Upload Section */}
       <div className="card">
         <div className="mb-4">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Document Upload</h3>
+          <h2 className="text-lg font-medium text-gray-900 mb-2">Document Upload</h2>
           <p className="text-sm text-gray-600">
             Upload documents to scan for accessibility issues. AI will analyze each issue and provide detailed suggestions for fixing them. All issues are automatically added to your product backlog. Supported formats: PDF, Word, PowerPoint, HTML, and text files.
           </p>
@@ -1266,17 +1266,17 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
              <div className="flex items-start space-x-3">
                <Sparkles className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
                <div className="flex-1">
-                 <h4 className="text-md font-semibold text-gray-900 mb-2">AI-Powered Document Accessibility Scanner</h4>
+                 <h3 className="text-md font-semibold text-gray-900 mb-2">AI-Powered Document Accessibility Scanner</h3>
                  <p className="text-sm text-gray-700 mb-3">
                    Upload your document and our system will automatically process it, run comprehensive accessibility checks, and provide AI-powered remediation suggestions for each issue found. All issues are automatically added to your product backlog.
                  </p>
                  
                  {/* What We Do */}
                  <div className="mb-3 p-3 bg-white rounded border border-green-200">
-                   <h5 className="text-xs font-semibold text-green-800 mb-2 flex items-center">
+                   <h4 className="text-xs font-semibold text-green-800 mb-2 flex items-center">
                      <CheckCircle className="h-3 w-3 mr-1" />
                      What We Do:
-                   </h5>
+                   </h4>
                    <ul className="text-xs text-gray-700 space-y-1 ml-5 list-disc">
                      <li><strong>For PDFs:</strong> Auto-tag using Adobe PDF Services, run Acrobat accessibility tests (PDF/UA, WCAG 2.1 AA), generate AI remediation steps, and provide downloadable tagged PDF</li>
                      <li><strong>For Other Formats:</strong> Comprehensive accessibility analysis with AI-powered suggestions for each issue</li>
@@ -1355,9 +1355,9 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         {uploadedDocuments.length > 0 && (
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-gray-800">
+              <h3 className="text-sm font-medium text-gray-800">
                 {uploadedDocuments.length === 1 ? 'Document' : 'Documents'}
-              </h4>
+              </h3>
               <div className="flex space-x-2">
                 {scanLogs.length > 0 && (
                   <>
@@ -1488,7 +1488,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       {/* Document Results - shown after scan completes */}
       {uploadedDocuments.length > 0 && uploadedDocuments.some(doc => doc.status === 'completed' && doc.scanResults) && (
         <div className="card">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Scan Results</h3>
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Scan Results</h2>
           <div className="space-y-4">
             {uploadedDocuments
               .filter(doc => doc.status === 'completed' && doc.scanResults)
@@ -1548,19 +1548,52 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                       </div>
                     )}
 
-                    {/* Download Tagged PDF Button */}
+                    {/* Download PDF Button - Shows auto-fixed if available, otherwise tagged */}
                     {(document.taggedPdfBase64 || document.scanResults?.taggedPdfBase64) && (
                       <div className="mt-3 mb-3">
                         <button
                           onClick={() => downloadTaggedPDF(document)}
                           className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                          title={(document.scanResults as any)?.autoFixed 
+                            ? "Download the automatically fixed PDF with AI-generated alt text and table summaries" 
+                            : "Download the automatically tagged PDF with improved accessibility structure"}
                         >
                           <Download className="h-4 w-4" />
-                          <span>Download Fixed PDF (Auto-Tagged)</span>
+                          <span>{(document.scanResults as any)?.autoFixed 
+                            ? "Download Auto-Fixed PDF" 
+                            : "Download Fixed PDF (Auto-Tagged)"}</span>
                         </button>
-                        <p className="text-xs text-gray-500 mt-1">
-                          This PDF has been automatically tagged for accessibility by Adobe PDF Services
-                        </p>
+                        {(document.scanResults as any)?.autoFixed ? (
+                          <div className="text-xs text-gray-600 mt-1 space-y-1">
+                            <p className="font-semibold text-green-700">✨ AI Auto-Fixed PDF</p>
+                            <p>
+                              This PDF has been automatically fixed with:
+                              {((document.scanResults as any)?.autoFixStats?.altText || 0) > 0 && (
+                                <span> {((document.scanResults as any)?.autoFixStats?.altText || 0)} AI-generated alt text(s),</span>
+                              )}
+                              {((document.scanResults as any)?.autoFixStats?.tableSummaries || 0) > 0 && (
+                                <span> {((document.scanResults as any)?.autoFixStats?.tableSummaries || 0)} table summary(ies),</span>
+                              )}
+                              {((document.scanResults as any)?.autoFixStats?.colorContrast || 0) > 0 && (
+                                <span> {((document.scanResults as any)?.autoFixStats?.colorContrast || 0)} color contrast fix(es),</span>
+                              )}
+                              {((document.scanResults as any)?.autoFixStats?.metadata || 0) > 0 && (
+                                <span> {((document.scanResults as any)?.autoFixStats?.metadata || 0)} metadata fix(es),</span>
+                              )}
+                              {((document.scanResults as any)?.autoFixStats?.bookmarks || 0) > 0 && (
+                                <span> {((document.scanResults as any)?.autoFixStats?.bookmarks || 0)} bookmark(s),</span>
+                              )}
+                              {((document.scanResults as any)?.autoFixStats?.readingOrder || 0) > 0 && (
+                                <span> {((document.scanResults as any)?.autoFixStats?.readingOrder || 0)} reading order fix(es)</span>
+                              )}
+                            </p>
+                            <p className="text-gray-500">Layout preserved - only accessibility metadata was modified</p>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500 mt-1">
+                            This PDF has been automatically tagged for accessibility by Adobe PDF Services
+                          </p>
+                        )}
                       </div>
                     )}
 
@@ -1568,7 +1601,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                     {document.scanResults.issues && document.scanResults.issues.length > 0 && (
                       <div className="space-y-4 mt-4">
                         <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-lg font-medium text-gray-900">AI Suggestions</h3>
+                          <h2 className="text-lg font-medium text-gray-900">AI Suggestions</h2>
                           <div className="text-sm text-gray-500">
                             {document.scanResults.issues.length} issue{document.scanResults.issues.length !== 1 ? 's' : ''} found
                           </div>
@@ -1712,7 +1745,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                     {document.scanResults.detailedReport && (
                       <div className="mt-6 border border-gray-300 rounded-lg bg-white">
                         <div className="p-4 bg-gray-50 border-b border-gray-300">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-2">Accessibility Report</h3>
+                          <h2 className="text-lg font-semibold text-gray-900 mb-2">Accessibility Report</h2>
                           <div className="text-sm text-gray-600 space-y-1">
                             <div><strong>Filename:</strong> {document.scanResults.detailedReport.filename}</div>
                             <div><strong>Report created by:</strong> {document.scanResults.detailedReport.reportCreatedBy}</div>
@@ -1727,7 +1760,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
                         {/* Summary */}
                         <div className="p-4 border-b border-gray-200">
-                          <h4 className="font-semibold text-gray-900 mb-3">Summary</h4>
+                          <h3 className="font-semibold text-gray-900 mb-3">Summary</h3>
                           <p className="text-sm text-gray-700 mb-3">
                             The checker found problems which may prevent the document from being fully accessible.
                           </p>
@@ -1773,12 +1806,12 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
                         {/* Detailed Report by Category */}
                         <div className="p-4">
-                          <h4 className="font-semibold text-gray-900 mb-4">Detailed Report</h4>
+                          <h3 className="font-semibold text-gray-900 mb-4">Detailed Report</h3>
                           <div className="space-y-6">
                             {Object.entries(document.scanResults.detailedReport.categories).map(([categoryName, checks]) => (
                               <div key={categoryName} className="border border-gray-200 rounded-lg">
                                 <div className="p-3 bg-gray-50 border-b border-gray-200">
-                                  <h5 className="font-semibold text-gray-900">{categoryName}</h5>
+                                  <h4 className="font-semibold text-gray-900">{categoryName}</h4>
                                 </div>
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-sm">

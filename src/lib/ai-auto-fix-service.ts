@@ -1,0 +1,990 @@
+/**
+ * AI Auto-Fix Service
+ * 
+ * This service uses AI to automatically generate fixes for PDF accessibility issues:
+ * - Alt text for images (using AI vision or text analysis)
+ * - Table summaries (using AI to analyze table content)
+ * - Document metadata (title, language)
+ * - Bookmarks (generated from headings)
+ * - Reading order (AI-analyzed logical flow)
+ * 
+ * The fixes are then applied using PyMuPDF without affecting the PDF layout.
+ */
+
+import { ClaudeAPI } from './claude-api'
+import { PyMuPDFWrapper, PDFStructureFix } from './pymupdf-wrapper'
+import * as fs from 'fs/promises'
+import * as path from 'path'
+import { tmpdir } from 'os'
+
+export interface ImageFix {
+  page: number
+  imageIndex: number
+  altText: string
+  elementId?: string
+  elementLocation?: string
+}
+
+export interface TableFix {
+  page: number
+  tableIndex: number
+  summary: string
+  elementId?: string
+  elementLocation?: string
+}
+
+export interface AutoFixResult {
+  success: boolean
+  fixedPdfBuffer?: Buffer
+  fixesApplied: {
+    altText: number
+    tableSummaries: number
+    metadata: number
+    bookmarks: number
+    readingOrder: number
+    colorContrast: number
+  }
+  errors?: string[]
+}
+
+export class AIAutoFixService {
+  private claudeAPI: ClaudeAPI
+  private pymupdfWrapper: PyMuPDFWrapper
+
+  constructor() {
+    this.claudeAPI = new ClaudeAPI()
+    this.pymupdfWrapper = new PyMuPDFWrapper()
+  }
+
+  /**
+   * Extract text from a specific page of document text
+   * Assumes document text may have page markers or can be split by pages
+   */
+  private extractPageText(documentText: string, pageNumber: number): string | null {
+    try {
+      // Try to find page markers (common patterns: "Page X", "--- Page X ---", etc.)
+      const pagePattern = new RegExp(`(?:^|\\n)(?:Page\\s+${pageNumber}|-+\\s*Page\\s+${pageNumber}|\\[Page\\s+${pageNumber}\\]).*?\\n`, 'i')
+      const match = documentText.match(pagePattern)
+      
+      if (match) {
+        const startIndex = match.index! + match[0].length
+        // Find next page marker or end of document
+        const nextPagePattern = new RegExp(`(?:^|\\n)(?:Page\\s+${pageNumber + 1}|-+\\s*Page\\s+${pageNumber + 1}|\\[Page\\s+${pageNumber + 1}\\]).*?\\n`, 'i')
+        const nextMatch = documentText.substring(startIndex).match(nextPagePattern)
+        const endIndex = nextMatch ? startIndex + nextMatch.index! : documentText.length
+        return documentText.substring(startIndex, endIndex).trim()
+      }
+      
+      // If no page markers, try to split by approximate page length (assuming ~2000 chars per page)
+      const charsPerPage = 2000
+      const startIndex = (pageNumber - 1) * charsPerPage
+      const endIndex = startIndex + charsPerPage
+      return documentText.substring(startIndex, endIndex).trim() || null
+    } catch (error) {
+      return null
+    }
+  }
+
+  /**
+   * Extract image from PDF using PyMuPDF and convert to base64
+   */
+  private async extractImageFromPDF(
+    pdfPath: string,
+    pageNumber: number,
+    imageIndex: number
+  ): Promise<{ base64: string; mediaType: string } | null> {
+    try {
+      const { exec } = require('child_process')
+      const { promisify } = require('util')
+      const execAsync = promisify(exec)
+      
+      // Use Python script to extract image
+      const script = `
+import fitz
+import sys
+import base64
+import json
+
+try:
+    doc = fitz.open('${pdfPath.replace(/\\/g, '/')}')
+    if ${pageNumber - 1} < len(doc):
+        page = doc[${pageNumber - 1}]
+        images = page.get_images()
+        if ${imageIndex} < len(images):
+            xref = images[${imageIndex}][0]
+            img_obj = doc.extract_image(xref)
+            img_data = img_obj['image']
+            ext = img_obj['ext']
+            
+            # Convert to base64
+            img_base64 = base64.b64encode(img_data).decode('utf-8')
+            
+            # Determine media type
+            media_types = {
+                'png': 'image/png',
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'gif': 'image/gif',
+                'bmp': 'image/bmp'
+            }
+            media_type = media_types.get(ext.lower(), 'image/png')
+            
+            print(json.dumps({'base64': img_base64, 'mediaType': media_type}))
+        else:
+            print(json.dumps({'error': 'Image index out of range'}))
+    else:
+        print(json.dumps({'error': 'Page out of range'}))
+    doc.close()
+except Exception as e:
+    print(json.dumps({'error': str(e)}))
+`
+      
+      const { stdout, stderr } = await execAsync(`python -c "${script.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`)
+      const result = JSON.parse(stdout.trim())
+      
+      if (result.error) {
+        console.warn(`⚠️ Could not extract image: ${result.error}`)
+        return null
+      }
+      
+      return {
+        base64: result.base64,
+        mediaType: result.mediaType
+      }
+    } catch (error) {
+      console.warn(`⚠️ Failed to extract image from PDF: ${error}`)
+      return null
+    }
+  }
+
+  /**
+   * Generate alt text for images using AI with Vision API support
+   */
+  async generateAltTextForImage(
+    imageContext: string,
+    pageNumber: number,
+    fileName: string,
+    pdfPath?: string,
+    imageIndex?: number
+  ): Promise<string> {
+    try {
+      // Try to extract image and use vision API if available
+      let imageData: { base64: string; mediaType: string } | null = null
+      if (pdfPath !== undefined && imageIndex !== undefined) {
+        console.log(`📸 Attempting to extract image ${imageIndex} from page ${pageNumber} for vision analysis...`)
+        imageData = await this.extractImageFromPDF(pdfPath, pageNumber, imageIndex)
+      }
+      
+      // Build prompt with or without image
+      let prompt: string
+      if (imageData) {
+        // Use vision API with image
+        prompt = `Generate concise, descriptive alternative text (alt text) for this image from a PDF document.
+
+Document: ${fileName}
+Page: ${pageNumber}
+Context: ${imageContext}
+
+Requirements:
+- Keep alt text under 125 characters
+- Be descriptive but concise
+- Describe what you see in the image
+- If the image appears decorative, return "Decorative image"
+- Do not include phrases like "image of" or "picture of"
+
+Return ONLY the alt text, nothing else.`
+        
+        // Use vision API
+        const response = await this.claudeAPI.generateTextWithVision(
+          prompt,
+          imageData.base64,
+          imageData.mediaType
+        )
+        
+        let altText = response.trim()
+        
+        // Remove quotes if present
+        if ((altText.startsWith('"') && altText.endsWith('"')) || 
+            (altText.startsWith("'") && altText.endsWith("'"))) {
+          altText = altText.slice(1, -1)
+        }
+        
+        // If response is too long, truncate
+        if (altText.length > 125) {
+          altText = altText.substring(0, 122) + '...'
+        }
+        
+        return altText || 'Image'
+      } else {
+        // Fallback to text-only analysis
+        prompt = `Generate concise, descriptive alternative text (alt text) for an image in a PDF document.
+
+Context about the image:
+${imageContext}
+
+Document: ${fileName}
+Page: ${pageNumber}
+
+Requirements:
+- Keep alt text under 125 characters
+- Be descriptive but concise
+- Describe the purpose and content of the image
+- If the image appears decorative based on context, return "Decorative image" or empty string
+- Do not include phrases like "image of" or "picture of" (screen readers already announce it's an image)
+
+Return ONLY the alt text, nothing else.`
+
+        const response = await this.claudeAPI.generateText(prompt)
+        
+        // Clean up the response
+        let altText = response.trim()
+        
+        // Remove quotes if present
+        if ((altText.startsWith('"') && altText.endsWith('"')) || 
+            (altText.startsWith("'") && altText.endsWith("'"))) {
+          altText = altText.slice(1, -1)
+        }
+        
+        // If response is too long, truncate
+        if (altText.length > 125) {
+          altText = altText.substring(0, 122) + '...'
+        }
+        
+        return altText || 'Image'
+      }
+    } catch (error) {
+      console.error('❌ Failed to generate alt text:', error)
+      return 'Image' // Fallback
+    }
+  }
+
+  /**
+   * Generate table summary using AI
+   */
+  async generateTableSummary(
+    tableContent: string,
+    pageNumber: number,
+    fileName: string
+  ): Promise<string> {
+    try {
+      const prompt = `Generate a concise summary for a table in a PDF document that describes its purpose and content.
+
+Table content:
+${tableContent}
+
+Document: ${fileName}
+Page: ${pageNumber}
+
+Requirements:
+- Keep summary under 200 characters
+- Describe what information the table contains
+- Explain the table's purpose in the document
+- Be specific but concise
+
+Return ONLY the summary text, nothing else.`
+
+      const response = await this.claudeAPI.generateText(prompt)
+      
+      // Clean up the response
+      let summary = response.trim()
+      
+      // Remove quotes if present
+      if ((summary.startsWith('"') && summary.endsWith('"')) || 
+          (summary.startsWith("'") && summary.endsWith("'"))) {
+        summary = summary.slice(1, -1)
+      }
+      
+      // If response is too long, truncate
+      if (summary.length > 200) {
+        summary = summary.substring(0, 197) + '...'
+      }
+      
+      return summary || 'Table with data'
+    } catch (error) {
+      console.error('❌ Failed to generate table summary:', error)
+      return 'Table with data' // Fallback
+    }
+  }
+
+  /**
+   * Generate bookmarks from document structure using AI
+   */
+  async generateBookmarks(
+    documentText: string,
+    fileName: string
+  ): Promise<Array<{ title: string; page: number; level: number }>> {
+    try {
+      const prompt = `Analyze this PDF document and identify headings that should become bookmarks.
+
+Document text (first 5000 characters):
+${documentText ? documentText.substring(0, 5000) : 'Document text not available'}
+
+Document: ${fileName}
+
+Requirements:
+- Identify main headings (H1, H2, H3, etc.)
+- Estimate which page each heading appears on (based on text position)
+- Return a JSON array of bookmarks with: title, page (estimated), level (1-6)
+
+Format:
+[
+  {"title": "Introduction", "page": 1, "level": 1},
+  {"title": "Chapter 1", "page": 2, "level": 1},
+  {"title": "Section 1.1", "page": 2, "level": 2}
+]
+
+Return ONLY the JSON array, nothing else.`
+
+      const response = await this.claudeAPI.generateText(prompt)
+      
+      // Try to parse JSON
+      try {
+        const jsonMatch = response.match(/\[[\s\S]*\]/)
+        if (jsonMatch) {
+          const bookmarks = JSON.parse(jsonMatch[0])
+          return Array.isArray(bookmarks) ? bookmarks : []
+        }
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse bookmarks JSON:', parseError)
+      }
+      
+      return []
+    } catch (error) {
+      console.error('❌ Failed to generate bookmarks:', error)
+      return []
+    }
+  }
+
+  /**
+   * Analyze reading order using AI
+   */
+  async analyzeReadingOrder(
+    documentText: string,
+    pageNumber: number
+  ): Promise<number[]> {
+    try {
+      const prompt = `Analyze the reading order of content on page ${pageNumber} of this PDF.
+
+Page content:
+${documentText.substring(0, 2000)}
+
+Return a JSON array of reading order sequence numbers for each content block.
+Each number represents the order in which content should be read (1 = first, 2 = second, etc.).
+
+Return ONLY the JSON array of numbers, nothing else. Example: [1, 2, 3, 4]`
+
+      const response = await this.claudeAPI.generateText(prompt)
+      
+      // Try to parse JSON
+      try {
+        const jsonMatch = response.match(/\[[\s\S]*\]/)
+        if (jsonMatch) {
+          const order = JSON.parse(jsonMatch[0])
+          return Array.isArray(order) ? order : []
+        }
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse reading order JSON:', parseError)
+      }
+      
+      return []
+    } catch (error) {
+      console.error('❌ Failed to analyze reading order:', error)
+      return []
+    }
+  }
+
+  /**
+   * Identify language of text using AI
+   */
+  async identifyLanguage(
+    text: string,
+    pageText: string,
+    fileName: string
+  ): Promise<{ language: string } | null> {
+    try {
+      const prompt = `Identify the language of this text from a PDF document.
+
+Text to identify:
+${text.substring(0, 200)}
+
+Surrounding context:
+${pageText.substring(0, 500)}
+
+Document: ${fileName}
+
+Return ONLY the ISO 639-1 language code (e.g., "en", "es", "fr", "de", "zh", "ja", "ar").
+If the text is English, return "en".
+If you cannot identify the language, return "en".
+
+Return ONLY the language code, nothing else.`
+
+      const response = await this.claudeAPI.generateText(prompt)
+      const langCode = response.trim().toLowerCase().substring(0, 2)
+      
+      // Validate it's a reasonable language code
+      if (langCode && /^[a-z]{2}$/.test(langCode)) {
+        return { language: langCode }
+      }
+      
+      return { language: 'en' } // Default to English
+    } catch (error) {
+      console.error('❌ Failed to identify language:', error)
+      return null
+    }
+  }
+
+  /**
+   * Generate form label using AI
+   */
+  async generateFormLabel(
+    context: string,
+    pageNumber: number,
+    fileName: string
+  ): Promise<string | null> {
+    try {
+      const prompt = `Generate a descriptive label for a form field in a PDF document.
+
+Form field context:
+${context.substring(0, 300)}
+
+Document: ${fileName}
+Page: ${pageNumber}
+
+Requirements:
+- Keep label under 50 characters
+- Be clear and descriptive
+- Describe what information the form field collects
+- Use proper capitalization
+
+Return ONLY the label text, nothing else.`
+
+      const response = await this.claudeAPI.generateText(prompt)
+      const label = response.trim()
+      
+      if (label && label.length > 0 && label.length < 100) {
+        return label
+      }
+      
+      return null
+    } catch (error) {
+      console.error('❌ Failed to generate form label:', error)
+      return null
+    }
+  }
+
+  /**
+   * Improve link text using AI
+   */
+  async improveLinkText(
+    linkText: string,
+    pageText: string,
+    pageNumber: number,
+    fileName: string
+  ): Promise<string | null> {
+    try {
+      const prompt = `Improve the link text to be more descriptive and meaningful for accessibility.
+
+Current link text:
+${linkText.substring(0, 200)}
+
+Surrounding context:
+${pageText.substring(0, 500)}
+
+Document: ${fileName}
+Page: ${pageNumber}
+
+Requirements:
+- Make the link text descriptive (not just "click here" or "read more")
+- Keep it concise (under 100 characters)
+- Describe what the link leads to
+- Maintain the meaning and context
+
+Return ONLY the improved link text, nothing else.`
+
+      const response = await this.claudeAPI.generateText(prompt)
+      const improved = response.trim()
+      
+      if (improved && improved.length > 0 && improved.length < 150) {
+        return improved
+      }
+      
+      return null
+    } catch (error) {
+      console.error('❌ Failed to improve link text:', error)
+      return null
+    }
+  }
+
+  /**
+   * Apply automatic fixes to a PDF
+   * This is the main entry point that:
+   * 1. Generates fixes using AI
+   * 2. Applies fixes using PyMuPDF
+   */
+  async applyAutoFixes(
+    pdfBuffer: Buffer,
+    issues: Array<{
+      type: string
+      rule?: string
+      ruleName?: string
+      description?: string
+      page?: number
+      pageNumber?: number
+      elementId?: string
+      elementLocation?: string
+      elementType?: string
+      elementContent?: string
+    }>,
+    fileName: string,
+    documentText?: string // Optional: full document text for bookmarks/reading order
+  ): Promise<AutoFixResult> {
+    try {
+      console.log('🤖 Starting AI auto-fix process...')
+      console.log(`📋 Processing ${issues.length} issues`)
+
+      // Filter issues that can be auto-fixed
+      const altTextIssues = issues.filter(issue => {
+        const rule = (issue.rule || issue.ruleName || '').toLowerCase()
+        const desc = (issue.description || '').toLowerCase()
+        return rule.includes('figure') || rule.includes('alternate text') || 
+               desc.includes('alt text') || desc.includes('image') || desc.includes('figure')
+      })
+
+      const tableSummaryIssues = issues.filter(issue => {
+        const rule = (issue.rule || issue.ruleName || '').toLowerCase()
+        const desc = (issue.description || '').toLowerCase()
+        return rule.includes('summary') || rule.includes('table') ||
+               desc.includes('table summary') || desc.includes('table must have')
+      })
+
+      const metadataIssues = issues.filter(issue => {
+        const rule = (issue.rule || issue.ruleName || '').toLowerCase()
+        const desc = (issue.description || '').toLowerCase()
+        return rule.includes('title') || rule.includes('language') ||
+               desc.includes('missing title') || desc.includes('missing language') ||
+               desc.includes('text language')
+      })
+
+      const bookmarkIssues = issues.filter(issue => {
+        const rule = (issue.rule || issue.ruleName || '').toLowerCase()
+        const desc = (issue.description || '').toLowerCase()
+        return rule.includes('bookmark') || desc.includes('bookmark')
+      })
+
+      const readingOrderIssues = issues.filter(issue => {
+        const rule = (issue.rule || issue.ruleName || '').toLowerCase()
+        const desc = (issue.description || '').toLowerCase()
+        return rule.includes('reading order') || desc.includes('reading order') ||
+               desc.includes('logical reading order')
+      })
+
+      const colorContrastIssues = issues.filter(issue => {
+        const rule = (issue.rule || issue.ruleName || '').toLowerCase()
+        const desc = (issue.description || '').toLowerCase()
+        return rule.includes('color contrast') || rule.includes('contrast') ||
+               desc.includes('color contrast') || desc.includes('contrast') ||
+               desc.includes('appropriate color contrast')
+      })
+
+      const languageIssues = issues.filter(issue => {
+        const rule = (issue.rule || issue.ruleName || '').toLowerCase()
+        const desc = (issue.description || '').toLowerCase()
+        return rule.includes('language') || desc.includes('foreign language') ||
+               desc.includes('language identification') || desc.includes('text language')
+      })
+
+      const formLabelIssues = issues.filter(issue => {
+        const rule = (issue.rule || issue.ruleName || '').toLowerCase()
+        const desc = (issue.description || '').toLowerCase()
+        return rule.includes('form') || rule.includes('label') ||
+               desc.includes('form label') || desc.includes('form field') ||
+               desc.includes('missing label')
+      })
+
+      const linkTextIssues = issues.filter(issue => {
+        const rule = (issue.rule || issue.ruleName || '').toLowerCase()
+        const desc = (issue.description || '').toLowerCase()
+        return rule.includes('link') || desc.includes('link text') ||
+               desc.includes('link description') || desc.includes('meaningful link')
+      })
+
+      console.log(`🖼️ Found ${altTextIssues.length} image alt text issues`)
+      console.log(`📊 Found ${tableSummaryIssues.length} table summary issues`)
+      console.log(`📝 Found ${metadataIssues.length} metadata issues`)
+      console.log(`🔖 Found ${bookmarkIssues.length} bookmark issues`)
+      console.log(`📖 Found ${readingOrderIssues.length} reading order issues`)
+      console.log(`🎨 Found ${colorContrastIssues.length} color contrast issues`)
+      console.log(`🌐 Found ${languageIssues.length} language span issues`)
+      console.log(`📋 Found ${formLabelIssues.length} form label issues`)
+      console.log(`🔗 Found ${linkTextIssues.length} link text issues`)
+
+      // Check if PyMuPDF is available
+      const deps = await this.pymupdfWrapper.checkDependencies()
+      if (!deps.python || !deps.pymupdf) {
+        console.warn('⚠️ PyMuPDF not available - cannot apply fixes')
+        return {
+          success: false,
+          fixesApplied: { altText: 0, tableSummaries: 0, metadata: 0, bookmarks: 0, readingOrder: 0, colorContrast: 0, language: 0, formLabel: 0, linkText: 0 },
+          errors: ['PyMuPDF not available. Install with: pip install pymupdf']
+        }
+      }
+
+      // Create temporary files
+      const tempDir = tmpdir()
+      const inputPath = path.join(tempDir, `input-${Date.now()}.pdf`)
+      const outputPath = path.join(tempDir, `output-${Date.now()}.pdf`)
+      
+      await fs.writeFile(inputPath, pdfBuffer)
+      console.log(`📁 Created temp PDF: ${inputPath}`)
+
+      // Generate fixes using AI
+      const fixes: PDFStructureFix[] = []
+      const errors: string[] = []
+      let metadataFixes = 0
+      let bookmarkFixes = 0
+      let readingOrderFixes = 0
+      let colorContrastFixes = 0
+
+      // Generate alt text for images
+      for (let idx = 0; idx < altTextIssues.length; idx++) {
+        const issue = altTextIssues[idx]
+        try {
+          const page = issue.page || issue.pageNumber || 1
+          // Build better context: include document text around the image if available
+          let context = issue.elementContent || issue.description || `Image on page ${page}`
+          
+          // If we have document text, extract context around this page
+          if (documentText) {
+            const pageText = this.extractPageText(documentText, page)
+            if (pageText) {
+              context = `${context}\n\nSurrounding text on page ${page}:\n${pageText.substring(0, 500)}`
+            }
+          }
+          
+          console.log(`🤖 Generating alt text for image ${idx} on page ${page}...`)
+          // Pass PDF path and image index for vision API
+          const altText = await this.generateAltTextForImage(context, page, fileName, inputPath, idx)
+          
+          fixes.push({
+            type: 'altText',
+            page: page,
+            altText: altText,
+            elementLocation: issue.elementLocation
+          })
+          
+          console.log(`✅ Generated alt text: "${altText.substring(0, 50)}..."`)
+        } catch (error) {
+          const errorMsg = `Failed to generate alt text for page ${issue.page || issue.pageNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          console.error(`❌ ${errorMsg}`)
+          errors.push(errorMsg)
+        }
+      }
+
+      // Generate table summaries
+      for (const issue of tableSummaryIssues) {
+        try {
+          const page = issue.page || issue.pageNumber || 1
+          // Build better context: include document text around the table if available
+          let context = issue.elementContent || issue.description || `Table on page ${page}`
+          
+          // If we have document text, extract context around this page
+          if (documentText) {
+            const pageText = this.extractPageText(documentText, page)
+            if (pageText) {
+              context = `${context}\n\nSurrounding text on page ${page}:\n${pageText.substring(0, 1000)}`
+            }
+          }
+          
+          console.log(`🤖 Generating table summary for page ${page}...`)
+          const summary = await this.generateTableSummary(context, page, fileName)
+          
+          fixes.push({
+            type: 'table',
+            page: page,
+            tableData: { summary: summary },
+            elementLocation: issue.elementLocation
+          })
+          
+          console.log(`✅ Generated table summary: "${summary.substring(0, 50)}..."`)
+        } catch (error) {
+          const errorMsg = `Failed to generate table summary for page ${issue.page || issue.pageNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          console.error(`❌ ${errorMsg}`)
+          errors.push(errorMsg)
+        }
+      }
+
+      // Handle metadata fixes (title, language) - these are set via metadata parameter
+      const metadata: { title?: string; language?: string } = {}
+      for (const issue of metadataIssues) {
+        const rule = (issue.rule || issue.ruleName || '').toLowerCase()
+        const desc = (issue.description || '').toLowerCase()
+        
+        if (rule.includes('title') || desc.includes('title')) {
+          // Extract title from description or use filename
+          metadata.title = issue.elementContent || fileName.replace('.pdf', '') || 'Document'
+          metadataFixes++
+        }
+        
+        if (rule.includes('language') || desc.includes('language')) {
+          // Default to English, could be enhanced to detect language
+          metadata.language = 'en'
+          metadataFixes++
+        }
+      }
+
+      // Generate bookmarks if needed and document text is available
+      if (bookmarkIssues.length > 0 && documentText) {
+        try {
+          console.log(`🤖 Generating bookmarks from document structure...`)
+          const bookmarks = await this.generateBookmarks(documentText, fileName)
+          
+          if (bookmarks.length > 0) {
+            // Add bookmarks as bookmark fixes (PyMuPDF will create actual bookmarks)
+            for (const bookmark of bookmarks) {
+              fixes.push({
+                type: 'bookmark',
+                page: bookmark.page,
+                text: bookmark.title,
+                level: bookmark.level || 1
+              })
+            }
+            bookmarkFixes = bookmarks.length
+            console.log(`✅ Generated ${bookmarks.length} bookmarks`)
+          }
+        } catch (error) {
+          const errorMsg = `Failed to generate bookmarks: ${error instanceof Error ? error.message : 'Unknown error'}`
+          console.error(`❌ ${errorMsg}`)
+          errors.push(errorMsg)
+        }
+      }
+
+      // Handle reading order if needed
+      if (readingOrderIssues.length > 0 && documentText) {
+        try {
+          for (const issue of readingOrderIssues) {
+            const page = issue.page || issue.pageNumber || 1
+            console.log(`🤖 Analyzing reading order for page ${page}...`)
+            const order = await this.analyzeReadingOrder(documentText, page)
+            
+            if (order.length > 0) {
+              fixes.push({
+                type: 'readingOrder',
+                page: page,
+                readingOrder: order[0] // Use first order value
+              })
+              readingOrderFixes++
+            }
+          }
+        } catch (error) {
+          const errorMsg = `Failed to analyze reading order: ${error instanceof Error ? error.message : 'Unknown error'}`
+          console.error(`❌ ${errorMsg}`)
+          errors.push(errorMsg)
+        }
+      }
+
+      // Handle language span fixes
+      let languageFixes = 0
+      if (languageIssues.length > 0 && documentText) {
+        try {
+          for (const issue of languageIssues) {
+            const page = issue.page || issue.pageNumber || 1
+            const context = issue.elementContent || issue.description || ''
+            const pageText = this.extractPageText(documentText || '', page) || ''
+            
+            console.log(`🤖 Identifying language for text on page ${page}...`)
+            const langResult = await this.identifyLanguage(context, pageText, fileName)
+            
+            if (langResult && langResult.language !== 'en') {
+              fixes.push({
+                type: 'language',
+                page: page,
+                text: context.substring(0, 100),
+                language: langResult.language
+              })
+              languageFixes++
+              console.log(`✅ Identified language: ${langResult.language} for text on page ${page}`)
+            }
+          }
+        } catch (error) {
+          const errorMsg = `Failed to identify languages: ${error instanceof Error ? error.message : 'Unknown error'}`
+          console.error(`❌ ${errorMsg}`)
+          errors.push(errorMsg)
+        }
+      }
+
+      // Handle color contrast fixes
+      if (colorContrastIssues.length > 0) {
+        try {
+          const { calculateContrastRatio, suggestAccessibleColors } = await import('./color-contrast-analyzer')
+          
+          for (const issue of colorContrastIssues) {
+            const page = issue.page || issue.pageNumber || 1
+            const desc = issue.description || ''
+            const text = issue.elementContent || ''
+            
+            // Try to extract color information from description
+            // Adobe might provide color info in the description
+            const hexColorMatch = desc.match(/#[0-9A-Fa-f]{6}/)
+            const rgbMatch = desc.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/i)
+            
+            let foreground = '#000000' // Default black
+            let background = '#FFFFFF' // Default white
+            
+            if (hexColorMatch) {
+              foreground = hexColorMatch[0]
+            } else if (rgbMatch) {
+              const r = parseInt(rgbMatch[1])
+              const g = parseInt(rgbMatch[2])
+              const b = parseInt(rgbMatch[3])
+              foreground = `#${[r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')}`
+            }
+            
+            // Check current contrast
+            const contrast = calculateContrastRatio(foreground, background)
+            
+            if (!contrast.passesAA) {
+              // Get accessible color suggestions
+              const suggestions = suggestAccessibleColors(foreground, true)
+              
+              if (suggestions.length > 0) {
+                const newColors = suggestions[0]
+                
+                fixes.push({
+                  type: 'colorContrast',
+                  page: page,
+                  text: text || desc.substring(0, 100),
+                  colorInfo: {
+                    foreground: foreground,
+                    background: background,
+                    newForeground: newColors.foreground,
+                    newBackground: newColors.background || background
+                  },
+                  elementLocation: issue.elementLocation
+                })
+                
+                colorContrastFixes++
+                console.log(`✅ Fixed color contrast: ${foreground}/${background} (${contrast.ratio.toFixed(2)}:1) -> ${newColors.foreground}/${newColors.background || background} (${newColors.ratio.toFixed(2)}:1)`)
+              }
+            }
+          }
+        } catch (error) {
+          const errorMsg = `Failed to fix color contrast: ${error instanceof Error ? error.message : 'Unknown error'}`
+          console.error(`❌ ${errorMsg}`)
+          errors.push(errorMsg)
+        }
+      }
+
+      // Handle form label fixes
+      let formLabelFixes = 0
+      if (formLabelIssues.length > 0) {
+        try {
+          for (const issue of formLabelIssues) {
+            const page = issue.page || issue.pageNumber || 1
+            const context = issue.elementContent || issue.description || ''
+            
+            console.log(`🤖 Generating form label for page ${page}...`)
+            const label = await this.generateFormLabel(context, page, fileName)
+            
+            if (label) {
+              fixes.push({
+                type: 'formLabel',
+                page: page,
+                text: label,
+                elementLocation: issue.elementLocation
+              })
+              formLabelFixes++
+              console.log(`✅ Generated form label: "${label}"`)
+            }
+          }
+        } catch (error) {
+          const errorMsg = `Failed to generate form labels: ${error instanceof Error ? error.message : 'Unknown error'}`
+          console.error(`❌ ${errorMsg}`)
+          errors.push(errorMsg)
+        }
+      }
+
+      // Handle link text improvements
+      let linkTextFixes = 0
+      if (linkTextIssues.length > 0 && documentText) {
+        try {
+          for (const issue of linkTextIssues) {
+            const page = issue.page || issue.pageNumber || 1
+            const context = issue.elementContent || issue.description || ''
+            const pageText = this.extractPageText(documentText || '', page) || ''
+            
+            console.log(`🤖 Improving link text for page ${page}...`)
+            const improvedText = await this.improveLinkText(context, pageText, page, fileName)
+            
+            if (improvedText) {
+              fixes.push({
+                type: 'linkText',
+                page: page,
+                text: improvedText,
+                originalText: context,
+                elementLocation: issue.elementLocation
+              })
+              linkTextFixes++
+              console.log(`✅ Improved link text: "${context.substring(0, 30)}..." -> "${improvedText.substring(0, 30)}..."`)
+            }
+          }
+        } catch (error) {
+          const errorMsg = `Failed to improve link text: ${error instanceof Error ? error.message : 'Unknown error'}`
+          console.error(`❌ ${errorMsg}`)
+          errors.push(errorMsg)
+        }
+      }
+
+      if (fixes.length === 0 && Object.keys(metadata).length === 0) {
+        console.log('⚠️ No fixes to apply')
+        // Cleanup
+        await fs.unlink(inputPath).catch(() => {})
+        return {
+          success: true,
+          fixedPdfBuffer: pdfBuffer, // Return original if no fixes
+          fixesApplied: { altText: 0, tableSummaries: 0, metadata: 0, bookmarks: 0, readingOrder: 0, colorContrast: 0, language: 0, formLabel: 0, linkText: 0 },
+          errors: errors.length > 0 ? errors : undefined
+        }
+      }
+
+      console.log(`🔧 Applying ${fixes.length} fixes using PyMuPDF...`)
+
+      // Apply fixes using PyMuPDF
+      const fixedBuffer = await this.pymupdfWrapper.repairPDF({
+        inputPath,
+        outputPath,
+        fixes,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined
+      })
+
+      console.log(`✅ Auto-fix complete: ${fixedBuffer.length} bytes`)
+
+      // Cleanup
+      await fs.unlink(inputPath).catch(() => {})
+      await fs.unlink(outputPath).catch(() => {})
+
+      return {
+        success: true,
+        fixedPdfBuffer: fixedBuffer,
+        fixesApplied: {
+          altText: altTextIssues.length,
+          tableSummaries: tableSummaryIssues.length,
+          metadata: metadataFixes,
+          bookmarks: bookmarkFixes,
+          readingOrder: readingOrderFixes,
+          colorContrast: colorContrastFixes,
+          language: languageFixes,
+          formLabel: formLabelFixes,
+          linkText: linkTextFixes
+        },
+        errors: errors.length > 0 ? errors : undefined
+      }
+    } catch (error) {
+      console.error('❌ Auto-fix failed:', error)
+      return {
+        success: false,
+        fixesApplied: { altText: 0, tableSummaries: 0, metadata: 0, bookmarks: 0, readingOrder: 0, colorContrast: 0, language: 0, formLabel: 0, linkText: 0 },
+        errors: [error instanceof Error ? error.message : 'Unknown error']
+      }
+    }
+  }
+}

@@ -1,0 +1,69 @@
+[
+  {
+    "type": "altText",
+    "page": 1,
+    "altText": "Physics course diagram showing course structure and progression"
+  },
+  {
+    "type": "table",
+    "page": 1,
+    "tableData": {
+      "summary": "Course schedule table showing weekly topics and reading assignments for Introduction to Physics"
+    }
+  },
+  {
+    "type": "heading",
+    "page": 1,
+    "text": "Introduction to Physics",
+    "level": 1
+  },
+  {
+    "type": "heading",
+    "page": 1,
+    "text": "Course Syllabus",
+    "level": 2
+  },
+  {
+    "type": "bookmark",
+    "page": 1,
+    "text": "Introduction to Physics",
+    "level": 1
+  },
+  {
+    "type": "bookmark",
+    "page": 1,
+    "text": "Course Syllabus",
+    "level": 2
+  },
+  {
+    "type": "language",
+    "page": 1,
+    "text": "Bonjour, comment allez-vous?",
+    "language": "fr"
+  },
+  {
+    "type": "colorContrast",
+    "page": 1,
+    "text": "Low contrast text",
+    "colorInfo": {
+      "foreground": "#CCCCCC",
+      "background": "#FFFFFF",
+      "newForeground": "#000000",
+      "newBackground": "#FFFFFF"
+    }
+  },
+  {
+    "type": "formLabel",
+    "page": 1,
+    "text": "Student Name",
+    "elementLocation": "Form field on page 1"
+  },
+  {
+    "type": "linkText",
+    "page": 1,
+    "text": "View course materials and syllabus",
+    "originalText": "click here",
+    "elementLocation": "Link on page 1"
+  }
+]
+

@@ -19,7 +19,7 @@ import { tmpdir } from 'os'
 const execAsync = promisify(exec)
 
 export interface PDFStructureFix {
-  type: 'heading' | 'altText' | 'language' | 'table' | 'list' | 'imageOfText' | 'colorContrast' | 'readingOrder' | 'colorIndicator' | 'formLabel' | 'linkText' | 'textResize'
+  type: 'heading' | 'altText' | 'language' | 'table' | 'list' | 'imageOfText' | 'colorContrast' | 'readingOrder' | 'colorIndicator' | 'formLabel' | 'linkText' | 'textResize' | 'bookmark'
   page: number
   text?: string
   level?: number // For headings (1-6)

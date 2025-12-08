@@ -641,14 +641,14 @@ export default function HomePage() {
                 <div className="space-y-6">
                   <h3 className="text-2xl font-semibold text-gray-900">Document Accessibility Testing</h3>
                   <p className="text-gray-600 mb-4">
-                    Our advanced document scanning technology provides comprehensive accessibility testing for all major file formats used in modern business and government operations. Whether you're working with PDFs, Word documents, PowerPoint presentations, or HTML files, our platform ensures your content meets the highest accessibility standards required by federal regulations and international guidelines.
+                    Our advanced document scanning technology provides comprehensive accessibility testing for all major file formats used in modern business and government operations. For PDFs, we use Adobe PDF Services to automatically tag documents, run comprehensive accessibility checks, and provide AI-powered remediation. For Word, PowerPoint, HTML, and text files, we perform intelligent content analysis to ensure your content meets the highest accessibility standards required by federal regulations and international guidelines.
                   </p>
                   <div className="space-y-4">
                     <div className="flex items-start space-x-3">
                       <CheckCircle className="h-6 w-6 text-green-500 mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="font-medium text-gray-900">Complete Section 508 Compliance Testing</div>
-                        <div className="text-sm text-gray-600">Automated testing for all 16 subsections of federal accessibility standards, ensuring your documents meet government requirements</div>
+                        <div className="font-medium text-gray-900">PDF Auto-Tagging & Compliance Testing</div>
+                        <div className="text-sm text-gray-600">Automatically tag PDFs using Adobe PDF Services, then run comprehensive accessibility checks against PDF/UA and WCAG 2.1 AA standards (Section 508 compliant)</div>
                       </div>
                     </div>
                     <div className="flex items-start space-x-3">
@@ -661,15 +661,15 @@ export default function HomePage() {
                     <div className="flex items-start space-x-3">
                       <CheckCircle className="h-6 w-6 text-green-500 mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="font-medium text-gray-900">AI-Powered Content Analysis</div>
-                        <div className="text-sm text-gray-600">Advanced artificial intelligence for intelligent issue detection, automated remediation recommendations, and accessibility scoring</div>
+                        <div className="font-medium text-gray-900">AI-Powered Remediation</div>
+                        <div className="text-sm text-gray-600">Get detailed, element-level AI-generated step-by-step instructions for fixing each accessibility issue, with specific page numbers and content identification</div>
                       </div>
                     </div>
                     <div className="flex items-start space-x-3">
                       <CheckCircle className="h-6 w-6 text-green-500 mt-0.5 flex-shrink-0" />
                       <div>
-                        <div className="font-medium text-gray-900">Detailed Compliance Reporting</div>
-                        <div className="text-sm text-gray-600">Comprehensive reports with severity categorization, compliance scoring, and actionable remediation steps</div>
+                        <div className="font-medium text-gray-900">Download Tagged PDFs</div>
+                        <div className="text-sm text-gray-600">For PDF documents, download the automatically tagged version with improved accessibility structure, ready for distribution</div>
                       </div>
                     </div>
                   </div>

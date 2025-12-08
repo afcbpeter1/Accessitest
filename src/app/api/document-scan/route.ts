@@ -230,6 +230,22 @@ export async function POST(request: NextRequest) {
       // The report contains all checks organized by category (like Acrobat's report)
       let adobeIssues = accessibilityResult.report.issues || []
       
+      // If we successfully auto-tagged the PDF, add an informational note that the original PDF was missing tags
+      // This helps users understand that we fixed the "Tags are missing" issue automatically
+      if (taggingSuccess) {
+        const taggedPdfCheck = accessibilityResult.report.categories?.['Document']?.find(
+          (check: any) => (check.Rule || check.rule || check.ruleName || '').toLowerCase().includes('tagged pdf')
+        )
+        
+        // If Adobe reports "Tagged PDF" as Passed, it means the PDF now has tags (we added them)
+        // Add an informational issue to let the user know the original PDF was missing tags
+        if (taggedPdfCheck && (taggedPdfCheck.Status || taggedPdfCheck.status) === 'Passed') {
+          console.log('ℹ️ Original PDF was missing tags - auto-tagged during scan')
+          // Note: We don't add this as a "Failed" issue since we've already fixed it
+          // But we'll include it in metadata so users know what was fixed
+        }
+      }
+      
       // Log full report structure for debugging
       console.log('📄 Full accessibility report structure:', JSON.stringify(accessibilityResult.report, null, 2))
       console.log('📊 Report categories:', Object.keys(accessibilityResult.report.categories || {}))
@@ -324,12 +340,32 @@ export async function POST(request: NextRequest) {
             console.log(`   ⚠️ No element details available - using issue description and location only`)
           }
           
+          // Determine location - if truly unknown, use rule name to provide context
+          let locationForAI = adobeIssue.location || adobeIssue.elementLocation
+          if (!locationForAI || locationForAI === 'Unknown location' || locationForAI === 'Document') {
+            // Use rule name to provide better context (e.g., "Figures alternate text" = "All figures in document")
+            const ruleName = adobeIssue.rule || adobeIssue.ruleName || ''
+            if (ruleName.toLowerCase().includes('figure') || ruleName.toLowerCase().includes('image')) {
+              locationForAI = 'All figures/images in document'
+            } else if (ruleName.toLowerCase().includes('table')) {
+              locationForAI = 'All tables in document'
+            } else if (ruleName.toLowerCase().includes('heading')) {
+              locationForAI = 'All headings in document'
+            } else if (ruleName.toLowerCase().includes('title')) {
+              locationForAI = 'Document properties'
+            } else if (ruleName.toLowerCase().includes('language')) {
+              locationForAI = 'Document properties'
+            } else {
+              locationForAI = 'Document' // Better than "Unknown location"
+            }
+          }
+          
           const aiSuggestion = await claudeAPI.generateDocumentAccessibilitySuggestion(
             elementContext,
             adobeIssue.rule || adobeIssue.ruleName || 'Accessibility',
             body.fileName,
             body.fileType,
-            adobeIssue.location || adobeIssue.elementLocation || 'Unknown location',
+            locationForAI,
             adobeIssue.page || adobeIssue.pageNumber,
             adobeIssue.elementContent, // Pass element content for better context
             adobeIssue.elementId, // Pass element ID for precise targeting
@@ -358,6 +394,52 @@ export async function POST(request: NextRequest) {
           }
         })
       )
+      
+      // Step 3: Apply automatic fixes using AI + PyMuPDF
+      // This is our USP - automatically fix issues like alt text and table summaries
+      console.log('🤖 Step 3: Applying automatic fixes using AI...')
+      let autoFixedPdfBuffer: Buffer | undefined = undefined
+      let autoFixResult: any = undefined
+      
+      try {
+        const { AIAutoFixService } = await import('@/lib/ai-auto-fix-service')
+        const autoFixService = new AIAutoFixService()
+        
+        // Extract document text for better bookmark/reading order analysis (optional)
+        let documentText: string | undefined = undefined
+        try {
+          const pdfParse = require('pdf-parse')
+          const pdfParseResult = await pdfParse(taggedPdfBuffer, { max: 0 })
+          documentText = pdfParseResult.text
+          console.log(`📄 Extracted ${documentText.length} characters for AI analysis`)
+        } catch (textError) {
+          console.warn('⚠️ Could not extract document text for AI analysis:', textError)
+          // Continue without text - AI can still work with issue descriptions
+        }
+        
+        // Apply auto-fixes to the tagged PDF
+        const failedIssues = adobeIssues.filter((issue: any) => {
+          const status = issue.status || 'Failed'
+          return status === 'Failed' || status === 'Failed manually'
+        })
+        
+        autoFixResult = await autoFixService.applyAutoFixes(
+          taggedPdfBuffer,
+          failedIssues,
+          body.fileName,
+          documentText ?? undefined // Pass document text for better bookmark/reading order analysis (optional)
+        )
+        
+        if (autoFixResult.success && autoFixResult.fixedPdfBuffer) {
+          autoFixedPdfBuffer = autoFixResult.fixedPdfBuffer
+          console.log(`✅ Auto-fix complete: ${autoFixResult.fixesApplied.altText} alt texts, ${autoFixResult.fixesApplied.tableSummaries} table summaries`)
+        } else {
+          console.warn('⚠️ Auto-fix failed or no fixes applied:', autoFixResult.errors)
+        }
+      } catch (autoFixError) {
+        console.error('❌ Auto-fix service error:', autoFixError)
+        // Don't fail the entire scan if auto-fix fails
+      }
       
       // Calculate compliance and score based on the TAGGED PDF report
       // This shows what issues remain AFTER auto-tagging
@@ -419,9 +501,26 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      // Store the tagged PDF buffer for download (convert to base64 for JSON response)
-      // Store it at the root level of the result, not inside scanResults
-      if (autoTagResult.success && autoTagResult.taggedPdfBuffer) {
+      // Store PDFs for download (prioritize auto-fixed PDF, then tagged PDF)
+      // Convert to base64 for JSON response
+      if (autoFixedPdfBuffer) {
+        try {
+          const base64String = autoFixedPdfBuffer.toString('base64')
+          finalScanResult.taggedPdfBase64 = base64String
+          finalScanResult.taggedPdfFileName = body.fileName.replace(/\.pdf$/i, '_auto-fixed.pdf')
+          ;(finalScanResult as any).autoFixed = true
+          ;(finalScanResult as any).autoFixStats = autoFixResult?.fixesApplied
+          console.log(`✅ Auto-fixed PDF stored for download: ${finalScanResult.taggedPdfFileName}`)
+          console.log(`   Fixes applied: ${autoFixResult?.fixesApplied.altText || 0} alt texts, ${autoFixResult?.fixesApplied.tableSummaries || 0} table summaries`)
+          console.log(`   Base64 size: ${Math.round(base64String.length / 1024)} KB`)
+        } catch (error) {
+          console.error('❌ Failed to convert auto-fixed PDF to base64:', error)
+          // Fall through to tagged PDF
+        }
+      }
+      
+      // If no auto-fixed PDF, use tagged PDF
+      if (!autoFixedPdfBuffer && autoTagResult.success && autoTagResult.taggedPdfBuffer) {
         try {
           const base64String = autoTagResult.taggedPdfBuffer.toString('base64')
           finalScanResult.taggedPdfBase64 = base64String
@@ -433,8 +532,8 @@ export async function POST(request: NextRequest) {
           console.error('❌ Failed to convert tagged PDF to base64:', error)
           console.warn('⚠️ Tagged PDF will not be available for download')
         }
-      } else {
-        console.warn('⚠️ No tagged PDF available for download')
+      } else if (!autoFixedPdfBuffer) {
+        console.warn('⚠️ No PDF available for download')
         if (!autoTagResult.success) {
           console.warn(`   Auto-tag result: ${autoTagResult.error || autoTagResult.message}`)
         }

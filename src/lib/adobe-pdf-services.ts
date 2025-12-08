@@ -593,20 +593,88 @@ export class AdobePDFServices {
         const ruleName = check.Rule || check.rule || check.ruleName || check.check || check.name || 'Unknown'
         const description = check.Description || check.description || check.message || check.detail || 'No description'
         
+        // Log the raw description to see what Adobe provides (for debugging)
+        if (process.env.NODE_ENV === 'development' || process.env.DEBUG_ADOBE) {
+          console.log(`   📝 Raw description for "${ruleName}":`, description)
+          console.log(`   📍 Raw location fields:`, {
+            location: check.location,
+            Location: check.Location,
+            context: check.context,
+            elementLocation: check.elementLocation,
+            objLocation: check.objLocation,
+            page: check.page || check.Page || check.pageNumber || check.pageNum
+          })
+        }
+        
         // Try to extract location from various fields, or infer from description
         let location = check.location || check.Location || check.context || check.elementLocation || check.objLocation
-        if (!location || location === 'Unknown location') {
+        
+        // First, check if page is in a separate field (most reliable)
+        const explicitPage = check.page || check.Page || check.pageNumber || check.pageNum
+        if (explicitPage) {
+          location = `Page ${explicitPage}`
+          if (process.env.NODE_ENV === 'development' || process.env.DEBUG_ADOBE) {
+            console.log(`   ✅ Using explicit page field: Page ${explicitPage}`)
+          }
+        } else if (!location || location === 'Unknown location') {
           // Try to extract location info from description
-          // Adobe descriptions often contain location hints like "on page X" or "in section Y"
-          const pageMatch = description.match(/page\s+(\d+)/i)
-          const sectionMatch = description.match(/(?:in|at|within)\s+([^,\.]+)/i)
-          if (pageMatch) {
-            location = `Page ${pageMatch[1]}`
-          } else if (sectionMatch) {
-            location = sectionMatch[1].trim()
+          // Adobe descriptions may contain location hints like "on page X", "page X", "at page X", etc.
+          const pagePatterns = [
+            /page\s+(\d+)/i,
+            /on\s+page\s+(\d+)/i,
+            /at\s+page\s+(\d+)/i,
+            /page\s+(\d+)\s+of/i,
+            /\(page\s+(\d+)\)/i,
+            /p\.\s*(\d+)/i,
+            /p\s+(\d+)/i
+          ]
+          
+          let pageNumber: string | null = null
+          for (const pattern of pagePatterns) {
+            const match = description.match(pattern)
+            if (match) {
+              pageNumber = match[1]
+              break
+            }
+          }
+          
+          if (pageNumber) {
+            location = `Page ${pageNumber}`
+            if (process.env.NODE_ENV === 'development' || process.env.DEBUG_ADOBE) {
+              console.log(`   ✅ Extracted page number from description: Page ${pageNumber}`)
+            }
           } else {
-            // Use rule name as location hint if available
-            location = ruleName !== 'Unknown' ? ruleName : 'Document'
+            // Try to extract section/context info from description
+            const sectionMatch = description.match(/(?:in|at|within|from)\s+([^,\.:;]+)/i)
+            if (sectionMatch) {
+              location = sectionMatch[1].trim()
+              if (process.env.NODE_ENV === 'development' || process.env.DEBUG_ADOBE) {
+                console.log(`   ✅ Extracted section from description: ${location}`)
+              }
+            } else {
+              // Use rule name to provide context (e.g., "Figures alternate text" = all figures)
+              // This is better than "Unknown location" - it tells the user what to look for
+              if (ruleName.toLowerCase().includes('figure') || ruleName.toLowerCase().includes('image')) {
+                location = 'All figures/images in document'
+              } else if (ruleName.toLowerCase().includes('table')) {
+                location = 'All tables in document'
+              } else if (ruleName.toLowerCase().includes('heading')) {
+                location = 'All headings in document'
+              } else if (ruleName.toLowerCase().includes('title')) {
+                location = 'Document properties'
+              } else if (ruleName.toLowerCase().includes('language')) {
+                location = 'Document properties'
+              } else {
+                location = ruleName !== 'Unknown' ? ruleName : 'Document'
+              }
+              if (process.env.NODE_ENV === 'development' || process.env.DEBUG_ADOBE) {
+                console.log(`   ⚠️ No location found in description, inferred from rule: ${location}`)
+              }
+            }
+          }
+        } else {
+          if (process.env.NODE_ENV === 'development' || process.env.DEBUG_ADOBE) {
+            console.log(`   ✅ Using provided location: ${location}`)
           }
         }
         

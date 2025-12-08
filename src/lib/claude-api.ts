@@ -2,7 +2,15 @@
 
 interface ClaudeMessage {
   role: 'user' | 'assistant';
-  content: string;
+  content: string | Array<{
+    type: 'text' | 'image';
+    text?: string;
+    source?: {
+      type: 'base64';
+      media_type: string;
+      data: string;
+    };
+  }>;
 }
 
 interface ClaudeRequest {
@@ -119,6 +127,69 @@ export class ClaudeAPI {
   }
 
   /**
+   * Generate simple text using Claude API
+   */
+  async generateText(prompt: string, systemPrompt?: string): Promise<string> {
+    try {
+      // Use the same API call method as other functions for consistency
+      return await this.makeRateLimitedRequest(() =>
+        this.callClaudeAPI(
+          [{ role: 'user', content: prompt }],
+          systemPrompt || 'You are a helpful assistant.'
+        )
+      )
+    } catch (error) {
+      console.error('❌ Claude API generateText error:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Generate text with vision (image analysis) using Claude API
+   */
+  async generateTextWithVision(
+    prompt: string,
+    imageBase64: string,
+    mediaType: string = 'image/png',
+    systemPrompt?: string
+  ): Promise<string> {
+    try {
+      const messageContent: Array<{
+        type: 'text' | 'image';
+        text?: string;
+        source?: {
+          type: 'base64';
+          media_type: string;
+          data: string;
+        };
+      }> = [
+        {
+          type: 'text',
+          text: prompt
+        },
+        {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mediaType,
+            data: imageBase64
+          }
+        }
+      ]
+
+      return await this.makeRateLimitedRequest(() =>
+        this.callClaudeAPI(
+          [{ role: 'user', content: messageContent }],
+          systemPrompt || 'You are a helpful assistant that analyzes images and generates descriptive text.'
+        )
+      )
+    } catch (error) {
+      console.error('❌ Claude API generateTextWithVision error:', error)
+      throw error
+    }
+  }
+
+  /**
    * Generate AI-powered accessibility suggestions for an offending element
    */
   async generateAccessibilitySuggestion(
@@ -195,45 +266,58 @@ Provide a specific, actionable fix for this exact element.`;
 
 CRITICAL RULES:
 1. The user has ALREADY scanned this PDF - NEVER tell them to run the accessibility checker
-2. Use whatever information is provided - work with what you have
-3. If element details are provided, use them. If not, use the issue description and location
-4. Provide instructions specific to THIS issue, not generic guidance
+2. You MUST provide helpful instructions even if location is "Unknown" - use the issue description and rule name
+3. The issue description and rule name contain ALL the information needed to provide useful instructions
+4. "Unknown location" just means you need to search for ALL instances of this issue type - that's still actionable!
 
 INFORMATION PROVIDED:
-${pageNumber ? `- Page: ${pageNumber}` : '- Page: Not specified'}
-${elementLocation ? `- Location: ${elementLocation}` : '- Location: Not specified'}
+${pageNumber ? `- Page: ${pageNumber}` : '- Page: Not specified (search entire document)'}
+${elementLocation ? `- Location: ${elementLocation}` : '- Location: Not specified (check all pages)'}
 ${elementId ? `- Element ID: ${elementId}` : '- Element ID: Not provided'}
 ${elementType ? `- Element Type: ${elementType}` : '- Element Type: Not provided'}
 ${elementContent ? `- Element Content: ${elementContent.substring(0, 200)}` : '- Element Content: Not provided'}
 - Issue Description: ${issueDescription}
+- Rule Name: ${section}
 
 YOUR RESPONSE MUST:
-1. Start by stating what information you have (page number, location, element details if available)
-2. Use the issue description to understand what needs fixing
-3. Give step-by-step instructions to fix THIS specific issue
-4. Use correct Acrobat panel names: "Prepare for accessibility" panel, "Tags panel"
-5. NEVER mention running the accessibility checker - we've already done that
-6. If element details are missing, use the issue description and location to provide targeted guidance
+1. NEVER say "I don't have enough information" - you ALWAYS have enough (the description and rule name)
+2. Use the rule name (e.g., "Figures alternate text" = images need alt text, "Summary" = tables need summaries)
+3. If location is "Unknown", provide instructions to find and fix ALL instances of this issue type
+4. Give step-by-step instructions that are specific to THIS issue type (not generic)
+5. Use correct Acrobat panel names: "Tags panel", "Reading Order tool"
+6. NEVER mention running the accessibility checker - we've already done that
 
 FORMAT:
-1. Element Location: State what you know about where this issue is (use available information)
-2. Issue Explanation: Brief explanation of THIS specific issue based on the description
-3. Step-by-Step Fix: Instructions to fix THIS specific issue (use issue description to guide you)
-4. Verification: How to verify THIS specific fix worked
+1. Element Location: State what you know (e.g., "All figures/images in the document" or "All tables" if location unknown, or specific page if known)
+2. Issue Explanation: Brief explanation of THIS specific issue based on the rule name and description
+3. Step-by-Step Fix: Clear instructions to find and fix THIS specific issue type (if location unknown, tell them how to find all instances)
+4. Verification: How to verify the fix worked
 
-Keep instructions clear, practical, and specific. Work with whatever information is available. Avoid keyboard shortcuts.`;
+EXAMPLE: If rule is "Figures alternate text" and location is "Unknown", say:
+"Element Location: All figures/images throughout the document that are missing alternate text"
+Then provide instructions to: 1) Open Tags panel, 2) Find all Figure tags, 3) Add alt text to each one
+
+Keep instructions clear, practical, and specific. Work with the information provided - it's always enough!`;
 
       const userPrompt = `Fix this PDF accessibility issue. We've already scanned and identified the problem:
 
 File: ${fileName}
-Issue: ${issueDescription}
-${pageNumber ? `Page: ${pageNumber}` : 'Page: Not specified'}
-${elementLocation ? `Location: ${elementLocation}` : 'Location: Not specified'}
+Rule: ${section}
+Issue Description: ${issueDescription}
+${pageNumber ? `Page: ${pageNumber}` : 'Page: Not specified - check all pages'}
+${elementLocation && elementLocation !== 'Unknown location' ? `Location: ${elementLocation}` : 'Location: Not specified - find all instances in document'}
 ${elementId ? `Element ID: ${elementId}` : ''}
 ${elementType ? `Element Type: ${elementType}` : ''}
 ${elementContent ? `Content: ${elementContent.substring(0, 200)}` : ''}
 
-Provide instructions to fix THIS issue. Use the issue description to understand what needs fixing. If element details are provided, use them. If not, use the issue description and location to provide targeted guidance. Do NOT tell them to run the accessibility checker - we've already done that.`;
+Provide step-by-step instructions to fix THIS specific issue. Use the rule name and description to understand what needs fixing:
+- If the rule is "Figures alternate text" or "Figures require alternate text", provide instructions to add alt text to images
+- If the rule is "Summary" or "Tables must have a summary", provide instructions to add summaries to tables
+- If the rule mentions "Title", provide instructions to set document title
+- If the rule mentions "Language", provide instructions to set document language
+- If location is "Unknown" or "Not specified", provide instructions to find and fix ALL instances of this issue type in the document
+
+Do NOT say you need more information - use what's provided. Do NOT tell them to run the accessibility checker - we've already done that.`;
 
       console.log('📤 Claude API: Sending document analysis request...');
       const response = await this.makeRateLimitedRequest(() => 
