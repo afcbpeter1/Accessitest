@@ -46,7 +46,177 @@ interface DocumentScanRequest {
 const scanDatabase = new Map<string, any>()
 
 // Track active scans
-const activeScans = new Map<string, { cancelled: boolean }>()
+interface ActiveScan {
+  cancelled: boolean
+  creditTransactionId?: number | null
+  userId?: string
+}
+
+const activeScans = new Map<string, ActiveScan>()
+
+/**
+ * Verify that PDF fixes were actually applied
+ * Uses Python/PyMuPDF to check structure tree, metadata, etc. (same as test scripts)
+ */
+async function verifyPDFFixes(pdfBuffer: Buffer): Promise<{
+  success: boolean
+  isTagged?: boolean
+  isMarked?: boolean
+  language?: string
+  title?: string
+  bookmarkCount?: number
+  structureElements?: number
+  figureCount?: number
+  tableCount?: number
+  headingCount?: number
+  error?: string
+}> {
+  try {
+    const { exec } = require('child_process')
+    const { promisify } = require('util')
+    const execAsync = promisify(exec)
+    const fs = require('fs/promises')
+    const path = require('path')
+    const { tmpdir } = require('os')
+    
+    // Create temporary PDF file
+    const tempDir = tmpdir()
+    const tempPdfPath = path.join(tempDir, `verify-${Date.now()}.pdf`)
+    await fs.writeFile(tempPdfPath, pdfBuffer)
+    
+    try {
+      // Use Python to verify structure elements (same as test scripts)
+      const verifyScript = `
+import fitz
+import pikepdf
+import sys
+import json
+import os
+
+try:
+    pdf_path = '${tempPdfPath.replace(/\\/g, '/')}'
+    
+    # Check with PyMuPDF
+    doc = fitz.open(pdf_path)
+    catalog = doc.pdf_catalog()
+    
+    # Check structure tree
+    struct_result = doc.xref_get_key(catalog, "StructTreeRoot")
+    has_struct = struct_result[0] != 0
+    
+    # Check MarkInfo
+    markinfo_result = doc.xref_get_key(catalog, "MarkInfo")
+    is_marked = False
+    if markinfo_result[0] != 0:
+        markinfo_xref = int(markinfo_result[1]) if markinfo_result[1].isdigit() else None
+        if markinfo_xref:
+            marked_result = doc.xref_get_key(markinfo_xref, "Marked")
+            is_marked = marked_result[0] != 0 and marked_result[1].lower() == 'true'
+    
+    # Check language
+    lang_result = doc.xref_get_key(catalog, "Lang")
+    lang_value = None
+    if lang_result[0] != 0:
+        lang_value = str(lang_result[1])
+    
+    # Check metadata
+    metadata = doc.metadata
+    title = metadata.get('title', '')
+    
+    # Check bookmarks
+    toc = doc.get_toc()
+    bookmark_count = len(toc) if toc else 0
+    
+    doc.close()
+    
+    # Check with pikepdf for structure elements
+    figure_count = 0
+    table_count = 0
+    heading_count = 0
+    structure_elements = 0
+    
+    try:
+        with pikepdf.Pdf.open(pdf_path) as pdf:
+            if '/StructTreeRoot' in pdf.Root:
+                struct_root = pdf.Root['/StructTreeRoot']
+                k_array = struct_root.get('/K', pikepdf.Array([]))
+                structure_elements = len(k_array)
+                
+                def count_elements(elem):
+                    nonlocal figure_count, table_count, heading_count
+                    if isinstance(elem, pikepdf.IndirectObject):
+                        elem_obj = pdf.get_object(elem.objgen)
+                    else:
+                        elem_obj = elem
+                    
+                    if isinstance(elem_obj, pikepdf.Dictionary):
+                        s_type = elem_obj.get('/S')
+                        if s_type == pikepdf.Name('/Figure'):
+                            figure_count += 1
+                        elif s_type == pikepdf.Name('/Table'):
+                            table_count += 1
+                        elif str(s_type).startswith('/H'):
+                            heading_count += 1
+                        
+                        k_children = elem_obj.get('/K', pikepdf.Array([]))
+                        for child in k_children:
+                            if isinstance(child, (pikepdf.IndirectObject, pikepdf.Dictionary)):
+                                count_elements(child)
+                
+                for elem in k_array:
+                    count_elements(elem)
+    except Exception as e:
+        pass  # pikepdf check is optional
+    
+    result = {
+        'success': True,
+        'isTagged': has_struct,
+        'isMarked': is_marked,
+        'language': lang_value,
+        'title': title,
+        'bookmarkCount': bookmark_count,
+        'structureElements': structure_elements,
+        'figureCount': figure_count,
+        'tableCount': table_count,
+        'headingCount': heading_count
+    }
+    
+    print(json.dumps(result))
+except Exception as e:
+    print(json.dumps({'success': False, 'error': str(e)}))
+`
+      
+      const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
+      const { stdout } = await execAsync(`${pythonCmd} -c "${verifyScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`, {
+        maxBuffer: 10 * 1024 * 1024
+      })
+      
+      const result = JSON.parse(stdout.trim())
+      
+      return {
+        success: result.success || false,
+        isTagged: result.isTagged,
+        isMarked: result.isMarked,
+        language: result.language,
+        title: result.title,
+        bookmarkCount: result.bookmarkCount,
+        structureElements: result.structureElements,
+        figureCount: result.figureCount,
+        tableCount: result.tableCount,
+        headingCount: result.headingCount,
+        error: result.error
+      }
+    } finally {
+      // Cleanup temp file
+      await fs.unlink(tempPdfPath).catch(() => {})
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }
+  }
+}
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
@@ -59,9 +229,99 @@ export async function POST(request: NextRequest) {
     
     console.log('🔍 Starting document scan for:', body.fileName)
 
-    // Check and deduct credits before starting scan
     const scanId = body.scanId || `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     
+    // Register this scan as active (before any processing)
+    activeScans.set(scanId, { cancelled: false })
+    
+    // Convert base64 to buffer
+    const fileBuffer = Buffer.from(body.fileContent, 'base64')
+    
+    // Check if this is a PDF file
+    if (!body.fileType.toLowerCase().includes('pdf') && !body.fileName.toLowerCase().endsWith('.pdf')) {
+      activeScans.delete(scanId)
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Only PDF files are supported for Adobe PDF Services workflow'
+        },
+        { status: 400 }
+      )
+    }
+    
+    // Check file size and page count BEFORE processing and BEFORE deducting credits
+    // Adobe PDF Services API limits:
+    // - Standard PDFs: 400 pages max
+    // - Scanned PDFs: 150 pages max
+    // - File size: 100MB max
+    const ADOBE_STANDARD_PAGE_LIMIT = 400
+    const ADOBE_SCANNED_PAGE_LIMIT = 150
+    const ADOBE_FILE_SIZE_LIMIT = 100 * 1024 * 1024 // 100MB in bytes
+    
+    // Check file size first
+    if (fileBuffer.length > ADOBE_FILE_SIZE_LIMIT) {
+      activeScans.delete(scanId)
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `PDF exceeds Adobe PDF Services file size limit`,
+          details: `This PDF is ${Math.round(fileBuffer.length / (1024 * 1024))}MB, but Adobe PDF Services supports a maximum of ${Math.round(ADOBE_FILE_SIZE_LIMIT / (1024 * 1024))}MB for auto-tagging and accessibility checking.`,
+          fileSize: fileBuffer.length,
+          maxFileSize: ADOBE_FILE_SIZE_LIMIT,
+          suggestion: 'Please compress the PDF or split it into smaller documents to reduce file size.'
+        },
+        { status: 400 }
+      )
+    }
+    
+    let pageCount = 0
+    let isScannedPDF = false
+    
+    try {
+      const pdfParse = require('pdf-parse')
+      // Parse first few pages to get page count and check if scanned
+      const pdfParseResult = await pdfParse(fileBuffer, { max: 3 }) // Parse first 3 pages to detect scanned
+      pageCount = pdfParseResult.numpages || 0
+      
+      // Detect if PDF is scanned (image-based) vs standard (text-based)
+      // Scanned PDFs have very little extractable text relative to file size
+      const textLength = pdfParseResult.text?.length || 0
+      const avgTextPerPage = pageCount > 0 ? textLength / pageCount : 0
+      
+      // Heuristic: If average text per page is less than 100 characters, likely scanned
+      // Also check if file size is large but text is small (indicates image-heavy/scanned)
+      const textToSizeRatio = textLength / fileBuffer.length
+      isScannedPDF = avgTextPerPage < 100 || (fileBuffer.length > 1024 * 1024 && textToSizeRatio < 0.01)
+      
+      const pageLimit = isScannedPDF ? ADOBE_SCANNED_PAGE_LIMIT : ADOBE_STANDARD_PAGE_LIMIT
+      const pdfType = isScannedPDF ? 'scanned' : 'standard'
+      
+      if (pageCount > pageLimit) {
+        activeScans.delete(scanId)
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: `PDF exceeds Adobe PDF Services page limit`,
+            details: `This ${pdfType} PDF has ${pageCount} pages, but Adobe PDF Services supports a maximum of ${pageLimit} pages for ${pdfType} PDFs during auto-tagging and accessibility checking.`,
+            pageCount: pageCount,
+            maxPages: pageLimit,
+            pdfType: pdfType,
+            suggestion: `Please split the PDF into smaller documents (under ${pageLimit} pages each) or use our manual accessibility checker for larger documents.`
+          },
+          { status: 400 }
+        )
+      }
+      
+      console.log(`📄 PDF validation: ${pageCount} pages, ${Math.round(fileBuffer.length / (1024 * 1024))}MB, type: ${pdfType} (limit: ${pageLimit} pages)`)
+    } catch (pageCountError: any) {
+      console.warn(`⚠️ Could not check page count: ${pageCountError.message}`)
+      // Continue processing - we'll let Adobe API handle the error if it's too large
+      // This prevents blocking valid PDFs if page count check fails
+      // Default to standard PDF limits if we can't detect
+      isScannedPDF = false
+    }
+    
+    // Check and deduct credits AFTER page count validation passes
     // Get user's current credit information
     let creditData = await queryOne(
       'SELECT * FROM user_credits WHERE user_id = $1',
@@ -83,20 +343,25 @@ export async function POST(request: NextRequest) {
       )
     }
     
+    // Store credit transaction ID for potential refund if cancelled
+    let creditTransactionId: number | null = null
+    
     // Check if user has unlimited credits
     if (creditData.unlimited_credits) {
       // Unlimited user, log the scan but don't deduct credits
-      await query(
+      const transactionResult = await query(
         `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-         VALUES ($1, $2, $3, $4)`,
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
         [user.userId, 'usage', 0, `Document scan: ${body.fileName}`]
       )
+      creditTransactionId = transactionResult.rows?.[0]?.id || null
     } else {
       // Check if user has enough credits
       if (creditData.credits_remaining < 1) {
         // Create notification for insufficient credits
         await NotificationService.notifyInsufficientCredits(user.userId)
-        
+        activeScans.delete(scanId)
         return NextResponse.json(
           { error: 'Insufficient credits', canScan: false },
           { status: 402 }
@@ -118,11 +383,13 @@ export async function POST(request: NextRequest) {
         )
         
         // Log the scan transaction (with fallback for missing columns)
-        await query(
+        const transactionResult = await query(
           `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-           VALUES ($1, $2, $3, $4)`,
+           VALUES ($1, $2, $3, $4)
+           RETURNING id`,
           [user.userId, 'usage', -1, `Document scan: ${body.fileName}`]
         )
+        creditTransactionId = transactionResult.rows?.[0]?.id || null
         
         await query('COMMIT')
         
@@ -138,23 +405,13 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Register this scan as active
-    activeScans.set(scanId, { cancelled: false })
-    
-    // Convert base64 to buffer
-    const fileBuffer = Buffer.from(body.fileContent, 'base64')
-    
-    // Check if this is a PDF file
-    if (!body.fileType.toLowerCase().includes('pdf') && !body.fileName.toLowerCase().endsWith('.pdf')) {
-      activeScans.delete(scanId)
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Only PDF files are supported for Adobe PDF Services workflow'
-        },
-        { status: 400 }
-      )
-    }
+    // Update active scan with credit transaction ID and userId for potential refund if cancelled
+    const currentScan = activeScans.get(scanId)
+    activeScans.set(scanId, { 
+      cancelled: currentScan?.cancelled || false,
+      creditTransactionId: creditTransactionId,
+      userId: user.userId
+    })
     
     // Get Adobe PDF Services instance
     const adobePDFServices = getAdobePDFServices()
@@ -196,7 +453,55 @@ export async function POST(request: NextRequest) {
       taggedPdfBuffer = autoTagResult.taggedPdfBuffer
       taggingSuccess = true
     } else {
-      console.warn(`⚠️ Adobe auto-tag failed: ${autoTagResult.error || autoTagResult.message} - using original PDF`)
+      const errorMessage = autoTagResult.error || autoTagResult.message || ''
+      console.warn(`⚠️ Adobe auto-tag failed: ${errorMessage}`)
+      
+      // Check if the error is due to page limit
+      if (errorMessage.toLowerCase().includes('page limit') || 
+          errorMessage.toLowerCase().includes('exceeds') ||
+          errorMessage.toLowerCase().includes('too many pages') ||
+          errorMessage.toLowerCase().includes('not suitable for conversion')) {
+        // Refund the credit since we can't process this PDF
+        if (creditTransactionId && user.userId) {
+          try {
+            await query('BEGIN')
+            await query(
+              `UPDATE user_credits 
+               SET credits_remaining = credits_remaining + 1, 
+                   credits_used = GREATEST(credits_used - 1, 0),
+                   updated_at = NOW()
+               WHERE user_id = $1`,
+              [user.userId]
+            )
+            await query('COMMIT')
+            console.log('✅ Refunded credit due to page limit error')
+          } catch (refundError) {
+            await query('ROLLBACK')
+            console.error('❌ Failed to refund credit:', refundError)
+          }
+        }
+        
+        // Determine PDF type and appropriate limit
+        const pdfType = isScannedPDF ? 'scanned' : 'standard'
+        const pageLimit = isScannedPDF ? ADOBE_SCANNED_PAGE_LIMIT : ADOBE_STANDARD_PAGE_LIMIT
+        
+        activeScans.delete(scanId)
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: `PDF exceeds Adobe PDF Services page limit`,
+            details: `Adobe PDF Services cannot process this ${pdfType} PDF: ${errorMessage}. The maximum page limit is ${pageLimit} pages for ${pdfType} PDFs during auto-tagging and accessibility checking.`,
+            pageCount: pageCount || 'unknown',
+            maxPages: pageLimit,
+            pdfType: pdfType,
+            suggestion: `Please split the PDF into smaller documents (under ${pageLimit} pages each) or use our manual accessibility checker for larger documents.`
+          },
+          { status: 400 }
+        )
+      }
+      
+      // For other auto-tag failures, continue with original PDF
+      console.warn(`⚠️ Continuing with original PDF (auto-tag failed but not due to page limit)`)
     }
     
     // Check for cancellation
@@ -253,7 +558,9 @@ export async function POST(request: NextRequest) {
       console.log('📊 Categories count:', accessibilityResult.report.categories ? Object.keys(accessibilityResult.report.categories).length : 0)
       
       // Build categories from issues if not available in report
+      // NOTE: This will be replaced with re-scan results if auto-fix succeeds
       let reportCategories = accessibilityResult.report.categories
+      let reportSummary = accessibilityResult.report.summary
       if (!reportCategories && adobeIssues.length > 0) {
         console.log('⚠️ No categories in report, building from issues...')
         reportCategories = {}
@@ -285,121 +592,35 @@ export async function POST(request: NextRequest) {
       
       const failedCount = issuesNeedingRemediation.length
       
-      console.log(`🔍 Found ${adobeIssues.length} total checks, ${issuesNeedingRemediation.length} Failed issues need AI remediation`)
+      // Store original scan results for comparison report
+      const originalScanResults = {
+        totalChecks: adobeIssues.length,
+        failedIssues: issuesNeedingRemediation.length,
+        issues: issuesNeedingRemediation.map((issue: any) => ({
+          rule: issue.rule || issue.ruleName || 'Unknown',
+          description: issue.description || 'No description',
+          status: issue.status || 'Failed',
+          category: issue.category || 'Other',
+          page: issue.page,
+          location: issue.location
+        })),
+        summary: accessibilityResult.report.summary
+      }
       
-      // Enhance ONLY Failed issues with AI suggestions (exclude "Needs manual check")
-      const claudeAPI = new ClaudeAPI()
-      const enhancedIssues = await Promise.all(
-        issuesNeedingRemediation.map(async (adobeIssue: any, index: number) => {
-          // Check for cancellation during AI enhancement
-          if (activeScans.get(scanId)?.cancelled) {
-            throw new Error('Scan was cancelled by user')
-          }
-          
-          const issueStatus = adobeIssue.status || (adobeIssue.type === 'error' ? 'Failed' : 'Passed')
-          const isFailed = issueStatus === 'Failed' || issueStatus === 'Failed manually'
-          
-          // Build detailed context with element information from the report
-          // This includes page, location, element ID, type, content, and tag for precise remediation
-          const elementInfo = []
-          if (adobeIssue.page) elementInfo.push(`Page ${adobeIssue.page}`)
-          if (adobeIssue.location && adobeIssue.location !== 'Unknown location' && adobeIssue.location !== 'Document') {
-            elementInfo.push(`Location: ${adobeIssue.location}`)
-          }
-          if (adobeIssue.elementId) elementInfo.push(`Element ID: ${adobeIssue.elementId}`)
-          if (adobeIssue.elementType) elementInfo.push(`Element Type: ${adobeIssue.elementType}`)
-          if (adobeIssue.elementContent) {
-            elementInfo.push(`Content: "${adobeIssue.elementContent.substring(0, 50)}${adobeIssue.elementContent.length > 50 ? '...' : ''}"`)
-          }
-          if (adobeIssue.elementTag) elementInfo.push(`PDF Tag: ${adobeIssue.elementTag}`)
-          
-          // Use description to help identify the problem text if elementContent is missing
-          // Adobe descriptions often contain clues about what text/element needs fixing
-          let elementContext = adobeIssue.description || adobeIssue.rule || 'Accessibility issue'
-          if (elementInfo.length > 0) {
-            elementContext = `${elementContext}. ${elementInfo.join(', ')}`
-          } else if (adobeIssue.description) {
-            // If no element details, use the description which often contains helpful info
-            elementContext = adobeIssue.description
-          }
-          
-          console.log(`🤖 Generating AI remediation for failed issue ${index + 1}/${issuesNeedingRemediation.length}: ${adobeIssue.rule || 'Unknown rule'}`)
-          console.log(`   Full Adobe issue data:`, JSON.stringify({
-            page: adobeIssue.page,
-            location: adobeIssue.location,
-            elementId: adobeIssue.elementId,
-            elementType: adobeIssue.elementType,
-            elementContent: adobeIssue.elementContent,
-            elementTag: adobeIssue.elementTag,
-            description: adobeIssue.description,
-            rule: adobeIssue.rule
-          }, null, 2))
-          if (elementInfo.length > 0) {
-            console.log(`   Element details: ${elementInfo.join(', ')}`)
-          } else {
-            console.log(`   ⚠️ No element details available - using issue description and location only`)
-          }
-          
-          // Determine location - if truly unknown, use rule name to provide context
-          let locationForAI = adobeIssue.location || adobeIssue.elementLocation
-          if (!locationForAI || locationForAI === 'Unknown location' || locationForAI === 'Document') {
-            // Use rule name to provide better context (e.g., "Figures alternate text" = "All figures in document")
-            const ruleName = adobeIssue.rule || adobeIssue.ruleName || ''
-            if (ruleName.toLowerCase().includes('figure') || ruleName.toLowerCase().includes('image')) {
-              locationForAI = 'All figures/images in document'
-            } else if (ruleName.toLowerCase().includes('table')) {
-              locationForAI = 'All tables in document'
-            } else if (ruleName.toLowerCase().includes('heading')) {
-              locationForAI = 'All headings in document'
-            } else if (ruleName.toLowerCase().includes('title')) {
-              locationForAI = 'Document properties'
-            } else if (ruleName.toLowerCase().includes('language')) {
-              locationForAI = 'Document properties'
-            } else {
-              locationForAI = 'Document' // Better than "Unknown location"
-            }
-          }
-          
-          const aiSuggestion = await claudeAPI.generateDocumentAccessibilitySuggestion(
-            elementContext,
-            adobeIssue.rule || adobeIssue.ruleName || 'Accessibility',
-            body.fileName,
-            body.fileType,
-            locationForAI,
-            adobeIssue.page || adobeIssue.pageNumber,
-            adobeIssue.elementContent, // Pass element content for better context
-            adobeIssue.elementId, // Pass element ID for precise targeting
-            adobeIssue.elementType // Pass element type for better guidance
-          )
-          
-          return {
-            id: `adobe_issue_${Date.now()}_${index}`,
-            type: 'critical', // All issues here are Failed = critical
-            category: adobeIssue.category || 'structure',
-            description: adobeIssue.description || adobeIssue.rule || adobeIssue.ruleName || 'Accessibility issue',
-            section: adobeIssue.rule || adobeIssue.ruleName || 'Accessibility',
-            pageNumber: adobeIssue.page || adobeIssue.pageNumber,
-            elementLocation: adobeIssue.location || adobeIssue.elementLocation || adobeIssue.context || 'Unknown location',
-            elementId: adobeIssue.elementId,
-            elementType: adobeIssue.elementType,
-            elementContent: adobeIssue.elementContent,
-            elementTag: adobeIssue.elementTag,
-            context: `Adobe Accessibility Checker found: ${adobeIssue.rule || adobeIssue.ruleName || 'Unknown rule'}${elementInfo.length > 0 ? ` (${elementInfo.join(', ')})` : ''}`,
-            wcagCriterion: 'WCAG 2.1 AA - PDF/UA Compliance',
-            section508Requirement: '36 CFR § 1194.22 - Document Accessibility',
-            impact: 'high', // Failed issues are high impact
-            recommendation: aiSuggestion,
-            remediation: aiSuggestion,
-            status: 'Failed' // All issues here are Failed
-          }
-        })
-      )
+      console.log(`🔍 Found ${adobeIssues.length} total checks, ${issuesNeedingRemediation.length} Failed issues`)
+      console.log(`⏭️ Skipping AI suggestions for original scan - will generate only for remaining issues after auto-fix`)
+      
+      // Don't generate AI suggestions yet - wait until after auto-fix and re-scan
+      // This avoids wasting API calls on issues that will be auto-fixed
+      let enhancedIssues: any[] = []
       
       // Step 3: Apply automatic fixes using AI + PyMuPDF
       // This is our USP - automatically fix issues like alt text and table summaries
       console.log('🤖 Step 3: Applying automatic fixes using AI...')
       let autoFixedPdfBuffer: Buffer | undefined = undefined
       let autoFixResult: any = undefined
+      let verificationResult: any = null
+      let comparisonReport: any = undefined
       
       try {
         const { AIAutoFixService } = await import('@/lib/ai-auto-fix-service')
@@ -433,18 +654,375 @@ export async function POST(request: NextRequest) {
         if (autoFixResult.success && autoFixResult.fixedPdfBuffer) {
           autoFixedPdfBuffer = autoFixResult.fixedPdfBuffer
           console.log(`✅ Auto-fix complete: ${autoFixResult.fixesApplied.altText} alt texts, ${autoFixResult.fixesApplied.tableSummaries} table summaries`)
+          
+          // Verify fixes were actually applied (same as test scripts)
+          console.log('🔍 Step 4: Verifying fixes were applied to PDF...')
+          try {
+            verificationResult = await verifyPDFFixes(autoFixedPdfBuffer)
+            if (verificationResult.success) {
+              console.log(`✅ Verification passed:`)
+              console.log(`   - Document is tagged: ${verificationResult.isTagged ? 'Yes' : 'No'}`)
+              console.log(`   - MarkInfo/Marked: ${verificationResult.isMarked ? 'Yes' : 'No'}`)
+              console.log(`   - Document language: ${verificationResult.language || 'Not set'}`)
+              console.log(`   - Document title: ${verificationResult.title ? 'Yes' : 'No'}`)
+              console.log(`   - Bookmarks: ${verificationResult.bookmarkCount || 0}`)
+              console.log(`   - Structure elements: ${verificationResult.structureElements || 0} (Figures: ${verificationResult.figureCount || 0}, Tables: ${verificationResult.tableCount || 0}, Headings: ${verificationResult.headingCount || 0})`)
+            } else {
+              console.warn(`⚠️ Verification failed: ${verificationResult.error || 'Unknown error'}`)
+            }
+          } catch (verifyError) {
+            console.warn(`⚠️ Could not verify fixes (non-critical): ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}`)
+          }
+          
+          // Store verification result for response
+          ;(autoFixResult as any).verification = verificationResult
+          
+          // Re-scan the FIXED PDF to get only remaining issues (avoid duplicate work)
+          console.log('🔍 Step 5: Re-scanning FIXED PDF to identify remaining issues...')
+          const fixedPdfAccessibilityResult = await adobePDFServices.checkAccessibility(autoFixedPdfBuffer)
+          
+          if (fixedPdfAccessibilityResult.success && fixedPdfAccessibilityResult.report) {
+            // USE RE-SCAN RESULTS for detailed report (not original scan)
+            reportCategories = fixedPdfAccessibilityResult.report.categories || reportCategories
+            reportSummary = fixedPdfAccessibilityResult.report.summary || reportSummary
+            console.log(`✅ Re-scan complete: Using re-scan results for detailed report`)
+            
+            const fixedPdfIssues = fixedPdfAccessibilityResult.report.issues || []
+            const remainingFailedIssues = fixedPdfIssues.filter((issue: any) => {
+              const status = issue.status || 'Passed'
+              return status === 'Failed' || status === 'Failed manually'
+            })
+            
+            // Store re-scan results for comparison
+            const reScanResults = {
+              totalChecks: fixedPdfIssues.length,
+              failedIssues: remainingFailedIssues.length,
+              issues: remainingFailedIssues.map((issue: any) => ({
+                rule: issue.rule || issue.ruleName || 'Unknown',
+                description: issue.description || 'No description',
+                status: issue.status || 'Failed',
+                category: issue.category || 'Other',
+                page: issue.page,
+                location: issue.location
+              })),
+              summary: fixedPdfAccessibilityResult.report.summary
+            }
+            
+            // Create comparison report
+            const fixedIssues = originalScanResults.issues.filter((original: any) => {
+              // An issue was fixed if it's in original but not in remaining
+              return !remainingFailedIssues.some((remaining: any) => {
+                const originalRule = (original.rule || '').toLowerCase()
+                const remainingRule = (remaining.rule || remaining.ruleName || '').toLowerCase()
+                return originalRule === remainingRule || 
+                       (originalRule.includes('figure') && remainingRule.includes('figure')) ||
+                       (originalRule.includes('table') && remainingRule.includes('table'))
+              })
+            })
+            
+            const comparisonReport = {
+              original: {
+                totalChecks: originalScanResults.totalChecks,
+                failed: originalScanResults.failedIssues,
+                passed: originalScanResults.summary?.passed || 0,
+                needsManualCheck: originalScanResults.summary?.needsManualCheck || 0,
+                issues: originalScanResults.issues
+              },
+              fixed: {
+                count: fixedIssues.length,
+                issues: fixedIssues,
+                fixesApplied: autoFixResult.fixesApplied || {}
+              },
+              remaining: {
+                totalChecks: reScanResults.totalChecks,
+                failed: reScanResults.failedIssues,
+                passed: reScanResults.summary?.passed || 0,
+                needsManualCheck: reScanResults.summary?.needsManualCheck || 0,
+                issues: reScanResults.issues
+              },
+              improvement: {
+                issuesFixed: fixedIssues.length,
+                issuesRemaining: remainingFailedIssues.length,
+                improvementPercentage: originalScanResults.failedIssues > 0 
+                  ? Math.round((fixedIssues.length / originalScanResults.failedIssues) * 100)
+                  : 0
+              }
+            }
+            
+            console.log(`✅ Re-scan complete: ${fixedPdfIssues.length} total checks, ${remainingFailedIssues.length} remaining failed issues`)
+            console.log(`📊 Issues fixed: ${fixedIssues.length} out of ${originalScanResults.failedIssues} (${comparisonReport.improvement.improvementPercentage}% improvement)`)
+            console.log(`📋 Comparison Report:`, JSON.stringify(comparisonReport, null, 2))
+            
+            // Replace enhancedIssues with only remaining issues from fixed PDF
+            if (remainingFailedIssues.length > 0) {
+              // Enhance remaining issues with AI suggestions (only generate for issues that couldn't be auto-fixed)
+              console.log(`🤖 Generating AI remediation for ${remainingFailedIssues.length} remaining issues...`)
+              const remainingClaudeAPI = new ClaudeAPI()
+              const remainingEnhancedIssues = await Promise.all(
+                remainingFailedIssues.map(async (issue: any, index: number) => {
+                  // Check for cancellation during AI enhancement
+                  if (activeScans.get(scanId)?.cancelled) {
+                    throw new Error('Scan was cancelled by user')
+                  }
+                  
+                  // Build detailed context with element information from the report
+                  const elementInfo = []
+                  if (issue.page) elementInfo.push(`Page ${issue.page}`)
+                  if (issue.location && issue.location !== 'Unknown location' && issue.location !== 'Document') {
+                    elementInfo.push(`Location: ${issue.location}`)
+                  }
+                  if (issue.elementId) elementInfo.push(`Element ID: ${issue.elementId}`)
+                  if (issue.elementType) elementInfo.push(`Element Type: ${issue.elementType}`)
+                  if (issue.elementContent) {
+                    elementInfo.push(`Content: "${issue.elementContent.substring(0, 50)}${issue.elementContent.length > 50 ? '...' : ''}"`)
+                  }
+                  if (issue.elementTag) elementInfo.push(`PDF Tag: ${issue.elementTag}`)
+                  
+                  let elementContext = issue.description || issue.rule || 'Accessibility issue'
+                  if (elementInfo.length > 0) {
+                    elementContext = `${elementContext}. ${elementInfo.join(', ')}`
+                  } else if (issue.description) {
+                    elementContext = issue.description
+                  }
+                  
+                  // Determine location - if truly unknown, use rule name to provide context
+                  let locationForAI = issue.location || issue.elementLocation
+                  if (!locationForAI || locationForAI === 'Unknown location' || locationForAI === 'Document') {
+                    const ruleName = issue.rule || issue.ruleName || ''
+                    if (ruleName.toLowerCase().includes('figure') || ruleName.toLowerCase().includes('image')) {
+                      locationForAI = 'All figures/images in document'
+                    } else if (ruleName.toLowerCase().includes('table')) {
+                      locationForAI = 'All tables in document'
+                    } else if (ruleName.toLowerCase().includes('heading')) {
+                      locationForAI = 'All headings in document'
+                    } else if (ruleName.toLowerCase().includes('title')) {
+                      locationForAI = 'Document properties'
+                    } else if (ruleName.toLowerCase().includes('language')) {
+                      locationForAI = 'Document properties'
+                    } else {
+                      locationForAI = 'Document'
+                    }
+                  }
+                  
+                  console.log(`🤖 Generating AI remediation for remaining issue ${index + 1}/${remainingFailedIssues.length}: ${issue.rule || issue.ruleName || 'Unknown rule'}`)
+                  
+                  const aiSuggestion = await remainingClaudeAPI.generateDocumentAccessibilitySuggestion(
+                    elementContext,
+                    issue.rule || issue.ruleName || 'Accessibility',
+                    body.fileName,
+                    body.fileType,
+                    locationForAI,
+                    issue.page || issue.pageNumber,
+                    issue.elementContent,
+                    issue.elementId,
+                    issue.elementType
+                  )
+                  
+                  return {
+                    id: `adobe_issue_${Date.now()}_${index}`,
+                    type: 'critical',
+                    category: issue.category || 'structure',
+                    description: issue.description || issue.rule || issue.ruleName || 'Accessibility issue',
+                    section: issue.rule || issue.ruleName || 'Accessibility',
+                    pageNumber: issue.page || issue.pageNumber,
+                    elementLocation: issue.location || issue.elementLocation || 'Unknown location',
+                    elementId: issue.elementId,
+                    elementType: issue.elementType,
+                    elementContent: issue.elementContent,
+                    elementTag: issue.elementTag,
+                    context: `Adobe Accessibility Checker found: ${issue.rule || issue.ruleName || 'Unknown rule'}${elementInfo.length > 0 ? ` (${elementInfo.join(', ')})` : ''}`,
+                    wcagCriterion: 'WCAG 2.1 AA - PDF/UA Compliance',
+                    section508Requirement: '36 CFR § 1194.22 - Document Accessibility',
+                    impact: 'high',
+                    recommendation: aiSuggestion,
+                    remediation: aiSuggestion,
+                    status: 'Failed',
+                    autoFixed: false // These are remaining issues that couldn't be auto-fixed
+                  }
+                })
+              )
+              
+              enhancedIssues = remainingEnhancedIssues
+            } else {
+              // All issues were fixed!
+              enhancedIssues = []
+              console.log('🎉 All issues were auto-fixed! No remaining issues.')
+            }
+          }
         } else {
           console.warn('⚠️ Auto-fix failed or no fixes applied:', autoFixResult.errors)
+          // If auto-fix failed, generate AI suggestions for original issues
+          if (issuesNeedingRemediation.length > 0) {
+            console.log(`🤖 Auto-fix failed - generating AI suggestions for ${issuesNeedingRemediation.length} original issues...`)
+            const claudeAPI = new ClaudeAPI()
+            enhancedIssues = await Promise.all(
+              issuesNeedingRemediation.map(async (adobeIssue: any, index: number) => {
+                if (activeScans.get(scanId)?.cancelled) {
+                  throw new Error('Scan was cancelled by user')
+                }
+                
+                const elementInfo = []
+                if (adobeIssue.page) elementInfo.push(`Page ${adobeIssue.page}`)
+                if (adobeIssue.location && adobeIssue.location !== 'Unknown location' && adobeIssue.location !== 'Document') {
+                  elementInfo.push(`Location: ${adobeIssue.location}`)
+                }
+                if (adobeIssue.elementId) elementInfo.push(`Element ID: ${adobeIssue.elementId}`)
+                if (adobeIssue.elementType) elementInfo.push(`Element Type: ${adobeIssue.elementType}`)
+                if (adobeIssue.elementContent) {
+                  elementInfo.push(`Content: "${adobeIssue.elementContent.substring(0, 50)}${adobeIssue.elementContent.length > 50 ? '...' : ''}"`)
+                }
+                if (adobeIssue.elementTag) elementInfo.push(`PDF Tag: ${adobeIssue.elementTag}`)
+                
+                let elementContext = adobeIssue.description || adobeIssue.rule || 'Accessibility issue'
+                if (elementInfo.length > 0) {
+                  elementContext = `${elementContext}. ${elementInfo.join(', ')}`
+                } else if (adobeIssue.description) {
+                  elementContext = adobeIssue.description
+                }
+                
+                let locationForAI = adobeIssue.location || adobeIssue.elementLocation
+                if (!locationForAI || locationForAI === 'Unknown location' || locationForAI === 'Document') {
+                  const ruleName = adobeIssue.rule || adobeIssue.ruleName || ''
+                  if (ruleName.toLowerCase().includes('figure') || ruleName.toLowerCase().includes('image')) {
+                    locationForAI = 'All figures/images in document'
+                  } else if (ruleName.toLowerCase().includes('table')) {
+                    locationForAI = 'All tables in document'
+                  } else if (ruleName.toLowerCase().includes('heading')) {
+                    locationForAI = 'All headings in document'
+                  } else if (ruleName.toLowerCase().includes('title')) {
+                    locationForAI = 'Document properties'
+                  } else if (ruleName.toLowerCase().includes('language')) {
+                    locationForAI = 'Document properties'
+                  } else {
+                    locationForAI = 'Document'
+                  }
+                }
+                
+                const aiSuggestion = await claudeAPI.generateDocumentAccessibilitySuggestion(
+                  elementContext,
+                  adobeIssue.rule || adobeIssue.ruleName || 'Accessibility',
+                  body.fileName,
+                  body.fileType,
+                  locationForAI,
+                  adobeIssue.page || adobeIssue.pageNumber,
+                  adobeIssue.elementContent,
+                  adobeIssue.elementId,
+                  adobeIssue.elementType
+                )
+                
+                return {
+                  id: `adobe_issue_${Date.now()}_${index}`,
+                  type: 'critical',
+                  category: adobeIssue.category || 'structure',
+                  description: adobeIssue.description || adobeIssue.rule || adobeIssue.ruleName || 'Accessibility issue',
+                  section: adobeIssue.rule || adobeIssue.ruleName || 'Accessibility',
+                  pageNumber: adobeIssue.page || adobeIssue.pageNumber,
+                  elementLocation: adobeIssue.location || adobeIssue.elementLocation || adobeIssue.context || 'Unknown location',
+                  elementId: adobeIssue.elementId,
+                  elementType: adobeIssue.elementType,
+                  elementContent: adobeIssue.elementContent,
+                  elementTag: adobeIssue.elementTag,
+                  context: `Adobe Accessibility Checker found: ${adobeIssue.rule || adobeIssue.ruleName || 'Unknown rule'}${elementInfo.length > 0 ? ` (${elementInfo.join(', ')})` : ''}`,
+                  wcagCriterion: 'WCAG 2.1 AA - PDF/UA Compliance',
+                  section508Requirement: '36 CFR § 1194.22 - Document Accessibility',
+                  impact: 'high',
+                  recommendation: aiSuggestion,
+                  remediation: aiSuggestion,
+                  status: 'Failed'
+                }
+              })
+            )
+          }
         }
       } catch (autoFixError) {
         console.error('❌ Auto-fix service error:', autoFixError)
-        // Don't fail the entire scan if auto-fix fails
+        // If auto-fix errors, generate AI suggestions for original issues
+        if (issuesNeedingRemediation.length > 0 && enhancedIssues.length === 0) {
+          console.log(`🤖 Auto-fix error - generating AI suggestions for ${issuesNeedingRemediation.length} original issues...`)
+          const claudeAPI = new ClaudeAPI()
+          enhancedIssues = await Promise.all(
+            issuesNeedingRemediation.map(async (adobeIssue: any, index: number) => {
+              if (activeScans.get(scanId)?.cancelled) {
+                throw new Error('Scan was cancelled by user')
+              }
+              
+              const elementInfo = []
+              if (adobeIssue.page) elementInfo.push(`Page ${adobeIssue.page}`)
+              if (adobeIssue.location && adobeIssue.location !== 'Unknown location' && adobeIssue.location !== 'Document') {
+                elementInfo.push(`Location: ${adobeIssue.location}`)
+              }
+              if (adobeIssue.elementId) elementInfo.push(`Element ID: ${adobeIssue.elementId}`)
+              if (adobeIssue.elementType) elementInfo.push(`Element Type: ${adobeIssue.elementType}`)
+              if (adobeIssue.elementContent) {
+                elementInfo.push(`Content: "${adobeIssue.elementContent.substring(0, 50)}${adobeIssue.elementContent.length > 50 ? '...' : ''}"`)
+              }
+              if (adobeIssue.elementTag) elementInfo.push(`PDF Tag: ${adobeIssue.elementTag}`)
+              
+              let elementContext = adobeIssue.description || adobeIssue.rule || 'Accessibility issue'
+              if (elementInfo.length > 0) {
+                elementContext = `${elementContext}. ${elementInfo.join(', ')}`
+              } else if (adobeIssue.description) {
+                elementContext = adobeIssue.description
+              }
+              
+              let locationForAI = adobeIssue.location || adobeIssue.elementLocation
+              if (!locationForAI || locationForAI === 'Unknown location' || locationForAI === 'Document') {
+                const ruleName = adobeIssue.rule || adobeIssue.ruleName || ''
+                if (ruleName.toLowerCase().includes('figure') || ruleName.toLowerCase().includes('image')) {
+                  locationForAI = 'All figures/images in document'
+                } else if (ruleName.toLowerCase().includes('table')) {
+                  locationForAI = 'All tables in document'
+                } else if (ruleName.toLowerCase().includes('heading')) {
+                  locationForAI = 'All headings in document'
+                } else if (ruleName.toLowerCase().includes('title')) {
+                  locationForAI = 'Document properties'
+                } else if (ruleName.toLowerCase().includes('language')) {
+                  locationForAI = 'Document properties'
+                } else {
+                  locationForAI = 'Document'
+                }
+              }
+              
+              const aiSuggestion = await claudeAPI.generateDocumentAccessibilitySuggestion(
+                elementContext,
+                adobeIssue.rule || adobeIssue.ruleName || 'Accessibility',
+                body.fileName,
+                body.fileType,
+                locationForAI,
+                adobeIssue.page || adobeIssue.pageNumber,
+                adobeIssue.elementContent,
+                adobeIssue.elementId,
+                adobeIssue.elementType
+              )
+              
+              return {
+                id: `adobe_issue_${Date.now()}_${index}`,
+                type: 'critical',
+                category: adobeIssue.category || 'structure',
+                description: adobeIssue.description || adobeIssue.rule || adobeIssue.ruleName || 'Accessibility issue',
+                section: adobeIssue.rule || adobeIssue.ruleName || 'Accessibility',
+                pageNumber: adobeIssue.page || adobeIssue.pageNumber,
+                elementLocation: adobeIssue.location || adobeIssue.elementLocation || adobeIssue.context || 'Unknown location',
+                elementId: adobeIssue.elementId,
+                elementType: adobeIssue.elementType,
+                elementContent: adobeIssue.elementContent,
+                elementTag: adobeIssue.elementTag,
+                context: `Adobe Accessibility Checker found: ${adobeIssue.rule || adobeIssue.ruleName || 'Unknown rule'}${elementInfo.length > 0 ? ` (${elementInfo.join(', ')})` : ''}`,
+                wcagCriterion: 'WCAG 2.1 AA - PDF/UA Compliance',
+                section508Requirement: '36 CFR § 1194.22 - Document Accessibility',
+                impact: 'high',
+                recommendation: aiSuggestion,
+                remediation: aiSuggestion,
+                status: 'Failed'
+              }
+            })
+          )
+        }
       }
       
-      // Calculate compliance and score based on the TAGGED PDF report
-      // This shows what issues remain AFTER auto-tagging
+      // Calculate compliance and score based on REMAINING issues after auto-fix
       // Only count Failed issues (exclude "Needs manual check" - those are informational)
-      const totalIssuesFound = enhancedIssues.length // Only Failed issues
+      const totalIssuesFound = enhancedIssues.length // Only remaining Failed issues
       const criticalIssuesFound = enhancedIssues.length // All are critical (Failed)
       
       // PDF is compliant if no failed issues (manual checks don't affect compliance)
@@ -498,7 +1076,9 @@ export async function POST(request: NextRequest) {
         adobeReport: {
           compliant: accessibilityResult.compliant,
           summary: accessibilityResult.report.summary
-        }
+        },
+        // Comparison report showing what was fixed vs what remains
+        comparisonReport: comparisonReport
       }
       
       // Store PDFs for download (prioritize auto-fixed PDF, then tagged PDF)
@@ -510,6 +1090,7 @@ export async function POST(request: NextRequest) {
           finalScanResult.taggedPdfFileName = body.fileName.replace(/\.pdf$/i, '_auto-fixed.pdf')
           ;(finalScanResult as any).autoFixed = true
           ;(finalScanResult as any).autoFixStats = autoFixResult?.fixesApplied
+          ;(finalScanResult as any).verification = verificationResult // Include verification results (same as test scripts)
           console.log(`✅ Auto-fixed PDF stored for download: ${finalScanResult.taggedPdfFileName}`)
           console.log(`   Fixes applied: ${autoFixResult?.fixesApplied.altText || 0} alt texts, ${autoFixResult?.fixesApplied.tableSummaries || 0} table summaries`)
           console.log(`   Base64 size: ${Math.round(base64String.length / 1024)} KB`)
@@ -546,8 +1127,32 @@ export async function POST(request: NextRequest) {
       finalScanResult.error = accessibilityResult.error || 'Adobe accessibility check failed'
     }
     
-    // Final cancellation check
+    // Final cancellation check - refund credit if cancelled
     if (activeScans.get(scanId)?.cancelled) {
+      const scanStatus = activeScans.get(scanId)
+      if (scanStatus?.creditTransactionId && scanStatus?.userId) {
+        try {
+          await query('BEGIN')
+          await query(
+            `UPDATE user_credits 
+             SET credits_remaining = credits_remaining + 1, 
+                 credits_used = GREATEST(0, credits_used - 1),
+                 updated_at = NOW()
+             WHERE user_id = $1`,
+            [scanStatus.userId]
+          )
+          await query(
+            `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+             VALUES ($1, $2, $3, $4)`,
+            [scanStatus.userId, 'refund', 1, `Refund for cancelled scan: ${scanId}`]
+          )
+          await query('COMMIT')
+          console.log(`💰 Credit refunded for cancelled scan ${scanId}`)
+        } catch (refundError) {
+          await query('ROLLBACK')
+          console.error('❌ Failed to refund credit on cancellation:', refundError)
+        }
+      }
       activeScans.delete(scanId)
       return NextResponse.json(
         { 
@@ -708,6 +1313,9 @@ export async function DELETE(request: NextRequest) {
       )
     }
     
+    // Require authentication for cancellation
+    const user = await getAuthenticatedUser(request)
+    
     const scanStatus = activeScans.get(scanId)
     if (!scanStatus) {
       return NextResponse.json(
@@ -719,6 +1327,51 @@ export async function DELETE(request: NextRequest) {
     // Mark scan as cancelled
     scanStatus.cancelled = true
     console.log(`🚫 Scan ${scanId} marked for cancellation`)
+    
+    // Refund credit if scan was cancelled (only if credits were deducted)
+    if (scanStatus.creditTransactionId && scanStatus.userId && scanStatus.userId === user.userId) {
+      try {
+        // Get the transaction to check if credit was deducted
+        const transaction = await queryOne(
+          'SELECT * FROM credit_transactions WHERE id = $1 AND user_id = $2',
+          [scanStatus.creditTransactionId, scanStatus.userId]
+        )
+        
+        if (transaction && transaction.credits_amount < 0) {
+          // Credit was deducted, refund it
+          await query('BEGIN')
+          
+          try {
+            // Refund the credit
+            await query(
+              `UPDATE user_credits 
+               SET credits_remaining = credits_remaining + 1, 
+                   credits_used = GREATEST(0, credits_used - 1),
+                   updated_at = NOW()
+               WHERE user_id = $1`,
+              [scanStatus.userId]
+            )
+            
+            // Log the refund transaction
+            await query(
+              `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+               VALUES ($1, $2, $3, $4)`,
+              [scanStatus.userId, 'refund', 1, `Refund for cancelled scan: ${scanId}`]
+            )
+            
+            await query('COMMIT')
+            console.log(`💰 Credit refunded for cancelled scan ${scanId}`)
+          } catch (refundError) {
+            await query('ROLLBACK')
+            console.error('❌ Failed to refund credit:', refundError)
+            // Continue with cancellation even if refund fails
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error checking transaction for refund:', error)
+        // Continue with cancellation even if refund check fails
+      }
+    }
     
     // Save cancelled scan to database
     const cancelledScanRecord = {
@@ -745,7 +1398,7 @@ export async function DELETE(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      message: 'Scan cancellation requested'
+      message: 'Scan cancelled successfully. Credit has been refunded if applicable.'
     })
     
   } catch (error) {

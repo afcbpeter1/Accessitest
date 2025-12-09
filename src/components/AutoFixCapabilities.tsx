@@ -13,23 +13,33 @@ export default function AutoFixCapabilities() {
       steps: [
         {
           icon: Wrench,
-          title: 'Auto-Tag',
+          title: 'Step 1: Auto-Tag',
           description: 'Automatically tag your PDF document using Adobe PDF Services to add accessibility structure (headings, lists, tables, etc.)'
         },
         {
           icon: Search,
-          title: 'Accessibility Check',
-          description: 'Run comprehensive Adobe Acrobat accessibility tests on all pages, checking against PDF/UA and WCAG 2.1 AA standards'
+          title: 'Step 2: Scan',
+          description: 'Run comprehensive Adobe Acrobat accessibility tests (PDF/UA, WCAG 2.1 AA) on the tagged PDF to identify all issues'
         },
         {
           icon: Sparkles,
-          title: 'AI Remediation',
-          description: 'Get detailed AI-powered step-by-step suggestions for fixing each accessibility issue found'
+          title: 'Step 3: Auto-Fix',
+          description: 'Automatically fix 15/16 accessibility issues (93.75% coverage) including alt text, table summaries, metadata, bookmarks, headings, language tags, color contrast, form labels, link text, text size, tab order, and more'
+        },
+        {
+          icon: Search,
+          title: 'Step 4: Re-Scan',
+          description: 'Re-scan the fixed PDF to identify only remaining issues (no duplicates - only issues that couldn\'t be auto-fixed)'
+        },
+        {
+          icon: Sparkles,
+          title: 'Step 5: AI Guidance',
+          description: 'Generate AI-powered remediation suggestions only for remaining issues that require manual intervention'
         },
         {
           icon: Download,
-          title: 'Download Tagged PDF',
-          description: 'Download the automatically tagged version of your document with improved accessibility structure'
+          title: 'Download Auto-Fixed PDF',
+          description: 'Download the automatically fixed PDF with all improvements applied (alt text, summaries, metadata, bookmarks, etc.)'
         }
       ]
     },

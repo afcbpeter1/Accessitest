@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Upload, FileText, AlertTriangle, CheckCircle, X, Download, Eye, Sparkles, CreditCard, Plus, ChevronUp, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import CollapsibleIssue from './CollapsibleIssue'
+import FixReport from './FixReport'
 import { useScan } from '@/contexts/ScanContext'
 import { authenticatedFetch } from '@/lib/auth-utils'
 import { useToast } from './Toast'
@@ -299,6 +300,69 @@ interface UploadedDocument {
       }
       autoTagged?: boolean
     }
+    comparisonReport?: {
+      original: {
+        totalChecks: number
+        failed: number
+        passed: number
+        needsManualCheck: number
+        issues: Array<{
+          rule: string
+          description: string
+          status: string
+          category: string
+          page?: number
+          location?: string
+        }>
+      }
+      fixed: {
+        count: number
+        issues: Array<{
+          rule: string
+          description: string
+          status: string
+          category: string
+          page?: number
+          location?: string
+        }>
+        fixesApplied: {
+          altText?: number
+          tableSummaries?: number
+          metadata?: number
+          bookmarks?: number
+          readingOrder?: number
+          colorContrast?: number
+          language?: number
+          formLabel?: number
+          linkText?: number
+          textSize?: number
+          fontEmbedding?: number
+          tabOrder?: number
+          formFieldProperties?: number
+          linkValidation?: number
+          securitySettings?: number
+        }
+      }
+      remaining: {
+        totalChecks: number
+        failed: number
+        passed: number
+        needsManualCheck: number
+        issues: Array<{
+          rule: string
+          description: string
+          status: string
+          category: string
+          page?: number
+          location?: string
+        }>
+      }
+      improvement: {
+        issuesFixed: number
+        issuesRemaining: number
+        improvementPercentage: number
+      }
+    }
   }
   taggedPdfBase64?: string // Base64 encoded tagged PDF (stored at document level)
   taggedPdfFileName?: string // Filename for the tagged PDF
@@ -452,8 +516,26 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     }
   }, [showToast])
   
+  // Memoize active scan IDs to prevent unnecessary re-renders
+  const activeScanIds = useMemo(() => 
+    activeScans.map(s => `${s.scanId}:${s.status}`).join(','), 
+    [activeScans]
+  )
+  
+  // Use ref to track previous scan IDs and prevent infinite loops
+  const prevScanIdsRef = useRef<string>('')
+  const initializedRef = useRef<boolean>(false)
+  
   // Load scan state from localStorage and global context on component mount
   useEffect(() => {
+    // Only process if scan IDs have actually changed
+    if (prevScanIdsRef.current === activeScanIds && initializedRef.current) {
+      return
+    }
+    
+    prevScanIdsRef.current = activeScanIds
+    initializedRef.current = true
+    
     const savedScanId = localStorage.getItem('currentScanId')
     const savedScanLogs = localStorage.getItem('scanLogs')
     const savedIsScanning = localStorage.getItem('isScanning')
@@ -466,22 +548,41 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     
     if (documentScans.length > 0) {
       const activeScan = documentScans[0] // Get the most recent active document scan
-      setCurrentScanId(activeScan.scanId)
-      setIsScanning(true)
+      
+      // Only update state if the scan ID has actually changed
+      if (activeScan.scanId !== currentScanId) {
+        setCurrentScanId(activeScan.scanId)
+      }
+      
+      // Only update scanning state if it has changed
+      if (!isScanning) {
+        setIsScanning(true)
+      }
       
       if (savedScanLogs) {
-        setScanLogs(JSON.parse(savedScanLogs))
+        try {
+          const parsedLogs = JSON.parse(savedScanLogs)
+          // Only update if logs are different
+          if (JSON.stringify(parsedLogs) !== JSON.stringify(scanLogs)) {
+            setScanLogs(parsedLogs)
+          }
+        } catch (e) {
+          console.warn('Failed to parse saved scan logs:', e)
+        }
       }
     } else {
       // No active scans - clear any stale localStorage state
       if (savedScanId || savedIsScanning === 'true') {
-        console.log('🧹 Clearing stale scan state from localStorage')
-        localStorage.removeItem('currentScanId')
-        localStorage.removeItem('isScanning')
-        localStorage.removeItem('scanLogs')
-        setCurrentScanId(null)
-        setIsScanning(false)
-        setScanLogs([])
+        // Only clear if we're not already in the cleared state
+        if (currentScanId !== null || isScanning) {
+          console.log('🧹 Clearing stale scan state from localStorage')
+          localStorage.removeItem('currentScanId')
+          localStorage.removeItem('isScanning')
+          localStorage.removeItem('scanLogs')
+          setCurrentScanId(null)
+          setIsScanning(false)
+          setScanLogs([])
+        }
       }
       
       // Check for completed scans that need cleanup
@@ -506,7 +607,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         return () => clearTimeout(restoreTimer)
       }
     }
-  }, [activeScans, removeScan, restoreMostRecentScan])
+    // Only depend on the memoized scan IDs, not the entire array
+  }, [activeScanIds, currentScanId, isScanning, scanLogs, activeScans, removeScan, restoreMostRecentScan])
   
   // Save scan state to localStorage
   useEffect(() => {
@@ -701,23 +803,117 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         })
         
         // Store file content in the document object for later scanning
+        // Only store if file passed validation (page count check for PDFs)
         setUploadedDocuments(prev => 
-          prev.map(doc => 
-            doc.id === documentId 
-              ? { ...doc, fileContent }
-              : doc
-          )
+          prev.map(doc => {
+            if (doc.id === documentId) {
+              // Only add fileContent if document status is still 'uploaded' (not 'error')
+              if (doc.status === 'uploaded') {
+                return { ...doc, fileContent }
+              }
+              return doc
+            }
+            return doc
+          })
         )
 
-        // Generate document preview for PDFs
+        // Check page count for PDFs BEFORE storing file content
+        // Use server-side check to avoid browser compatibility issues
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
           try {
-            console.log('📄 PDF detected, generating preview...')
-            await generatePDFPreview(file, documentId)
-            console.log('✅ PDF preview generation completed')
+            console.log('📄 PDF detected, checking page count...')
+            addScanLog('📄 Validating PDF page count...')
+            
+            // Quick server-side page count check
+            const token = localStorage.getItem('accessToken')
+            if (token) {
+              const checkFormData = new FormData()
+              checkFormData.append('file', file)
+              
+              const checkResponse = await fetch('/api/check-pdf-pages', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+                body: checkFormData
+              })
+              
+              if (checkResponse.ok) {
+                const checkResult = await checkResponse.json()
+                const pageCount = checkResult.pageCount || 0
+                const fileSize = checkResult.fileSize || 0
+                const isScanned = checkResult.isScanned || false
+                
+                // Adobe PDF Services API limits
+                const ADOBE_STANDARD_PAGE_LIMIT = 400
+                const ADOBE_SCANNED_PAGE_LIMIT = 150
+                const ADOBE_FILE_SIZE_LIMIT = 100 * 1024 * 1024 // 100MB
+                
+                const pageLimit = isScanned ? ADOBE_SCANNED_PAGE_LIMIT : ADOBE_STANDARD_PAGE_LIMIT
+                const pdfType = isScanned ? 'scanned' : 'standard'
+                
+                // Check file size
+                if (fileSize > ADOBE_FILE_SIZE_LIMIT) {
+                  const fileSizeMB = Math.round(fileSize / (1024 * 1024))
+                  addScanLog(`❌ PDF exceeds file size limit: ${fileSizeMB}MB (maximum: 100MB)`)
+                  addScanLog(`💡 Please compress the PDF or split it into smaller documents`)
+                  
+                  setUploadedDocuments(prev => 
+                    prev.map(doc => 
+                      doc.id === documentId 
+                        ? { 
+                            ...doc, 
+                            status: 'error', 
+                            error: `PDF exceeds file size limit (${fileSizeMB}MB, max 100MB)` 
+                          }
+                        : doc
+                    )
+                  )
+                  continue // Skip this file
+                }
+                
+                // Check page count
+                if (pageCount > pageLimit) {
+                  addScanLog(`❌ PDF exceeds page limit: ${pageCount} pages (maximum: ${pageLimit} pages for ${pdfType} PDFs)`)
+                  addScanLog(`💡 Please split the PDF into smaller documents (under ${pageLimit} pages each)`)
+                  
+                  setUploadedDocuments(prev => 
+                    prev.map(doc => 
+                      doc.id === documentId 
+                        ? { 
+                            ...doc, 
+                            status: 'error', 
+                            error: `PDF exceeds page limit (${pageCount} pages, max ${pageLimit} for ${pdfType} PDFs)` 
+                          }
+                        : doc
+                    )
+                  )
+                  continue // Skip this file
+                }
+                
+                console.log(`✅ PDF page count check passed: ${pageCount} pages, ${pdfType} PDF (limit: ${pageLimit} pages)`)
+                addScanLog(`✅ PDF validated: ${pageCount} pages (${pdfType} PDF)`)
+              } else {
+                // If check fails, log warning but continue (server will check again)
+                console.warn('⚠️ Could not check page count on server, will validate during scan')
+                addScanLog('⚠️ Page count check unavailable, will validate during scan')
+              }
+            }
+            
+            // Generate preview after page count check passes
+            try {
+              console.log('🖼️ Generating PDF preview...')
+              await generatePDFPreview(file, documentId)
+              console.log('✅ PDF preview generation completed')
+            } catch (previewError) {
+              console.error('❌ Could not generate PDF preview:', previewError)
+              // Continue without preview - not critical
+            }
           } catch (error) {
-            console.error('❌ Could not generate PDF preview:', error)
-            // Continue without preview - not critical
+            console.error('❌ Error checking PDF page count:', error)
+            addScanLog(`⚠️ Could not validate PDF page count: ${error instanceof Error ? error.message : 'Unknown error'}`)
+            addScanLog('⚠️ Will validate during scan - file uploaded')
+            // Don't block upload, let server validate during scan
           }
         } else {
           console.log('ℹ️ Not a PDF file, skipping preview generation:', file.type)
@@ -748,51 +944,69 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     try {
       console.log('🖼️ Generating PDF preview for:', file.name)
       
-      // Use pdfjs-dist to render first page as image
-      const pdfjsLib = await import('pdfjs-dist')
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-      
-      const arrayBuffer = await file.arrayBuffer()
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-      const page = await pdf.getPage(1) // Get first page
-      
-      // Use higher scale for better quality
-      const viewport = page.getViewport({ scale: 2.0 })
-      const canvas = document.createElement('canvas')
-      const context = canvas.getContext('2d')
-      
-      if (!context) {
-        console.error('❌ Could not get canvas context')
+      // Try to use pdfjs-dist, but handle module loading errors gracefully
+      let pdfjsLib
+      try {
+        pdfjsLib = await import('pdfjs-dist')
+        // Check if the module loaded correctly
+        if (!pdfjsLib || typeof pdfjsLib.getDocument !== 'function') {
+          throw new Error('pdfjs-dist module not loaded correctly')
+        }
+      } catch (importError: any) {
+        console.warn('⚠️ Could not load pdfjs-dist for preview (module loading issue):', importError?.message || 'Unknown error')
+        // Skip preview generation - not critical, pdfjs-dist has browser compatibility issues
         return
       }
       
-      canvas.height = viewport.height
-      canvas.width = viewport.width
-      
-      await page.render({
-        canvasContext: context,
-        viewport: viewport
-      }).promise
-      
-      // Convert to base64 data URL with better quality
-      const preview = canvas.toDataURL('image/jpeg', 0.85)
-      
-      console.log('✅ PDF preview generated successfully, size:', preview.length, 'chars')
-      
-      // Store preview for this document
-      setDocumentPreview(preview)
-      
-      // Also store in document object for later use
-      setUploadedDocuments(prev => 
-        prev.map(doc => 
-          doc.id === documentId 
-            ? { ...doc, preview }
-            : doc
+      try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
+        
+        const arrayBuffer = await file.arrayBuffer()
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+        const page = await pdf.getPage(1) // Get first page
+        
+        // Use higher scale for better quality
+        const viewport = page.getViewport({ scale: 2.0 })
+        const canvas = document.createElement('canvas')
+        const context = canvas.getContext('2d')
+        
+        if (!context) {
+          console.warn('⚠️ Could not get canvas context for preview')
+          return
+        }
+        
+        canvas.height = viewport.height
+        canvas.width = viewport.width
+        
+        await page.render({
+          canvasContext: context,
+          viewport: viewport
+        }).promise
+        
+        // Convert to base64 data URL with better quality
+        const preview = canvas.toDataURL('image/jpeg', 0.85)
+        
+        console.log('✅ PDF preview generated successfully, size:', preview.length, 'chars')
+        
+        // Store preview for this document
+        setDocumentPreview(preview)
+        
+        // Also store in document object for later use
+        setUploadedDocuments(prev => 
+          prev.map(doc => 
+            doc.id === documentId 
+              ? { ...doc, preview }
+              : doc
+          )
         )
-      )
-    } catch (error) {
-      console.error('❌ Failed to generate PDF preview:', error)
-      // Don't throw - preview is optional
+      } catch (renderError: any) {
+        console.warn('⚠️ Could not render PDF preview:', renderError?.message || 'Unknown error')
+        // Continue without preview - not critical
+      }
+    } catch (error: any) {
+      // Catch-all for any other errors
+      console.warn('⚠️ PDF preview generation failed (non-critical):', error?.message || 'Unknown error')
+      // Don't throw or block upload - preview is optional
     }
   }
 
@@ -1051,20 +1265,54 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
           fileType: document.type,
           fileContent: document.fileContent,
           wcagLevel: 'AA',
-          selectedTags: [] // All tests
+          selectedTags: [], // All tests
+          scanId: scanId // Pass scanId for cancellation support
         })
       })
       
       clearInterval(progressInterval)
 
       if (!response.ok) {
-        throw new Error('Scan failed')
+        const errorData = await response.json().catch(() => ({}))
+        // Show detailed error message if available
+        const errorMessage = errorData.details || errorData.error || 'Scan failed'
+        if (errorData.pageCount && errorData.maxPages) {
+          addScanLog(`❌ ${errorMessage}`)
+          if (errorData.suggestion) {
+            addScanLog(`💡 ${errorData.suggestion}`)
+          }
+        }
+        throw new Error(errorMessage)
       }
 
       const result = await response.json()
       
       if (!result.success) {
-        throw new Error(result.error || 'Scan failed')
+        // Check if it was cancelled
+        if (result.cancelled) {
+          addScanLog('🚫 Scan was cancelled by user')
+          setUploadedDocuments(prev => 
+            prev.map(doc => 
+              doc.id === documentId 
+                ? { ...doc, status: 'uploaded' } // Reset to uploaded so they can try again
+                : doc
+            )
+          )
+          setIsScanning(false)
+          setCurrentScanId(null)
+          await checkUserCredits() // Refresh credits to show refund
+          return
+        }
+        // Store detailed error message
+        const errorMessage = result.details || result.error || 'Scan failed'
+        setUploadedDocuments(prev => 
+          prev.map(doc => 
+            doc.id === documentId 
+              ? { ...doc, status: 'error', error: errorMessage }
+              : doc
+          )
+        )
+        throw new Error(errorMessage)
       }
 
       const scanResult = result.result
@@ -1231,7 +1479,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     }
   }
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string, document?: UploadedDocument) => {
     switch (status) {
       case 'uploading':
         return 'Uploading...'
@@ -1242,7 +1490,14 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       case 'completed':
         return 'Completed'
       case 'error':
+        // Show the actual error message if available
+        if (document?.error) {
+          // Truncate long error messages for status text
+          return document.error.length > 40 ? document.error.substring(0, 40) + '...' : document.error
+        }
         return 'Error occurred'
+      default:
+        return status
     }
   }
 
@@ -1395,7 +1650,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                     <div className="flex items-center space-x-2 flex-shrink-0">
                       <div className="flex items-center space-x-1">
                         {getStatusIcon(document.status)}
-                        <span className="text-xs text-gray-600">{getStatusText(document.status)}</span>
+                        <span className="text-xs text-gray-600" title={document.error || ''}>{getStatusText(document.status, document)}</span>
                       </div>
                       
                       {/* Show scan button for uploaded documents */}
@@ -1507,7 +1762,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                   <div className="flex items-center space-x-2">
                     <div className="flex items-center space-x-2">
                       {getStatusIcon(document.status)}
-                      <span className="text-sm text-gray-600">{getStatusText(document.status)}</span>
+                      <span className="text-sm text-gray-600" title={document.error || ''}>{getStatusText(document.status, document)}</span>
                     </div>
                     
                     <button
@@ -1548,6 +1803,101 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                       </div>
                     )}
 
+                    {/* Fix Report - Show comprehensive fix report if auto-fixed */}
+                    {(document.scanResults as any)?.autoFixed && (document.scanResults as any)?.autoFixStats && (
+                      <FixReport fixesApplied={(document.scanResults as any).autoFixStats} />
+                    )}
+                    
+                    {/* Comparison Report: Before vs After */}
+                    {document.scanResults.comparisonReport && (
+                      <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg shadow-sm">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                          <span className="mr-2">📊</span>
+                          Fix Comparison Report
+                        </h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                          {/* Original Issues */}
+                          <div className="bg-white p-4 rounded-lg border border-red-200">
+                            <div className="text-sm font-semibold text-red-700 mb-2">Original Scan</div>
+                            <div className="text-2xl font-bold text-red-600 mb-1">
+                              {document.scanResults.comparisonReport.original.failed}
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              Failed Issues
+                            </div>
+                            <div className="text-xs text-gray-500 mt-2">
+                              {document.scanResults.comparisonReport.original.totalChecks} total checks
+                            </div>
+                          </div>
+                          
+                          {/* Fixed Issues */}
+                          <div className="bg-white p-4 rounded-lg border border-green-200">
+                            <div className="text-sm font-semibold text-green-700 mb-2">Auto-Fixed</div>
+                            <div className="text-2xl font-bold text-green-600 mb-1">
+                              {document.scanResults.comparisonReport.fixed.count}
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              Issues Resolved
+                            </div>
+                            <div className="text-xs text-green-600 mt-2 font-semibold">
+                              {document.scanResults.comparisonReport.improvement.improvementPercentage}% improvement
+                            </div>
+                          </div>
+                          
+                          {/* Remaining Issues */}
+                          <div className="bg-white p-4 rounded-lg border border-orange-200">
+                            <div className="text-sm font-semibold text-orange-700 mb-2">Remaining</div>
+                            <div className="text-2xl font-bold text-orange-600 mb-1">
+                              {document.scanResults.comparisonReport.remaining.failed}
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              Issues Need Manual Fix
+                            </div>
+                            <div className="text-xs text-gray-500 mt-2">
+                              {document.scanResults.comparisonReport.remaining.totalChecks} total checks
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Fixed Issues List */}
+                        {document.scanResults.comparisonReport.fixed.issues.length > 0 && (
+                          <div className="mt-4 bg-white p-4 rounded-lg border border-green-200">
+                            <h4 className="text-sm font-semibold text-green-800 mb-2 flex items-center">
+                              <CheckCircle className="h-4 w-4 mr-1 text-green-600" />
+                              Fixed Issues ({document.scanResults.comparisonReport.fixed.issues.length})
+                            </h4>
+                            <ul className="space-y-1 text-xs text-gray-700">
+                              {document.scanResults.comparisonReport.fixed.issues.map((issue: any, idx: number) => (
+                                <li key={idx} className="flex items-start">
+                                  <span className="text-green-600 mr-2">✓</span>
+                                  <span><strong>{issue.rule}</strong> - {issue.description}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {/* Remaining Issues List */}
+                        {document.scanResults.comparisonReport.remaining.issues.length > 0 && (
+                          <div className="mt-4 bg-white p-4 rounded-lg border border-orange-200">
+                            <h4 className="text-sm font-semibold text-orange-800 mb-2 flex items-center">
+                              <span className="mr-1">⚠️</span>
+                              Remaining Issues ({document.scanResults.comparisonReport.remaining.issues.length})
+                            </h4>
+                            <ul className="space-y-1 text-xs text-gray-700">
+                              {document.scanResults.comparisonReport.remaining.issues.map((issue: any, idx: number) => (
+                                <li key={idx} className="flex items-start">
+                                  <span className="text-orange-600 mr-2">•</span>
+                                  <span><strong>{issue.rule}</strong> - {issue.description}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Download PDF Button - Shows auto-fixed if available, otherwise tagged */}
                     {(document.taggedPdfBase64 || document.scanResults?.taggedPdfBase64) && (
                       <div className="mt-3 mb-3">
@@ -1564,31 +1914,9 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                             : "Download Fixed PDF (Auto-Tagged)"}</span>
                         </button>
                         {(document.scanResults as any)?.autoFixed ? (
-                          <div className="text-xs text-gray-600 mt-1 space-y-1">
-                            <p className="font-semibold text-green-700">✨ AI Auto-Fixed PDF</p>
-                            <p>
-                              This PDF has been automatically fixed with:
-                              {((document.scanResults as any)?.autoFixStats?.altText || 0) > 0 && (
-                                <span> {((document.scanResults as any)?.autoFixStats?.altText || 0)} AI-generated alt text(s),</span>
-                              )}
-                              {((document.scanResults as any)?.autoFixStats?.tableSummaries || 0) > 0 && (
-                                <span> {((document.scanResults as any)?.autoFixStats?.tableSummaries || 0)} table summary(ies),</span>
-                              )}
-                              {((document.scanResults as any)?.autoFixStats?.colorContrast || 0) > 0 && (
-                                <span> {((document.scanResults as any)?.autoFixStats?.colorContrast || 0)} color contrast fix(es),</span>
-                              )}
-                              {((document.scanResults as any)?.autoFixStats?.metadata || 0) > 0 && (
-                                <span> {((document.scanResults as any)?.autoFixStats?.metadata || 0)} metadata fix(es),</span>
-                              )}
-                              {((document.scanResults as any)?.autoFixStats?.bookmarks || 0) > 0 && (
-                                <span> {((document.scanResults as any)?.autoFixStats?.bookmarks || 0)} bookmark(s),</span>
-                              )}
-                              {((document.scanResults as any)?.autoFixStats?.readingOrder || 0) > 0 && (
-                                <span> {((document.scanResults as any)?.autoFixStats?.readingOrder || 0)} reading order fix(es)</span>
-                              )}
-                            </p>
-                            <p className="text-gray-500">Layout preserved - only accessibility metadata was modified</p>
-                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Layout preserved - only accessibility metadata was modified
+                          </p>
                         ) : (
                           <p className="text-xs text-gray-500 mt-1">
                             This PDF has been automatically tagged for accessibility by Adobe PDF Services
@@ -1862,12 +2190,22 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                   </div>
                 )}
 
-                {/* Error Display */}
-                {document.status === 'error' && document.error && (
+                {/* Error Display - Always show for error status */}
+                {document.status === 'error' && (
                   <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <AlertTriangle className="h-4 w-4 text-red-600" />
-                      <span className="text-sm text-red-800">{document.error}</span>
+                    <div className="flex items-start space-x-2">
+                      <AlertTriangle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <span className="text-sm font-medium text-red-800">Error:</span>
+                        <span className="text-sm text-red-700 ml-2">
+                          {document.error || 'An error occurred during processing'}
+                        </span>
+                        {document.error && document.error.length > 100 && (
+                          <p className="text-xs text-red-600 mt-1">
+                            {document.error}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
