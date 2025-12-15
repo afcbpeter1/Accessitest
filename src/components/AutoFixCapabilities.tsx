@@ -49,18 +49,28 @@ export default function AutoFixCapabilities() {
       steps: [
         {
           icon: Search,
-          title: 'Accessibility Analysis',
-          description: 'Comprehensive accessibility analysis of your Word document structure and content'
+          title: 'Step 1: Scan',
+          description: 'Run comprehensive accessibility tests (WCAG 2.1 AA, Section 508) on your Word document to identify all issues'
         },
         {
           icon: Sparkles,
-          title: 'AI Remediation',
-          description: 'Get detailed AI-powered step-by-step suggestions for fixing each accessibility issue found'
+          title: 'Step 2: Auto-Fix',
+          description: 'Automatically fix accessibility issues including alt text, table summaries, metadata, headings, language tags, color contrast, and more'
         },
         {
-          icon: CheckCircle2,
-          title: 'Track Issues',
-          description: 'All detected issues are automatically added to your product backlog for tracking'
+          icon: Search,
+          title: 'Step 3: Re-Scan',
+          description: 'Re-scan the fixed Word document to identify only remaining issues (no duplicates - only issues that couldn\'t be auto-fixed)'
+        },
+        {
+          icon: Sparkles,
+          title: 'Step 4: AI Guidance',
+          description: 'Generate AI-powered remediation suggestions only for remaining issues that require manual intervention'
+        },
+        {
+          icon: Download,
+          title: 'Download Auto-Fixed Word Document',
+          description: 'Download the automatically fixed Word document with all improvements applied (alt text, summaries, metadata, headings, etc.)'
         }
       ]
     },

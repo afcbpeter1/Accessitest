@@ -121,14 +121,12 @@ export class WordParser {
       const textResult = await mammoth.extractRawText({ buffer })
       const text = textResult.value
       
-      // Extract images with alt text using mammoth
-      const imagesResult = await mammoth.images.convertToImage({ buffer }, mammoth.images.imageConverter)
-      
       // Parse HTML structure to extract headings, lists, tables, links
       const structure = this.extractStructureFromHTML(htmlResult.value, text)
       
-      // Extract images with metadata (pass HTML, not text)
-      const images = await this.extractImages(imagesResult, htmlResult.value)
+      // Extract images with metadata from HTML (mammoth embeds images in HTML)
+      // Pass buffer to extract alt text directly from XML
+      const images = await this.extractImages(null, htmlResult.value, buffer)
       
       // Extract links from HTML and text
       const links = this.extractLinks(htmlResult.value, text)
@@ -387,8 +385,9 @@ export class WordParser {
   
   /**
    * Extract images with metadata
+   * First tries to extract from XML directly (more reliable), then falls back to HTML
    */
-  private async extractImages(imagesResult: any, html: string): Promise<Array<{
+  private async extractImages(imagesResult: any, html: string, buffer?: Buffer): Promise<Array<{
     id: string
     page: number
     altText: string | null
@@ -407,6 +406,48 @@ export class WordParser {
       isAnimated: boolean
     }> = []
     
+    // Try to extract alt text directly from XML if buffer is available
+    let xmlAltTexts: Map<number, string> = new Map()
+    if (buffer) {
+      try {
+        const JSZip = require('jszip')
+        const zip = await JSZip.loadAsync(buffer)
+        const documentXml = zip.file('word/document.xml')
+        if (documentXml) {
+          const docXml = await documentXml.async('string')
+          
+          // Find all wp:docPr elements with wp:descr (alt text)
+          // Pattern: <wp:docPr ... wp:descr="alt text here" ...>
+          const docPrRegex = /<wp:docPr[^>]*wp:descr=["']([^"']*)["'][^>]*>/gi
+          let docPrMatch
+          let imageIndex = 0
+          
+          while ((docPrMatch = docPrRegex.exec(docXml)) !== null) {
+            const altText = docPrMatch[1].trim()
+            if (altText) {
+              xmlAltTexts.set(imageIndex, altText)
+              console.log(`📋 Found alt text in XML for image ${imageIndex}: "${altText.substring(0, 50)}..."`)
+            }
+            imageIndex++
+          }
+          
+          // Also try alternative pattern: <wp:docPr><wp:descr>alt text</wp:descr></wp:docPr>
+          const docPrBlockRegex = /<wp:docPr[^>]*>[\s\S]*?<wp:descr[^>]*>([^<]*)<\/wp:descr>[\s\S]*?<\/wp:docPr>/gi
+          imageIndex = 0
+          while ((docPrMatch = docPrBlockRegex.exec(docXml)) !== null) {
+            const altText = docPrMatch[1].trim()
+            if (altText && !xmlAltTexts.has(imageIndex)) {
+              xmlAltTexts.set(imageIndex, altText)
+              console.log(`📋 Found alt text in XML (block format) for image ${imageIndex}: "${altText.substring(0, 50)}..."`)
+            }
+            imageIndex++
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not extract alt text from XML:', error)
+      }
+    }
+    
     // Extract images from HTML (mammoth converts Word to HTML)
     // Match both images with and without alt text
     const imageRegex = /<img[^>]*>/gi
@@ -416,9 +457,14 @@ export class WordParser {
     while ((match = imageRegex.exec(html)) !== null) {
       const imgTag = match[0]
       
-      // Extract alt text
-      const altMatch = imgTag.match(/alt=["']([^"']*)["']/i)
-      const altText = altMatch ? altMatch[1] : null
+      // Extract alt text - prefer XML alt text if available
+      let altText: string | null = null
+      if (xmlAltTexts.has(imageIndex)) {
+        altText = xmlAltTexts.get(imageIndex) || null
+      } else {
+        const altMatch = imgTag.match(/alt=["']([^"']*)["']/i)
+        altText = altMatch ? altMatch[1] : null
+      }
       
       // Extract src to check for GIF files
       const srcMatch = imgTag.match(/src=["']([^"']*)["']/i)
@@ -475,12 +521,19 @@ export class WordParser {
       images.push({
         id: `image_${imageIndex}`,
         page: page,
-        altText: altText,
+        altText: altText, // Now includes XML-extracted alt text if available
         width: width,
         height: height,
         type: imageType,
         isAnimated: isAnimated,
       })
+      
+      if (altText) {
+        console.log(`📋 Image ${imageIndex} has alt text: "${altText.substring(0, 50)}${altText.length > 50 ? '...' : ''}"`)
+      } else {
+        console.log(`📋 Image ${imageIndex} has no alt text`)
+      }
+      
       imageIndex++
     }
     
@@ -576,19 +629,104 @@ export class WordParser {
     modificationDate: Date | null
   }> {
     // Word documents store metadata in the Office Open XML format
-    // We'll use a simple approach: extract from document properties if available
-    // For full metadata extraction, we'd need to parse the XML structure
+    // Extract from document properties XML (docProps/core.xml)
+    try {
+      const JSZip = require('jszip')
+      const zip = await JSZip.loadAsync(buffer)
+      
+      // Read core properties from docProps/core.xml
+      const corePropsFile = zip.file('docProps/core.xml')
+      if (corePropsFile) {
+        const corePropsXml = await corePropsFile.async('string')
+        
+        // Parse XML to extract properties
+        // Handle XML namespaces - dc:title is in Dublin Core namespace
+        // Try multiple patterns to handle different XML structures
+        let title: string | null = null
+        
+        // Pattern 1: <dc:title>Title</dc:title>
+        const titleMatch1 = corePropsXml.match(/<dc:title[^>]*>(.*?)<\/dc:title>/i)
+        if (titleMatch1 && titleMatch1[1]) {
+          title = titleMatch1[1].trim()
+        }
+        
+        // Pattern 2: <cp:coreProperties><dc:title>Title</dc:title></cp:coreProperties>
+        if (!title) {
+          const titleMatch2 = corePropsXml.match(/<[^:]*:title[^>]*>(.*?)<\/[^:]*:title>/i)
+          if (titleMatch2 && titleMatch2[1]) {
+            title = titleMatch2[1].trim()
+          }
+        }
+        
+        // Pattern 3: Handle CDATA sections
+        if (!title) {
+          const titleMatch3 = corePropsXml.match(/<dc:title[^>]*><!\[CDATA\[(.*?)\]\]><\/dc:title>/i)
+          if (titleMatch3 && titleMatch3[1]) {
+            title = titleMatch3[1].trim()
+          }
+        }
+        
+        // Pattern 4: Handle escaped XML entities
+        if (title) {
+          title = title
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'")
+            .trim()
+        }
+        
+        // Only return title if it's not empty and not "No"
+        if (title && title.toLowerCase() !== 'no' && title.toLowerCase() !== 'none' && title.length > 0) {
+          console.log(`📋 Extracted metadata - Title: "${title}"`)
+        } else {
+          console.log(`📋 Extracted metadata - Title: null (empty or "No")`)
+          title = null
+        }
+        
+        const authorMatch = corePropsXml.match(/<dc:creator[^>]*>(.*?)<\/dc:creator>/i)
+        const author = authorMatch && authorMatch[1] ? authorMatch[1].trim() : null
+        
+        const subjectMatch = corePropsXml.match(/<dc:subject[^>]*>(.*?)<\/dc:subject>/i)
+        const subject = subjectMatch && subjectMatch[1] ? subjectMatch[1].trim() : null
+        
+        const languageMatch = corePropsXml.match(/<dc:language[^>]*>(.*?)<\/dc:language>/i)
+        const language = languageMatch && languageMatch[1] ? languageMatch[1].trim() : null
+        
+        // Try to extract from app properties too (docProps/app.xml)
+        const appPropsFile = zip.file('docProps/app.xml')
+        let creator = null
+        if (appPropsFile) {
+          const appPropsXml = await appPropsFile.async('string')
+          const creatorMatch = appPropsXml.match(/<Application[^>]*>(.*?)<\/Application>/i)
+          creator = creatorMatch && creatorMatch[1] ? creatorMatch[1].trim() : null
+        }
+        
+        return {
+          title: title || null, // Return null if empty string
+          author: author || null,
+          subject: subject || null,
+          creator: creator || null,
+          language: language || this.detectLanguage(text) || null,
+          creationDate: null, // Would need more complex parsing
+          modificationDate: null,
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not extract Word metadata from XML:', error)
+    }
     
-    // Try to extract title from first heading or first line
+    // Fallback: Try to extract title from first heading or first line
     const firstLine = text.split('\n')[0]?.trim()
     const title = firstLine && firstLine.length < 100 ? firstLine : null
     
-    // Extract language from document (would need XML parsing for accurate extraction)
+    // Extract language from document
     const language = this.detectLanguage(text) || null
     
     return {
       title,
-      author: null, // Would need XML parsing
+      author: null,
       subject: null,
       creator: null,
       language,

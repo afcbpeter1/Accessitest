@@ -1078,34 +1078,40 @@ export class ComprehensiveDocumentScanner {
     const issues: ComprehensiveDocumentIssue[] = []
 
     // CRITICAL: Check if PDF has structure tree - required for accurate accessibility checking
-    const structureTree = parsedStructure?.structureTree
-    const hasStructureTree = structureTree && Array.isArray(structureTree) && structureTree.length > 0
-    
-    if (!hasStructureTree) {
-      console.log(`❌ PDF structure tree not found - PDF is untagged. Cannot perform accurate accessibility checks.`)
+    // Only check this for PDF documents, not Word/other document types
+    if (documentType === 'PDF') {
+      const structureTree = parsedStructure?.structureTree
+      const hasStructureTree = structureTree && Array.isArray(structureTree) && structureTree.length > 0
       
-      // Return a blocking issue that tells user to tag the PDF first
-      issues.push({
-        id: `issue_${Date.now()}_pdf_untagged`,
-        type: 'critical',
-        category: 'structure',
-        description: 'PDF is not tagged - structure tree not found',
-        section: 'Document Structure',
-        pageNumber: 1,
-        lineNumber: 1,
-        elementLocation: 'Entire document',
-        context: 'This PDF does not have a structure tree. Accessibility checks require a tagged PDF with proper structure elements (headings, lists, tables, images with alt text, etc.).',
-        wcagCriterion: 'WCAG 2.1 AA - Multiple Criteria Require Tagged PDF',
-        section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
-        impact: this.calculateImpact('critical'),
-        remediation: 'Tag the PDF in Adobe Acrobat Pro:\n\n1. Open the PDF in Adobe Acrobat Pro\n2. Go to Prepare for Accessibility > Automatically tag for PDF (or press Alt+T, A, A)\n3. Review and fix the auto-generated tags using the Tags panel: View > Show/Hide > Side Panels > Accessibility Tags\n4. Ensure all headings use H1-H6 tags, images have Alt text, tables have headers, and lists are properly tagged\n5. Save the PDF\n6. Re-upload and scan again\n\nNote: While Acrobat\'s Accessibility Checker identifies issues, our scanner provides:\n- Detailed compliance reporting with specific issue locations\n- Batch processing via API for multiple documents\n- Integration with your workflow\n- AI-powered remediation suggestions\n\nNote: Automated PDF repair is currently limited to metadata fixes (title, language). Structure tree fixes (headings, alt text, tables) must be done manually in Acrobat.\n\nWithout a tagged PDF, we cannot accurately check accessibility - text-based analysis gives false readings.'
-      })
+      if (!hasStructureTree) {
+        console.log(`❌ PDF structure tree not found - PDF is untagged. Cannot perform accurate accessibility checks.`)
+        
+        // Return a blocking issue that tells user to tag the PDF first
+        issues.push({
+          id: `issue_${Date.now()}_pdf_untagged`,
+          type: 'critical',
+          category: 'structure',
+          description: 'PDF is not tagged - structure tree not found',
+          section: 'Document Structure',
+          pageNumber: 1,
+          lineNumber: 1,
+          elementLocation: 'Entire document',
+          context: 'This PDF does not have a structure tree. Accessibility checks require a tagged PDF with proper structure elements (headings, lists, tables, images with alt text, etc.).',
+          wcagCriterion: 'WCAG 2.1 AA - Multiple Criteria Require Tagged PDF',
+          section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
+          impact: this.calculateImpact('critical'),
+          remediation: 'Tag the PDF in Adobe Acrobat Pro:\n\n1. Open the PDF in Adobe Acrobat Pro\n2. Go to Prepare for Accessibility > Automatically tag for PDF (or press Alt+T, A, A)\n3. Review and fix the auto-generated tags using the Tags panel: View > Show/Hide > Side Panels > Accessibility Tags\n4. Ensure all headings use H1-H6 tags, images have Alt text, tables have headers, and lists are properly tagged\n5. Save the PDF\n6. Re-upload and scan again\n\nNote: While Acrobat\'s Accessibility Checker identifies issues, our scanner provides:\n- Detailed compliance reporting with specific issue locations\n- Batch processing via API for multiple documents\n- Integration with your workflow\n- AI-powered remediation suggestions\n\nNote: Automated PDF repair is currently limited to metadata fixes (title, language). Structure tree fixes (headings, alt text, tables) must be done manually in Acrobat.\n\nWithout a tagged PDF, we cannot accurately check accessibility - text-based analysis gives false readings.'
+        })
+        
+        // Don't run any other checks - return immediately
+        return issues
+      }
       
-      // Don't run any other checks - return immediately
-      return issues
+      console.log(`✅ PDF structure tree found with ${structureTree.length} root elements - proceeding with accessibility checks`)
+    } else {
+      // For Word and other document types, proceed with accessibility checks
+      console.log(`✅ Processing ${documentType} document - proceeding with accessibility checks`)
     }
-    
-    console.log(`✅ PDF structure tree found with ${structureTree.length} root elements - proceeding with accessibility checks`)
 
     // Check if Section 508 tags are selected
     const hasSection508Tags = selectedTags && selectedTags.some(tag => tag.startsWith('1194.22'))
@@ -1624,15 +1630,26 @@ export class ComprehensiveDocumentScanner {
 
   private checkLanguageParts(documentContent: string, getPageAndLine: (index: number) => { page: number, line: number }, parsedStructure?: any): ComprehensiveDocumentIssue[] {
     const issues: ComprehensiveDocumentIssue[] = []
+    
+    // Safety check for documentContent
+    if (!documentContent || typeof documentContent !== 'string') {
+      console.warn('⚠️ checkLanguageParts: documentContent is invalid, skipping language checks')
+      return issues
+    }
+    
     const lines = documentContent.split('\n')
     
     // Check for foreign language indicators - use single regex for efficiency
     const foreignLanguageRegex = /[àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿαβγδεζηθικλμνξοπρστυφχψωабвгдеёжзийклмнопрстуфхцчшщъыьэюя一-龯あ-んア-ン가-힣अ-हा-ी]/
     
     // If we have a structure tree, use it to check for language attributes
-    // We know structureTree exists because we checked at the start of analyzeComprehensive
+    // Note: Word documents don't have a PDF structure tree, so this will be undefined
     const structureTree = parsedStructure?.structureTree
-    console.log(`✅ Using PDF structure tree with ${structureTree.length} root elements for language checking`)
+    if (structureTree && Array.isArray(structureTree)) {
+      console.log(`✅ Using PDF structure tree with ${structureTree.length} root elements for language checking`)
+    } else {
+      console.log(`ℹ️ No structure tree available (Word document or untagged PDF) - using text-based language detection`)
+    }
     
     // Find all foreign language text in the document
     const foreignTextLocations: Array<{ text: string; page: number; line: number; index: number }> = []
@@ -1653,8 +1670,13 @@ export class ComprehensiveDocumentScanner {
     console.log(`🔍 Found ${foreignTextLocations.length} lines with foreign language characters`)
     
     // For each foreign text location, check if it has a language attribute in the structure tree
+    // If no structure tree (Word documents), assume language is not set and report issues
     for (const foreignText of foreignTextLocations) {
-      const hasLanguage = this.checkTagForLanguage(structureTree, foreignText.text)
+      let hasLanguage = false
+      if (structureTree && Array.isArray(structureTree)) {
+        hasLanguage = this.checkTagForLanguage(structureTree, foreignText.text)
+      }
+      // For Word documents without structure tree, we can't verify language tags, so report as issue
       
       if (!hasLanguage) {
         console.log(`❌ Foreign text "${foreignText.text.substring(0, 30)}..." has NO language attribute - reporting issue`)
@@ -1684,7 +1706,10 @@ export class ComprehensiveDocumentScanner {
   /**
    * Check if a tag in the structure tree has a language attribute for the given foreign text
    */
-  private checkTagForLanguage(tags: any[], foreignText: string, parentLanguage?: string, depth: number = 0): boolean {
+  private checkTagForLanguage(tags: any[] | undefined, foreignText: string, parentLanguage?: string, depth: number = 0): boolean {
+    if (!tags || !Array.isArray(tags)) {
+      return false
+    }
     const normalizeLangCode = (lang: string): string => {
       if (!lang) return ''
       return lang.toString().toLowerCase().replace(/^\//, '').trim().split('-')[0].split('_')[0]
@@ -2021,8 +2046,15 @@ export class ComprehensiveDocumentScanner {
 
     // Check for document title - use REAL metadata if available
     if (parsedStructure && parsedStructure.metadata) {
-      // Use actual PDF metadata for title check
-      if (!parsedStructure.metadata.title || parsedStructure.metadata.title.trim() === '') {
+      // Use actual document metadata for title check (works for both PDF and Word)
+      const hasTitle = parsedStructure.metadata.title && 
+                      parsedStructure.metadata.title.trim() !== '' &&
+                      parsedStructure.metadata.title.trim().toLowerCase() !== 'no' &&
+                      parsedStructure.metadata.title.trim().toLowerCase() !== 'none'
+      
+      if (!hasTitle) {
+        // Determine document type from parsed structure or file type
+        const docType = parsedStructure?.metadata ? 'document' : 'PDF'
         issues.push({
           id: `issue_${Date.now()}_title`,
           type: 'serious',
@@ -2032,7 +2064,7 @@ export class ComprehensiveDocumentScanner {
           pageNumber: 1,
           lineNumber: 1,
           elementLocation: 'Document metadata',
-          context: 'No document title found in PDF metadata',
+          context: `No document title found in ${docType} metadata`,
           wcagCriterion: 'WCAG 2.1 AA - 2.4.2 Page Titled',
           section508Requirement: '36 CFR § 1194.22(a) - Structure and Organization',
           impact: this.calculateImpact('serious'),
