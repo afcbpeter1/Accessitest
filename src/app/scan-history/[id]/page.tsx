@@ -63,6 +63,8 @@ function ScanDetailsContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [rerunning, setRerunning] = useState(false)
+  const [syncingToJira, setSyncingToJira] = useState(false)
+  const [jiraSyncResult, setJiraSyncResult] = useState<{ created: number; skipped: number; errors: number } | null>(null)
   
   // Modal management
   const { modalState, showAlert, closeModal } = useModal()
@@ -154,6 +156,79 @@ function ScanDetailsContent() {
 
   const getScanIcon = (scanType: string) => {
     return scanType === 'web' ? Globe : FileText
+  }
+
+  const handleSyncToJira = async () => {
+    if (!scan?.id) return
+    
+    setSyncingToJira(true)
+    setJiraSyncResult(null)
+    
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        setError('Authentication required')
+        return
+      }
+
+      // Get all issue IDs from this scan
+      const issuesResponse = await fetch(`/api/issues-board?scanId=${scan.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (!issuesResponse.ok) {
+        throw new Error('Failed to fetch issues')
+      }
+      
+      const issuesData = await issuesResponse.json()
+      const issueIds = issuesData.issues?.map((i: any) => i.id) || []
+      
+      if (issueIds.length === 0) {
+        showAlert('No issues found in this scan to sync')
+        return
+      }
+
+      // Sync each issue to Jira
+      let created = 0
+      let skipped = 0
+      let errors = 0
+
+      for (const issueId of issueIds) {
+        try {
+          const syncResponse = await fetch('/api/jira/tickets', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ issueId })
+          })
+          
+          const syncData = await syncResponse.json()
+          if (syncData.success) {
+            if (syncData.existing) {
+              skipped++
+            } else {
+              created++
+            }
+          } else {
+            errors++
+          }
+        } catch (err) {
+          errors++
+        }
+      }
+
+      setJiraSyncResult({ created, skipped, errors })
+      showAlert(`Jira sync complete: ${created} created, ${skipped} skipped, ${errors} errors`)
+    } catch (error) {
+      console.error('Error syncing to Jira:', error)
+      showAlert('Failed to sync issues to Jira')
+    } finally {
+      setSyncingToJira(false)
+    }
   }
 
   const handleRerunScan = async () => {
@@ -303,6 +378,23 @@ function ScanDetailsContent() {
           </div>
           
           <div className="flex items-center space-x-3">
+            <button
+              onClick={handleSyncToJira}
+              disabled={syncingToJira || !scan.totalIssues}
+              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {syncingToJira ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              ) : (
+                <ExternalLink className="h-4 w-4 mr-2" />
+              )}
+              {syncingToJira ? 'Syncing...' : 'Sync to Jira'}
+            </button>
+            {jiraSyncResult && (
+              <span className="text-sm text-gray-600">
+                {jiraSyncResult.created} created, {jiraSyncResult.skipped} skipped
+              </span>
+            )}
             <button
               onClick={handleRerunScan}
               disabled={rerunning}

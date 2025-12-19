@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { Plus, MessageSquare, Copy, Trash2, Edit3, CheckCircle, Clock, XCircle, MoreHorizontal, ChevronDown } from 'lucide-react'
+import { Plus, MessageSquare, Copy, Trash2, Edit3, CheckCircle, Clock, XCircle, MoreHorizontal, ChevronDown, ExternalLink } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import IssueDetailModal from '@/components/IssueDetailModal'
@@ -81,12 +81,98 @@ export default function ProductBacklog() {
   const [showSprintDropdown, setShowSprintDropdown] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<string | null>(null)
+  const [showIntegrationMenu, setShowIntegrationMenu] = useState<string | null>(null)
+  const [jiraIntegration, setJiraIntegration] = useState<any>(null)
+  const [syncingToJira, setSyncingToJira] = useState<string | null>(null)
   const { showToast, ToastContainer } = useToast()
 
   useEffect(() => {
     fetchBacklogItems()
     fetchSprints()
+    checkJiraIntegration()
   }, [])
+
+  // Close integration menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowIntegrationMenu(null)
+    }
+    
+    if (showIntegrationMenu) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [showIntegrationMenu])
+
+  const checkJiraIntegration = async () => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      const response = await fetch('/api/jira/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success && data.integration) {
+        setJiraIntegration(data.integration)
+      }
+    } catch (error) {
+      console.error('Failed to check Jira integration:', error)
+    }
+  }
+
+  const handleAddToJira = async (item: BacklogItem) => {
+    if (!item.issue_id) {
+      showToast('Issue ID not found', 'error')
+      return
+    }
+
+    setSyncingToJira(item.id)
+    setShowIntegrationMenu(null)
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        showToast('Authentication required', 'error')
+        return
+      }
+
+      const response = await fetch('/api/jira/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ issueId: item.issue_id })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        if (data.existing) {
+          showToast(`Already synced to Jira: ${data.ticket.key}`, 'success')
+        } else {
+          showToast(`Successfully added to Jira: ${data.ticket.key}`, 'success')
+        }
+        // Refresh backlog to show updated status
+        fetchBacklogItems()
+      } else {
+        showToast(data.error || 'Failed to add to Jira', 'error')
+      }
+    } catch (error) {
+      console.error('Error adding to Jira:', error)
+      showToast('An unexpected error occurred', 'error')
+    } finally {
+      setSyncingToJira(null)
+    }
+  }
+
+  const handleAddToAzureDevOps = async (item: BacklogItem) => {
+    setShowIntegrationMenu(null)
+    showToast('Azure DevOps integration coming soon!', 'info')
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -506,6 +592,63 @@ ${item.element_html || 'N/A'}
                                         <Trash2 className="h-4 w-4" />
                                       </button>
                                       
+                                      {/* Integration Menu (Jira/Azure DevOps) */}
+                                      <div className="relative">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setShowIntegrationMenu(showIntegrationMenu === item.id ? null : item.id)
+                                            setShowSprintDropdown(null) // Close sprint dropdown if open
+                                          }}
+                                          className="p-1 text-gray-400 hover:text-blue-600"
+                                          title="Add to Integration"
+                                          disabled={syncingToJira === item.id}
+                                        >
+                                          {syncingToJira === item.id ? (
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                          ) : (
+                                            <MoreHorizontal className="h-4 w-4" />
+                                          )}
+                                        </button>
+                                        
+                                        {showIntegrationMenu === item.id && (
+                                          <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-48">
+                                            <div className="py-1">
+                                              {jiraIntegration ? (
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleAddToJira(item)
+                                                  }}
+                                                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                                >
+                                                  <ExternalLink className="h-4 w-4" />
+                                                  <span>Add to Jira</span>
+                                                </button>
+                                              ) : (
+                                                <div className="px-3 py-2 text-xs text-gray-500">
+                                                  <div>Jira not configured</div>
+                                                  <a href="/settings?tab=integrations" className="text-blue-600 hover:underline">
+                                                    Set up in settings
+                                                  </a>
+                                                </div>
+                                              )}
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  handleAddToAzureDevOps(item)
+                                                }}
+                                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100"
+                                                disabled
+                                              >
+                                                <ExternalLink className="h-4 w-4 opacity-50" />
+                                                <span className="opacity-50">Add to Azure DevOps</span>
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+
                                       {/* Sprint Assignment Dropdown */}
                                       {sprints.length > 0 && (
                                         <div className="relative">
@@ -513,11 +656,12 @@ ${item.element_html || 'N/A'}
                                             onClick={(e) => {
                                               e.stopPropagation()
                                               setShowSprintDropdown(showSprintDropdown === item.id ? null : item.id)
+                                              setShowIntegrationMenu(null) // Close integration menu if open
                                             }}
                                             className="p-1 text-gray-400 hover:text-purple-600"
                                             title="Move to Sprint"
                                           >
-                                            <MoreHorizontal className="h-4 w-4" />
+                                            <ChevronDown className="h-4 w-4" />
                                           </button>
                                           
                                           {showSprintDropdown === item.id && (

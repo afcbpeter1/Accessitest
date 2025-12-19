@@ -8,6 +8,7 @@ import FixReport from './FixReport'
 import { useScan } from '@/contexts/ScanContext'
 import { authenticatedFetch } from '@/lib/auth-utils'
 import { useToast } from './Toast'
+import { analytics } from '@/lib/analytics'
 
 // Function to get accessible color classes based on accessibility score
 // Uses WCAG-compliant color combinations (text-{color}-800 on bg-{color}-100)
@@ -730,13 +731,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
 
   const supportedFormats = [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'text/html',
-    'text/plain'
+    'application/pdf'
   ]
 
   const handleFileUpload = async (files: FileList | null) => {
@@ -1192,6 +1187,10 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
     addScanLog('🔍 Starting document accessibility scan...')
     addScanLog('🤖 AI will analyze issues and provide suggestions')
+    
+    // Track scan started (only if analytics enabled)
+    const scanStartTime = Date.now()
+    analytics.trackScanStarted('document', undefined, document.name)
 
     // Reset progress
     setScanProgress(0)
@@ -1351,6 +1350,10 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         addScanLog('✅ Document has no accessibility issues!')
       }
       
+      // Track scan completed (only if analytics enabled)
+      const scanDuration = Date.now() - scanStartTime
+      analytics.trackScanCompleted('document', scanResult.issues?.length || 0, scanDuration)
+      
       // Update document with scan results (no repair results)
       // Store tagged PDF at document level, not inside scanResults
       setUploadedDocuments(prev => 
@@ -1506,44 +1509,27 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       <ToastContainer />
       {/* Upload Section */}
       <div className="card">
-        <div className="mb-4">
-          <h2 className="text-lg font-medium text-gray-900 mb-2">Document Upload</h2>
-          <p className="text-sm text-gray-600">
-            Upload documents to scan for accessibility issues. AI will analyze each issue and provide detailed suggestions for fixing them. All issues are automatically added to your product backlog. Supported formats: PDF, Word, PowerPoint, HTML, and text files.
+        <div className="mb-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-3">Document Upload</h2>
+          <p className="text-sm text-gray-600 leading-relaxed">
+            Upload PDF documents to scan for accessibility issues. AI will analyze each issue and provide detailed suggestions for fixing them. All issues are automatically added to your product backlog.
           </p>
-
         </div>
 
-
-                 {/* AI Document Scanner Info */}
-         <div className="mb-6">
-           <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
-             <div className="flex items-start space-x-3">
-               <Sparkles className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
-               <div className="flex-1">
-                 <h3 className="text-md font-semibold text-gray-900 mb-2">AI-Powered Document Accessibility Scanner</h3>
-                 <p className="text-sm text-gray-700 mb-3">
-                   Upload your document and our system will automatically process it, run comprehensive accessibility checks, and provide AI-powered remediation suggestions for each issue found. All issues are automatically added to your product backlog.
-                 </p>
-                 
-                 {/* What We Do */}
-                 <div className="mb-3 p-3 bg-white rounded border border-green-200">
-                   <h4 className="text-xs font-semibold text-green-800 mb-2 flex items-center">
-                     <CheckCircle className="h-3 w-3 mr-1" />
-                     What We Do:
-                   </h4>
-                   <ul className="text-xs text-gray-700 space-y-1 ml-5 list-disc">
-                     <li><strong>For PDFs:</strong> Auto-tag using Adobe PDF Services, run Acrobat accessibility tests (PDF/UA, WCAG 2.1 AA), generate AI remediation steps, and provide downloadable tagged PDF</li>
-                     <li><strong>For Other Formats:</strong> Comprehensive accessibility analysis with AI-powered suggestions for each issue</li>
-                     <li><strong>Track:</strong> Issues automatically added to product backlog</li>
-                     <li><strong>Guide:</strong> Step-by-step remediation instructions with element-level details</li>
-                   </ul>
-                 </div>
-
-               </div>
-             </div>
-           </div>
-         </div>
+        {/* AI Document Scanner Info */}
+        <div className="mt-6 mb-6">
+          <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <Sparkles className="h-6 w-6 text-green-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-md font-semibold text-gray-900 mb-2">AI-Powered Document Accessibility Scanner</h3>
+                <p className="text-sm text-gray-700 mb-3 leading-relaxed">
+                  Upload your document and our system will automatically process it, run comprehensive accessibility checks, and provide AI-powered remediation suggestions for each issue found. All issues are automatically added to your product backlog.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Progress Bar - Keep visible even after scan completes */}
         {(isScanning || scanProgress > 0 || uploadedDocuments.some(doc => doc.status === 'scanning')) && (
@@ -1713,14 +1699,14 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
               </p>
               <p className="text-sm text-gray-500">
                 {!canScan ? 'Purchase credits or upgrade to unlimited plan' :
-                 'PDF, Word, PowerPoint, HTML, or text files up to 50MB • Costs 1 token per scan'}
+                 'PDF files up to 50MB • Costs 1 token per scan'}
               </p>
             </div>
             <input
               ref={fileInputRef}
               type="file"
               multiple
-              accept=".pdf,.doc,.docx,.ppt,.pptx,.html,.htm,.txt"
+              accept=".pdf"
               onChange={(e) => handleFileUpload(e.target.files)}
               className="hidden"
             />
@@ -1731,7 +1717,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         <div className="mt-4">
           <p className="text-sm font-medium text-gray-700 mb-2">Supported Formats:</p>
           <div className="flex flex-wrap gap-2">
-            {['PDF', 'Word (.doc, .docx)', 'PowerPoint (.ppt, .pptx)', 'HTML', 'Text'].map(format => (
+            {['PDF'].map(format => (
               <span key={format} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
                 {format}
               </span>

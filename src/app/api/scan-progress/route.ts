@@ -710,6 +710,21 @@ export async function POST(request: NextRequest) {
                try {
                  console.log('🎫 Auto-creating backlog items for unique issues...')
                  await autoCreateBacklogItemsWithHistoryId(user.userId, finalResults.results, scanHistoryId)
+                 
+                 // Auto-sync to Jira if enabled (AFTER backlog items are created)
+                 try {
+                   const { autoSyncIssuesToJira, getIssueIdsFromScan } = await import('@/lib/jira-sync-service')
+                   const issueIds = await getIssueIdsFromScan(scanHistoryId)
+                   
+                   if (issueIds.length > 0) {
+                     console.log(`🔗 Auto-syncing ${issueIds.length} issues to Jira...`)
+                     const syncResult = await autoSyncIssuesToJira(user.userId, issueIds)
+                     console.log(`✅ Jira sync complete: ${syncResult.created} created, ${syncResult.skipped} skipped, ${syncResult.errors} errors`)
+                   }
+                 } catch (jiraError) {
+                   // Don't fail scan if Jira sync fails
+                   console.error('❌ Error auto-syncing to Jira:', jiraError)
+                 }
                } catch (error) {
                  console.error('❌ Error auto-creating backlog items:', error)
                }

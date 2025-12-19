@@ -19,8 +19,11 @@ import {
   History,
   AlertTriangle,
   Target,
+  Twitter,
+  Linkedin,
 } from 'lucide-react'
 import Link from 'next/link'
+import { socialLinks } from '@/lib/social-links'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, current: true },
@@ -327,6 +330,30 @@ export default function Sidebar({ children }: SidebarProps) {
                 </div>
               )}
               
+              {/* Social Media Links */}
+              <div className="flex items-center space-x-2 border-r border-gray-200 pr-4 mr-2">
+                <a 
+                  href={socialLinks.twitter} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+                  aria-label="Follow us on Twitter"
+                  title="Follow us on Twitter"
+                >
+                  <Twitter className="h-5 w-5" />
+                </a>
+                <a 
+                  href={socialLinks.linkedin} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                  aria-label="Connect with us on LinkedIn"
+                  title="Connect with us on LinkedIn"
+                >
+                  <Linkedin className="h-5 w-5" />
+                </a>
+              </div>
+
               {/* Notifications */}
               <div className="relative dropdown-container">
                 <button 

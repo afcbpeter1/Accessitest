@@ -355,3 +355,5 @@ The most critical accessibility issues that Adobe flags are:
 4. **Re-Scan:** User can re-upload fixed PDF to verify improvements
 5. **Export Report:** User can export compliance report
 
+
+

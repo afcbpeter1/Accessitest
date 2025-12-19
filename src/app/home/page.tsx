@@ -20,6 +20,7 @@ import Link from 'next/link'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useScreenReaderAnnounce } from '../../hooks/useScreenReaderAnnounce'
 import LoadingSpinner from '../../components/LoadingSpinner'
+import { socialLinks } from '@/lib/social-links'
 
 interface ScanResults {
   success: boolean
@@ -305,7 +306,7 @@ export default function HomePage() {
     {
       icon: FileText,
       title: 'Document Accessibility Testing',
-      description: 'Comprehensive Section 508 compliance testing for PDFs, Word documents, PowerPoint presentations, and more',
+      description: 'Comprehensive Section 508 compliance testing for PDFs and web documents',
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
@@ -382,7 +383,7 @@ export default function HomePage() {
       icon: FileText,
       standard: 'Document Accessibility',
       description: 'Comprehensive testing for all major document formats and content types',
-      coverage: 'PDF, Word, PowerPoint, HTML support',
+      coverage: 'PDF and Web support',
       color: 'text-purple-600'
     }
   ]
@@ -438,7 +439,7 @@ export default function HomePage() {
             Professional Accessibility Testing Platform
           </h1>
           <p className="text-xl mb-8 max-w-3xl mx-auto">
-            A11ytest.ai is the leading accessibility testing platform that ensures your documents and websites meet <strong>ADA compliance</strong>, federal Section 508 requirements, and international WCAG 2.2 AA standards. Our AI-powered technology provides comprehensive accessibility audits for PDFs, Word documents, PowerPoint presentations, and websites, helping organizations achieve full legal compliance and create inclusive digital experiences for all users.
+            A11ytest.ai is the leading accessibility testing platform that ensures your documents and websites meet <strong>ADA compliance</strong>, federal Section 508 requirements, and international WCAG 2.2 AA standards. Our AI-powered technology provides comprehensive accessibility audits for PDFs and websites, helping organizations achieve full legal compliance and create inclusive digital experiences for all users.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
@@ -541,7 +542,7 @@ export default function HomePage() {
             <div className="text-center">
               <div className="text-4xl font-bold text-[#0B1220] mb-2">8+</div>
               <div className="text-gray-600">File Formats Supported</div>
-              <p className="text-sm text-gray-500 mt-2">PDF, Word, PowerPoint, HTML, Text + Live websites</p>
+              <p className="text-sm text-gray-500 mt-2">PDF + Live websites</p>
             </div>
             <div className="text-center">
               <div className="text-4xl font-bold text-[#0B1220] mb-2">WCAG 2.2</div>
@@ -638,75 +639,123 @@ export default function HomePage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-6">
-                  <h3 className="text-2xl font-semibold text-gray-900">Document Accessibility Testing</h3>
-                  <p className="text-gray-600 mb-4">
-                    Our advanced document scanning technology provides comprehensive accessibility testing for all major file formats used in modern business and government operations. For PDFs, we use Adobe PDF Services to automatically tag documents, run comprehensive accessibility checks, and provide AI-powered remediation. For Word, PowerPoint, HTML, and text files, we perform intelligent content analysis to ensure your content meets the highest accessibility standards required by federal regulations and international guidelines.
+                <div className="flex flex-col">
+                  <h3 className="text-2xl font-semibold text-gray-900 mb-4">Document Accessibility Testing</h3>
+                  <p className="text-gray-600 mb-16 h-[120px]">
+                    Our advanced document scanning technology provides comprehensive accessibility testing for PDF documents used in modern business and government operations. For PDFs, we use Adobe PDF Services to automatically tag documents, run comprehensive accessibility checks, and provide AI-powered remediation to ensure your content meets the highest accessibility standards required by federal regulations and international guidelines.
                   </p>
                   <div className="space-y-4">
-                    <div className="flex items-start space-x-3">
-                      <CheckCircle className="h-6 w-6 text-green-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-gray-900">PDF Auto-Tagging & Compliance Testing</div>
-                        <div className="text-sm text-gray-600">Automatically tag PDFs using Adobe PDF Services, then run comprehensive accessibility checks against PDF/UA and WCAG 2.1 AA standards (Section 508 compliant)</div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 mb-1">PDF Auto-Tagging & Compliance Testing</div>
+                        <div className="text-sm text-gray-600 leading-relaxed">Automatically tag PDFs using Adobe PDF Services, then run comprehensive accessibility checks against PDF/UA and WCAG 2.1 AA standards (Section 508 compliant)</div>
                       </div>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <CheckCircle className="h-6 w-6 text-green-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-gray-900">Multi-Format Document Support</div>
-                        <div className="text-sm text-gray-600">Comprehensive testing for PDF, Word, PowerPoint, HTML, and text documents with intelligent content analysis</div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 mb-1">PDF Document Support</div>
+                        <div className="text-sm text-gray-600 leading-relaxed">Comprehensive testing for PDF documents with intelligent content analysis</div>
                       </div>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <CheckCircle className="h-6 w-6 text-green-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-gray-900">AI-Powered Remediation</div>
-                        <div className="text-sm text-gray-600">Get detailed, element-level AI-generated step-by-step instructions for fixing each accessibility issue, with specific page numbers and content identification</div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 mb-1">AI-Powered Remediation</div>
+                        <div className="text-sm text-gray-600 leading-relaxed">Get detailed, element-level AI-generated step-by-step instructions for fixing each accessibility issue, with specific page numbers and content identification</div>
                       </div>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <CheckCircle className="h-6 w-6 text-green-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-gray-900">Download Tagged PDFs</div>
-                        <div className="text-sm text-gray-600">For PDF documents, download the automatically tagged version with improved accessibility structure, ready for distribution</div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 mb-1">Download Tagged PDFs</div>
+                        <div className="text-sm text-gray-600 leading-relaxed">For PDF documents, download the automatically tagged version with improved accessibility structure, ready for distribution</div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-6">
-                  <h3 className="text-2xl font-semibold text-gray-900">Website Accessibility Testing</h3>
-                  <p className="text-gray-600 mb-4">
+                <div className="flex flex-col">
+                  <h3 className="text-2xl font-semibold text-gray-900 mb-4">Website Accessibility Testing</h3>
+                  <p className="text-gray-600 mb-16 h-[120px]">
                     Comprehensive web accessibility testing that ensures your websites and web applications meet international accessibility standards and provide an inclusive user experience for all visitors. Our platform provides detailed analysis of your web content with actionable insights for continuous improvement and compliance maintenance.
                   </p>
                   <div className="space-y-4">
-                    <div className="flex items-start space-x-3">
-                      <CheckCircle className="h-6 w-6 text-green-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-gray-900">WCAG 2.2 Level AA Compliance Testing</div>
-                        <div className="text-sm text-gray-600">Latest web accessibility guidelines with automated testing for all success criteria and international standards compliance</div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 mb-1">WCAG 2.2 Level AA Compliance Testing</div>
+                        <div className="text-sm text-gray-600 leading-relaxed">Latest web accessibility guidelines with automated testing for all success criteria and international standards compliance</div>
                       </div>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <CheckCircle className="h-6 w-6 text-green-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-gray-900">Multi-Page Website Scanning</div>
-                        <div className="text-sm text-gray-600">Complete website accessibility testing and analysis across entire domains and web applications</div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 mb-1">Multi-Page Website Scanning</div>
+                        <div className="text-sm text-gray-600 leading-relaxed">Complete website accessibility testing and analysis across entire domains and web applications</div>
                       </div>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <CheckCircle className="h-6 w-6 text-green-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-gray-900">Real-Time Compliance Reports</div>
-                        <div className="text-sm text-gray-600">Instant accessibility scoring, detailed issue breakdowns, and prioritized remediation recommendations</div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 mb-1">Real-Time Compliance Reports</div>
+                        <div className="text-sm text-gray-600 leading-relaxed">Instant accessibility scoring, detailed issue breakdowns, and prioritized remediation recommendations</div>
                       </div>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <CheckCircle className="h-6 w-6 text-green-500 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium text-gray-900">Interactive Element Testing</div>
-                        <div className="text-sm text-gray-600">Comprehensive testing of forms, navigation, multimedia content, and dynamic web components</div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-0.5">
+                        <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M20 6L9 17l-5-5"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 mb-1">Interactive Element Testing</div>
+                        <div className="text-sm text-gray-600 leading-relaxed">Comprehensive testing of forms, navigation, multimedia content, and dynamic web components</div>
                       </div>
                     </div>
                   </div>
@@ -1263,13 +1312,57 @@ export default function HomePage() {
                   />
                 </div>
               </div>
-              <p className="text-gray-400 max-w-2xl mx-auto">
+              <p className="text-gray-400 max-w-2xl mx-auto mb-6">
                 Professional accessibility testing platform for Section 508 compliance, WCAG 2.2 standards, and inclusive digital experiences. AI-powered document and website accessibility testing for government, enterprise, and educational organisations.
               </p>
+              {/* Social Media Links */}
+              <div className="flex justify-center items-center space-x-4 mb-6">
+                <a 
+                  href={socialLinks.twitter} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800"
+                  aria-label="Follow us on Twitter"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </a>
+                <a 
+                  href={socialLinks.linkedin} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800"
+                  aria-label="Connect with us on LinkedIn"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                  </svg>
+                </a>
+              </div>
             </div>
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2025. All rights reserved.</p>
+          <div className="border-t border-gray-800 mt-8 pt-8">
+            <div className="flex flex-wrap justify-center items-center gap-4 text-sm text-gray-400 mb-4">
+              <Link href="/privacy-policy" className="hover:text-white transition-colors">
+                Privacy Policy
+              </Link>
+              <span>•</span>
+              <Link href="/terms-of-service" className="hover:text-white transition-colors">
+                Terms of Service
+              </Link>
+              <span>•</span>
+              <Link href="/cookie-policy" className="hover:text-white transition-colors">
+                Cookie Policy
+              </Link>
+              <span>•</span>
+              <Link href="/accessibility-statement" className="hover:text-white transition-colors">
+                Accessibility Statement
+              </Link>
+            </div>
+            <p className="text-center text-gray-400">
+              &copy; {new Date().getFullYear()} A11ytest.ai. All rights reserved.
+            </p>
           </div>
         </div>
       </footer>

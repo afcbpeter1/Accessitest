@@ -19,6 +19,9 @@ export default function IssueDetailsModal({ isOpen, onClose, issue, onStatusChan
   })
 
   const [copied, setCopied] = useState(false)
+  const [jiraTicket, setJiraTicket] = useState<{ key: string; url: string } | null>(null)
+  const [creatingJiraTicket, setCreatingJiraTicket] = useState(false)
+  const [checkingJiraTicket, setCheckingJiraTicket] = useState(true)
 
   useEffect(() => {
     if (issue) {
@@ -27,8 +30,69 @@ export default function IssueDetailsModal({ isOpen, onClose, issue, onStatusChan
         notes: issue.notes || '',
         deferredReason: issue.deferredReason || ''
       })
+      checkJiraTicket()
     }
   }, [issue])
+
+  const checkJiraTicket = async () => {
+    if (!issue?.id) return
+    
+    setCheckingJiraTicket(true)
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch(`/api/jira/tickets/check?issueId=${issue.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      const data = await response.json()
+      if (data.success && data.hasTicket) {
+        setJiraTicket({
+          key: data.ticketKey,
+          url: data.ticketUrl
+        })
+      } else {
+        setJiraTicket(null)
+      }
+    } catch (error) {
+      console.error('Error checking Jira ticket:', error)
+    } finally {
+      setCheckingJiraTicket(false)
+    }
+  }
+
+  const createJiraTicket = async () => {
+    if (!issue?.id) return
+    
+    setCreatingJiraTicket(true)
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch('/api/jira/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ issueId: issue.id })
+      })
+      
+      const data = await response.json()
+      if (data.success && data.ticket) {
+        setJiraTicket({
+          key: data.ticket.key,
+          url: data.ticket.url
+        })
+      } else {
+        alert(data.error || 'Failed to create Jira ticket')
+      }
+    } catch (error) {
+      console.error('Error creating Jira ticket:', error)
+      alert('Failed to create Jira ticket')
+    } finally {
+      setCreatingJiraTicket(false)
+    }
+  }
 
   if (!isOpen || !issue) return null
 
@@ -153,9 +217,31 @@ ${issueStatus.status === 'deferred' ? `## ⏸️ Deferred Reason\n${issueStatus.
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {checkingJiraTicket ? (
+                  <div className="px-4 py-2 text-gray-500">Checking Jira...</div>
+                ) : jiraTicket ? (
+                  <a
+                    href={jiraTicket.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View in Jira ({jiraTicket.key})
+                  </a>
+                ) : (
+                  <button
+                    onClick={createJiraTicket}
+                    disabled={creatingJiraTicket}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    {creatingJiraTicket ? 'Creating...' : 'Create Jira Ticket'}
+                  </button>
+                )}
                 <button
                   onClick={copyDefectTicket}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                 >
                   <Copy className="h-4 w-4" />
                   {copied ? 'Copied!' : 'Copy Defect Ticket'}

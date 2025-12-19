@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Settings, CreditCard, User, Bell, Shield, LogOut, Save, AlertCircle, X, CheckCircle } from 'lucide-react'
+import { Settings, CreditCard, User, Bell, Shield, LogOut, Save, AlertCircle, X, CheckCircle, ExternalLink, Loader2 } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 
 interface UserData {
@@ -72,6 +72,7 @@ export default function SettingsPage() {
     { id: 'account', name: 'Account', icon: User },
     { id: 'subscription', name: 'Subscription', icon: CreditCard },
     { id: 'notifications', name: 'Notifications', icon: Bell },
+    { id: 'integrations', name: 'Integrations', icon: Settings },
     { id: 'security', name: 'Security', icon: Shield },
   ]
 
@@ -88,11 +89,39 @@ export default function SettingsPage() {
     confirmPassword: ''
   })
 
+  // Integration sub-tab state
+  const [integrationSubTab, setIntegrationSubTab] = useState<'jira' | 'azure'>('jira')
+  
+  // Jira integration state
+  const [jiraIntegration, setJiraIntegration] = useState<any>(null)
+  const [jiraForm, setJiraForm] = useState({
+    jiraUrl: '',
+    email: '',
+    apiToken: '',
+    projectKey: '',
+    issueType: 'Bug',
+    autoSyncEnabled: false
+  })
+  const [jiraProjects, setJiraProjects] = useState<any[]>([])
+  const [jiraIssueTypes, setJiraIssueTypes] = useState<any[]>([])
+  const [jiraStep, setJiraStep] = useState<'credentials' | 'project' | 'configure'>('credentials')
+  const [testingConnection, setTestingConnection] = useState(false)
+  const [loadingProjects, setLoadingProjects] = useState(false)
+  const [loadingIssueTypes, setLoadingIssueTypes] = useState(false)
+
   // Load user data on component mount
   useEffect(() => {
     loadUserData()
     loadNotificationPreferences()
+    loadJiraIntegration()
   }, [])
+
+  // Load Jira integration when integrations tab is active
+  useEffect(() => {
+    if (activeTab === 'integrations') {
+      loadJiraIntegration()
+    }
+  }, [activeTab])
 
   // Load subscription when subscription tab is active
   // Always try to load subscription - it will return null if user doesn't have one
@@ -156,6 +185,209 @@ export default function SettingsPage() {
       }
     } catch (error) {
       console.error('Failed to load notification preferences:', error)
+    }
+  }
+
+  const loadJiraIntegration = async () => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      const response = await fetch('/api/jira/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      console.log('🔍 Jira integration loaded:', data) // Debug log
+      
+      if (data.success && data.integration) {
+        console.log('✅ Found integration:', data.integration) // Debug log
+        setJiraIntegration(data.integration)
+        // Always populate form with saved values (except API token for security)
+        setJiraForm({
+          jiraUrl: data.integration.jiraUrl || '',
+          email: data.integration.email || '',
+          apiToken: '', // Never load token from DB for security
+          projectKey: data.integration.projectKey || '',
+          issueType: data.integration.issueType || 'Bug',
+          autoSyncEnabled: data.integration.autoSyncEnabled ?? false
+        })
+        console.log('📝 Form populated with:', {
+          jiraUrl: data.integration.jiraUrl,
+          email: data.integration.email,
+          projectKey: data.integration.projectKey
+        }) // Debug log
+        // Always go to credentials step so user can see/edit all fields
+        setJiraStep('credentials')
+        
+        // If we have a saved project, try to load issue types for the dropdown
+        if (data.integration.projectKey) {
+          // Load issue types in background (don't wait)
+          loadIssueTypes(data.integration.projectKey).catch(err => {
+            console.error('Failed to load issue types:', err)
+          })
+        }
+      } else {
+        console.log('❌ No integration found or error:', data) // Debug log
+        setJiraIntegration(null)
+        // Reset form if no integration exists
+        if (!jiraForm.jiraUrl && !jiraForm.email) {
+          setJiraForm({
+            jiraUrl: '',
+            email: '',
+            apiToken: '',
+            projectKey: '',
+            issueType: 'Bug',
+            autoSyncEnabled: false
+          })
+          setJiraStep('credentials')
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load Jira integration:', error)
+    }
+  }
+
+  const testJiraConnection = async () => {
+    setTestingConnection(true)
+    setMessage(null)
+    
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch('/api/jira/settings/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          jiraUrl: jiraForm.jiraUrl,
+          email: jiraForm.email,
+          apiToken: jiraForm.apiToken
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setJiraProjects(data.projects || [])
+        setJiraStep('project')
+        setMessage({ type: 'success', text: 'Connection successful! Please select a project.' })
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to connect to Jira' })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to test connection' })
+    } finally {
+      setTestingConnection(false)
+    }
+  }
+
+  const loadIssueTypes = async (projectKey: string) => {
+    setLoadingIssueTypes(true)
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch(`/api/jira/settings/issue-types?projectKey=${projectKey}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setJiraIssueTypes(data.issueTypes || [])
+        setJiraStep('configure')
+      }
+    } catch (error) {
+      console.error('Failed to load issue types:', error)
+    } finally {
+      setLoadingIssueTypes(false)
+    }
+  }
+
+  const handleJiraProjectChange = (projectKey: string) => {
+    setJiraForm({ ...jiraForm, projectKey })
+    if (projectKey) {
+      loadIssueTypes(projectKey)
+    }
+  }
+
+  const handleJiraSave = async () => {
+    setSaving(true)
+    setMessage(null)
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      
+      // If API token is empty but we have an existing integration, don't send it (keep existing encrypted one)
+      const saveData = { ...jiraForm }
+      if (!saveData.apiToken && jiraIntegration) {
+        // Don't include apiToken in the request if it's empty and integration exists
+        // The backend will keep the existing encrypted token
+        delete saveData.apiToken
+      }
+      
+      const response = await fetch('/api/jira/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(saveData)
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Jira integration saved successfully' })
+        // Clear API token field after save (for security)
+        setJiraForm(prev => ({ ...prev, apiToken: '' }))
+        await loadJiraIntegration()
+        // Always go back to credentials step after saving so user can see/edit all fields
+        setJiraStep('credentials')
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to save Jira integration' })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save Jira integration' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleJiraDisconnect = async () => {
+    setSaving(true)
+    setMessage(null)
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch('/api/jira/settings', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Jira integration disconnected' })
+        setJiraIntegration(null)
+        setJiraForm({
+          jiraUrl: '',
+          email: '',
+          apiToken: '',
+          projectKey: '',
+          issueType: 'Bug',
+          autoSyncEnabled: false
+        })
+        setJiraStep('credentials')
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to disconnect Jira integration' })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to disconnect Jira integration' })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -899,6 +1131,499 @@ export default function SettingsPage() {
                     <span>{saving ? 'Saving...' : 'Save Preferences'}</span>
                   </button>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'integrations' && (
+              <div className="space-y-6">
+                {/* Integration Sub-tabs */}
+                <div className="border-b border-gray-200">
+                  <nav className="-mb-px flex space-x-8">
+                    <button
+                      onClick={() => setIntegrationSubTab('jira')}
+                      className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                        integrationSubTab === 'jira'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      Jira
+                    </button>
+                    <button
+                      onClick={() => setIntegrationSubTab('azure')}
+                      className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                        integrationSubTab === 'azure'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      Azure DevOps
+                    </button>
+                  </nav>
+                </div>
+
+                {integrationSubTab === 'jira' && (
+                <div className="card">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Jira Integration</h2>
+                  <p className="text-sm text-gray-600 mb-6">
+                    Connect your Jira Cloud instance to automatically create tickets from accessibility scan results.
+                  </p>
+
+                  {jiraIntegration && (
+                    <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center space-x-2 mb-2">
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                            <span className="font-medium text-green-900">Connected</span>
+                          </div>
+                          <p className="text-sm text-green-700">
+                            Project: {jiraIntegration.projectKey} | Issue Type: {jiraIntegration.issueType}
+                            {jiraIntegration.autoSyncEnabled && ' | Auto-sync enabled'}
+                          </p>
+                          {jiraIntegration.lastVerifiedAt && (
+                            <p className="text-xs text-green-600 mt-1">
+                              Last verified: {new Date(jiraIntegration.lastVerifiedAt).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={handleJiraDisconnect}
+                          className="px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-md"
+                          disabled={saving}
+                        >
+                          Disconnect
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {jiraStep === 'credentials' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Jira URL
+                        </label>
+                        <input
+                          type="url"
+                          className="input-field"
+                          placeholder="https://your-domain.atlassian.net"
+                          value={jiraForm.jiraUrl || ''}
+                          onChange={(e) => setJiraForm({ ...jiraForm, jiraUrl: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          className="input-field"
+                          placeholder="your-email@example.com"
+                          value={jiraForm.email || ''}
+                          onChange={(e) => setJiraForm({ ...jiraForm, email: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          API Token
+                        </label>
+                        <input
+                          type="password"
+                          className="input-field"
+                          placeholder={jiraIntegration ? "Leave blank to keep existing token" : "Enter your Jira API token"}
+                          value={jiraForm.apiToken || ''}
+                          onChange={(e) => setJiraForm({ ...jiraForm, apiToken: e.target.value })}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {jiraIntegration 
+                            ? "Leave blank to keep your existing token, or enter a new one to update it."
+                            : "Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens"
+                          }
+                          {!jiraIntegration && (
+                            <>
+                              {' '}
+                              <a
+                                href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline"
+                              >
+                                https://id.atlassian.com/manage-profile/security/api-tokens
+                              </a>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      
+                      {/* Show project selection if we have projects loaded or saved project */}
+                      {(jiraProjects.length > 0 || jiraForm.projectKey) && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Project
+                          </label>
+                          {jiraProjects.length > 0 ? (
+                            <select
+                              className="input-field"
+                              value={jiraForm.projectKey}
+                              onChange={(e) => {
+                                setJiraForm({ ...jiraForm, projectKey: e.target.value })
+                                if (e.target.value) {
+                                  loadIssueTypes(e.target.value)
+                                }
+                              }}
+                            >
+                              <option value="">Select a project...</option>
+                              {jiraProjects.map((project) => (
+                                <option key={project.key} value={project.key}>
+                                  {project.displayName}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              className="input-field"
+                              value={jiraForm.projectKey}
+                              placeholder="Project Key (e.g., SCRUM)"
+                              onChange={(e) => setJiraForm({ ...jiraForm, projectKey: e.target.value })}
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      {/* Show issue type if we have it saved or loaded */}
+                      {(jiraIssueTypes.length > 0 || jiraForm.issueType) && jiraForm.projectKey && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Issue Type
+                          </label>
+                          <select
+                            className="input-field"
+                            value={jiraForm.issueType}
+                            onChange={(e) => setJiraForm({ ...jiraForm, issueType: e.target.value })}
+                            disabled={loadingIssueTypes}
+                          >
+                            {loadingIssueTypes ? (
+                              <option>Loading issue types...</option>
+                            ) : (
+                              <>
+                                {jiraIssueTypes.length > 0 ? (
+                                  jiraIssueTypes.map((type) => (
+                                    <option key={type.id} value={type.name}>
+                                      {type.name}
+                                    </option>
+                                  ))
+                                ) : (
+                                  <>
+                                    <option value="Bug">Bug</option>
+                                    <option value="Task">Task</option>
+                                    <option value="Story">Story</option>
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Auto-sync toggle */}
+                      {jiraForm.projectKey && (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="autoSync"
+                            checked={jiraForm.autoSyncEnabled}
+                            onChange={(e) => setJiraForm({ ...jiraForm, autoSyncEnabled: e.target.checked })}
+                            className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                          />
+                          <label htmlFor="autoSync" className="text-sm text-gray-700">
+                            Automatically create Jira tickets after scans complete
+                          </label>
+                        </div>
+                      )}
+
+                      <div className="flex space-x-3">
+                        {!jiraIntegration && (
+                          <button
+                            onClick={testJiraConnection}
+                            className="btn-primary flex items-center space-x-2"
+                            disabled={testingConnection || !jiraForm.jiraUrl || !jiraForm.email || !jiraForm.apiToken}
+                          >
+                            {testingConnection ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Testing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Test Connection</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                        {(jiraIntegration || jiraForm.projectKey) && (
+                          <button
+                            onClick={handleJiraSave}
+                            className="btn-primary flex items-center space-x-2"
+                            disabled={saving || !jiraForm.projectKey || !jiraForm.jiraUrl || !jiraForm.email}
+                          >
+                            <Save className="h-4 w-4" />
+                            <span>{saving ? 'Saving...' : jiraIntegration ? 'Update Integration' : 'Save Integration'}</span>
+                          </button>
+                        )}
+                        {jiraIntegration && (
+                          <button
+                            onClick={testJiraConnection}
+                            className="btn-secondary flex items-center space-x-2"
+                            disabled={testingConnection || !jiraForm.jiraUrl || !jiraForm.email || (!jiraForm.apiToken && !jiraIntegration)}
+                          >
+                            {testingConnection ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Testing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Test Connection</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {jiraStep === 'project' && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Select Project
+                        </label>
+                        <select
+                          className="input-field"
+                          value={jiraForm.projectKey}
+                          onChange={(e) => handleJiraProjectChange(e.target.value)}
+                        >
+                          <option value="">Select a project...</option>
+                          {jiraProjects.map((project) => (
+                            <option key={project.key} value={project.key}>
+                              {project.displayName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={() => setJiraStep('credentials')}
+                          className="btn-secondary"
+                        >
+                          Back
+                        </button>
+                        {jiraForm.projectKey && (
+                          <>
+                            <button
+                              onClick={async () => {
+                                // Save with default issue type, then reload to show credentials step
+                                const saveData = { ...jiraForm, issueType: jiraForm.issueType || 'Bug' }
+                                if (!saveData.apiToken && jiraIntegration) {
+                                  delete saveData.apiToken
+                                }
+                                
+                                setSaving(true)
+                                try {
+                                  const token = localStorage.getItem('accessToken')
+                                  const response = await fetch('/api/jira/settings', {
+                                    method: 'POST',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      'Authorization': `Bearer ${token}`
+                                    },
+                                    body: JSON.stringify(saveData)
+                                  })
+                                  
+                                  const data = await response.json()
+                                  if (data.success) {
+                                    setMessage({ type: 'success', text: 'Jira integration saved successfully' })
+                                    setJiraForm(prev => ({ ...prev, apiToken: '' }))
+                                    await loadJiraIntegration()
+                                    setJiraStep('credentials') // Go back to credentials step with all fields
+                                  } else {
+                                    setMessage({ type: 'error', text: data.error || 'Failed to save Jira integration' })
+                                  }
+                                } catch (error) {
+                                  setMessage({ type: 'error', text: 'Failed to save Jira integration' })
+                                } finally {
+                                  setSaving(false)
+                                }
+                              }}
+                              className="btn-primary flex items-center space-x-2"
+                              disabled={saving || !jiraForm.projectKey || !jiraForm.jiraUrl || !jiraForm.email}
+                            >
+                              <Save className="h-4 w-4" />
+                              <span>{saving ? 'Saving...' : 'Save Integration'}</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (jiraForm.projectKey) {
+                                  loadIssueTypes(jiraForm.projectKey)
+                                }
+                              }}
+                              className="btn-secondary"
+                              disabled={loadingIssueTypes}
+                            >
+                              {loadingIssueTypes ? 'Loading...' : 'Continue to Configure'}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {jiraStep === 'configure' && (
+                    <div className="space-y-4">
+                      {/* Show saved credentials (read-only) */}
+                      <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Jira URL
+                          </label>
+                          <input
+                            type="url"
+                            className="input-field bg-white"
+                            value={jiraForm.jiraUrl}
+                            onChange={(e) => setJiraForm({ ...jiraForm, jiraUrl: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Email
+                          </label>
+                          <input
+                            type="email"
+                            className="input-field bg-white"
+                            value={jiraForm.email}
+                            onChange={(e) => setJiraForm({ ...jiraForm, email: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            API Token
+                          </label>
+                          <input
+                            type="password"
+                            className="input-field bg-white"
+                            placeholder={jiraIntegration ? "Leave blank to keep existing token" : "Enter your Jira API token"}
+                            value={jiraForm.apiToken}
+                            onChange={(e) => setJiraForm({ ...jiraForm, apiToken: e.target.value })}
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            {jiraIntegration 
+                              ? "Leave blank to keep your existing token, or enter a new one to update it."
+                              : "Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens"
+                            }
+                          </p>
+                        </div>
+                      </div>
+
+                      {jiraForm.projectKey && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Issue Type
+                          </label>
+                          <select
+                            className="input-field"
+                            value={jiraForm.issueType}
+                            onChange={(e) => setJiraForm({ ...jiraForm, issueType: e.target.value })}
+                            disabled={loadingIssueTypes}
+                          >
+                            {loadingIssueTypes ? (
+                              <option>Loading issue types...</option>
+                            ) : (
+                              <>
+                                {jiraIssueTypes.length > 0 ? (
+                                  jiraIssueTypes.map((type) => (
+                                    <option key={type.id} value={type.name}>
+                                      {type.name}
+                                    </option>
+                                  ))
+                                ) : (
+                                  <option value="Bug">Bug</option>
+                                )}
+                              </>
+                            )}
+                          </select>
+                        </div>
+                      )}
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="autoSync"
+                          checked={jiraForm.autoSyncEnabled}
+                          onChange={(e) => setJiraForm({ ...jiraForm, autoSyncEnabled: e.target.checked })}
+                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="autoSync" className="text-sm text-gray-700">
+                          Automatically create Jira tickets after scans complete
+                        </label>
+                      </div>
+                      <div className="flex space-x-3">
+                        <button
+                          onClick={handleJiraSave}
+                          className="btn-primary flex items-center space-x-2"
+                          disabled={saving || !jiraForm.projectKey || !jiraForm.jiraUrl || !jiraForm.email}
+                        >
+                          <Save className="h-4 w-4" />
+                          <span>{saving ? 'Saving...' : jiraIntegration ? 'Update Integration' : 'Save Integration'}</span>
+                        </button>
+                        {!jiraIntegration && (
+                          <button
+                            onClick={() => setJiraStep('credentials')}
+                            className="btn-secondary"
+                          >
+                            Back
+                          </button>
+                        )}
+                        {jiraIntegration && (
+                          <button
+                            onClick={testJiraConnection}
+                            className="btn-secondary flex items-center space-x-2"
+                            disabled={testingConnection || !jiraForm.jiraUrl || !jiraForm.email || !jiraForm.apiToken}
+                          >
+                            {testingConnection ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Testing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Test Connection</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                )}
+
+                {integrationSubTab === 'azure' && (
+                  <div className="card">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Azure DevOps Integration</h2>
+                    <p className="text-sm text-gray-600 mb-6">
+                      Azure DevOps integration coming soon. This will allow you to automatically create work items from accessibility scan results.
+                    </p>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <p className="text-sm text-blue-800">
+                        This feature is currently under development. Check back soon!
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

@@ -7,6 +7,21 @@
 @layer base {
   html {
     font-family: 'Inter', system-ui, sans-serif;
+    /* Use rem units for better font scaling */
+    font-size: 16px;
+  }
+  
+  /* Better font size scaling - prevents scrunching */
+  * {
+    box-sizing: border-box;
+  }
+  
+  /* Use rem/em for spacing to scale with font size */
+  body {
+    line-height: 1.6;
+    /* Allow text to wrap and prevent horizontal overflow */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 }
 
@@ -45,5 +60,327 @@
 .accessibility-issues-demo a:focus {
   outline: none !important;
   box-shadow: none !important;
+}
+
+/* High Contrast Mode Improvements */
+/* Use CSS custom properties that adapt to high contrast */
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --border-color: #e5e7eb;
+  --accent-color: #3b82f6;
+  --accent-hover: #2563eb;
+}
+
+/* High contrast mode detection and overrides */
+@media (prefers-contrast: high) {
+  :root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #ffffff;
+    --text-primary: #000000;
+    --text-secondary: #000000;
+    --border-color: #000000;
+    --accent-color: #0000ff;
+    --accent-hover: #0000cc;
+  }
+  
+  /* Force high contrast borders and backgrounds */
+  * {
+    border-color: var(--border-color) !important;
+  }
+  
+  /* Improve button contrast */
+  button, .btn-primary, .btn-secondary {
+    border: 2px solid var(--text-primary) !important;
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+  }
+  
+  button:hover, .btn-primary:hover, .btn-secondary:hover {
+    background-color: var(--text-primary) !important;
+    color: var(--bg-primary) !important;
+  }
+  
+  /* Improve link contrast */
+  a {
+    color: var(--accent-color) !important;
+    text-decoration: underline !important;
+  }
+  
+  /* Remove subtle backgrounds that reduce contrast */
+  .bg-gray-50, .bg-gray-100, .bg-blue-50, .bg-green-50 {
+    background-color: var(--bg-primary) !important;
+  }
+  
+  /* Ensure text is always readable */
+  .text-gray-600, .text-gray-500, .text-gray-400 {
+    color: var(--text-primary) !important;
+  }
+}
+
+/* Forced high contrast mode (when user enables it via extension) */
+.high-contrast-mode {
+  --bg-primary: #ffffff !important;
+  --bg-secondary: #ffffff !important;
+  --text-primary: #000000 !important;
+  --text-secondary: #000000 !important;
+  --border-color: #000000 !important;
+  --accent-color: #0000ff !important;
+  --accent-hover: #0000cc !important;
+}
+
+.high-contrast-mode * {
+  border-color: var(--border-color) !important;
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.high-contrast-mode button,
+.high-contrast-mode .btn-primary,
+.high-contrast-mode .btn-secondary {
+  border: 2px solid var(--text-primary) !important;
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+}
+
+.high-contrast-mode button:hover,
+.high-contrast-mode .btn-primary:hover,
+.high-contrast-mode .btn-secondary:hover {
+  background-color: var(--text-primary) !important;
+  color: var(--bg-primary) !important;
+}
+
+.high-contrast-mode a {
+  color: var(--accent-color) !important;
+  text-decoration: underline !important;
+}
+
+/* Font Size Scaling Improvements */
+/* Use flexible units and prevent layout breaking */
+.container,
+.max-w-7xl,
+.max-w-6xl,
+.max-w-5xl {
+  /* Allow containers to grow with font size */
+  min-width: 0;
+  width: 100%;
+}
+
+/* Prevent text from breaking layout */
+p, span, div, h1, h2, h3, h4, h5, h6 {
+  /* Allow text to wrap */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  /* Use relative units */
+  font-size: inherit;
+}
+
+/* Flexible grid and flex layouts */
+.grid {
+  /* Allow grid items to shrink */
+  min-width: 0;
+}
+
+.grid > * {
+  min-width: 0;
+  /* Prevent items from overflowing */
+  overflow: hidden;
+}
+
+.flex {
+  /* Allow flex items to shrink */
+  min-width: 0;
+}
+
+.flex > * {
+  min-width: 0;
+  /* Prevent flex items from breaking layout */
+  flex-shrink: 1;
+}
+
+/* Input fields should scale with font size */
+input, textarea, select {
+  font-size: 1em; /* Use em to scale with parent */
+  padding: 0.5em 0.75em; /* Use em for padding */
+  min-height: 2.5em; /* Minimum touch target */
+}
+
+/* Buttons should scale properly */
+button, .btn-primary, .btn-secondary {
+  font-size: 1em;
+  padding: 0.5em 1em;
+  min-height: 2.5em;
+  /* Allow button text to wrap if needed */
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+/* Cards and containers */
+.card {
+  /* Use relative padding */
+  padding: 1.5em;
+  /* Allow content to wrap */
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* Prevent overlapping content - ensure sections have proper spacing */
+.card > div {
+  margin-bottom: 1.5em;
+}
+
+.card > div:last-child {
+  margin-bottom: 0;
+}
+
+/* Ensure proper spacing and prevent overlap in DocumentUpload component */
+.card h2,
+.card h3 {
+  margin-top: 0;
+  margin-bottom: 0.75em;
+  line-height: 1.4;
+}
+
+.card p {
+  margin-top: 0;
+  margin-bottom: 0;
+  line-height: 1.6;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Prevent text from overlapping when font size increases */
+.card > div + div {
+  margin-top: 1.5em;
+}
+
+/* Ensure flex containers don't cause overlap */
+.flex {
+  min-width: 0;
+}
+
+.flex > * {
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+/* Better spacing for info boxes - prevent overlap */
+.bg-gradient-to-r,
+.bg-green-50,
+.bg-blue-50 {
+  margin-top: 1.5em !important;
+  margin-bottom: 1.5em !important;
+  min-height: fit-content;
+}
+
+/* Cookie Consent Banner */
+[role="dialog"][aria-labelledby="cookie-consent-title"] {
+  /* Ensure banner is above all other content */
+  z-index: 9999;
+}
+
+/* Ensure cookie banner is accessible on mobile */
+@media (max-width: 640px) {
+  [role="dialog"][aria-labelledby="cookie-consent-title"] {
+    padding: 1rem;
+  }
+  
+  [role="dialog"][aria-labelledby="cookie-consent-title"] .flex-col {
+    gap: 1rem;
+  }
+}
+
+/* Tables should be responsive */
+table {
+  width: 100%;
+  /* Allow table to scroll horizontally if needed */
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Images should scale but maintain aspect ratio */
+img {
+  max-width: 100%;
+  height: auto;
+  /* Prevent images from breaking layout */
+  display: block;
+}
+
+/* Prevent fixed widths from breaking layout */
+*[style*="width"] {
+  max-width: 100% !important;
+}
+
+/* Responsive text sizing */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+/* Large font size support (200% zoom) */
+@media (min-width: 1px) {
+  html {
+    /* Support up to 200% font size increase */
+    font-size: clamp(16px, 1rem, 32px);
+  }
+}
+
+/* Font scaling support via CSS custom properties */
+html[data-font-scale] {
+  font-size: calc(16px * var(--font-scale, 1));
+}
+
+html[data-line-height] {
+  line-height: var(--line-height, 1.6);
+}
+
+html[data-letter-spacing] {
+  letter-spacing: var(--letter-spacing, 0);
+}
+
+/* Grayscale mode */
+.grayscale-mode,
+html[data-grayscale="true"] {
+  filter: grayscale(100%);
+  -webkit-filter: grayscale(100%);
+}
+
+/* Additional high contrast improvements */
+[data-high-contrast="true"] .card,
+[data-high-contrast="true"] .bg-white {
+  border: 2px solid var(--border-color) !important;
+  background-color: var(--bg-primary) !important;
+}
+
+[data-high-contrast="true"] .text-gray-600,
+[data-high-contrast="true"] .text-gray-500,
+[data-high-contrast="true"] .text-gray-400 {
+  color: var(--text-primary) !important;
+}
+
+/* Prevent layout breaking with large fonts */
+[data-font-scale] .grid,
+[data-font-scale] .flex {
+  gap: 1em; /* Use em for gap spacing */
+}
+
+[data-font-scale] .p-4,
+[data-font-scale] .p-6 {
+  padding: 1em; /* Convert fixed padding to relative */
+}
+
+/* Ensure buttons and inputs scale properly */
+[data-font-scale] button,
+[data-font-scale] input,
+[data-font-scale] textarea,
+[data-font-scale] select {
+  font-size: 1em;
+  padding: 0.5em 1em;
+  min-height: 2.5em;
 }
 

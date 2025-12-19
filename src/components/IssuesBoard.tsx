@@ -13,7 +13,8 @@ import {
   Tag, 
   MoreHorizontal,
   GripVertical,
-  Eye
+  Eye,
+  ExternalLink
 } from 'lucide-react'
 import IssueDetailsModal from './IssueDetailsModal'
 import { authenticatedFetch } from '@/lib/auth-utils'
@@ -62,12 +63,93 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [sprints, setSprints] = useState<any[]>([])
   const [showSprintMenu, setShowSprintMenu] = useState<string | null>(null)
+  const [showIntegrationMenu, setShowIntegrationMenu] = useState<string | null>(null)
+  const [jiraIntegration, setJiraIntegration] = useState<any>(null)
+  const [syncingToJira, setSyncingToJira] = useState<string | null>(null)
 
   useEffect(() => {
     console.log('IssuesBoard component mounted, fetching issues...')
     fetchIssues()
     fetchSprints()
+    checkJiraIntegration()
   }, [filters, pagination.page])
+
+  // Close integration menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setShowIntegrationMenu(null)
+    }
+    
+    if (showIntegrationMenu) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [showIntegrationMenu])
+
+  const checkJiraIntegration = async () => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      const response = await fetch('/api/jira/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success && data.integration) {
+        setJiraIntegration(data.integration)
+      }
+    } catch (error) {
+      console.error('Failed to check Jira integration:', error)
+    }
+  }
+
+  const handleAddToJira = async (issueId: string) => {
+    setSyncingToJira(issueId)
+    setShowIntegrationMenu(null)
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        alert('Authentication required')
+        return
+      }
+
+      const response = await fetch('/api/jira/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ issueId })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        if (data.existing) {
+          alert(`Already synced to Jira: ${data.ticket.key}`)
+        } else {
+          alert(`Successfully added to Jira: ${data.ticket.key}`)
+        }
+        // Refresh issues to show updated status
+        fetchIssues()
+      } else {
+        alert(data.error || 'Failed to add to Jira')
+      }
+    } catch (error) {
+      console.error('Error adding to Jira:', error)
+      alert('An unexpected error occurred')
+    } finally {
+      setSyncingToJira(null)
+    }
+  }
+
+  const handleAddToAzureDevOps = async (issueId: string) => {
+    setShowIntegrationMenu(null)
+    alert('Azure DevOps integration coming soon!')
+  }
 
   // Close sprint menu when clicking outside
   useEffect(() => {
@@ -565,38 +647,80 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
+                            {/* Integration Menu (Jira/Azure DevOps) */}
                             <div className="relative">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  setShowSprintMenu(showSprintMenu === issue.id ? null : issue.id)
+                                  setShowIntegrationMenu(showIntegrationMenu === issue.id ? null : issue.id)
+                                  setShowSprintMenu(null) // Close sprint menu if open
                                 }}
-                                className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                                title="Move to sprint"
+                                className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="Add to Integration"
+                                disabled={syncingToJira === issue.id}
                               >
-                                <MoreHorizontal className="h-4 w-4" />
+                                {syncingToJira === issue.id ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                ) : (
+                                  <MoreHorizontal className="h-4 w-4" />
+                                )}
                               </button>
                               
-                              {showSprintMenu === issue.id && (
-                                <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
-                                  <div className="p-2">
-                                    <div className="text-xs font-medium text-gray-500 px-2 py-1">Move to Sprint</div>
-                                    {sprints.length > 0 ? (
-                                      sprints.map(sprint => (
-                                        <button
-                                          key={sprint.id}
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleMoveToSprint(issue.id, sprint.id)
-                                          }}
-                                          className="w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
-                                        >
-                                          {sprint.name}
-                                        </button>
-                                      ))
+                              {showIntegrationMenu === issue.id && (
+                                <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-48">
+                                  <div className="py-1">
+                                    {jiraIntegration ? (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleAddToJira(issue.id)
+                                        }}
+                                        className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                      >
+                                        <ExternalLink className="h-4 w-4" />
+                                        <span>Add to Jira</span>
+                                      </button>
                                     ) : (
-                                      <div className="px-2 py-2 text-sm text-gray-500">No sprints available</div>
+                                      <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+                                        <div>Jira not configured</div>
+                                        <a href="/settings?tab=integrations" className="text-blue-600 hover:underline">
+                                          Set up in settings
+                                        </a>
+                                      </div>
                                     )}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleAddToAzureDevOps(issue.id)
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100"
+                                      disabled
+                                    >
+                                      <ExternalLink className="h-4 w-4 opacity-50" />
+                                      <span className="opacity-50">Add to Azure DevOps</span>
+                                    </button>
+                                    
+                                    {/* Move to Sprint */}
+                                    <div className="px-2 py-1 border-t border-gray-100">
+                                      <div className="text-xs font-medium text-gray-500 px-2 py-1">Move to Sprint</div>
+                                      {sprints.length > 0 ? (
+                                        sprints.map(sprint => (
+                                          <button
+                                            key={sprint.id}
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleMoveToSprint(issue.id, sprint.id)
+                                              setShowIntegrationMenu(null)
+                                            }}
+                                            className="w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded"
+                                          >
+                                            {sprint.name}
+                                          </button>
+                                        ))
+                                      ) : (
+                                        <div className="px-2 py-2 text-sm text-gray-500">No sprints available</div>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                               )}

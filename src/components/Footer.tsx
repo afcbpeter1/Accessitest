@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { MessageCircle, Eye, Home, Search, DollarSign, Twitter, Linkedin, Github, Mail } from 'lucide-react'
+import { socialLinks } from '@/lib/social-links'
 
 export default function Footer() {
   const currentYear = new Date().getFullYear()
@@ -60,19 +61,41 @@ export default function Footer() {
             <div>
               <h4 className="text-lg font-semibold mb-4 text-[#E2E8F0]">Connect</h4>
               <div className="space-y-2 text-sm">
-                <a href="#" className="text-[#CBD5E0] hover:text-white block transition-colors flex items-center space-x-2">
+                <a 
+                  href={socialLinks.twitter} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-[#CBD5E0] hover:text-white block transition-colors flex items-center space-x-2"
+                  aria-label="Follow us on Twitter"
+                >
                   <Twitter className="h-4 w-4" />
                   <span>Twitter</span>
                 </a>
-                <a href="#" className="text-[#CBD5E0] hover:text-white block transition-colors flex items-center space-x-2">
+                <a 
+                  href={socialLinks.linkedin} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-[#CBD5E0] hover:text-white block transition-colors flex items-center space-x-2"
+                  aria-label="Connect with us on LinkedIn"
+                >
                   <Linkedin className="h-4 w-4" />
                   <span>LinkedIn</span>
                 </a>
-                <a href="#" className="text-[#CBD5E0] hover:text-white block transition-colors flex items-center space-x-2">
+                <a 
+                  href={socialLinks.github} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-[#CBD5E0] hover:text-white block transition-colors flex items-center space-x-2"
+                  aria-label="View our GitHub"
+                >
                   <Github className="h-4 w-4" />
                   <span>GitHub</span>
                 </a>
-                <a href="#" className="text-[#CBD5E0] hover:text-white block transition-colors flex items-center space-x-2">
+                <a 
+                  href={socialLinks.email} 
+                  className="text-[#CBD5E0] hover:text-white block transition-colors flex items-center space-x-2"
+                  aria-label="Send us an email"
+                >
                   <Mail className="h-4 w-4" />
                   <span>Email</span>
                 </a>

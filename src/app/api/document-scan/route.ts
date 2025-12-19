@@ -1250,6 +1250,21 @@ export async function POST(request: NextRequest) {
         try {
           backlogResult = await autoAddDocumentIssuesToBacklog(user.userId, scanResult.issues, scanHistoryResult, body.fileName)
           console.log('✅ Document issues automatically added to product backlog:', JSON.stringify(backlogResult, null, 2))
+          
+          // Auto-sync to Jira if enabled (AFTER backlog items are created)
+          try {
+            const { autoSyncIssuesToJira, getIssueIdsFromScan } = await import('@/lib/jira-sync-service')
+            const issueIds = await getIssueIdsFromScan(scanHistoryResult)
+            
+            if (issueIds.length > 0) {
+              console.log(`🔗 Auto-syncing ${issueIds.length} document issues to Jira...`)
+              const syncResult = await autoSyncIssuesToJira(user.userId, issueIds)
+              console.log(`✅ Jira sync complete: ${syncResult.created} created, ${syncResult.skipped} skipped, ${syncResult.errors} errors`)
+            }
+          } catch (jiraError) {
+            // Don't fail scan if Jira sync fails
+            console.error('❌ Error auto-syncing to Jira:', jiraError)
+          }
         } catch (backlogError) {
           console.error('❌ Failed to auto-add document issues to backlog:', backlogError)
           if (backlogError instanceof Error) {

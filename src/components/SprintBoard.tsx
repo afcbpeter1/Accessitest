@@ -8,7 +8,8 @@ import {
   Calendar,
   Target,
   Users,
-  BarChart3
+  BarChart3,
+  ExternalLink
 } from 'lucide-react'
 import IssueDetailModal from './IssueDetailModal'
 import SprintSettingsModal from './SprintSettingsModal'
@@ -101,6 +102,8 @@ export default function SprintBoard() {
   const [issueToMoveToSprint, setIssueToMoveToSprint] = useState<string | null>(null)
   const [showBurndownModal, setShowBurndownModal] = useState(false)
   const [burndownRefreshTrigger, setBurndownRefreshTrigger] = useState(0)
+  const [jiraIntegration, setJiraIntegration] = useState<any>(null)
+  const [syncingToJira, setSyncingToJira] = useState<string | null>(null)
 
   // Function to trigger burndown chart refresh
   const refreshBurndownChart = () => {
@@ -109,12 +112,78 @@ export default function SprintBoard() {
 
   useEffect(() => {
     fetchSprints()
+    checkJiraIntegration()
     // Load "don't ask again" preference from localStorage
     const savedPreference = localStorage.getItem('sprintBoard_dontAskAgain')
     if (savedPreference === 'true') {
       setDontAskAgain(true)
     }
   }, [])
+
+  const checkJiraIntegration = async () => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      const response = await fetch('/api/jira/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success && data.integration) {
+        setJiraIntegration(data.integration)
+      }
+    } catch (error) {
+      console.error('Failed to check Jira integration:', error)
+    }
+  }
+
+  const handleAddToJira = async (issueId: string) => {
+    setSyncingToJira(issueId)
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        alert('Authentication required')
+        return
+      }
+
+      const response = await fetch('/api/jira/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ issueId })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        if (data.existing) {
+          alert(`Already synced to Jira: ${data.ticket.key}`)
+        } else {
+          alert(`Successfully added to Jira: ${data.ticket.key}`)
+        }
+        // Refresh issues to show updated status
+        if (selectedSprint) {
+          fetchSprintData()
+        }
+      } else {
+        alert(data.error || 'Failed to add to Jira')
+      }
+    } catch (error) {
+      console.error('Error adding to Jira:', error)
+      alert('An unexpected error occurred')
+    } finally {
+      setSyncingToJira(null)
+    }
+  }
+
+  const handleAddToAzureDevOps = async (issueId: string) => {
+    alert('Azure DevOps integration coming soon!')
+  }
 
   useEffect(() => {
     if (selectedSprint) {
@@ -727,6 +796,40 @@ export default function SprintBoard() {
                           {showIssueMenu === sprintIssue.issue_id && (
                             <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-48">
                               <div className="py-1">
+                                {/* Add to Jira / Azure DevOps */}
+                                {jiraIntegration ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleAddToJira(sprintIssue.issue_id)
+                                      setShowIssueMenu(null)
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                    <span>Add to Jira</span>
+                                  </button>
+                                ) : (
+                                  <div className="px-3 py-2 text-xs text-gray-500 border-b border-gray-100">
+                                    <div>Jira not configured</div>
+                                    <a href="/settings?tab=integrations" className="text-blue-600 hover:underline">
+                                      Set up in settings
+                                    </a>
+                                  </div>
+                                )}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleAddToAzureDevOps(sprintIssue.issue_id)
+                                    setShowIssueMenu(null)
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-b border-gray-100"
+                                  disabled
+                                >
+                                  <ExternalLink className="h-4 w-4 opacity-50" />
+                                  <span className="opacity-50">Add to Azure DevOps</span>
+                                </button>
+
                                 {/* Move to other sprints */}
                                 {sprints
                                   .filter(sprint => sprint.id !== selectedSprint?.id)

@@ -38,22 +38,6 @@ export default function DocumentScan() {
                   <span className="text-sm text-gray-600">PDF Documents</span>
                   <span className="text-sm font-medium text-gray-900">✓</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Word Documents</span>
-                  <span className="text-sm font-medium text-gray-900">✓</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">PowerPoint</span>
-                  <span className="text-sm font-medium text-gray-900">✓</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">HTML Files</span>
-                  <span className="text-sm font-medium text-gray-900">✓</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Text Files</span>
-                  <span className="text-sm font-medium text-gray-900">✓</span>
-                </div>
               </div>
               <div className="mt-3 p-2 bg-blue-50 rounded-lg">
                 <p className="text-xs text-blue-800">
