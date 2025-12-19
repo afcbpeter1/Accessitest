@@ -253,7 +253,8 @@ Provide a specific, actionable fix for this exact element.`;
     pageNumber?: number,
     elementContent?: string,
     elementId?: string,
-    elementType?: string
+    elementType?: string,
+    documentType?: string // 'PDF document' or 'Word document'
   ): Promise<string> {
     try {
       console.log('🚀 Claude API: Starting document analysis for', fileName);
@@ -262,15 +263,22 @@ Provide a specific, actionable fix for this exact element.`;
       console.log('📍 Claude API: Page:', pageNumber);
       console.log('📄 Claude API: Element:', elementContent || 'Not provided');
       
-      const systemPrompt = `You are an expert PDF accessibility consultant. Provide precise, actionable instructions for fixing PDF accessibility issues.
+      const isWordDoc = documentType?.toLowerCase().includes('word') || fileType?.toLowerCase().includes('word') || fileName?.toLowerCase().endsWith('.docx') || fileName?.toLowerCase().endsWith('.doc')
+      const docType = isWordDoc ? 'Word document' : 'PDF document'
+      const toolName = isWordDoc ? 'Microsoft Word' : 'Adobe Acrobat Pro'
+      
+      const systemPrompt = `You are an expert ${docType} accessibility consultant. Provide precise, actionable instructions for fixing ${docType} accessibility issues.
 
 CRITICAL RULES:
-1. The user has ALREADY scanned this PDF - NEVER tell them to run the accessibility checker
+1. The user has ALREADY scanned this ${docType} - NEVER tell them to run the accessibility checker
 2. You MUST provide helpful instructions even if location is "Unknown" - use the issue description and rule name
 3. The issue description and rule name contain ALL the information needed to provide useful instructions
 4. "Unknown location" just means you need to search for ALL instances of this issue type - that's still actionable!
+5. IMPORTANT: This is a ${docType} - provide instructions specific to ${toolName}, NOT the other document type
 
 INFORMATION PROVIDED:
+- Document Type: ${docType}
+- Tool to Use: ${toolName}
 ${pageNumber ? `- Page: ${pageNumber}` : '- Page: Not specified (search entire document)'}
 ${elementLocation ? `- Location: ${elementLocation}` : '- Location: Not specified (check all pages)'}
 ${elementId ? `- Element ID: ${elementId}` : '- Element ID: Not provided'}
@@ -284,39 +292,43 @@ YOUR RESPONSE MUST:
 2. Use the rule name (e.g., "Figures alternate text" = images need alt text, "Summary" = tables need summaries)
 3. If location is "Unknown", provide instructions to find and fix ALL instances of this issue type
 4. Give step-by-step instructions that are specific to THIS issue type (not generic)
-5. Use correct Acrobat panel names: "Tags panel", "Reading Order tool"
+5. ${isWordDoc ? 'Use correct Word terminology: "Right-click image > Format Picture > Alt Text", "Review > Check Accessibility", etc.' : 'Use correct Acrobat panel names: "Tags panel", "Reading Order tool"'}
 6. NEVER mention running the accessibility checker - we've already done that
+7. NEVER mention PDF tools if this is a Word document, and NEVER mention Word tools if this is a PDF
 
 FORMAT:
 1. Element Location: State what you know (e.g., "All figures/images in the document" or "All tables" if location unknown, or specific page if known)
 2. Issue Explanation: Brief explanation of THIS specific issue based on the rule name and description
-3. Step-by-Step Fix: Clear instructions to find and fix THIS specific issue type (if location unknown, tell them how to find all instances)
+3. Step-by-Step Fix: Clear instructions to find and fix THIS specific issue type using ${toolName} (if location unknown, tell them how to find all instances)
 4. Verification: How to verify the fix worked
 
-EXAMPLE: If rule is "Figures alternate text" and location is "Unknown", say:
+EXAMPLE FOR ${docType.toUpperCase()}: If rule is "Figures alternate text" and location is "Unknown", say:
 "Element Location: All figures/images throughout the document that are missing alternate text"
-Then provide instructions to: 1) Open Tags panel, 2) Find all Figure tags, 3) Add alt text to each one
+Then provide instructions specific to ${toolName}: ${isWordDoc ? '1) Right-click each image, 2) Select "Format Picture", 3) Go to "Alt Text" tab, 4) Enter descriptive alt text' : '1) Open Tags panel, 2) Find all Figure tags, 3) Add alt text to each one'}
 
 Keep instructions clear, practical, and specific. Work with the information provided - it's always enough!`;
 
-      const userPrompt = `Fix this PDF accessibility issue. We've already scanned and identified the problem:
+      const userPrompt = `Fix this ${docType} accessibility issue. We've already scanned and identified the problem:
 
 File: ${fileName}
+Document Type: ${docType}
+Tool to Use: ${toolName}
 Rule: ${section}
 Issue Description: ${issueDescription}
-${pageNumber ? `Page: ${pageNumber}` : 'Page: Not specified - check all pages'}
+${pageNumber ? `Page: ${pageNumber}` : 'Page: Not specified - check entire document'}
 ${elementLocation && elementLocation !== 'Unknown location' ? `Location: ${elementLocation}` : 'Location: Not specified - find all instances in document'}
 ${elementId ? `Element ID: ${elementId}` : ''}
 ${elementType ? `Element Type: ${elementType}` : ''}
 ${elementContent ? `Content: ${elementContent.substring(0, 200)}` : ''}
 
-Provide step-by-step instructions to fix THIS specific issue. Use the rule name and description to understand what needs fixing:
-- If the rule is "Figures alternate text" or "Figures require alternate text", provide instructions to add alt text to images
-- If the rule is "Summary" or "Tables must have a summary", provide instructions to add summaries to tables
-- If the rule mentions "Title", provide instructions to set document title
-- If the rule mentions "Language", provide instructions to set document language
+Provide step-by-step instructions to fix THIS specific issue using ${toolName}. Use the rule name and description to understand what needs fixing:
+- If the rule is "Figures alternate text" or "Figures require alternate text", provide instructions to add alt text to images in ${toolName}
+- If the rule is "Summary" or "Tables must have a summary", provide instructions to add summaries to tables in ${toolName}
+- If the rule mentions "Title", provide instructions to set document title in ${toolName}
+- If the rule mentions "Language", provide instructions to set document language in ${toolName}
 - If location is "Unknown" or "Not specified", provide instructions to find and fix ALL instances of this issue type in the document
 
+IMPORTANT: Provide instructions specific to ${toolName} for ${docType}s. Do NOT mention tools for the other document type.
 Do NOT say you need more information - use what's provided. Do NOT tell them to run the accessibility checker - we've already done that.`;
 
       console.log('📤 Claude API: Sending document analysis request...');

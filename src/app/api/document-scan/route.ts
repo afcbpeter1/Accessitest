@@ -5,6 +5,9 @@ import { queryOne, query } from '@/lib/database'
 import { NotificationService } from '@/lib/notification-service'
 import { autoAddDocumentIssuesToBacklog } from '@/lib/backlog-service'
 import { getAdobePDFServices } from '@/lib/adobe-pdf-services'
+import { ComprehensiveDocumentScanner } from '@/lib/comprehensive-document-scanner'
+import { WordAutoFixService } from '@/lib/word-auto-fix-service'
+import { AIAutoFixService } from '@/lib/ai-auto-fix-service'
 
 interface DocumentScanRequest {
   fileName: string
@@ -220,6 +223,7 @@ except Exception as e:
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
+  let scanId: string | undefined = undefined // Declare scanId in outer scope for error handler
   
   try {
     // Require authentication
@@ -229,7 +233,7 @@ export async function POST(request: NextRequest) {
     
     console.log('🔍 Starting document scan for:', body.fileName)
 
-    const scanId = body.scanId || `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    scanId = body.scanId || `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     
     // Register this scan as active (before any processing)
     activeScans.set(scanId, { cancelled: false })
@@ -237,17 +241,349 @@ export async function POST(request: NextRequest) {
     // Convert base64 to buffer
     const fileBuffer = Buffer.from(body.fileContent, 'base64')
     
-    // Check if this is a PDF file
-    if (!body.fileType.toLowerCase().includes('pdf') && !body.fileName.toLowerCase().endsWith('.pdf')) {
+    // Check if this is a PDF or Word file
+    const isPDF = body.fileType.toLowerCase().includes('pdf') || body.fileName.toLowerCase().endsWith('.pdf')
+    const isWord = body.fileType.toLowerCase().includes('word') || 
+                   body.fileType.toLowerCase().includes('document') ||
+                   body.fileName.toLowerCase().endsWith('.docx') ||
+                   body.fileName.toLowerCase().endsWith('.doc')
+    
+    if (!isPDF && !isWord) {
       activeScans.delete(scanId)
       return NextResponse.json(
         { 
           success: false, 
-          error: 'Only PDF files are supported for Adobe PDF Services workflow'
+          error: 'Only PDF and Word documents are supported for auto-fix workflow'
         },
         { status: 400 }
       )
     }
+    
+    // ============================================
+    // WORD DOCUMENT PROCESSING
+    // ============================================
+    if (isWord) {
+      // Check and deduct credits
+      let creditData = await queryOne(
+        'SELECT * FROM user_credits WHERE user_id = $1',
+        [user.userId]
+      )
+
+      if (!creditData) {
+        await query(
+          `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
+           VALUES ($1, $2, $3, $4)`,
+          [user.userId, 3, 0, false]
+        )
+        creditData = await queryOne(
+          'SELECT * FROM user_credits WHERE user_id = $1',
+          [user.userId]
+        )
+      }
+
+      if (!creditData!.unlimited_credits && creditData!.credits_remaining < 1) {
+        activeScans.delete(scanId)
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Insufficient credits. Please upgrade your plan or purchase more credits.',
+            creditsRemaining: creditData!.credits_remaining
+          },
+          { status: 402 }
+        )
+      }
+
+      // Deduct credit
+      let creditTransactionId: number | null = null
+      if (!creditData!.unlimited_credits) {
+        await query('BEGIN')
+        try {
+          const result = await query(
+            `UPDATE user_credits 
+             SET credits_remaining = credits_remaining - 1, 
+                 credits_used = credits_used + 1,
+                 updated_at = NOW()
+             WHERE user_id = $1
+             RETURNING credits_remaining, credits_used`,
+            [user.userId]
+          )
+          await query('COMMIT')
+          
+          const newCredits = result.rows[0]?.credits_remaining || 0
+          console.log(`💳 Deducted credit. Remaining: ${newCredits}`)
+          
+          if (newCredits <= 3 && !creditData!.unlimited_credits) {
+            await NotificationService.notifyLowCredits(user.userId, newCredits)
+          }
+        } catch (error) {
+          await query('ROLLBACK')
+          throw error
+        }
+      }
+
+      activeScans.set(scanId, { 
+        cancelled: false,
+        creditTransactionId: creditTransactionId,
+        userId: user.userId
+      })
+
+      // Step 1: Scan Word document
+      console.log('🔍 Step 1: Scanning Word document...')
+      const scanner = new ComprehensiveDocumentScanner()
+      const scanResult = await scanner.scanDocument(
+        fileBuffer,
+        body.fileName,
+        body.fileType,
+        undefined,
+        () => activeScans.get(scanId)?.cancelled || false
+      )
+
+      if (!scanResult) {
+        throw new Error('Scan result is null or undefined')
+      }
+
+      const originalIssues = scanResult.issues || []
+      console.log(`📋 Found ${originalIssues.length} issues in Word document`)
+      console.log(`📊 Scan result structure:`, {
+        hasIssues: !!scanResult.issues,
+        issuesCount: scanResult.issues?.length || 0,
+        hasMetadata: !!scanResult.metadata,
+        hasSummary: !!scanResult.summary
+      })
+
+      // Step 2: Apply auto-fixes
+      console.log('🤖 Step 2: Applying automatic fixes using AI...')
+      const wordAutoFixService = new WordAutoFixService()
+      
+      // Extract document text from scan result
+      let documentText: string | undefined = undefined
+      try {
+        const mammoth = require('mammoth')
+        const textResult = await mammoth.extractRawText({ buffer: fileBuffer })
+        documentText = textResult.value
+      } catch (e) {
+        console.warn('⚠️ Could not extract Word document text:', e)
+      }
+      
+      const autoFixResult = await wordAutoFixService.applyAutoFixes(
+        fileBuffer,
+        originalIssues,
+        body.fileName,
+        documentText,
+        undefined // parsedStructure - will be extracted from issues if needed
+      )
+
+      console.log(`🔧 Auto-fix result: success=${autoFixResult.success}, fixes=${JSON.stringify(autoFixResult.fixesApplied)}`)
+      if (autoFixResult.errors && autoFixResult.errors.length > 0) {
+        console.error(`❌ Auto-fix errors:`, autoFixResult.errors)
+      }
+
+      let fixedWordBuffer: Buffer | undefined = undefined
+      let remainingIssues: any[] = originalIssues
+      let comparisonReport: any = undefined
+
+      if (autoFixResult.success && autoFixResult.fixedWordBuffer) {
+        fixedWordBuffer = autoFixResult.fixedWordBuffer
+        console.log(`✅ Auto-fix complete: ${autoFixResult.fixesApplied.altText} alt texts, ${autoFixResult.fixesApplied.tableSummaries} table summaries`)
+
+        // Step 3: Re-scan fixed document
+        console.log('🔍 Step 3: Re-scanning fixed Word document...')
+        const fixedScanResult = await scanner.scanDocument(
+          fixedWordBuffer,
+          body.fileName,
+          body.fileType,
+          undefined,
+          () => activeScans.get(scanId)?.cancelled || false
+        )
+
+        remainingIssues = fixedScanResult.issues || []
+        console.log(`📋 Remaining issues after auto-fix: ${remainingIssues.length}`)
+
+        // Generate comparison report
+        // Track which issues were actually fixed by comparing issue descriptions
+        // Create a map of original issue descriptions for comparison
+        const originalIssueMap = new Map<string, any>()
+        originalIssues.forEach((issue: any) => {
+          const key = issue.description || issue.section || issue.id || JSON.stringify(issue)
+          originalIssueMap.set(key, issue)
+        })
+
+        // Count how many original issues are no longer present
+        const fixedIssues: any[] = []
+        originalIssues.forEach((originalIssue: any) => {
+          const key = originalIssue.description || originalIssue.section || originalIssue.id || JSON.stringify(originalIssue)
+          const stillExists = remainingIssues.some((remaining: any) => {
+            const remainingKey = remaining.description || remaining.section || remaining.id || JSON.stringify(remaining)
+            return key === remainingKey
+          })
+          if (!stillExists) {
+            fixedIssues.push(originalIssue)
+          }
+        })
+
+        const originalCount = originalIssues.length
+        const remainingCount = remainingIssues.length
+        const fixedCount = fixedIssues.length
+
+        comparisonReport = {
+          original: {
+            totalIssues: originalCount,
+            failedIssues: originalCount // All issues are "failed" (need fixing)
+          },
+          fixed: {
+            totalIssues: remainingCount,
+            failedIssues: remainingCount // All remaining issues are "failed"
+          },
+          improvement: {
+            issuesFixed: fixedCount,
+            improvementPercentage: originalCount > 0 
+              ? Math.round((fixedCount / originalCount) * 100) 
+              : 0
+          }
+        }
+        
+        console.log(`📊 Comparison: Original=${originalCount}, Remaining=${remainingCount}, Fixed=${fixedCount}, Improvement=${comparisonReport.improvement.improvementPercentage}%`)
+        console.log(`🔧 Auto-fix claimed: altText=${autoFixResult.fixesApplied.altText}, metadata=${autoFixResult.fixesApplied.metadata}, headings=${autoFixResult.fixesApplied.headings}`)
+      }
+
+      // Step 4: Generate AI suggestions for remaining issues
+      console.log('🤖 Step 4: Generating AI suggestions for remaining issues...')
+      const claudeAPI = new ClaudeAPI()
+      const documentType = isWord ? 'Word document' : 'PDF document'
+      const enhancedIssues = await Promise.all(
+        remainingIssues.slice(0, 50).map(async (issue: any, index: number) => {
+          if (activeScans.get(scanId)?.cancelled) {
+            throw new Error('Scan was cancelled by user')
+          }
+
+          const aiSuggestion = await claudeAPI.generateDocumentAccessibilitySuggestion(
+            issue.description || issue.context || 'Accessibility issue',
+            issue.section || issue.rule || 'Accessibility',
+            body.fileName,
+            body.fileType,
+            issue.elementLocation || 'Document',
+            issue.pageNumber || 1,
+            issue.elementContent,
+            issue.elementId,
+            issue.elementType,
+            documentType // Pass document type for context-aware suggestions
+          )
+
+          return {
+            ...issue,
+            recommendation: aiSuggestion,
+            remediation: aiSuggestion,
+            autoFixed: false
+          }
+        })
+      )
+
+      // Build final result
+      const finalScanResult = {
+        is508Compliant: remainingIssues.length === 0,
+        overallScore: remainingIssues.length === 0 ? 100 : Math.max(0, 100 - (remainingIssues.length * 5)),
+        issues: enhancedIssues,
+        summary: {
+          total: remainingIssues.length,
+          critical: remainingIssues.filter((i: any) => i.type === 'critical' || i.impact === 'high').length,
+          serious: remainingIssues.filter((i: any) => i.type === 'serious' || i.impact === 'medium').length,
+          moderate: remainingIssues.filter((i: any) => i.type === 'moderate' || i.impact === 'low').length,
+          minor: remainingIssues.filter((i: any) => i.type === 'minor').length
+        },
+        metadata: {
+          scanEngine: 'Comprehensive Document Scanner',
+          standard: 'WCAG 2.1 AA, Section 508',
+          pagesAnalyzed: scanResult.metadata?.pagesAnalyzed || scanResult.pagesAnalyzed || 1,
+          fileSize: fileBuffer.length
+        },
+        detailedReport: {
+          categories: scanResult.reportCategories || {},
+          summary: scanResult.reportSummary || scanResult.summary,
+          issues: enhancedIssues
+        },
+        fixReport: {
+          success: autoFixResult.success,
+          fixesApplied: autoFixResult.fixesApplied,
+          errors: autoFixResult.errors
+        },
+        autoFixStats: autoFixResult.success ? autoFixResult.fixesApplied : undefined, // For FixReport component
+        comparisonReport: comparisonReport ? {
+          original: {
+            failed: comparisonReport.original.failedIssues,
+            totalChecks: comparisonReport.original.totalIssues
+          },
+          fixed: {
+            count: comparisonReport.fixed.failedIssues,
+            issues: [] // Will be populated if needed
+          },
+          remaining: {
+            failed: comparisonReport.fixed.failedIssues,
+            totalChecks: comparisonReport.fixed.totalIssues,
+            issues: remainingIssues.slice(0, 20) // Show first 20 remaining issues
+          },
+          improvement: {
+            improvementPercentage: comparisonReport.improvement.improvementPercentage
+          }
+        } : undefined,
+        fixedDocument: fixedWordBuffer ? {
+          buffer: fixedWordBuffer.toString('base64'),
+          fileName: body.fileName.replace(/\.(docx?|doc)$/i, '_fixed.docx'),
+          mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        } : undefined
+      }
+
+      activeScans.delete(scanId)
+
+      // Add issues to backlog
+      // For Word documents, we don't have a scan_history record yet, so we'll skip the backlog for now
+      // TODO: Create scan_history record for Word documents or make scanHistoryId optional
+      if (enhancedIssues.length > 0) {
+        try {
+          // Create a temporary scan_history record for Word documents
+          const scanHistoryResult = await queryOne(`
+            INSERT INTO scan_history (
+              user_id, scan_type, scan_title, file_name, file_type,
+              total_issues, critical_issues, serious_issues, moderate_issues, minor_issues,
+              overall_score, is_508_compliant, created_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW())
+            RETURNING id
+          `, [
+            user.userId,
+            'document',
+            body.fileName,
+            body.fileName,
+            body.fileType,
+            enhancedIssues.length,
+            enhancedIssues.filter((i: any) => i.type === 'critical').length,
+            enhancedIssues.filter((i: any) => i.type === 'serious').length,
+            enhancedIssues.filter((i: any) => i.type === 'moderate').length,
+            enhancedIssues.filter((i: any) => i.type === 'minor').length,
+            finalScanResult.overallScore,
+            finalScanResult.is508Compliant
+          ])
+          
+          if (scanHistoryResult?.id) {
+            await autoAddDocumentIssuesToBacklog(user.userId, enhancedIssues, scanHistoryResult.id, body.fileName)
+            console.log('✅ Word document issues added to backlog')
+          }
+        } catch (backlogError) {
+          console.error('❌ Failed to add Word document issues to backlog:', backlogError)
+          // Don't fail the entire scan if backlog addition fails
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        scanId: scanId,
+        scanResults: finalScanResult,
+        scanDuration: Date.now() - startTime
+      })
+    }
+    
+    // ============================================
+    // PDF DOCUMENT PROCESSING (existing code)
+    // ============================================
     
     // Check file size and page count BEFORE processing and BEFORE deducting credits
     // Adobe PDF Services API limits:
@@ -524,6 +860,12 @@ export async function POST(request: NextRequest) {
     // - Form Fields: labels, tab order, field properties
     // - All WCAG 2.1 AA and PDF/UA compliance checks
     console.log('🔍 Step 2: Running comprehensive accessibility check on TAGGED PDF (all pages, all checks)...')
+    
+    // Initialize variables that will be used in both success and error paths
+    let reportCategories: any = undefined
+    let reportSummary: any = undefined
+    let comparisonReport: any = undefined
+    
     const accessibilityResult = await adobePDFServices.checkAccessibility(taggedPdfBuffer)
     
     if (accessibilityResult.success && accessibilityResult.report) {
@@ -559,8 +901,8 @@ export async function POST(request: NextRequest) {
       
       // Build categories from issues if not available in report
       // NOTE: This will be replaced with re-scan results if auto-fix succeeds
-      let reportCategories = accessibilityResult.report.categories
-      let reportSummary = accessibilityResult.report.summary
+      reportCategories = accessibilityResult.report.categories
+      reportSummary = accessibilityResult.report.summary
       if (!reportCategories && adobeIssues.length > 0) {
         console.log('⚠️ No categories in report, building from issues...')
         reportCategories = {}
@@ -1124,7 +1466,62 @@ export async function POST(request: NextRequest) {
       }
     } else {
       console.warn(`⚠️ Adobe Accessibility Check failed: ${accessibilityResult.error || 'Unknown error'}`)
-      finalScanResult.error = accessibilityResult.error || 'Adobe accessibility check failed'
+      
+      // Initialize finalScanResult even when Adobe fails
+      const errorMessage = accessibilityResult.error || 'Adobe accessibility check failed'
+      
+      // Check if it's a quota error
+      const isQuotaError = errorMessage.toLowerCase().includes('quota') || 
+                          errorMessage.toLowerCase().includes('exhausted')
+      
+      finalScanResult = {
+        is508Compliant: false,
+        overallScore: 0,
+        issues: [],
+        summary: {
+          total: 0,
+          critical: 0,
+          serious: 0,
+          moderate: 0,
+          minor: 0
+        },
+        detailedReport: isQuotaError ? {
+          filename: body.fileName,
+          reportCreatedBy: 'Adobe PDF Services API',
+          organization: 'Accessitest',
+          summary: {
+            needsManualCheck: 0,
+            passedManually: 0,
+            failedManually: 0,
+            skipped: 0,
+            passed: 0,
+            failed: 0
+          },
+          categories: {
+            'Error': [{
+              ruleName: 'Adobe Services Unavailable',
+              status: 'Failed',
+              description: isQuotaError 
+                ? 'Adobe PDF Services quota has been exceeded. Please try again later or contact support.'
+                : errorMessage,
+              page: undefined,
+              location: 'Document'
+            }]
+          },
+          autoTagged: false
+        } : undefined,
+        metadata: {
+          scanEngine: 'Adobe PDF Services API',
+          standard: 'PDF/UA, WCAG 2.1 AA',
+          pagesAnalyzed: 0,
+          fileSize: fileBuffer.length,
+          scanDuration: Date.now() - startTime,
+          taggedPdfAvailable: false,
+          autoTagged: false
+        },
+        error: errorMessage,
+        comparisonReport: undefined
+      }
     }
     
     // Final cancellation check - refund credit if cancelled
@@ -1305,10 +1702,41 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('❌ Document scan error:', error)
+    console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+    
+    // Get scan info before deleting (only if scanId was set)
+    const currentScan = scanId ? activeScans.get(scanId) : undefined
+    
+    // Clean up active scan on error (only if scanId exists)
+    if (scanId) {
+      activeScans.delete(scanId)
+    }
+    
+    // Refund credit if it was deducted
+    if (currentScan?.creditTransactionId && currentScan?.userId) {
+      try {
+        await query('BEGIN')
+        await query(
+          `UPDATE user_credits 
+           SET credits_remaining = credits_remaining + 1, 
+               credits_used = GREATEST(credits_used - 1, 0),
+               updated_at = NOW()
+           WHERE user_id = $1`,
+          [currentScan.userId]
+        )
+        await query('COMMIT')
+        console.log('✅ Refunded credit due to scan error')
+      } catch (refundError) {
+        await query('ROLLBACK')
+        console.error('❌ Failed to refund credit:', refundError)
+      }
+    }
+    
     return NextResponse.json(
       { 
         success: false, 
-        error: 'Failed to scan document' 
+        error: error instanceof Error ? error.message : 'Failed to scan document',
+        details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
       },
       { status: 500 }
     )

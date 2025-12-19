@@ -1008,31 +1008,50 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
   // Note: fixPDF function removed - PDFs are already auto-tagged during the scan process
   // The scan workflow: Auto-tag → Check accessibility → AI remediation → Download tagged PDF
 
-  // Download tagged PDF function
+  // Download fixed document function (PDF or Word)
   const downloadTaggedPDF = (uploadedDoc: UploadedDocument) => {
-    // Check both locations for tagged PDF
+    // Check for fixed document (Word) first, then tagged PDF
+    const fixedDoc = (uploadedDoc.scanResults as any)?.fixedDocument
     const taggedPdfBase64 = uploadedDoc.taggedPdfBase64 || uploadedDoc.scanResults?.taggedPdfBase64
     const taggedPdfFileName = uploadedDoc.taggedPdfFileName || uploadedDoc.scanResults?.taggedPdfFileName
     
-    if (!taggedPdfBase64) {
-      console.error('Tagged PDF not available:', {
+    // Determine if this is a Word document
+    const isWordDoc = uploadedDoc.type?.includes('word') || uploadedDoc.type?.includes('document') || 
+                      uploadedDoc.name?.toLowerCase().endsWith('.docx') || 
+                      uploadedDoc.name?.toLowerCase().endsWith('.doc')
+    
+    let base64: string | undefined
+    let fileName: string | undefined
+    let mimeType: string
+    
+    if (fixedDoc) {
+      // Use fixed Word document
+      base64 = fixedDoc.buffer
+      fileName = fixedDoc.fileName
+      mimeType = fixedDoc.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    } else if (taggedPdfBase64) {
+      // Use tagged PDF
+      base64 = taggedPdfBase64
+      fileName = taggedPdfFileName || uploadedDoc.name.replace(/\.pdf$/i, '_tagged.pdf')
+      mimeType = 'application/pdf'
+    } else {
+      console.error('Fixed document not available:', {
+        hasFixedDoc: !!fixedDoc,
         hasDocumentTaggedPdf: !!uploadedDoc.taggedPdfBase64,
         hasScanResultsTaggedPdf: !!uploadedDoc.scanResults?.taggedPdfBase64,
         documentKeys: Object.keys(uploadedDoc),
         scanResultsKeys: uploadedDoc.scanResults ? Object.keys(uploadedDoc.scanResults) : 'no scanResults'
       })
-      showToast('Tagged PDF not available', 'error')
+      showToast(isWordDoc ? 'Fixed Word document not available' : 'Tagged PDF not available', 'error')
       return
     }
-
+    
     try {
-      const base64 = taggedPdfBase64
-      const fileName = taggedPdfFileName || uploadedDoc.name.replace(/\.pdf$/i, '_tagged.pdf')
-      
       console.log('📥 Starting download:', {
         fileName,
         base64Length: base64.length,
-        base64Preview: base64.substring(0, 50) + '...'
+        mimeType,
+        isWordDoc
       })
       
       // Validate base64 string
@@ -1053,14 +1072,14 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         byteNumbers[i] = byteCharacters.charCodeAt(i)
       }
       const byteArray = new Uint8Array(byteNumbers)
-      const blob = new Blob([byteArray], { type: 'application/pdf' })
+      const blob = new Blob([byteArray], { type: mimeType })
       
       console.log('✅ Blob created:', {
         size: blob.size,
         type: blob.type
       })
       
-      // Create download link - use window.document to avoid naming conflict
+      // Create download link
       const url = URL.createObjectURL(blob)
       const link = window.document.createElement('a')
       link.href = url
@@ -1076,16 +1095,16 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       }, 100)
       
       console.log('✅ Download triggered successfully')
-      showToast('Tagged PDF downloaded successfully!', 'success')
+      showToast(isWordDoc ? 'Fixed Word document downloaded successfully!' : 'Tagged PDF downloaded successfully!', 'success')
     } catch (error) {
-      console.error('❌ Error downloading tagged PDF:', error)
+      console.error('❌ Error downloading document:', error)
       console.error('Error details:', {
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         errorStack: error instanceof Error ? error.stack : 'No stack trace',
-        base64Length: taggedPdfBase64?.length,
-        fileName: taggedPdfFileName
+        base64Length: base64?.length,
+        fileName
       })
-      showToast(`Failed to download tagged PDF: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
+      showToast(`Failed to download ${isWordDoc ? 'Word document' : 'PDF'}: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
     }
   }
 
@@ -1314,7 +1333,11 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         throw new Error(errorMessage)
       }
 
-      const scanResult = result.result
+      const scanResult = result.scanResults || result.result
+      
+      if (!scanResult) {
+        throw new Error('Scan result is missing from API response')
+      }
       
       // Store tagged PDF if available (check both result.result and result root level)
       const taggedPdfBase64 = result.taggedPdfBase64 || scanResult?.taggedPdfBase64
@@ -1884,24 +1907,35 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                       </div>
                     )}
 
-                    {/* Download PDF Button - Shows auto-fixed if available, otherwise tagged */}
-                    {(document.taggedPdfBase64 || document.scanResults?.taggedPdfBase64) && (
+                    {/* Download Fixed Document Button - Shows auto-fixed if available, otherwise tagged */}
+                    {((document.taggedPdfBase64 || document.scanResults?.taggedPdfBase64) || 
+                      (document.scanResults as any)?.fixedDocument) && (
                       <div className="mt-3 mb-3">
                         <button
                           onClick={() => downloadTaggedPDF(document)}
                           className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                          title={(document.scanResults as any)?.autoFixed 
-                            ? "Download the automatically fixed PDF with AI-generated alt text and table summaries" 
+                          title={(document.scanResults as any)?.autoFixed || (document.scanResults as any)?.fixedDocument
+                            ? (document.type?.includes('word') || document.type?.includes('document')
+                              ? "Download the automatically fixed Word document with AI-generated alt text and table summaries"
+                              : "Download the automatically fixed PDF with AI-generated alt text and table summaries")
                             : "Download the automatically tagged PDF with improved accessibility structure"}
                         >
                           <Download className="h-4 w-4" />
-                          <span>{(document.scanResults as any)?.autoFixed 
-                            ? "Download Auto-Fixed PDF" 
+                          <span>{(document.scanResults as any)?.autoFixed || (document.scanResults as any)?.fixedDocument
+                            ? (document.type?.includes('word') || document.type?.includes('document')
+                              ? "Download Auto-Fixed Word Document"
+                              : "Download Auto-Fixed PDF")
                             : "Download Fixed PDF (Auto-Tagged)"}</span>
                         </button>
                         {(document.scanResults as any)?.autoFixed ? (
                           <p className="text-xs text-gray-500 mt-1">
                             Layout preserved - only accessibility metadata was modified
+                          </p>
+                        ) : (document.type?.includes('word') || document.type?.includes('document') || 
+                             document.name?.toLowerCase().endsWith('.docx') || 
+                             document.name?.toLowerCase().endsWith('.doc')) ? (
+                          <p className="text-xs text-gray-500 mt-1">
+                            This Word document has been automatically fixed for accessibility
                           </p>
                         ) : (
                           <p className="text-xs text-gray-500 mt-1">
