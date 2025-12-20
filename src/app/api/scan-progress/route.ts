@@ -24,47 +24,33 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
     for (const issue of result.issues) {
       try {
         // Generate unique issue ID based on rule, element, and URL
-        const issueId = generateIssueId(issue.id, issue.nodes?.[0]?.target?.[0], result.url)
-        const domain = new URL(result.url).hostname
+        // This makes each occurrence unique (same rule on different elements = different issue)
+        // Use the FULL element selector path, not just the first part, to ensure uniqueness
+        const elementSelector = issue.nodes?.[0]?.target?.join(' > ') || issue.nodes?.[0]?.target?.[0] || ''
+        const issueId = generateIssueId(issue.id, elementSelector, result.url)
 
-        // Check if this exact issue already exists for this domain
+        // Check if this EXACT issue already exists using issue_key (not just rule_name)
+        // This ensures each unique occurrence gets its own backlog item
         const existingItem = await queryOne(`
           SELECT i.id, i.status, i.created_at, i.updated_at 
           FROM issues i
-          JOIN scan_history sh ON i.first_seen_scan_id = sh.id
-          WHERE sh.user_id = $1 AND i.rule_name = $2 AND sh.url LIKE $3
-        `, [userId, issue.id, `%${domain}%`])
+          WHERE i.issue_key = $1
+        `, [issueId])
 
         if (existingItem) {
-          // Update last_scan_at and check if we should reopen
-          const now = new Date()
-          const lastSeen = new Date(existingItem.last_scan_at)
-          const daysSinceLastSeen = Math.floor((now.getTime() - lastSeen.getTime()) / (1000 * 60 * 60 * 24))
+          // Update the existing issue's occurrence count and timestamp
+          await query(`
+            UPDATE issues 
+            SET updated_at = NOW(),
+                total_occurrences = total_occurrences + 1
+            WHERE id = $1
+          `, [existingItem.id])
 
-          // If issue was closed/done and it's been more than 7 days, reopen it
-          if ((existingItem.status === 'done' || existingItem.status === 'cancelled') && daysSinceLastSeen > 7) {
-            await query(`
-              UPDATE issues 
-              SET status = 'backlog', 
-                  updated_at = NOW(),
-                  rank = (
-                    SELECT COALESCE(MAX(rank), 0) + 1 
-                    FROM issues 
-                    WHERE first_seen_scan_id IN (
-                      SELECT id FROM scan_history WHERE user_id = $1
-                    )
-                  )
-              WHERE id = $2
-            `, [userId, existingItem.id])
-
-            reopenedItems.push({
-              id: existingItem.id,
-              issueId: issueId,
-              ruleName: issue.id,
-              impact: issue.impact,
-              status: 'reopened'
-            })
-          }
+          skippedItems.push({
+            issueId: issue.id,
+            ruleName: issue.id,
+            reason: 'Exact duplicate (same rule + element + URL)'
+          })
           continue
         }
 
@@ -98,7 +84,7 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
           issue.nodes?.length || 1, 
           [result.url], 
           issue.nodes?.[0]?.failureSummary || '', 
-          'open', 
+          'backlog', 
           'medium', 
           nextRank, 
           1, 
@@ -288,8 +274,11 @@ function deduplicateIssuesAcrossPages(results: any[]): any[] {
     if (!result.issues) continue
     
     for (const issue of result.issues) {
-      // Create a unique key based on issue ID and selector
-      const key = `${issue.id}_${issue.nodes?.[0]?.target?.join('_') || 'unknown'}`
+      // Create a unique key based on issue ID and FULL element selector path
+      // This ensures same rule on different elements = different issues
+      // But same rule on same element across pages = same issue (grouped)
+      const elementSelector = issue.nodes?.[0]?.target?.join(' > ') || issue.nodes?.[0]?.target?.[0] || 'unknown'
+      const key = `${issue.id}_${elementSelector}`
       
       if (issueMap.has(key)) {
         // Merge with existing issue - combine node counts and pages

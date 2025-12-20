@@ -97,9 +97,6 @@ export async function autoAddDocumentIssuesToBacklog(
         // impact is VARCHAR(50) - truncate issue.type to 50 chars
         const impact = String(issue.type || 'moderate').substring(0, 50).trim() // VARCHAR(50)
         
-        // Ensure status fits VARCHAR(10) - use 'open' which is safe (4 chars)
-        const safeStatus = String('open').substring(0, 10).trim() // VARCHAR(10)
-        
         // Ensure all string values are properly converted and truncated
         const safeIssueKey = String(issueKey).substring(0, 50).trim() // VARCHAR(50)
         const safeRuleId = String(issue.id || issue.description || '').substring(0, 255).trim() // VARCHAR(255)
@@ -110,7 +107,8 @@ export async function autoAddDocumentIssuesToBacklog(
         
         // Final values for INSERT - ensure all VARCHAR fields are within exact limits
         // Use Math.min to ensure we never exceed limits, even after trim
-        const finalStatus = String('open').substring(0, Math.min(10, String('open').length)).trim().substring(0, 10) // VARCHAR(10)
+        // Use 'backlog' status as intended (7 chars, fits VARCHAR(10))
+        const finalStatus = String(status).substring(0, Math.min(10, String(status).length)).trim().substring(0, 10) // VARCHAR(10)
         const finalWcagLevel = String(wcagLevel || 'AA').trim().substring(0, Math.min(50, String(wcagLevel || 'AA').trim().length)) // VARCHAR(50)
         const finalImpact = String(impact || 'moderate').trim().substring(0, Math.min(50, String(impact || 'moderate').trim().length)) // VARCHAR(50)
         const finalPriority = String(safePriority || 'medium').trim().substring(0, Math.min(20, String(safePriority || 'medium').trim().length)) // VARCHAR(20)
@@ -160,7 +158,7 @@ export async function autoAddDocumentIssuesToBacklog(
           occurrencesCount, // total_occurrences - use from issue if grouped/duplicate
           [`Document: ${fileName}`], // affected_pages (TEXT[])
           safeNotes, // notes (TEXT)
-          finalStatusSafe, // status (VARCHAR(10)) - 'open' is 4 chars, safe
+          finalStatusSafe, // status (VARCHAR(10)) - 'backlog' is 7 chars, safe
           finalPrioritySafe, // priority (VARCHAR(20)) - truncated to 20 chars
           nextRank, // rank (INTEGER)
           1, // story_points (INTEGER)

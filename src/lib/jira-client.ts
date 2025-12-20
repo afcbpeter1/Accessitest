@@ -1,4 +1,5 @@
 import { decryptTokenFromStorage } from './jira-encryption-service'
+import FormData from 'form-data'
 
 export interface JiraCredentials {
   jiraUrl: string
@@ -270,6 +271,78 @@ export class JiraClient {
    */
   getTicketUrl(ticketKey: string): string {
     return `${this.baseUrl}/browse/${ticketKey}`
+  }
+
+  /**
+   * Upload an attachment to a Jira issue
+   * @param issueKey The Jira issue key (e.g., "PROJ-123")
+   * @param fileBuffer The file buffer to upload
+   * @param filename The filename for the attachment
+   * @returns The attachment ID and metadata
+   */
+  async addAttachment(
+    issueKey: string,
+    fileBuffer: Buffer,
+    filename: string
+  ): Promise<{ id: string; filename: string; size: number; mimeType: string }> {
+    const url = `${this.baseUrl}/rest/api/3/issue/${issueKey}/attachments`
+    
+    // Create form data using form-data package (Node.js compatible)
+    const formData = new FormData()
+    const contentType = filename.endsWith('.png') ? 'image/png' :
+                       filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? 'image/jpeg' :
+                       filename.endsWith('.gif') ? 'image/gif' :
+                       filename.endsWith('.webp') ? 'image/webp' :
+                       'image/png'
+    
+    formData.append('file', fileBuffer, {
+      filename: filename,
+      contentType: contentType
+    })
+
+    // Get headers from form-data (includes Content-Type with boundary)
+    const formHeaders = formData.getHeaders()
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': this.authHeader,
+        'X-Atlassian-Token': 'nocheck', // Required for attachment uploads
+        ...formHeaders, // This sets Content-Type with boundary
+      },
+      body: formData as any, // form-data package works with fetch in Node.js 18+
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      let errorMessage = `Failed to upload attachment: ${response.status} ${response.statusText}`
+      
+      try {
+        const errorJson = JSON.parse(errorText)
+        if (errorJson.errorMessages && errorJson.errorMessages.length > 0) {
+          errorMessage = errorJson.errorMessages.join(', ')
+        } else if (errorJson.message) {
+          errorMessage = errorJson.message
+        }
+      } catch {
+        errorMessage = errorText || errorMessage
+      }
+
+      throw new Error(errorMessage)
+    }
+
+    const attachments = await response.json()
+    if (attachments && attachments.length > 0) {
+      const attachment = attachments[0]
+      return {
+        id: attachment.id,
+        filename: attachment.filename,
+        size: attachment.size,
+        mimeType: attachment.mimeType
+      }
+    }
+
+    throw new Error('No attachment returned from Jira')
   }
 }
 

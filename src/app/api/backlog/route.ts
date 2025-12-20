@@ -7,7 +7,26 @@ export async function GET(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
 
-    // Get all issues to restore your backlog, excluding those already in sprints
+    // Get comprehensive counts for diagnostics
+    const countResult = await pool.query(`
+      SELECT 
+        COUNT(*) as total_issues,
+        COUNT(CASE WHEN si.id IS NOT NULL THEN 1 END) as issues_in_sprints,
+        COUNT(CASE WHEN si.id IS NULL THEN 1 END) as issues_in_backlog,
+        COUNT(CASE WHEN i.status = 'backlog' THEN 1 END) as status_backlog,
+        COUNT(CASE WHEN i.status = 'open' THEN 1 END) as status_open,
+        COUNT(CASE WHEN i.status = 'in_progress' THEN 1 END) as status_in_progress,
+        COUNT(CASE WHEN i.status = 'resolved' THEN 1 END) as status_resolved,
+        COUNT(CASE WHEN i.status = 'closed' THEN 1 END) as status_closed
+      FROM issues i
+      INNER JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+      LEFT JOIN sprint_issues si ON i.id = si.issue_id
+      WHERE sh.user_id = $1
+    `, [user.userId])
+
+    // Get ALL issues for the backlog, excluding those already in sprints
+    // Include all statuses (backlog, open, in_progress, resolved, etc.) - don't filter by status
+    // NO LIMIT - return all issues
     const result = await pool.query(`
       SELECT 
         i.id,
@@ -30,16 +49,18 @@ export async function GET(request: NextRequest) {
         i.updated_at,
         CASE 
           WHEN sh.url IS NOT NULL THEN sh.url
-          ELSE 'Document: ' || COALESCE(sh.file_name, 'Unknown')
+          WHEN sh.file_name IS NOT NULL THEN 'Document: ' || sh.file_name
+          ELSE COALESCE(i.affected_pages[1], 'Unknown')
         END as url,
         sh.user_id,
         sh.file_name,
         sh.scan_type,
         sh.scan_results
       FROM issues i
-      JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+      INNER JOIN scan_history sh ON i.first_seen_scan_id = sh.id
       LEFT JOIN sprint_issues si ON i.id = si.issue_id
-      WHERE sh.user_id = $1 AND si.id IS NULL
+      WHERE sh.user_id = $1 
+        AND si.id IS NULL
       ORDER BY 
         CASE WHEN i.rank IS NOT NULL THEN i.rank ELSE 999999 END ASC,
         i.created_at ASC,
@@ -210,9 +231,28 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const counts = countResult.rows[0] || {}
+    const totalInDatabase = parseInt(counts.total_issues || '0')
+    const inSprints = parseInt(counts.issues_in_sprints || '0')
+    const shouldBeInBacklog = parseInt(counts.issues_in_backlog || '0')
+
     return NextResponse.json({
       success: true,
-      items: backlogItems
+      items: backlogItems,
+      total: backlogItems.length,
+      diagnostics: {
+        totalIssuesInDatabase: totalInDatabase,
+        issuesInSprints: inSprints,
+        issuesThatShouldBeInBacklog: shouldBeInBacklog,
+        issuesActuallyReturned: backlogItems.length,
+        statusBreakdown: {
+          backlog: parseInt(counts.status_backlog || '0'),
+          open: parseInt(counts.status_open || '0'),
+          in_progress: parseInt(counts.status_in_progress || '0'),
+          resolved: parseInt(counts.status_resolved || '0'),
+          closed: parseInt(counts.status_closed || '0')
+        }
+      }
     })
 
   } catch (error) {

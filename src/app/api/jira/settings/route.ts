@@ -66,12 +66,29 @@ export async function POST(request: NextRequest) {
 
     const { jiraUrl, email, apiToken, projectKey, issueType, autoSyncEnabled } = body
 
-    // Validate required fields
-    if (!jiraUrl || !email || !apiToken || !projectKey) {
+    // Check if integration already exists FIRST (before validation)
+    const existing = await queryOne(
+      'SELECT id, encrypted_api_token FROM jira_integrations WHERE user_id = $1',
+      [user.userId]
+    )
+
+    // Validate required fields - apiToken only required for new integrations
+    if (!jiraUrl || !email || !projectKey) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Missing required fields: jiraUrl, email, apiToken, projectKey'
+          error: 'Missing required fields: jiraUrl, email, projectKey'
+        },
+        { status: 400 }
+      )
+    }
+
+    // API token is required for new integrations, but optional for updates
+    if (!existing && !apiToken) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'API token is required for new integrations'
         },
         { status: 400 }
       )
@@ -93,12 +110,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if integration already exists
-    const existing = await queryOne(
-      'SELECT id, encrypted_api_token FROM jira_integrations WHERE user_id = $1',
-      [user.userId]
-    )
-
     let encryptedToken: string
     
     if (existing && !apiToken) {
@@ -108,7 +119,7 @@ export async function POST(request: NextRequest) {
       // Encrypt new API token
       encryptedToken = encryptTokenForStorage(apiToken)
     } else {
-      // New integration requires API token
+      // This should not happen due to validation above, but just in case
       return NextResponse.json(
         {
           success: false,
@@ -119,22 +130,22 @@ export async function POST(request: NextRequest) {
     }
 
     if (existing) {
-      // Update existing integration
+      // Update existing integration - ensure is_active is set to true
       await query(
         `UPDATE jira_integrations 
         SET jira_url = $1, jira_email = $2, encrypted_api_token = $3,
             project_key = $4, issue_type = $5, auto_sync_enabled = $6,
-            updated_at = NOW()
+            is_active = true, updated_at = NOW()
         WHERE user_id = $7`,
-        [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled || false, user.userId]
+        [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false, user.userId]
       )
     } else {
-      // Create new integration
+      // Create new integration - set is_active to true
       await query(
         `INSERT INTO jira_integrations 
-        (user_id, jira_url, jira_email, encrypted_api_token, project_key, issue_type, auto_sync_enabled)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [user.userId, jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled || false]
+        (user_id, jira_url, jira_email, encrypted_api_token, project_key, issue_type, auto_sync_enabled, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, true)`,
+        [user.userId, jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false]
       )
     }
 

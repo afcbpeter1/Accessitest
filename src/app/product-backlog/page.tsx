@@ -201,15 +201,30 @@ export default function ProductBacklog() {
 
   const fetchBacklogItems = async () => {
     try {
+      setLoading(true)
       const response = await authenticatedFetch('/api/backlog')
       const data = await response.json()
       if (data.success) {
-        setBacklogItems(data.items)
+        // Ensure we set ALL items - no filtering
+        setBacklogItems(data.items || [])
+        
+        // Log diagnostics if available
+        if (data.diagnostics) {
+          console.log('📊 Backlog Diagnostics:', {
+            totalIssuesInDatabase: data.diagnostics.totalIssuesInDatabase,
+            issuesInSprints: data.diagnostics.issuesInSprints,
+            issuesThatShouldBeInBacklog: data.diagnostics.issuesThatShouldBeInBacklog,
+            issuesActuallyReturned: data.diagnostics.issuesActuallyReturned,
+            statusBreakdown: data.diagnostics.statusBreakdown
+          })
+        }
       } else {
         console.error('❌ API returned success: false', data)
+        setBacklogItems([])
       }
     } catch (error) {
       console.error('Error fetching backlog items:', error)
+      setBacklogItems([])
     } finally {
       setLoading(false)
     }

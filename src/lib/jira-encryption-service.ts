@@ -99,6 +99,17 @@ export function decryptToken(encryptedData: {
 /**
  * Encrypt token for database storage
  * Combines encrypted data into a single JSON string
+ * 
+ * Storage format: {"encrypted":"...","iv":"...","tag":"..."}
+ * 
+ * This format is required for AES-GCM encryption:
+ * - encrypted: The encrypted token data
+ * - iv: Initialization vector (16 bytes, unique per encryption, needed for decryption)
+ * - tag: Authentication tag (16 bytes, verifies data integrity in GCM mode)
+ * 
+ * Storing as a JSON string in a TEXT field is the standard and secure approach.
+ * The JSON structure is necessary - we cannot store these separately as they must
+ * be decrypted together.
  */
 export function encryptTokenForStorage(plaintextToken: string): string {
   const encrypted = encryptToken(plaintextToken)
@@ -121,4 +132,5 @@ export function decryptTokenFromStorage(storedToken: string): string {
     throw new Error(`Failed to decrypt token: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
+
 

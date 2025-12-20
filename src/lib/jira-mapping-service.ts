@@ -13,6 +13,24 @@ export interface LocalIssue {
   help_text?: string
   notes?: string
   issue_key?: string
+  offendingElements?: Array<{
+    html?: string
+    target?: string[]
+    failureSummary?: string
+    impact?: string
+    url?: string
+    screenshot?: string
+    boundingBox?: any
+  }>
+  suggestions?: Array<{
+    type?: string
+    description?: string
+    codeExample?: string
+    code?: string
+    priority?: string
+    text?: string
+  }>
+  screenshots?: any
 }
 
 /**
@@ -150,6 +168,214 @@ function buildDescription(issue: LocalIssue): any {
   if (issue.notes && issue.notes.trim().length > 0) {
     addHeading('Notes')
     addParagraph(issue.notes)
+  }
+
+  // Offending Elements
+  if (issue.offendingElements && issue.offendingElements.length > 0) {
+    addHeading('Offending Elements')
+    
+    const isDocumentScan = issue.offendingElements.some((e: any) => e.pageNumber !== undefined)
+    
+    issue.offendingElements.forEach((element, index) => {
+      const elementNum = index + 1
+      const impact = element.impact || issue.impact || 'moderate'
+      
+      // Element header
+      addParagraph(`ELEMENT ${elementNum}`, [{ type: 'strong' }])
+      addParagraph(`Impact: ${impact.toUpperCase()}`)
+      
+      if (isDocumentScan) {
+        // Document scan format
+        // Page Number
+        if (element.pageNumber) {
+          addParagraph(`Page Number: ${element.pageNumber}`)
+        }
+        
+        // Document Location
+        if (element.target && element.target.length > 0) {
+          addParagraph(`Location: ${element.target.join(' > ')}`)
+        }
+        
+        // Issue Description
+        if (element.failureSummary || element.html) {
+          addParagraph(`Issue: ${element.failureSummary || element.html}`)
+        }
+        
+        // Document/File reference
+        if (element.url) {
+          addParagraph(`Document: ${element.url}`)
+        }
+      } else {
+        // Web scan format
+        // HTML Code
+        if (element.html) {
+          addParagraph('HTML Code:')
+          // Use code block for HTML (ADF format)
+          content.push({
+            type: 'codeBlock',
+            attrs: {},
+            content: [{
+              type: 'text',
+              text: element.html
+            }]
+          })
+        }
+        
+        // CSS Selector
+        if (element.target && element.target.length > 0) {
+          const selector = element.target.join(' > ')
+          addParagraph(`CSS Selector: ${selector}`)
+        }
+        
+        // Issue Description
+        if (element.failureSummary) {
+          addParagraph(`Issue: ${element.failureSummary}`)
+        }
+        
+        // URL
+        if (element.url) {
+          addParagraph(`URL: ${element.url}`)
+        }
+      }
+      
+      // Add spacing between elements
+      if (index < issue.offendingElements.length - 1) {
+        content.push({ type: 'rule' })
+      }
+    })
+  }
+
+  // Implementation Steps (different for document vs web scans)
+  if (issue.offendingElements && issue.offendingElements.length > 0) {
+    addHeading('Implementation Steps')
+    const isDocumentScan = issue.offendingElements.some((e: any) => e.pageNumber !== undefined)
+    
+    if (isDocumentScan) {
+      // Document-specific steps
+      const steps = [
+        'Review the affected sections/pages listed below',
+        'Apply the recommended fixes to the document',
+        'Update the document structure or content as needed',
+        'Verify accessibility improvements using document accessibility checkers',
+        'Re-scan the document to confirm the issue is resolved'
+      ]
+      addBulletList(steps)
+    } else {
+      // Web scan steps
+      const steps = [
+        'Review the affected elements listed below',
+        'Apply the CSS fixes provided in the code examples',
+        'Test the changes using browser developer tools',
+        'Verify color contrast meets WCAG standards',
+        'Test with screen readers and accessibility tools',
+        'Re-scan the page to confirm the issue is resolved'
+      ]
+      addBulletList(steps)
+    }
+  }
+
+  // AI-Generated Suggested Fix
+  if (issue.suggestions && issue.suggestions.length > 0) {
+    addHeading('AI-Generated Suggested Fix')
+    
+    issue.suggestions.forEach((suggestion, index) => {
+      if (suggestion.description) {
+        addParagraph(suggestion.description)
+      }
+      
+      // Code Example
+      if (suggestion.codeExample || suggestion.code) {
+        const code = suggestion.codeExample || suggestion.code || ''
+        if (code.trim()) {
+          addParagraph('Suggested Fix:')
+          content.push({
+            type: 'codeBlock',
+            attrs: {},
+            content: [{
+              type: 'text',
+              text: code.trim()
+            }]
+          })
+        }
+      }
+      
+      if (index < issue.suggestions.length - 1) {
+        content.push({ type: 'rule' })
+      }
+    })
+  }
+
+  // Visual Evidence - add links to Cloudinary screenshots
+  if (issue.screenshots || (issue.offendingElements && issue.offendingElements.some(e => e.screenshot))) {
+    addHeading('Visual Evidence')
+    
+    // Add links to screenshots stored in Cloudinary
+    if (issue.screenshots) {
+      if (issue.screenshots.fullPage) {
+        content.push({
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: 'Full Page Screenshot: '
+          }, {
+            type: 'text',
+            text: 'View Full Page Screenshot',
+            marks: [{
+              type: 'link',
+              attrs: {
+                href: issue.screenshots.fullPage
+              }
+            }]
+          }]
+        })
+      }
+      
+      if (issue.screenshots.elements && Array.isArray(issue.screenshots.elements)) {
+        issue.screenshots.elements.forEach((element: any, index: number) => {
+          if (element.screenshot) {
+            const selector = element.selector || `Element ${index + 1}`
+            content.push({
+              type: 'paragraph',
+              content: [{
+                type: 'text',
+                text: `${selector}: `
+              }, {
+                type: 'text',
+                text: 'View Screenshot',
+                marks: [{
+                  type: 'link',
+                  attrs: {
+                    href: element.screenshot
+                  }
+                }]
+              }]
+            })
+          }
+        })
+      }
+    } else if (issue.offendingElements && issue.offendingElements.some((e: any) => e.screenshot)) {
+      // Fallback: check offending elements for screenshots
+      issue.offendingElements.forEach((element: any) => {
+        if (element.screenshot) {
+          content.push({
+            type: 'paragraph',
+            content: [{
+              type: 'text',
+              text: 'Screenshot: '
+            }, {
+              type: 'text',
+              text: 'View Screenshot',
+              marks: [{
+                type: 'link',
+                attrs: {
+                  href: element.screenshot
+                }
+              }]
+            }]
+          })
+        }
+      })
+    }
   }
 
   // Add footer only if we have content
@@ -320,5 +546,134 @@ export function mapIssueToJiraSimple(
   }
   
   return request
+}
+
+/**
+ * Update ADF description with attachment references
+ * @param description The existing ADF description
+ * @param attachments Array of uploaded attachment metadata
+ * @param jiraBaseUrl The base URL of the Jira instance (for building attachment links)
+ * @returns Updated ADF description with attachment references
+ */
+export function addMediaNodesToDescription(
+  description: any,
+  attachments: Array<{ id: string; filename: string }>,
+  jiraBaseUrl?: string
+): any {
+  console.log(`addMediaNodesToDescription called with ${attachments.length} attachment(s)`)
+  
+  if (!description || !description.content || !Array.isArray(description.content)) {
+    console.log('❌ Invalid description structure')
+    return description
+  }
+
+  // Find the "Visual Evidence" heading and replace the placeholder paragraph
+  const updatedContent = [...description.content]
+  let visualEvidenceIndex = -1
+  
+  for (let i = 0; i < updatedContent.length; i++) {
+    const item = updatedContent[i]
+    if (item.type === 'heading' && 
+        item.content && 
+        item.content.some((c: any) => c.text && c.text.includes('Visual Evidence'))) {
+      visualEvidenceIndex = i
+      console.log(`Found Visual Evidence heading at index ${i}`)
+      break
+    }
+  }
+
+  if (visualEvidenceIndex >= 0 && attachments.length > 0) {
+    // Remove the placeholder paragraph after the heading
+    const headingIndex = visualEvidenceIndex
+    let paragraphIndex = -1
+    
+    for (let i = headingIndex + 1; i < updatedContent.length; i++) {
+      if (updatedContent[i].type === 'paragraph') {
+        // Check if this paragraph contains the placeholder text
+        const paragraphText = updatedContent[i].content?.map((c: any) => c.text).join('') || ''
+        if (paragraphText.includes('Screenshots are being attached') || paragraphText.includes('being attached')) {
+          paragraphIndex = i
+          console.log(`Found placeholder paragraph at index ${i}: "${paragraphText}"`)
+          break
+        }
+      }
+    }
+    
+    if (paragraphIndex === -1) {
+      // Look for any paragraph after the heading
+      for (let i = headingIndex + 1; i < updatedContent.length && i < headingIndex + 3; i++) {
+        if (updatedContent[i].type === 'paragraph') {
+          paragraphIndex = i
+          console.log(`Using first paragraph after heading at index ${i}`)
+          break
+        }
+      }
+    }
+
+    // Replace placeholder with attachment references
+    const attachmentNodes: any[] = []
+    
+    // Add a note about the attachments
+    attachmentNodes.push({
+      type: 'paragraph',
+      content: [{
+        type: 'text',
+        text: `✅ ${attachments.length} screenshot(s) have been successfully attached to this issue.`
+      }]
+    })
+    
+    // List all attachments with their filenames
+    attachmentNodes.push({
+      type: 'paragraph',
+      content: [{
+        type: 'text',
+        text: 'Attached screenshots:',
+        marks: [{ type: 'strong' }]
+      }]
+    })
+    
+    attachmentNodes.push({
+      type: 'bulletList',
+      content: attachments.map(attachment => ({
+        type: 'listItem',
+        content: [{
+          type: 'paragraph',
+          content: [{
+            type: 'text',
+            text: `📷 ${attachment.filename}`
+          }]
+        }]
+      }))
+    })
+    
+    // Add note about viewing attachments (Jira doesn't support direct links to attachments in ADF)
+    attachmentNodes.push({
+      type: 'paragraph',
+      content: [{
+        type: 'text',
+        text: '👉 Please view and download the screenshots from the ',
+      }, {
+        type: 'text',
+        text: 'Attachments',
+        marks: [{ type: 'strong' }]
+      }, {
+        type: 'text',
+        text: ' section below (located on the right side of this issue).'
+      }]
+    })
+
+    if (paragraphIndex >= 0) {
+      // Replace the placeholder paragraph with attachment nodes
+      updatedContent.splice(paragraphIndex, 1, ...attachmentNodes)
+    } else {
+      // Insert attachment nodes after the heading
+      updatedContent.splice(headingIndex + 1, 0, ...attachmentNodes)
+    }
+  }
+
+  return {
+    ...description,
+    content: updatedContent
+  }
 }
 
