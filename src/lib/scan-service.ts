@@ -252,9 +252,14 @@ export class ScanService {
               const currentDomain = new URL(currentUrl).hostname;
               const linkDomain = new URL(absoluteUrl).hostname;
               
-              if (linkDomain === currentDomain || 
-                  (options.includeSubdomains && linkDomain.endsWith(currentDomain))) {
-                
+              // More robust domain matching: exact match or subdomain check
+              const isSameDomain = linkDomain === currentDomain;
+              const isSubdomain = options.includeSubdomains && (
+                linkDomain.endsWith('.' + currentDomain) || 
+                currentDomain.endsWith('.' + linkDomain)
+              );
+              
+              if (isSameDomain || isSubdomain) {
                 if (!visited.has(normalizedLinkUrl) && !toVisit.includes(normalizedLinkUrl)) {
                   toVisit.push(normalizedLinkUrl);
                 }

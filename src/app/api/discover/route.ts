@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const scanOptions: ScanOptions = {
       url,
       includeSubdomains: includeSubdomains ?? true,
-      deepCrawl: deepCrawl ?? false,
+      deepCrawl: deepCrawl ?? true,  // Default to true for page discovery
       maxPages: enforcedMaxPages,
       scanType: 'discover',
       wcagLevel: 'AA',
