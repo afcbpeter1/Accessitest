@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { IssuesBoardDataService } from '@/lib/issues-board-data-service'
+import pool from '@/lib/database'
 
 // PUT /api/issues-board/ranks - Update issue ranks for drag and drop
 export async function PUT(request: NextRequest) {
   try {
-    console.log('🎯 Ranks API called')
+    // Require authentication
+    const user = await getAuthenticatedUser(request)
     
-    // Temporarily bypass authentication for debugging
-    // const user = await getAuthenticatedUser(request)
-    // if (!user) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    // }
+    console.log('🎯 Ranks API called by user:', user.userId)
 
     const { rankUpdates } = await request.json()
     console.log('📊 Received rank updates:', rankUpdates)
@@ -35,9 +33,24 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Update ranks
+    // Verify all issues belong to the user before updating (prevent IDOR)
+    const issueIds = rankUpdates.map(u => u.issueId)
+    const verifyResult = await pool.query(
+      'SELECT id FROM issues WHERE id = ANY($1::uuid[]) AND user_id = $2',
+      [issueIds, user.userId]
+    )
+    
+    if (verifyResult.rows.length !== issueIds.length) {
+      console.warn('⚠️ Some issues do not belong to user or do not exist')
+      return NextResponse.json(
+        { error: 'Some issues not found or access denied' },
+        { status: 403 }
+      )
+    }
+
+    // Update ranks (with user ID to prevent IDOR)
     console.log('🔄 Calling updateIssueRanks...')
-    await IssuesBoardDataService.updateIssueRanks(rankUpdates)
+    await IssuesBoardDataService.updateIssueRanks(rankUpdates, user.userId)
 
     console.log('✅ Ranks updated successfully')
     return NextResponse.json({

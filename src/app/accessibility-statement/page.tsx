@@ -145,7 +145,7 @@ export default function AccessibilityStatementPage() {
               </p>
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-gray-700">
-                  <strong>Email:</strong> <a href="mailto:contact@a11ytest.ai" className="text-blue-600 hover:text-blue-800">contact@a11ytest.ai</a>
+                  <strong>Email:</strong> <a href="mailto:hello@a11ytest.ai" className="text-blue-600 hover:text-blue-800">hello@a11ytest.ai</a>
                 </p>
                 <p className="text-gray-700 mt-2">
                   Please include:
@@ -212,6 +212,7 @@ export default function AccessibilityStatementPage() {
     </div>
   )
 }
+
 
 
 

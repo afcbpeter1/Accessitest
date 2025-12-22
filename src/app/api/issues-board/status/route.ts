@@ -5,13 +5,10 @@ import pool from '@/lib/database'
 // PUT /api/issues-board/status - Update issue status, notes, and deferred reason
 export async function PUT(request: NextRequest) {
   try {
-    console.log('🎯 Issue Status API called')
+    // Require authentication
+    const user = await getAuthenticatedUser(request)
     
-    // Temporarily bypass authentication for debugging
-    // const user = await getAuthenticatedUser(request)
-    // if (!user) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    // }
+    console.log('🎯 Issue Status API called by user:', user.userId)
 
     const { issueId, status, notes, deferredReason } = await request.json()
     console.log('📊 Received status update:', { issueId, status, notes, deferredReason })
@@ -24,13 +21,13 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Update the issue in the database
+    // Update the issue in the database - only if it belongs to the user (prevent IDOR)
     const result = await pool.query(
       `UPDATE issues 
        SET status = $1, notes = $2, deferred_reason = $3, updated_at = NOW()
-       WHERE id = $4
+       WHERE id = $4 AND user_id = $5
        RETURNING id, status, notes, deferred_reason`,
-      [status, notes || null, deferredReason || null, issueId]
+      [status, notes || null, deferredReason || null, issueId, user.userId]
     )
 
     if (result.rows.length === 0) {

@@ -1,143 +1,1900 @@
 {
-  "timestamp": "2025-11-28T21:12:02.160Z",
+  "timestamp": "2025-12-22T22:24:16.590Z",
   "target": "http://localhost:3000",
+  "testType": "db",
   "summary": {
-    "total": 14,
-    "passed": 14,
-    "failed": 0,
+    "total": 31,
+    "passed": 11,
+    "failed": 20,
     "bySeverity": {
-      "critical": 0,
-      "high": 0,
-      "medium": 0,
-      "low": 0
+      "CRITICAL": 1,
+      "HIGH": 12,
+      "MEDIUM": 8,
+      "LOW": 1,
+      "INFO": 9
     }
   },
   "results": [
     {
-      "name": "Brute Force Protection",
+      "name": "SQL Injection: Basic SQL Injection",
       "passed": true,
       "severity": "INFO",
       "details": {
-        "description": "Rate limiting is active after multiple failed attempts"
+        "query": "SELECT * FROM users WHERE email = $1",
+        "params": [
+          "' OR '1'='1"
+        ],
+        "vulnerable": false
       },
-      "timestamp": "2025-11-28T21:11:38.182Z"
+      "timestamp": "2025-12-22T22:24:16.591Z"
     },
     {
-      "name": "Password Strength Validation",
+      "name": "SQL Injection: Union-based Injection",
       "passed": true,
       "severity": "INFO",
       "details": {
-        "description": "Password strength validation is working"
+        "query": "SELECT * FROM users WHERE id = $1",
+        "params": [
+          "1' UNION SELECT NULL, NULL, NULL--"
+        ],
+        "vulnerable": false,
+        "protected": true,
+        "error": "invalid input syntax for type uuid: \"1' UNION SELECT NULL, NULL, NULL--\""
       },
-      "timestamp": "2025-11-28T21:11:38.290Z"
+      "timestamp": "2025-12-22T22:24:16.591Z"
     },
     {
-      "name": "Account Enumeration",
+      "name": "SQL Injection: Boolean-based Injection",
       "passed": true,
       "severity": "INFO",
       "details": {
-        "description": "Account enumeration protection is working"
+        "query": "SELECT * FROM users WHERE email = $1",
+        "params": [
+          "admin' AND '1'='1"
+        ],
+        "vulnerable": false
       },
-      "timestamp": "2025-11-28T21:11:38.331Z"
+      "timestamp": "2025-12-22T22:24:16.591Z"
     },
     {
-      "name": "Missing Authorization Checks",
+      "name": "SQL Injection: Time-based Injection",
       "passed": true,
       "severity": "INFO",
       "details": {
-        "description": "All tested endpoints require authentication"
+        "query": "SELECT * FROM users WHERE id = $1",
+        "params": [
+          "1'; WAITFOR DELAY '00:00:05'--"
+        ],
+        "vulnerable": false,
+        "protected": true,
+        "error": "invalid input syntax for type uuid: \"1'; WAITFOR DELAY '00:00:05'--\""
       },
-      "timestamp": "2025-11-28T21:11:45.239Z"
+      "timestamp": "2025-12-22T22:24:16.591Z"
     },
     {
-      "name": "SQL Injection in Login",
+      "name": "SQL Injection: Stacked Queries",
       "passed": true,
       "severity": "INFO",
       "details": {
-        "description": "No SQL injection vulnerabilities detected in login endpoint"
+        "query": "SELECT * FROM users WHERE id = $1",
+        "params": [
+          "1'; DROP TABLE users--"
+        ],
+        "vulnerable": false,
+        "protected": true,
+        "error": "invalid input syntax for type uuid: \"1'; DROP TABLE users--\""
       },
-      "timestamp": "2025-11-28T21:11:53.456Z"
+      "timestamp": "2025-12-22T22:24:16.591Z"
     },
     {
-      "name": "NoSQL Injection",
-      "passed": true,
-      "severity": "INFO",
+      "name": "Privilege Escalation: Access to pg_user",
+      "passed": false,
+      "severity": "HIGH",
       "details": {
-        "description": "Not applicable - application uses PostgreSQL (SQL database)"
+        "table": "pg_user",
+        "accessible": true
       },
-      "timestamp": "2025-11-28T21:11:53.480Z"
+      "timestamp": "2025-12-22T22:24:16.591Z"
     },
     {
-      "name": "LDAP Injection",
-      "passed": true,
-      "severity": "INFO",
+      "name": "Privilege Escalation: Access to pg_shadow",
+      "passed": false,
+      "severity": "HIGH",
       "details": {
-        "description": "Not applicable - application does not use LDAP"
+        "table": "pg_shadow",
+        "accessible": true
       },
-      "timestamp": "2025-11-28T21:11:53.504Z"
+      "timestamp": "2025-12-22T22:24:16.591Z"
     },
     {
-      "name": "XPath Injection",
-      "passed": true,
-      "severity": "INFO",
+      "name": "Privilege Escalation: Access to pg_roles",
+      "passed": false,
+      "severity": "HIGH",
       "details": {
-        "description": "Not applicable - application does not use XPath"
+        "table": "pg_roles",
+        "accessible": true
       },
-      "timestamp": "2025-11-28T21:11:53.504Z"
+      "timestamp": "2025-12-22T22:24:16.591Z"
     },
     {
-      "name": "Email Validation",
-      "passed": true,
-      "severity": "INFO",
+      "name": "Privilege Escalation: Access to pg_authid",
+      "passed": false,
+      "severity": "HIGH",
       "details": {
-        "description": "Email validation is working correctly"
+        "table": "pg_authid",
+        "accessible": true
       },
-      "timestamp": "2025-11-28T21:11:53.742Z"
+      "timestamp": "2025-12-22T22:24:16.591Z"
     },
     {
-      "name": "Registration Rate Limiting",
-      "passed": true,
-      "severity": "INFO",
+      "name": "Privilege Escalation: Access to pg_database",
+      "passed": false,
+      "severity": "HIGH",
       "details": {
-        "description": "Registration rate limiting is active"
+        "table": "pg_database",
+        "accessible": true
       },
-      "timestamp": "2025-11-28T21:11:53.929Z"
+      "timestamp": "2025-12-22T22:24:16.591Z"
     },
     {
-      "name": "Free Scan Rate Limiting",
-      "passed": true,
-      "severity": "INFO",
+      "name": "Privilege Escalation: CREATE TABLE",
+      "passed": false,
+      "severity": "HIGH",
       "details": {
-        "description": "Free scan rate limiting is active"
+        "canCreate": true,
+        "note": "Test uses transaction rollback - no data modified"
       },
-      "timestamp": "2025-11-28T21:11:57.970Z"
+      "timestamp": "2025-12-22T22:24:16.592Z"
     },
     {
-      "name": "Webhook Signature Verification",
-      "passed": true,
-      "severity": "INFO",
+      "name": "Schema Enumeration: Table Names",
+      "passed": false,
+      "severity": "MEDIUM",
       "details": {
-        "description": "Webhook signature verification is working"
+        "canEnumerate": true,
+        "tableCount": 41,
+        "tables": [
+          "active_scans",
+          "azure_devops_integrations",
+          "azure_devops_work_item_mappings",
+          "backlog_comments",
+          "blocked_email_domains",
+          "credit_packages",
+          "credit_transactions",
+          "document_scans",
+          "email_verification_attempts",
+          "free_scan_usage",
+          "issue_activity",
+          "issue_label_assignments",
+          "issue_labels",
+          "issue_status",
+          "issues",
+          "jira_integrations",
+          "jira_ticket_mappings",
+          "notifications",
+          "periodic_scan_executions",
+          "periodic_scans",
+          "product_backlog",
+          "registration_attempts",
+          "scan_history",
+          "scan_issue_occurrences",
+          "scan_issues",
+          "scan_queue",
+          "sprint_burndown_data",
+          "sprint_columns",
+          "sprint_issues",
+          "sprint_templates",
+          "sprints",
+          "template_columns",
+          "user_audit_log",
+          "user_credits",
+          "user_notification_preferences",
+          "user_passwords",
+          "user_sessions",
+          "user_subscriptions",
+          "users",
+          "vpn_detection_log",
+          "web_scans"
+        ]
       },
-      "timestamp": "2025-11-28T21:11:59.235Z"
+      "timestamp": "2025-12-22T22:24:16.592Z"
     },
     {
-      "name": "Payment Amount Validation",
-      "passed": true,
-      "severity": "INFO",
+      "name": "Schema Enumeration: Columns for active_scans",
+      "passed": false,
+      "severity": "MEDIUM",
       "details": {
-        "description": "Payment amount validation testing requires integration with Stripe test environment"
+        "table": "active_scans",
+        "canEnumerate": true,
+        "columnCount": 14,
+        "columns": [
+          {
+            "name": "id",
+            "type": "uuid"
+          },
+          {
+            "name": "scan_id",
+            "type": "character varying"
+          },
+          {
+            "name": "user_id",
+            "type": "uuid"
+          },
+          {
+            "name": "scan_type",
+            "type": "character varying"
+          },
+          {
+            "name": "url",
+            "type": "text"
+          },
+          {
+            "name": "file_name",
+            "type": "text"
+          },
+          {
+            "name": "status",
+            "type": "character varying"
+          },
+          {
+            "name": "progress",
+            "type": "jsonb"
+          },
+          {
+            "name": "total_pages",
+            "type": "integer"
+          },
+          {
+            "name": "current_page",
+            "type": "integer"
+          },
+          {
+            "name": "started_at",
+            "type": "timestamp with time zone"
+          },
+          {
+            "name": "completed_at",
+            "type": "timestamp with time zone"
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone"
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone"
+          }
+        ]
       },
-      "timestamp": "2025-11-28T21:12:02.159Z"
+      "timestamp": "2025-12-22T22:24:16.592Z"
     },
     {
-      "name": "Replay Attack Protection",
+      "name": "Data Exposure: Access to users",
+      "passed": false,
+      "severity": "HIGH",
+      "details": {
+        "table": "users",
+        "accessible": true,
+        "rowCount": "7",
+        "note": "READ-ONLY test - only counting rows, no data accessed"
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Data Exposure: Access to user_passwords",
+      "passed": false,
+      "severity": "HIGH",
+      "details": {
+        "table": "user_passwords",
+        "accessible": true,
+        "rowCount": "7",
+        "note": "READ-ONLY test - only counting rows, no data accessed"
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Data Exposure: Access to user_credits",
+      "passed": false,
+      "severity": "HIGH",
+      "details": {
+        "table": "user_credits",
+        "accessible": true,
+        "rowCount": "7",
+        "note": "READ-ONLY test - only counting rows, no data accessed"
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Data Exposure: Access to jira_integrations",
+      "passed": false,
+      "severity": "HIGH",
+      "details": {
+        "table": "jira_integrations",
+        "accessible": true,
+        "rowCount": "2",
+        "note": "READ-ONLY test - only counting rows, no data accessed"
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Data Exposure: Access to azure_devops_integrations",
+      "passed": false,
+      "severity": "HIGH",
+      "details": {
+        "table": "azure_devops_integrations",
+        "accessible": true,
+        "rowCount": "1",
+        "note": "READ-ONLY test - only counting rows, no data accessed"
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Data Exposure: Password Hash Access",
+      "passed": false,
+      "severity": "CRITICAL",
+      "details": {
+        "canAccess": true,
+        "note": "READ-ONLY test - checking table access only, no actual password data retrieved"
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Connection Security: User Access",
       "passed": true,
       "severity": "INFO",
       "details": {
-        "description": "Replay attack testing requires captured webhook events and Stripe event ID validation"
+        "currentUser": "neondb_owner",
+        "sessionUser": "neondb_owner",
+        "database": "neondb"
       },
-      "timestamp": "2025-11-28T21:12:02.159Z"
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Connection Security: Version Information",
+      "passed": true,
+      "severity": "LOW",
+      "details": {
+        "canQuery": true,
+        "version": "PostgreSQL 17.7 (bdc8956) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit"
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Parameterized Queries: Valid Query",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "works": true,
+        "usesParams": true
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Parameterized Queries: Malicious Input Protection",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "protected": true
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Table Access: users",
+      "passed": false,
+      "severity": "MEDIUM",
+      "details": {
+        "table": "users",
+        "accessible": true
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Table Access: issues",
+      "passed": false,
+      "severity": "MEDIUM",
+      "details": {
+        "table": "issues",
+        "accessible": true
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Table Access: scan_history",
+      "passed": false,
+      "severity": "MEDIUM",
+      "details": {
+        "table": "scan_history",
+        "accessible": true
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Table Access: backlog",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "table": "backlog",
+        "accessible": false,
+        "error": "relation \"backlog\" does not exist"
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Table Access: jira_integrations",
+      "passed": false,
+      "severity": "MEDIUM",
+      "details": {
+        "table": "jira_integrations",
+        "accessible": true
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "Table Access: azure_devops_integrations",
+      "passed": false,
+      "severity": "MEDIUM",
+      "details": {
+        "table": "azure_devops_integrations",
+        "accessible": true
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "User Privileges: Current User Privileges",
+      "passed": true,
+      "severity": "MEDIUM",
+      "details": {
+        "canQuery": true,
+        "privilegeCount": 287,
+        "privileges": [
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "document_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "document_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "document_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "document_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "document_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "document_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "document_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "users"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "users"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "users"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "users"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "users"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "users"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "users"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "user_passwords"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "user_passwords"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "user_passwords"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "user_passwords"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "user_passwords"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "user_passwords"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "user_passwords"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "user_sessions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "user_sessions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "user_sessions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "user_sessions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "user_sessions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "user_sessions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "user_sessions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "user_credits"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "user_credits"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "user_credits"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "user_credits"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "user_credits"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "user_credits"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "user_credits"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "credit_transactions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "credit_transactions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "credit_transactions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "credit_transactions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "credit_transactions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "credit_transactions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "credit_transactions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "credit_packages"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "credit_packages"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "credit_packages"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "credit_packages"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "credit_packages"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "credit_packages"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "credit_packages"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "web_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "web_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "web_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "web_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "web_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "web_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "web_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "scan_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "scan_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "scan_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "scan_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "scan_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "scan_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "scan_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "user_subscriptions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "user_subscriptions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "user_subscriptions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "user_subscriptions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "user_subscriptions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "user_subscriptions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "user_subscriptions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "user_audit_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "user_audit_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "user_audit_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "user_audit_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "user_audit_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "user_audit_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "user_audit_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "blocked_email_domains"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "blocked_email_domains"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "blocked_email_domains"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "blocked_email_domains"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "blocked_email_domains"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "blocked_email_domains"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "blocked_email_domains"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "vpn_detection_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "vpn_detection_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "vpn_detection_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "vpn_detection_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "vpn_detection_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "vpn_detection_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "vpn_detection_log"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "registration_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "registration_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "registration_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "registration_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "registration_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "registration_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "registration_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "free_scan_usage"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "free_scan_usage"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "free_scan_usage"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "free_scan_usage"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "free_scan_usage"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "free_scan_usage"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "free_scan_usage"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "email_verification_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "email_verification_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "email_verification_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "email_verification_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "email_verification_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "email_verification_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "email_verification_attempts"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "notifications"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "notifications"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "notifications"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "notifications"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "notifications"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "notifications"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "notifications"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "user_notification_preferences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "user_notification_preferences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "user_notification_preferences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "user_notification_preferences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "user_notification_preferences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "user_notification_preferences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "user_notification_preferences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "active_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "active_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "active_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "active_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "active_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "active_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "active_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "scan_history"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "scan_history"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "scan_history"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "scan_history"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "scan_history"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "scan_history"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "scan_history"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "issue_status"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "issue_status"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "issue_status"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "issue_status"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "issue_status"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "issue_status"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "issue_status"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "scan_queue"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "scan_queue"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "scan_queue"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "scan_queue"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "scan_queue"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "scan_queue"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "scan_queue"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "scan_issue_occurrences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "scan_issue_occurrences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "scan_issue_occurrences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "scan_issue_occurrences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "scan_issue_occurrences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "scan_issue_occurrences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "scan_issue_occurrences"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "issue_activity"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "issue_activity"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "issue_activity"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "issue_activity"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "issue_activity"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "issue_activity"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "issue_activity"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "issue_label_assignments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "issue_label_assignments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "issue_label_assignments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "issue_label_assignments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "issue_label_assignments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "issue_label_assignments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "issue_label_assignments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "issue_labels"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "issue_labels"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "issue_labels"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "issue_labels"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "issue_labels"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "issue_labels"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "issue_labels"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "sprints"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "sprints"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "sprints"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "sprints"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "sprints"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "sprints"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "sprints"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "periodic_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "periodic_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "periodic_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "periodic_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "periodic_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "periodic_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "periodic_scans"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "periodic_scan_executions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "periodic_scan_executions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "periodic_scan_executions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "periodic_scan_executions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "periodic_scan_executions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "periodic_scan_executions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "periodic_scan_executions"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "product_backlog"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "product_backlog"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "product_backlog"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "product_backlog"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "product_backlog"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "product_backlog"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "product_backlog"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "backlog_comments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "backlog_comments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "backlog_comments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "backlog_comments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "backlog_comments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "backlog_comments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "backlog_comments"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "sprint_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "sprint_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "sprint_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "sprint_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "sprint_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "sprint_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "sprint_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "sprint_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "sprint_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "sprint_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "sprint_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "sprint_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "sprint_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "sprint_issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "sprint_templates"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "sprint_templates"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "sprint_templates"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "sprint_templates"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "sprint_templates"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "sprint_templates"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "sprint_templates"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "template_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "template_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "template_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "template_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "template_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "template_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "template_columns"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "sprint_burndown_data"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "sprint_burndown_data"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "sprint_burndown_data"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "sprint_burndown_data"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "sprint_burndown_data"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "sprint_burndown_data"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "sprint_burndown_data"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "jira_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "jira_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "jira_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "jira_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "jira_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "jira_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "jira_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "jira_ticket_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "jira_ticket_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "jira_ticket_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "jira_ticket_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "jira_ticket_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "jira_ticket_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "jira_ticket_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "azure_devops_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "azure_devops_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "azure_devops_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "azure_devops_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "azure_devops_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "azure_devops_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "azure_devops_integrations"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "azure_devops_work_item_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "azure_devops_work_item_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "azure_devops_work_item_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "azure_devops_work_item_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "azure_devops_work_item_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "azure_devops_work_item_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "azure_devops_work_item_mappings"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "INSERT",
+            "table_name": "issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "SELECT",
+            "table_name": "issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "UPDATE",
+            "table_name": "issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "DELETE",
+            "table_name": "issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRUNCATE",
+            "table_name": "issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "REFERENCES",
+            "table_name": "issues"
+          },
+          {
+            "grantee": "neondb_owner",
+            "privilege_type": "TRIGGER",
+            "table_name": "issues"
+          }
+        ]
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
+    },
+    {
+      "name": "User Privileges: Data Modification",
+      "passed": false,
+      "severity": "HIGH",
+      "details": {
+        "canModify": true,
+        "note": "Test uses transaction rollback - no data modified"
+      },
+      "timestamp": "2025-12-22T22:24:16.592Z"
     }
   ]
 }

@@ -229,16 +229,7 @@ export default function NewScan() {
             setActiveScanId(activeScan.scanId)
             setIsScanning(true)
             
-            // Restore scan progress if available
-            if (activeScan.progress) {
-              setScanProgress({
-                currentPage: activeScan.progress.currentPage || 0,
-                totalPages: activeScan.progress.totalPages || 0,
-                currentUrl: activeScan.progress.currentUrl || '',
-                status: activeScan.progress.status || 'scanning',
-                message: activeScan.progress.message || 'Scan in progress...'
-              })
-            }
+            // Scan progress is automatically restored via getActiveScan(activeScanId)
             
             // Restore URL if available
             if (activeScan.url) {
@@ -349,7 +340,13 @@ export default function NewScan() {
         setSelectedPages([normalizedUrl])
         
         setIsScanning(false)
-        setTimeout(() => setScanProgress(null), 2000)
+        // Clear active scan ID if set
+        if (activeScanId) {
+          setTimeout(() => {
+            setActiveScanId(null)
+            removeScan(activeScanId)
+          }, 2000)
+        }
         return
       }
       

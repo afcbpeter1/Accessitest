@@ -6,9 +6,19 @@ import { IssuesBoardDataService } from '@/lib/issues-board-data-service'
 // GET /api/issues-board - Get all issues with filtering and pagination
 export async function GET(request: NextRequest) {
   try {
-    console.log('Issues Board API called')
+    // Require authentication
+    const user = await getAuthenticatedUser(request)
     
-    // Get issues directly without authentication for now
+    console.log('Issues Board API called by user:', user.userId)
+    
+    // Get query parameters for pagination
+    const { searchParams } = new URL(request.url)
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+    const offset = (page - 1) * limit
+    
+    // Get issues filtered by user_id to prevent IDOR
+    // Only show issues that belong to the authenticated user
     const result = await pool.query(`
       SELECT 
         i.id,
@@ -22,23 +32,33 @@ export async function GET(request: NextRequest) {
         i.created_at,
         i.rank
       FROM issues i
+      WHERE i.user_id = $1
       ORDER BY 
         CASE WHEN i.rank IS NOT NULL THEN i.rank ELSE 999999 END ASC,
         i.created_at DESC
-      LIMIT 20
-    `)
+      LIMIT $2 OFFSET $3
+    `, [user.userId, limit, offset])
     
-    console.log('Found issues:', result.rows.length)
+    // Get total count for pagination
+    const countResult = await pool.query(
+      'SELECT COUNT(*) as total FROM issues WHERE user_id = $1',
+      [user.userId]
+    )
+    
+    const total = parseInt(countResult.rows[0].total)
+    const totalPages = Math.ceil(total / limit)
+    
+    console.log('Found issues:', result.rows.length, 'for user:', user.userId)
     
     return NextResponse.json({
       success: true,
       data: {
         issues: result.rows,
         pagination: {
-          page: 1,
-          limit: 20,
-          total: result.rows.length,
-          totalPages: 1
+          page,
+          limit,
+          total,
+          totalPages
         },
         stats: {}
       }
@@ -46,6 +66,13 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching issues board:', error)
+    // Don't expose internal error details
+    if (error instanceof Error && error.message.includes('Authentication')) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
     return NextResponse.json(
       { error: 'Failed to fetch issues board' },
       { status: 500 }

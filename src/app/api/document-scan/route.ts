@@ -1662,6 +1662,21 @@ export async function POST(request: NextRequest) {
             // Don't fail scan if Jira sync fails
             console.error('❌ Error auto-syncing to Jira:', jiraError)
           }
+
+          // Auto-sync to Azure DevOps if enabled (AFTER backlog items are created)
+          try {
+            const { autoSyncIssuesToAzureDevOps, getIssueIdsFromScan: getIssueIdsFromScanAzure } = await import('@/lib/azure-devops-sync-service')
+            const issueIds = await getIssueIdsFromScanAzure(scanHistoryResult)
+            
+            if (issueIds.length > 0) {
+              console.log(`🔗 Auto-syncing ${issueIds.length} document issues to Azure DevOps...`)
+              const syncResult = await autoSyncIssuesToAzureDevOps(user.userId, issueIds)
+              console.log(`✅ Azure DevOps sync complete: ${syncResult.created} created, ${syncResult.skipped} skipped, ${syncResult.errors} errors`)
+            }
+          } catch (azureDevOpsError) {
+            // Don't fail scan if Azure DevOps sync fails
+            console.error('❌ Error auto-syncing to Azure DevOps:', azureDevOpsError)
+          }
         } catch (backlogError) {
           console.error('❌ Failed to auto-add document issues to backlog:', backlogError)
           if (backlogError instanceof Error) {

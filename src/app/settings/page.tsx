@@ -109,20 +109,41 @@ export default function SettingsPage() {
   const [loadingProjects, setLoadingProjects] = useState(false)
   const [loadingIssueTypes, setLoadingIssueTypes] = useState(false)
 
+  // Azure DevOps integration state
+  const [azureDevOpsIntegration, setAzureDevOpsIntegration] = useState<any>(null)
+  const [azureDevOpsForm, setAzureDevOpsForm] = useState({
+    organization: '',
+    project: '',
+    pat: '',
+    workItemType: 'Bug',
+    areaPath: '',
+    iterationPath: '',
+    autoSyncEnabled: false
+  })
+  const [azureDevOpsProjects, setAzureDevOpsProjects] = useState<any[]>([])
+  const [azureDevOpsWorkItemTypes, setAzureDevOpsWorkItemTypes] = useState<any[]>([])
+  const [testingAzureDevOpsConnection, setTestingAzureDevOpsConnection] = useState(false)
+  const [loadingAzureDevOpsProjects, setLoadingAzureDevOpsProjects] = useState(false)
+  const [loadingAzureDevOpsWorkItemTypes, setLoadingAzureDevOpsWorkItemTypes] = useState(false)
+
   // Load user data on component mount
   useEffect(() => {
     loadUserData()
     loadNotificationPreferences()
     loadJiraIntegration()
+    loadAzureDevOpsIntegration()
   }, [])
 
-  // Load Jira integration when integrations tab is active
+  // Load integrations when integrations tab is active
   useEffect(() => {
     if (activeTab === 'integrations') {
       // Load immediately when tab becomes active
       loadJiraIntegration()
+      if (integrationSubTab === 'azure') {
+        loadAzureDevOpsIntegration()
+      }
     }
-  }, [activeTab])
+  }, [activeTab, integrationSubTab])
 
   // Load subscription when subscription tab is active
   // Always try to load subscription - it will return null if user doesn't have one
@@ -387,6 +408,242 @@ export default function SettingsPage() {
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to disconnect Jira integration' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const loadAzureDevOpsIntegration = async () => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        return
+      }
+
+      const response = await fetch('/api/azure-devops/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        return
+      }
+
+      const data = await response.json()
+      
+      if (data.success && data.integration) {
+        setAzureDevOpsIntegration(data.integration)
+        setAzureDevOpsForm({
+          organization: data.integration.organization || '',
+          project: data.integration.project || '',
+          pat: '', // Never load PAT from DB for security
+          workItemType: data.integration.workItemType || 'Bug',
+          areaPath: data.integration.areaPath || '',
+          iterationPath: data.integration.iterationPath || '',
+          autoSyncEnabled: data.integration.autoSyncEnabled ?? false
+        })
+        
+        // If we have a saved project, try to load work item types
+        if (data.integration.project) {
+          loadAzureDevOpsWorkItemTypes(data.integration.project).catch(() => {
+            // Silently fail - user can still select from defaults
+          })
+        }
+      } else {
+        setAzureDevOpsIntegration(null)
+        if (!azureDevOpsForm.organization && !azureDevOpsForm.project) {
+          setAzureDevOpsForm({
+            organization: '',
+            project: '',
+            pat: '',
+            workItemType: 'Bug',
+            areaPath: '',
+            iterationPath: '',
+            autoSyncEnabled: false
+          })
+        }
+      }
+    } catch (error) {
+      // Silently handle errors
+    }
+  }
+
+  const testAzureDevOpsConnection = async () => {
+    setTestingAzureDevOpsConnection(true)
+    setMessage(null)
+    
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch('/api/azure-devops/settings/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          organization: azureDevOpsForm.organization,
+          pat: azureDevOpsForm.pat
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        // Store projects from test response
+        const projects = data.projects || []
+        console.log('Projects received from test:', projects)
+        setAzureDevOpsProjects(projects)
+        if (projects.length > 0) {
+          setMessage({ type: 'success', text: `Connection successful! Found ${projects.length} project(s). Please select a project.` })
+        } else {
+          setMessage({ type: 'success', text: 'Connection successful! No projects found. You can enter a project name manually.' })
+        }
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to connect to Azure DevOps' })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to test connection' })
+    } finally {
+      setTestingAzureDevOpsConnection(false)
+    }
+  }
+
+  const loadAzureDevOpsProjects = async () => {
+    setLoadingAzureDevOpsProjects(true)
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch('/api/azure-devops/settings/projects', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setAzureDevOpsProjects(data.projects || [])
+      }
+    } catch (error) {
+      console.error('Failed to load projects:', error)
+    } finally {
+      setLoadingAzureDevOpsProjects(false)
+    }
+  }
+
+  const loadAzureDevOpsWorkItemTypes = async (project: string) => {
+    setLoadingAzureDevOpsWorkItemTypes(true)
+    try {
+      const token = localStorage.getItem('accessToken')
+      
+      // Find project ID from projects list if available
+      const projectObj = azureDevOpsProjects.find(p => p.name === project)
+      const projectId = projectObj?.id
+      
+      // Build URL with projectId if available (more reliable)
+      let url = `/api/azure-devops/settings/work-item-types?project=${encodeURIComponent(project)}`
+      if (projectId) {
+        url += `&projectId=${encodeURIComponent(projectId)}`
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setAzureDevOpsWorkItemTypes(data.workItemTypes || [])
+      } else {
+        console.error('Failed to load work item types:', data.error)
+        // Still allow user to proceed with defaults
+      }
+    } catch (error) {
+      console.error('Failed to load work item types:', error)
+      // Don't block the user - they can still select from defaults
+    } finally {
+      setLoadingAzureDevOpsWorkItemTypes(false)
+    }
+  }
+
+  const handleAzureDevOpsProjectChange = (project: string) => {
+    setAzureDevOpsForm({ ...azureDevOpsForm, project })
+    if (project) {
+      loadAzureDevOpsWorkItemTypes(project)
+    } else {
+      // Clear work item types when project is cleared
+      setAzureDevOpsWorkItemTypes([])
+    }
+  }
+
+  const handleAzureDevOpsSave = async () => {
+    setSaving(true)
+    setMessage(null)
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      
+      // If PAT is empty but we have an existing integration, don't send it (keep existing encrypted one)
+      const saveData = { ...azureDevOpsForm }
+      if (!saveData.pat && azureDevOpsIntegration) {
+        delete saveData.pat
+      }
+      
+      const response = await fetch('/api/azure-devops/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(saveData)
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Azure DevOps integration saved successfully' })
+        // Clear PAT field after save (for security)
+        setAzureDevOpsForm(prev => ({ ...prev, pat: '' }))
+        await loadAzureDevOpsIntegration()
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to save Azure DevOps integration' })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to save Azure DevOps integration' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAzureDevOpsDisconnect = async () => {
+    setSaving(true)
+    setMessage(null)
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch('/api/azure-devops/settings', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Azure DevOps integration disconnected' })
+        setAzureDevOpsIntegration(null)
+        setAzureDevOpsForm({
+          organization: '',
+          project: '',
+          pat: '',
+          workItemType: 'Bug',
+          areaPath: '',
+          iterationPath: '',
+          autoSyncEnabled: false
+        })
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to disconnect Azure DevOps integration' })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to disconnect Azure DevOps integration' })
     } finally {
       setSaving(false)
     }
@@ -1167,7 +1424,7 @@ export default function SettingsPage() {
                 <div className="card">
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Jira Integration</h2>
                   <p className="text-sm text-gray-600 mb-6">
-                    Connect your Jira Cloud instance to automatically create tickets from accessibility scan results.
+                    Connect your Jira Cloud instance to create tickets from accessibility scan results.
                   </p>
 
                   {jiraIntegration && (
@@ -1188,11 +1445,6 @@ export default function SettingsPage() {
                             <p>
                               <span className="font-medium">Project:</span> {jiraIntegration.projectKey || 'Not set'} | 
                               <span className="font-medium"> Issue Type:</span> {jiraIntegration.issueType || 'Not set'}
-                            </p>
-                            <p>
-                              <span className="font-medium">Auto-sync:</span> {jiraIntegration.autoSyncEnabled ? 
-                                <span className="text-green-700 font-semibold">✓ Enabled</span> : 
-                                <span className="text-gray-600">Disabled</span>}
                             </p>
                             {jiraIntegration.lastVerifiedAt && (
                               <p className="text-xs text-green-600 mt-2">
@@ -1355,21 +1607,6 @@ export default function SettingsPage() {
                           )}
                         </div>
                       )}
-
-                      {/* Always show auto-sync toggle if we have saved data */}
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="autoSync"
-                          checked={jiraForm.autoSyncEnabled}
-                          onChange={(e) => setJiraForm({ ...jiraForm, autoSyncEnabled: e.target.checked })}
-                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="autoSync" className="text-sm text-gray-700">
-                          Automatically create Jira tickets after scans complete
-                          {jiraForm.autoSyncEnabled && <span className="text-green-600 ml-1">✓ Enabled</span>}
-                        </label>
-                      </div>
 
                       <div className="flex space-x-3">
                         {!jiraIntegration && (
@@ -1585,18 +1822,6 @@ export default function SettingsPage() {
                           </select>
                         </div>
                       )}
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="autoSync"
-                          checked={jiraForm.autoSyncEnabled}
-                          onChange={(e) => setJiraForm({ ...jiraForm, autoSyncEnabled: e.target.checked })}
-                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                        />
-                        <label htmlFor="autoSync" className="text-sm text-gray-700">
-                          Automatically create Jira tickets after scans complete
-                        </label>
-                      </div>
                       <div className="flex space-x-3">
                         <button
                           onClick={handleJiraSave}
@@ -1643,12 +1868,245 @@ export default function SettingsPage() {
                   <div className="card">
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">Azure DevOps Integration</h2>
                     <p className="text-sm text-gray-600 mb-6">
-                      Azure DevOps integration coming soon. This will allow you to automatically create work items from accessibility scan results.
+                      Connect your Azure DevOps organization to create work items from accessibility scan results.
                     </p>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-sm text-blue-800">
-                        This feature is currently under development. Check back soon!
-                      </p>
+
+                    {azureDevOpsIntegration && (
+                      <div className="mb-6 p-4 bg-green-50 border-2 border-green-400 rounded-lg shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                              <span className="font-semibold text-green-900 text-lg">✓ Azure DevOps Integration Active</span>
+                            </div>
+                            <div className="space-y-1 text-sm text-green-800">
+                              <p>
+                                <span className="font-medium">Organization:</span> {azureDevOpsIntegration.organization || 'Not set'}
+                              </p>
+                              <p>
+                                <span className="font-medium">Project:</span> {azureDevOpsIntegration.project || 'Not set'} | 
+                                <span className="font-medium"> Work Item Type:</span> {azureDevOpsIntegration.workItemType || 'Not set'}
+                              </p>
+                              {azureDevOpsIntegration.lastVerifiedAt && (
+                                <p className="text-xs text-green-600 mt-2">
+                                  Last verified: {new Date(azureDevOpsIntegration.lastVerifiedAt).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={handleAzureDevOpsDisconnect}
+                            className="ml-4 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-md border border-red-200"
+                            disabled={saving}
+                          >
+                            Disconnect
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Organization
+                        </label>
+                        <input
+                          type="text"
+                          className="input-field"
+                          placeholder="a11ytest"
+                          value={azureDevOpsForm.organization}
+                          onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, organization: e.target.value })}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Your Azure DevOps organization name (e.g., "a11ytest" from https://dev.azure.com/a11ytest)
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Personal Access Token (PAT)
+                        </label>
+                        <input
+                          type="password"
+                          className="input-field"
+                          placeholder={azureDevOpsIntegration ? "Leave blank to keep existing token" : "Enter your Azure DevOps PAT"}
+                          value={azureDevOpsForm.pat}
+                          onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, pat: e.target.value })}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {azureDevOpsIntegration 
+                            ? "Leave blank to keep your existing token, or enter a new one to update it."
+                            : "Create a PAT at https://dev.azure.com/{organization}/_usersSettings/tokens with 'Work Items (Read & Write)' scope"}
+                          {!azureDevOpsIntegration && (
+                            <>
+                              {' '}
+                              <a
+                                href={`https://dev.azure.com/${azureDevOpsForm.organization || 'your-org'}/_usersSettings/tokens`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline"
+                              >
+                                Create PAT
+                              </a>
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Project {azureDevOpsForm.project && <span className="text-green-600">✓</span>}
+                        </label>
+                        {azureDevOpsProjects && azureDevOpsProjects.length > 0 ? (
+                          <select
+                            className="input-field"
+                            value={azureDevOpsForm.project}
+                            onChange={(e) => handleAzureDevOpsProjectChange(e.target.value)}
+                            disabled={loadingAzureDevOpsProjects}
+                          >
+                            <option value="">Select a project...</option>
+                            {azureDevOpsProjects.map((project) => (
+                              <option key={project.id} value={project.name}>
+                                {project.displayName || project.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            className="input-field"
+                            value={azureDevOpsForm.project}
+                            placeholder="Project Name (e.g., A11ytest Scrm)"
+                            onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, project: e.target.value })}
+                          />
+                        )}
+                        {azureDevOpsForm.project && (
+                          <p className="text-xs text-green-600 mt-1">
+                            ✓ Saved project: {azureDevOpsForm.project}
+                          </p>
+                        )}
+                        {(!azureDevOpsProjects || azureDevOpsProjects.length === 0) && !azureDevOpsForm.project && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Test connection to load available projects
+                          </p>
+                        )}
+                        {azureDevOpsProjects && azureDevOpsProjects.length > 0 && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            ✓ {azureDevOpsProjects.length} project(s) loaded - select from dropdown above
+                          </p>
+                        )}
+                      </div>
+                      {(azureDevOpsForm.project || azureDevOpsForm.workItemType) && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Work Item Type {azureDevOpsForm.workItemType && <span className="text-green-600">✓</span>}
+                          </label>
+                          <select
+                            className="input-field"
+                            value={azureDevOpsForm.workItemType}
+                            onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, workItemType: e.target.value })}
+                            disabled={loadingAzureDevOpsWorkItemTypes}
+                          >
+                            {loadingAzureDevOpsWorkItemTypes ? (
+                              <option>Loading work item types...</option>
+                            ) : (
+                              <>
+                                {azureDevOpsWorkItemTypes.length > 0 ? (
+                                  azureDevOpsWorkItemTypes.map((type) => (
+                                    <option key={type.referenceName} value={type.name}>
+                                      {type.name}
+                                    </option>
+                                  ))
+                                ) : (
+                                  <>
+                                    <option value="Bug">Bug</option>
+                                    <option value="Task">Task</option>
+                                    <option value="User Story">User Story</option>
+                                    <option value="Issue">Issue</option>
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </select>
+                          {azureDevOpsForm.workItemType && (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ Saved work item type: {azureDevOpsForm.workItemType}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Area Path (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          className="input-field"
+                          value={azureDevOpsForm.areaPath}
+                          placeholder="MyProject\\Area\\Path"
+                          onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, areaPath: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Iteration Path (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          className="input-field"
+                          value={azureDevOpsForm.iterationPath}
+                          placeholder="MyProject\\Iteration\\Sprint1"
+                          onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, iterationPath: e.target.value })}
+                        />
+                      </div>
+                      <div className="flex space-x-3">
+                        {!azureDevOpsIntegration && (
+                          <button
+                            onClick={testAzureDevOpsConnection}
+                            className="btn-primary flex items-center space-x-2"
+                            disabled={testingAzureDevOpsConnection || !azureDevOpsForm.organization || !azureDevOpsForm.pat}
+                          >
+                            {testingAzureDevOpsConnection ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Testing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Test Connection</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                        {(azureDevOpsIntegration || azureDevOpsForm.project) && (
+                          <button
+                            onClick={handleAzureDevOpsSave}
+                            className="btn-primary flex items-center space-x-2"
+                            disabled={saving || !azureDevOpsForm.project || !azureDevOpsForm.organization}
+                          >
+                            <Save className="h-4 w-4" />
+                            <span>{saving ? 'Saving...' : azureDevOpsIntegration ? 'Update Integration' : 'Save Integration'}</span>
+                          </button>
+                        )}
+                        {azureDevOpsIntegration && (
+                          <button
+                            onClick={testAzureDevOpsConnection}
+                            className="btn-secondary flex items-center space-x-2"
+                            disabled={testingAzureDevOpsConnection || !azureDevOpsForm.organization || (!azureDevOpsForm.pat && !azureDevOpsIntegration)}
+                          >
+                            {testingAzureDevOpsConnection ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Testing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="h-4 w-4" />
+                                <span>Test Connection</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}

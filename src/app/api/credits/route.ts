@@ -57,6 +57,13 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('❌ Error fetching user credits:', error)
+    // Return 401 for authentication errors, 500 for other errors
+    if (error instanceof Error && error.message.includes('Authentication')) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      )
+    }
     return NextResponse.json(
       { success: false, error: 'Failed to fetch credit information' },
       { status: 500 }

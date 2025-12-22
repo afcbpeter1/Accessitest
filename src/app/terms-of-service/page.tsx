@@ -115,7 +115,7 @@ export default function TermsOfServicePage() {
                     <li>Credit purchases are generally non-refundable</li>
                     <li>Subscription refunds may be available within 30 days of purchase at our discretion</li>
                     <li>Refunds for technical issues or service failures will be handled on a case-by-case basis</li>
-                    <li>To request a refund, contact us at <a href="mailto:contact@a11ytest.ai" className="text-blue-600 hover:text-blue-800">contact@a11ytest.ai</a></li>
+                    <li>To request a refund, contact us at <a href="mailto:hello@a11ytest.ai" className="text-blue-600 hover:text-blue-800">hello@a11ytest.ai</a></li>
                   </ul>
                 </div>
               </div>
@@ -258,7 +258,7 @@ export default function TermsOfServicePage() {
               </p>
               <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-gray-700">
-                  <strong>Email:</strong> <a href="mailto:contact@a11ytest.ai" className="text-blue-600 hover:text-blue-800">contact@a11ytest.ai</a>
+                  <strong>Email:</strong> <a href="mailto:hello@a11ytest.ai" className="text-blue-600 hover:text-blue-800">hello@a11ytest.ai</a>
                 </p>
               </div>
             </section>
@@ -285,6 +285,7 @@ export default function TermsOfServicePage() {
     </div>
   )
 }
+
 
 
 

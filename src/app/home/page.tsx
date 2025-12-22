@@ -1278,6 +1278,45 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Integrations Section */}
+      <section className="py-16 bg-white border-t border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Seamless Integrations</h2>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              Connect your accessibility workflow with your existing project management tools. Automatically sync issues to your team's backlog.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center items-center gap-12 md:gap-16">
+            {/* Jira Integration */}
+            <div className="flex flex-col items-center group">
+              <div className="bg-white p-6 rounded-lg shadow-md border-2 border-gray-200 group-hover:border-blue-500 transition-all duration-300 transform group-hover:scale-105">
+                <img 
+                  src="/jira-logo.svg" 
+                  alt="Jira Logo" 
+                  className="w-32 h-32 object-contain"
+                />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2">Jira</h3>
+              <p className="text-sm text-gray-600 text-center max-w-[200px]">Sync issues directly to your Jira backlog</p>
+            </div>
+
+            {/* Azure DevOps Integration */}
+            <div className="flex flex-col items-center group">
+              <div className="bg-white p-6 rounded-lg shadow-md border-2 border-gray-200 group-hover:border-blue-600 transition-all duration-300 transform group-hover:scale-105">
+                <img 
+                  src="/azure-devops-logo.svg" 
+                  alt="Azure DevOps Logo" 
+                  className="w-32 h-32 object-contain"
+                />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2">Azure DevOps</h3>
+              <p className="text-sm text-gray-600 text-center max-w-[200px]">Create work items in your Azure DevOps projects</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-16 bg-[#0B1220]">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">

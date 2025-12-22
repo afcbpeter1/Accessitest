@@ -3,6 +3,16 @@ const nextConfig = {
   images: {
     domains: ['localhost'],
   },
+  // Enable minification
+  swcMinify: true,
+  // Optimize production builds
+  compress: true,
+  // Reduce JavaScript bundle size
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'],
+    } : false,
+  },
   webpack: (config, { isServer }) => {
     // Handle pdf-parse and other Node.js modules
     if (!isServer) {

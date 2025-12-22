@@ -84,12 +84,15 @@ export default function ProductBacklog() {
   const [showIntegrationMenu, setShowIntegrationMenu] = useState<string | null>(null)
   const [jiraIntegration, setJiraIntegration] = useState<any>(null)
   const [syncingToJira, setSyncingToJira] = useState<string | null>(null)
+  const [azureDevOpsIntegration, setAzureDevOpsIntegration] = useState<any>(null)
+  const [syncingToAzureDevOps, setSyncingToAzureDevOps] = useState<string | null>(null)
   const { showToast, ToastContainer } = useToast()
 
   useEffect(() => {
     fetchBacklogItems()
     fetchSprints()
     checkJiraIntegration()
+    checkAzureDevOpsIntegration()
   }, [])
 
   // Close integration menu when clicking outside
@@ -121,6 +124,26 @@ export default function ProductBacklog() {
       }
     } catch (error) {
       console.error('Failed to check Jira integration:', error)
+    }
+  }
+
+  const checkAzureDevOpsIntegration = async () => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      const response = await fetch('/api/azure-devops/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success && data.integration) {
+        setAzureDevOpsIntegration(data.integration)
+      }
+    } catch (error) {
+      console.error('Failed to check Azure DevOps integration:', error)
     }
   }
 
@@ -170,8 +193,48 @@ export default function ProductBacklog() {
   }
 
   const handleAddToAzureDevOps = async (item: BacklogItem) => {
+    if (!item.issue_id) {
+      showToast('Issue ID not found', 'error')
+      return
+    }
+
+    setSyncingToAzureDevOps(item.id)
     setShowIntegrationMenu(null)
-    showToast('Azure DevOps integration coming soon!', 'info')
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        showToast('Authentication required', 'error')
+        return
+      }
+
+      const response = await fetch('/api/azure-devops/work-items', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ issueId: item.issue_id })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        if (data.existing) {
+          showToast(`Already synced to Azure DevOps: Work Item #${data.workItem.id}`, 'success')
+        } else {
+          showToast(`Successfully added to Azure DevOps: Work Item #${data.workItem.id}`, 'success')
+        }
+        // Refresh backlog to show updated status
+        fetchBacklogItems()
+      } else {
+        showToast(data.error || 'Failed to add to Azure DevOps', 'error')
+      }
+    } catch (error) {
+      console.error('Error adding to Azure DevOps:', error)
+      showToast('An unexpected error occurred', 'error')
+    } finally {
+      setSyncingToAzureDevOps(null)
+    }
   }
 
   // Close dropdown when clicking outside
@@ -617,9 +680,9 @@ ${item.element_html || 'N/A'}
                                           }}
                                           className="p-1 text-gray-400 hover:text-blue-600"
                                           title="Add to Integration"
-                                          disabled={syncingToJira === item.id}
+                                          disabled={syncingToJira === item.id || syncingToAzureDevOps === item.id}
                                         >
-                                          {syncingToJira === item.id ? (
+                                          {(syncingToJira === item.id || syncingToAzureDevOps === item.id) ? (
                                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                                           ) : (
                                             <MoreHorizontal className="h-4 w-4" />
@@ -648,17 +711,26 @@ ${item.element_html || 'N/A'}
                                                   </a>
                                                 </div>
                                               )}
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation()
-                                                  handleAddToAzureDevOps(item)
-                                                }}
-                                                className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100"
-                                                disabled
-                                              >
-                                                <ExternalLink className="h-4 w-4 opacity-50" />
-                                                <span className="opacity-50">Add to Azure DevOps</span>
-                                              </button>
+                                              {azureDevOpsIntegration ? (
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleAddToAzureDevOps(item)
+                                                  }}
+                                                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100"
+                                                  disabled={syncingToAzureDevOps === item.id}
+                                                >
+                                                  <ExternalLink className="h-4 w-4" />
+                                                  <span>Add to Azure DevOps</span>
+                                                </button>
+                                              ) : (
+                                                <div className="px-3 py-2 text-xs text-gray-500 border-t border-gray-100">
+                                                  <div>Azure DevOps not configured</div>
+                                                  <a href="/settings?tab=integrations" className="text-blue-600 hover:underline">
+                                                    Set up in settings
+                                                  </a>
+                                                </div>
+                                              )}
                                             </div>
                                           </div>
                                         )}

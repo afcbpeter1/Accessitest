@@ -7,7 +7,7 @@ export const socialLinks = {
   twitter: 'https://twitter.com/a11ytestai',
   linkedin: 'https://www.linkedin.com/company/a11ytestai',
   github: 'https://github.com/a11ytestai',
-  email: 'mailto:contact@a11ytest.ai',
+  email: 'mailto:hello@a11ytest.ai',
 } as const
 
 /**
@@ -16,6 +16,7 @@ export const socialLinks = {
 export function getSocialLink(platform: keyof typeof socialLinks): string {
   return socialLinks[platform]
 }
+
 
 
 
