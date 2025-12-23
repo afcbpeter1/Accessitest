@@ -21,6 +21,8 @@ import {
   Target,
   Twitter,
   Linkedin,
+  Building2,
+  Check,
 } from 'lucide-react'
 import Link from 'next/link'
 import { socialLinks } from '@/lib/social-links'
@@ -32,6 +34,7 @@ const navigation = [
   { name: 'Product Backlog', href: '/product-backlog', icon: AlertTriangle, current: false },
   { name: 'Sprint Board', href: '/sprint-board', icon: Target, current: false },
   { name: 'Scan History', href: '/scan-history', icon: History, current: false },
+  { name: 'Organizations', href: '/organization', icon: Building2, current: false },
   { name: 'Pricing', href: '/pricing', icon: DollarSign, current: false },
   { name: 'Settings', href: '/settings', icon: Settings, current: false },
 ]
@@ -61,6 +64,12 @@ interface Notification {
   created_at: string
 }
 
+interface Organization {
+  id: string
+  name: string
+  role: string
+}
+
 export default function Sidebar({ children }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -69,14 +78,17 @@ export default function Sidebar({ children }: SidebarProps) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [organizations, setOrganizations] = useState<Organization[]>([])
+  const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Load user data and notifications
+  // Load user data, notifications, and organizations
   useEffect(() => {
     const token = localStorage.getItem('accessToken')
     if (token) {
       loadUserData()
       loadNotifications()
+      loadOrganizations()
     } else {
       setLoading(false)
     }
@@ -120,6 +132,35 @@ export default function Sidebar({ children }: SidebarProps) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  const loadOrganizations = async () => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      const response = await fetch('/api/organization', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+
+      const data = await response.json()
+      if (data.success && data.organizations.length > 0) {
+        const orgs = data.organizations.map((org: any) => ({
+          id: org.id,
+          name: org.name,
+          role: org.role || 'user'
+        }))
+        setOrganizations(orgs)
+        // Set first org as current, or get from localStorage
+        const savedOrgId = localStorage.getItem('currentOrganizationId')
+        const savedOrg = orgs.find((o: Organization) => o.id === savedOrgId)
+        setCurrentOrg(savedOrg || orgs[0])
+      }
+    } catch (error) {
+      console.error('Failed to load organizations:', error)
+    }
+  }
+
+  // Removed switchOrganization - users only have one organization
 
   const loadUserData = async () => {
     try {
@@ -421,6 +462,14 @@ export default function Sidebar({ children }: SidebarProps) {
                   </div>
                 )}
               </div>
+              
+              {/* Organization Name (simplified - single org per user) */}
+              {currentOrg && (
+                <div className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 mr-2">
+                  <Building2 className="h-4 w-4" />
+                  <span className="max-w-[120px] truncate">{currentOrg.name}</span>
+                </div>
+              )}
               
               {/* User Menu */}
               <div className="relative dropdown-container">

@@ -3,23 +3,66 @@ import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { query, queryOne } from '@/lib/database'
 import { encryptTokenForStorage, decryptTokenFromStorage } from '@/lib/jira-encryption-service'
 import { JiraClient } from '@/lib/jira-client'
+import { checkPermission } from '@/lib/role-service'
 
 /**
  * GET /api/jira/settings
  * Get user's Jira integration settings (without decrypted token)
+ * Supports team_id query parameter to get team integration
  */
 export async function GET(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
+    const { searchParams } = new URL(request.url)
+    const teamId = searchParams.get('team_id')
 
-    const integration = await queryOne(
-      `SELECT 
-        id, user_id, jira_url, jira_email, project_key, issue_type,
-        auto_sync_enabled, is_active, last_verified_at, created_at, updated_at
-      FROM jira_integrations 
-      WHERE user_id = $1 AND is_active = true`,
-      [user.userId]
-    )
+    let integration
+
+    if (teamId) {
+      // Get team integration - check if user has permission
+      const team = await queryOne(
+        `SELECT t.organization_id, om.role
+         FROM teams t
+         INNER JOIN organization_members om ON t.organization_id = om.organization_id
+         WHERE t.id = $1 AND om.user_id = $2 AND om.is_active = true`,
+        [teamId, user.userId]
+      )
+
+      if (!team) {
+        return NextResponse.json(
+          { success: false, error: 'Team not found or access denied' },
+          { status: 403 }
+        )
+      }
+
+      // Check permission
+      const hasPermission = await checkPermission(user.userId, team.organization_id, 'canManageIntegrations')
+      if (!hasPermission) {
+        return NextResponse.json(
+          { success: false, error: 'You do not have permission to view team integrations' },
+          { status: 403 }
+        )
+      }
+
+      integration = await queryOne(
+        `SELECT 
+          id, user_id, team_id, jira_url, jira_email, project_key, issue_type,
+          auto_sync_enabled, is_active, last_verified_at, created_at, updated_at
+        FROM jira_integrations 
+        WHERE team_id = $1 AND is_active = true`,
+        [teamId]
+      )
+    } else {
+      // Get personal integration
+      integration = await queryOne(
+        `SELECT 
+          id, user_id, team_id, jira_url, jira_email, project_key, issue_type,
+          auto_sync_enabled, is_active, last_verified_at, created_at, updated_at
+        FROM jira_integrations 
+        WHERE user_id = $1 AND team_id IS NULL AND is_active = true`,
+        [user.userId]
+      )
+    }
 
     if (!integration) {
       return NextResponse.json({
@@ -32,6 +75,8 @@ export async function GET(request: NextRequest) {
       success: true,
       integration: {
         id: integration.id,
+        userId: integration.user_id,
+        teamId: integration.team_id,
         jiraUrl: integration.jira_url,
         email: integration.jira_email,
         projectKey: integration.project_key,
@@ -58,19 +103,55 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/jira/settings
  * Save or update Jira integration settings
+ * Supports team_id in body to create team integration
  */
 export async function POST(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
     const body = await request.json()
 
-    const { jiraUrl, email, apiToken, projectKey, issueType, autoSyncEnabled } = body
+    const { jiraUrl, email, apiToken, projectKey, issueType, autoSyncEnabled, teamId } = body
 
-    // Check if integration already exists FIRST (before validation)
-    const existing = await queryOne(
-      'SELECT id, encrypted_api_token FROM jira_integrations WHERE user_id = $1',
-      [user.userId]
-    )
+    // If teamId provided, check permissions
+    if (teamId) {
+      const team = await queryOne(
+        `SELECT t.organization_id, om.role
+         FROM teams t
+         INNER JOIN organization_members om ON t.organization_id = om.organization_id
+         WHERE t.id = $1 AND om.user_id = $2 AND om.is_active = true`,
+        [teamId, user.userId]
+      )
+
+      if (!team) {
+        return NextResponse.json(
+          { success: false, error: 'Team not found or access denied' },
+          { status: 403 }
+        )
+      }
+
+      // Check permission
+      const hasPermission = await checkPermission(user.userId, team.organization_id, 'canManageIntegrations')
+      if (!hasPermission) {
+        return NextResponse.json(
+          { success: false, error: 'You do not have permission to configure team integrations' },
+          { status: 403 }
+        )
+      }
+    }
+
+    // Check if integration already exists
+    let existing
+    if (teamId) {
+      existing = await queryOne(
+        'SELECT id, encrypted_api_token FROM jira_integrations WHERE team_id = $1',
+        [teamId]
+      )
+    } else {
+      existing = await queryOne(
+        'SELECT id, encrypted_api_token FROM jira_integrations WHERE user_id = $1 AND team_id IS NULL',
+        [user.userId]
+      )
+    }
 
     // Validate required fields - apiToken only required for new integrations
     if (!jiraUrl || !email || !projectKey) {
@@ -131,21 +212,32 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       // Update existing integration - ensure is_active is set to true
-      await query(
-        `UPDATE jira_integrations 
-        SET jira_url = $1, jira_email = $2, encrypted_api_token = $3,
-            project_key = $4, issue_type = $5, auto_sync_enabled = $6,
-            is_active = true, updated_at = NOW()
-        WHERE user_id = $7`,
-        [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false, user.userId]
-      )
+      if (teamId) {
+        await query(
+          `UPDATE jira_integrations 
+          SET jira_url = $1, jira_email = $2, encrypted_api_token = $3,
+              project_key = $4, issue_type = $5, auto_sync_enabled = $6,
+              is_active = true, updated_at = NOW()
+          WHERE team_id = $7`,
+          [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false, teamId]
+        )
+      } else {
+        await query(
+          `UPDATE jira_integrations 
+          SET jira_url = $1, jira_email = $2, encrypted_api_token = $3,
+              project_key = $4, issue_type = $5, auto_sync_enabled = $6,
+              is_active = true, updated_at = NOW()
+          WHERE user_id = $7 AND team_id IS NULL`,
+          [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false, user.userId]
+        )
+      }
     } else {
       // Create new integration - set is_active to true
       await query(
         `INSERT INTO jira_integrations 
-        (user_id, jira_url, jira_email, encrypted_api_token, project_key, issue_type, auto_sync_enabled, is_active)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, true)`,
-        [user.userId, jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false]
+        (user_id, team_id, jira_url, jira_email, encrypted_api_token, project_key, issue_type, auto_sync_enabled, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
+        [user.userId, teamId || null, jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false]
       )
     }
 
@@ -168,15 +260,49 @@ export async function POST(request: NextRequest) {
 /**
  * DELETE /api/jira/settings
  * Remove Jira integration
+ * Supports team_id query parameter to remove team integration
  */
 export async function DELETE(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
+    const { searchParams } = new URL(request.url)
+    const teamId = searchParams.get('team_id')
 
-    await query(
-      'UPDATE jira_integrations SET is_active = false, updated_at = NOW() WHERE user_id = $1',
-      [user.userId]
-    )
+    if (teamId) {
+      // Check permission for team integration
+      const team = await queryOne(
+        `SELECT t.organization_id, om.role
+         FROM teams t
+         INNER JOIN organization_members om ON t.organization_id = om.organization_id
+         WHERE t.id = $1 AND om.user_id = $2 AND om.is_active = true`,
+        [teamId, user.userId]
+      )
+
+      if (!team) {
+        return NextResponse.json(
+          { success: false, error: 'Team not found or access denied' },
+          { status: 403 }
+        )
+      }
+
+      const hasPermission = await checkPermission(user.userId, team.organization_id, 'canManageIntegrations')
+      if (!hasPermission) {
+        return NextResponse.json(
+          { success: false, error: 'You do not have permission to remove team integrations' },
+          { status: 403 }
+        )
+      }
+
+      await query(
+        'UPDATE jira_integrations SET is_active = false, updated_at = NOW() WHERE team_id = $1',
+        [teamId]
+      )
+    } else {
+      await query(
+        'UPDATE jira_integrations SET is_active = false, updated_at = NOW() WHERE user_id = $1 AND team_id IS NULL',
+        [user.userId]
+      )
+    }
 
     return NextResponse.json({
       success: true,

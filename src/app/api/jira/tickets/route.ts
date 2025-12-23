@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { query, queryOne } from '@/lib/database'
 import { JiraClient } from '@/lib/jira-client'
 import { mapIssueToJiraSimple } from '@/lib/jira-mapping-service'
+import { getJiraIntegration, getIssueContext } from '@/lib/integration-selection-service'
 
 /**
  * POST /api/jira/tickets
@@ -25,12 +26,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user's Jira integration first (needed for duplicate check)
-    const integration = await queryOne(
-      `SELECT jira_url, jira_email, encrypted_api_token, project_key, issue_type
-      FROM jira_integrations 
-      WHERE user_id = $1 AND is_active = true`,
-      [user.userId]
+    // Get issue context (team/organization)
+    const issueContext = await getIssueContext(issueId)
+    
+    // Get the appropriate Jira integration (team > org > personal)
+    const integration = await getJiraIntegration(
+      user.userId,
+      issueContext?.teamId,
+      issueContext?.organizationId
     )
 
     if (!integration) {

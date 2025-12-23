@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { query, queryOne } from '@/lib/database'
 import { AzureDevOpsClient } from '@/lib/azure-devops-client'
 import { mapIssueToAzureDevOps } from '@/lib/azure-devops-mapping-service'
+import { getAzureDevOpsIntegration, getIssueContext } from '@/lib/integration-selection-service'
 
 /**
  * POST /api/azure-devops/work-items
@@ -25,12 +26,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user's Azure DevOps integration first (needed for duplicate check)
-    const integration = await queryOne(
-      `SELECT organization, project, encrypted_pat, work_item_type, area_path, iteration_path
-      FROM azure_devops_integrations 
-      WHERE user_id = $1 AND is_active = true`,
-      [user.userId]
+    // Get issue context (team/organization)
+    const issueContext = await getIssueContext(issueId)
+    
+    // Get the appropriate Azure DevOps integration (team > org > personal)
+    const integration = await getAzureDevOpsIntegration(
+      user.userId,
+      issueContext?.teamId,
+      issueContext?.organizationId
     )
 
     if (!integration) {
