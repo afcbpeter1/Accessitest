@@ -2,39 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { queryOne, query } from '@/lib/database'
 import { NotificationService } from '@/lib/notification-service'
+import { getUserCredits, deductCredits, addCredits } from '@/lib/credit-service'
 
 export async function GET(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
     
-    // Get user's credit information from database
-    let creditData = await queryOne(
-      `SELECT uc.*, u.plan_type, u.email
-       FROM user_credits uc
-       JOIN users u ON uc.user_id = u.id
-       WHERE uc.user_id = $1`,
+    // Get user's credit information (organization or personal)
+    const creditInfo = await getUserCredits(user.userId)
+    
+    // Get user info for plan type
+    const userInfo = await queryOne(
+      `SELECT plan_type, email FROM users WHERE id = $1`,
       [user.userId]
     )
 
-    // If user doesn't have credit data, create it with 3 free credits
-    if (!creditData) {
-      await query(
-        `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
-         VALUES ($1, $2, $3, $4)`,
-        [user.userId, 3, 0, false]
-      )
-      
-      // Get the newly created credit data
-      creditData = await queryOne(
-        `SELECT uc.*, u.plan_type, u.email
-         FROM user_credits uc
-         JOIN users u ON uc.user_id = u.id
-         WHERE uc.user_id = $1`,
-        [user.userId]
-      )
-    }
-
-    // Get recent scan history
+    // Get recent scan history (include organization transactions)
     const scanHistory = await query(
       `SELECT * FROM credit_transactions 
        WHERE user_id = $1 AND transaction_type = 'usage'
@@ -43,17 +26,19 @@ export async function GET(request: NextRequest) {
       [user.userId]
     )
 
-    const canScan = creditData.unlimited_credits || creditData.credits_remaining > 0
+    const canScan = creditInfo.unlimited_credits || creditInfo.credits_remaining > 0
 
     return NextResponse.json({
       success: true,
       userId: user.userId,
-      credits: creditData.credits_remaining,
-      creditsRemaining: creditData.credits_remaining, // Include for unlimited users to show saved credits
-      unlimitedCredits: creditData.unlimited_credits,
-      planType: creditData.plan_type,
+      credits: creditInfo.credits_remaining,
+      creditsRemaining: creditInfo.credits_remaining,
+      unlimitedCredits: creditInfo.unlimited_credits,
+      planType: userInfo?.plan_type || 'free',
       scanHistory: scanHistory.rows,
-      canScan
+      canScan,
+      isOrganization: creditInfo.is_organization,
+      organizationId: creditInfo.organization_id
     })
   } catch (error) {
     console.error('❌ Error fetching user credits:', error)
@@ -85,46 +70,28 @@ export async function POST(request: NextRequest) {
     }
     
     // Get user's current credit information
-    let creditData = await queryOne(
-      'SELECT * FROM user_credits WHERE user_id = $1',
-      [user.userId]
-    )
-
-    // If user doesn't have credit data, create it with 3 free credits
-    if (!creditData) {
-      await query(
-        `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
-         VALUES ($1, $2, $3, $4)`,
-        [user.userId, 3, 0, false]
-      )
-      
-      // Get the newly created credit data
-      creditData = await queryOne(
-        'SELECT * FROM user_credits WHERE user_id = $1',
-        [user.userId]
-      )
-    }
+    const creditInfo = await getUserCredits(user.userId)
     
     // Check if user has unlimited credits
-    if (creditData.unlimited_credits) {
+    if (creditInfo.unlimited_credits) {
       // Unlimited user, log the scan but don't deduct credits
       await query(
-        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-         VALUES ($1, $2, $3, $4)`,
-        [user.userId, 'usage', 0, `${scanType} scan: ${fileName || scanId}`]
+        `INSERT INTO credit_transactions (user_id, organization_id, transaction_type, credits_amount, description)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [user.userId, creditInfo.organization_id || null, 'usage', 0, `${scanType} scan: ${fileName || scanId}`]
       )
       
       return NextResponse.json({
         success: true,
         canScan: true,
-        credits: creditData.credits_remaining,
+        credits: creditInfo.credits_remaining,
         unlimitedCredits: true,
         message: 'Unlimited scan completed'
       })
     }
     
     // Check if user has enough credits
-    if (creditData.credits_remaining < 1) {
+    if (creditInfo.credits_remaining < 1) {
       // Create notification for insufficient credits
       await NotificationService.notifyInsufficientCredits(user.userId)
       
@@ -134,47 +101,35 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Start transaction to deduct credit and log usage
-    await query('BEGIN')
+    // Deduct credits using the credit service
+    const result = await deductCredits(
+      user.userId,
+      1,
+      `${scanType} scan: ${fileName || scanId}`
+    )
     
-    try {
-      // Deduct 1 credit for the scan
-      await query(
-        `UPDATE user_credits 
-         SET credits_remaining = credits_remaining - 1, 
-             credits_used = credits_used + 1,
-             updated_at = NOW()
-         WHERE user_id = $1`,
-        [user.userId]
+    if (!result.success) {
+      // Create notification for insufficient credits
+      await NotificationService.notifyInsufficientCredits(user.userId)
+      
+      return NextResponse.json(
+        { success: false, error: result.error || 'Insufficient credits', canScan: false },
+        { status: 402 }
       )
-      
-      // Log the scan transaction
-      await query(
-        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-         VALUES ($1, $2, $3, $4)`,
-        [user.userId, 'usage', -1, `${scanType} scan: ${fileName || scanId}`]
-      )
-      
-      await query('COMMIT')
-      
-      const newCredits = creditData.credits_remaining - 1
-      
-      // Create notification for low credits if remaining credits are low
-      if (newCredits <= 1 && newCredits > 0) {
-        await NotificationService.notifyLowCredits(user.userId, newCredits)
-      }
-      
-      return NextResponse.json({
-        success: true,
-        canScan: true,
-        credits: newCredits,
-        unlimitedCredits: false,
-        message: 'Scan completed, 1 credit deducted'
-      })
-    } catch (error) {
-      await query('ROLLBACK')
-      throw error
     }
+    
+    // Create notification for low credits if remaining credits are low
+    if (result.credits_remaining <= 1 && result.credits_remaining > 0) {
+      await NotificationService.notifyLowCredits(user.userId, result.credits_remaining)
+    }
+    
+    return NextResponse.json({
+      success: true,
+      canScan: true,
+      credits: result.credits_remaining,
+      unlimitedCredits: false,
+      message: 'Scan completed, 1 credit deducted'
+    })
     
   } catch (error) {
     console.error('❌ Credit deduction error:', error)
@@ -199,45 +154,21 @@ export async function PUT(request: NextRequest) {
       )
     }
     
-    // Start transaction to add credits and log purchase
-    await query('BEGIN')
+    // Add credits using the credit service
+    const result = await addCredits(
+      user.userId,
+      creditsToAdd,
+      `Credit purchase: ${packageName || 'Unknown Package'}`,
+      stripePaymentIntentId
+    )
     
-    try {
-      // Add credits to user's account
-      await query(
-        `UPDATE user_credits 
-         SET credits_remaining = credits_remaining + $1, 
-             updated_at = NOW()
-         WHERE user_id = $2`,
-        [creditsToAdd, user.userId]
-      )
-      
-      // Log the credit purchase transaction
-      await query(
-        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description, stripe_payment_intent_id)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [user.userId, 'purchase', creditsToAdd, `Credit purchase: ${packageName || 'Unknown Package'}`, stripePaymentIntentId]
-      )
-      
-      await query('COMMIT')
-      
-      // Get updated credit information
-      const updatedCredits = await queryOne(
-        'SELECT credits_remaining FROM user_credits WHERE user_id = $1',
-        [user.userId]
-      )
-      
-      console.log(`💳 Credits added for user ${user.userId}: +${creditsToAdd} credits (${packageName})`)
-      
-      return NextResponse.json({
-        success: true,
-        credits: updatedCredits.credits_remaining,
-        message: `Successfully added ${creditsToAdd} credits`
-      })
-    } catch (error) {
-      await query('ROLLBACK')
-      throw error
-    }
+    console.log(`💳 Credits added for user ${user.userId}: +${creditsToAdd} credits (${packageName})`)
+    
+    return NextResponse.json({
+      success: true,
+      credits: result.credits_remaining,
+      message: `Successfully added ${creditsToAdd} credits`
+    })
     
   } catch (error) {
     console.error('❌ Credit addition error:', error)

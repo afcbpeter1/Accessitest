@@ -3,23 +3,66 @@ import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { query, queryOne } from '@/lib/database'
 import { encryptTokenForStorage, decryptTokenFromStorage } from '@/lib/jira-encryption-service'
 import { AzureDevOpsClient } from '@/lib/azure-devops-client'
+import { checkPermission } from '@/lib/role-service'
 
 /**
  * GET /api/azure-devops/settings
  * Get user's Azure DevOps integration settings (without decrypted PAT)
+ * Supports team_id query parameter to get team integration
  */
 export async function GET(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
+    const { searchParams } = new URL(request.url)
+    const teamId = searchParams.get('team_id')
 
-    const integration = await queryOne(
-      `SELECT 
-        id, user_id, organization, project, work_item_type, area_path, iteration_path,
-        auto_sync_enabled, is_active, last_verified_at, created_at, updated_at
-      FROM azure_devops_integrations 
-      WHERE user_id = $1 AND is_active = true`,
-      [user.userId]
-    )
+    let integration
+
+    if (teamId) {
+      // Get team integration - check if user has permission
+      const team = await queryOne(
+        `SELECT t.organization_id, om.role
+         FROM teams t
+         INNER JOIN organization_members om ON t.organization_id = om.organization_id
+         WHERE t.id = $1 AND om.user_id = $2 AND om.is_active = true`,
+        [teamId, user.userId]
+      )
+
+      if (!team) {
+        return NextResponse.json(
+          { success: false, error: 'Team not found or access denied' },
+          { status: 403 }
+        )
+      }
+
+      // Check permission
+      const hasPermission = await checkPermission(user.userId, team.organization_id, 'canManageIntegrations')
+      if (!hasPermission) {
+        return NextResponse.json(
+          { success: false, error: 'You do not have permission to view team integrations' },
+          { status: 403 }
+        )
+      }
+
+      integration = await queryOne(
+        `SELECT 
+          id, user_id, team_id, organization, project, work_item_type, area_path, iteration_path,
+          auto_sync_enabled, is_active, last_verified_at, created_at, updated_at
+        FROM azure_devops_integrations 
+        WHERE team_id = $1 AND is_active = true`,
+        [teamId]
+      )
+    } else {
+      // Get personal integration
+      integration = await queryOne(
+        `SELECT 
+          id, user_id, team_id, organization, project, work_item_type, area_path, iteration_path,
+          auto_sync_enabled, is_active, last_verified_at, created_at, updated_at
+        FROM azure_devops_integrations 
+        WHERE user_id = $1 AND team_id IS NULL AND is_active = true`,
+        [user.userId]
+      )
+    }
 
     if (!integration) {
       return NextResponse.json({
@@ -32,6 +75,8 @@ export async function GET(request: NextRequest) {
       success: true,
       integration: {
         id: integration.id,
+        userId: integration.user_id,
+        teamId: integration.team_id,
         organization: integration.organization,
         project: integration.project,
         workItemType: integration.work_item_type,
@@ -59,19 +104,55 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/azure-devops/settings
  * Save or update Azure DevOps integration settings
+ * Supports team_id in body to create team integration
  */
 export async function POST(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
     const body = await request.json()
 
-    const { organization, project, pat, workItemType, areaPath, iterationPath, autoSyncEnabled } = body
+    const { organization, project, pat, workItemType, areaPath, iterationPath, autoSyncEnabled, teamId } = body
 
-    // Check if integration already exists FIRST (before validation)
-    const existing = await queryOne(
-      'SELECT id, encrypted_pat FROM azure_devops_integrations WHERE user_id = $1',
-      [user.userId]
-    )
+    // If teamId provided, check permissions
+    if (teamId) {
+      const team = await queryOne(
+        `SELECT t.organization_id, om.role
+         FROM teams t
+         INNER JOIN organization_members om ON t.organization_id = om.organization_id
+         WHERE t.id = $1 AND om.user_id = $2 AND om.is_active = true`,
+        [teamId, user.userId]
+      )
+
+      if (!team) {
+        return NextResponse.json(
+          { success: false, error: 'Team not found or access denied' },
+          { status: 403 }
+        )
+      }
+
+      // Check permission
+      const hasPermission = await checkPermission(user.userId, team.organization_id, 'canManageIntegrations')
+      if (!hasPermission) {
+        return NextResponse.json(
+          { success: false, error: 'You do not have permission to configure team integrations' },
+          { status: 403 }
+        )
+      }
+    }
+
+    // Check if integration already exists
+    let existing
+    if (teamId) {
+      existing = await queryOne(
+        'SELECT id, encrypted_pat FROM azure_devops_integrations WHERE team_id = $1',
+        [teamId]
+      )
+    } else {
+      existing = await queryOne(
+        'SELECT id, encrypted_pat FROM azure_devops_integrations WHERE user_id = $1 AND team_id IS NULL',
+        [user.userId]
+      )
+    }
 
     // Validate required fields - pat only required for new integrations
     if (!organization || !project) {
@@ -116,31 +197,52 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       // Update existing integration - ensure is_active is set to true
-      await query(
-        `UPDATE azure_devops_integrations 
-        SET organization = $1, project = $2, encrypted_pat = $3,
-            work_item_type = $4, area_path = $5, iteration_path = $6, auto_sync_enabled = $7,
-            is_active = true, updated_at = NOW()
-        WHERE user_id = $8`,
-        [
-          organization, 
-          project, 
-          encryptedPat, 
-          workItemType || 'Bug', 
-          areaPath || null, 
-          iterationPath || null, 
-          autoSyncEnabled ?? false, 
-          user.userId
-        ]
-      )
+      if (teamId) {
+        await query(
+          `UPDATE azure_devops_integrations 
+          SET organization = $1, project = $2, encrypted_pat = $3,
+              work_item_type = $4, area_path = $5, iteration_path = $6, auto_sync_enabled = $7,
+              is_active = true, updated_at = NOW()
+          WHERE team_id = $8`,
+          [
+            organization, 
+            project, 
+            encryptedPat, 
+            workItemType || 'Bug', 
+            areaPath || null, 
+            iterationPath || null, 
+            autoSyncEnabled ?? false, 
+            teamId
+          ]
+        )
+      } else {
+        await query(
+          `UPDATE azure_devops_integrations 
+          SET organization = $1, project = $2, encrypted_pat = $3,
+              work_item_type = $4, area_path = $5, iteration_path = $6, auto_sync_enabled = $7,
+              is_active = true, updated_at = NOW()
+          WHERE user_id = $8 AND team_id IS NULL`,
+          [
+            organization, 
+            project, 
+            encryptedPat, 
+            workItemType || 'Bug', 
+            areaPath || null, 
+            iterationPath || null, 
+            autoSyncEnabled ?? false, 
+            user.userId
+          ]
+        )
+      }
     } else {
       // Create new integration - set is_active to true
       await query(
         `INSERT INTO azure_devops_integrations 
-        (user_id, organization, project, encrypted_pat, work_item_type, area_path, iteration_path, auto_sync_enabled, is_active)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
+        (user_id, team_id, organization, project, encrypted_pat, work_item_type, area_path, iteration_path, auto_sync_enabled, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)`,
         [
           user.userId, 
+          teamId || null,
           organization, 
           project, 
           encryptedPat, 
@@ -171,15 +273,49 @@ export async function POST(request: NextRequest) {
 /**
  * DELETE /api/azure-devops/settings
  * Remove Azure DevOps integration
+ * Supports team_id query parameter to remove team integration
  */
 export async function DELETE(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
+    const { searchParams } = new URL(request.url)
+    const teamId = searchParams.get('team_id')
 
-    await query(
-      'UPDATE azure_devops_integrations SET is_active = false, updated_at = NOW() WHERE user_id = $1',
-      [user.userId]
-    )
+    if (teamId) {
+      // Check permission for team integration
+      const team = await queryOne(
+        `SELECT t.organization_id, om.role
+         FROM teams t
+         INNER JOIN organization_members om ON t.organization_id = om.organization_id
+         WHERE t.id = $1 AND om.user_id = $2 AND om.is_active = true`,
+        [teamId, user.userId]
+      )
+
+      if (!team) {
+        return NextResponse.json(
+          { success: false, error: 'Team not found or access denied' },
+          { status: 403 }
+        )
+      }
+
+      const hasPermission = await checkPermission(user.userId, team.organization_id, 'canManageIntegrations')
+      if (!hasPermission) {
+        return NextResponse.json(
+          { success: false, error: 'You do not have permission to remove team integrations' },
+          { status: 403 }
+        )
+      }
+
+      await query(
+        'UPDATE azure_devops_integrations SET is_active = false, updated_at = NOW() WHERE team_id = $1',
+        [teamId]
+      )
+    } else {
+      await query(
+        'UPDATE azure_devops_integrations SET is_active = false, updated_at = NOW() WHERE user_id = $1 AND team_id IS NULL',
+        [user.userId]
+      )
+    }
 
     return NextResponse.json({
       success: true,
@@ -196,4 +332,5 @@ export async function DELETE(request: NextRequest) {
     )
   }
 }
+
 

@@ -5,6 +5,8 @@ import { getPlanTypeFromPriceId, getCreditAmountFromPriceId, CREDIT_AMOUNTS } fr
 import { sendReceiptEmail, ReceiptData } from '@/lib/receipt-email-service'
 import { sendSubscriptionPaymentEmail, sendSubscriptionCancellationEmail } from '@/lib/subscription-email-service'
 import { NotificationService } from '@/lib/notification-service'
+import { addCredits } from '@/lib/credit-service'
+import { updateOrganizationSubscription } from '@/lib/organization-billing'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -90,6 +92,8 @@ export async function POST(request: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed':
         await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session)
+        // Also check if this is an organization subscription and handle it
+        await handleOrganizationCheckoutCompleted(event.data.object as Stripe.Checkout.Session)
         break
 
       case 'customer.subscription.created':
@@ -98,6 +102,7 @@ export async function POST(request: NextRequest) {
 
       case 'customer.subscription.updated':
         await handleSubscriptionUpdated(event.data.object as Stripe.Subscription)
+        await handleOrganizationSubscriptionUpdated(event.data.object as Stripe.Subscription)
         break
 
       case 'customer.subscription.deleted':
@@ -269,8 +274,11 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     }
   }
 
-  // Send receipt email
-  await sendReceiptEmailFromSession(session)
+  // Send receipt email (skip for organization checkouts - they get custom billing confirmation)
+  const { organization_id } = session.metadata || {}
+  if (!organization_id) {
+    await sendReceiptEmailFromSession(session)
+  }
 }
 
 async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
@@ -983,39 +991,24 @@ async function handleCreditPurchase(userId: string, priceId: string, creditAmoun
       return
     }
 
-    // Start transaction to add credits and log purchase
-    await query('BEGIN')
-    
-    try {
-      // Add credits to user's account
-      await query(
-        `UPDATE user_credits 
-         SET credits_remaining = credits_remaining + $1, updated_at = NOW() 
-         WHERE user_id = $2`,
-        [credits, userId]
-      )
-
-      // Log the credit purchase transaction
-      let packageName = getPlanNameFromPriceId(priceId)
-      // Fallback: if priceId is empty, derive package name from credit amount
-      if (packageName === 'Unknown Plan' && credits) {
-        packageName = getPackageNameFromCreditAmount(credits)
-      }
-      await query(
-        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-         VALUES ($1, $2, $3, $4)`,
-        [userId, 'purchase', credits, `Credit purchase: ${packageName}`]
-      )
-
-      await query('COMMIT')
-      console.log(`Added ${credits} credits to user ${userId}`)
-
-      // Create notification for credit purchase
-      await NotificationService.notifyCreditPurchase(userId, credits, packageName)
-    } catch (error) {
-      await query('ROLLBACK')
-      throw error
+    // Get package name
+    let packageName = getPlanNameFromPriceId(priceId)
+    // Fallback: if priceId is empty, derive package name from credit amount
+    if (packageName === 'Unknown Plan' && credits) {
+      packageName = getPackageNameFromCreditAmount(credits)
     }
+
+    // Add credits using the credit service (handles organization vs personal)
+    const result = await addCredits(
+      userId,
+      credits,
+      `Credit purchase: ${packageName}`
+    )
+
+    console.log(`Added ${credits} credits to user ${userId}`)
+
+    // Create notification for credit purchase
+    await NotificationService.notifyCreditPurchase(userId, credits, packageName)
   } catch (error) {
     console.error('Error adding credits to user:', error)
   }
@@ -1319,6 +1312,18 @@ function getPlanNameFromPriceId(priceId: string): string {
     'price_1S69HzDlESHKijI2K9H4o4FV': 'Enterprise Pack',
   }
   
+  // Add per-user pricing (organization seats) - check environment variables
+  const perUserMonthlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID
+  const perUserYearlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID_YEARLY
+  
+  if (perUserMonthlyPriceId && priceId === perUserMonthlyPriceId) {
+    return 'Per User Seat (Monthly)'
+  }
+  
+  if (perUserYearlyPriceId && priceId === perUserYearlyPriceId) {
+    return 'Per User Seat (Yearly)'
+  }
+  
   return planNames[priceId] || 'Unknown Plan'
 }
 
@@ -1332,4 +1337,220 @@ function getPackageNameFromCreditAmount(credits: number): string {
   }
   
   return creditToPackage[credits] || `${credits} Credit Pack`
+}
+
+/**
+ * Handle organization subscription updates
+ * This checks if the subscription belongs to an organization and updates max_users accordingly
+ */
+async function handleOrganizationSubscriptionUpdated(subscription: Stripe.Subscription) {
+  try {
+    const customerId = subscription.customer as string
+    
+    if (!customerId) {
+      return // Not an organization subscription
+    }
+    
+    // Check if this customer ID belongs to an organization
+    const org = await queryOne(
+      `SELECT id, name FROM organizations WHERE stripe_customer_id = $1`,
+      [customerId]
+    )
+    
+    if (!org) {
+      // Not an organization subscription, skip
+      return
+    }
+    
+    console.log(`🔄 Processing organization subscription update for org ${org.id}`)
+    
+    // Get previous max_users to detect if this is a new purchase
+    const previousOrg = await queryOne(
+      `SELECT max_users FROM organizations WHERE id = $1`,
+      [org.id]
+    )
+    const previousMaxUsers = previousOrg?.max_users || 0
+    
+    const newMaxUsers = subscription.items.data[0]?.quantity || 1
+    const numberOfNewUsers = newMaxUsers - previousMaxUsers
+    
+    console.log(`📊 Organization ${org.id} subscription update: previous=${previousMaxUsers}, new=${newMaxUsers}, added=${numberOfNewUsers}`)
+    
+    // Update organization subscription
+    await updateOrganizationSubscription(org.id, subscription)
+    
+    console.log(`✅ Updated organization ${org.id} subscription: status=${subscription.status}, quantity=${newMaxUsers}`)
+    
+    // If this is a new purchase (quantity increased), send billing confirmation email
+    if (numberOfNewUsers > 0 && subscription.status === 'active') {
+      // Get organization owner's email
+      const owner = await queryOne(
+        `SELECT u.email, u.stripe_subscription_id
+         FROM organization_members om
+         INNER JOIN users u ON om.user_id = u.id
+         WHERE om.organization_id = $1 AND om.role = 'owner' AND om.is_active = true
+         LIMIT 1`,
+        [org.id]
+      )
+      
+      if (owner?.email) {
+        // Get billing period from owner's subscription
+        let billingPeriod: 'monthly' | 'yearly' = 'monthly'
+        if (owner.stripe_subscription_id) {
+          try {
+            const ownerSubscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id)
+            const price = ownerSubscription.items.data[0]?.price
+            if (price?.recurring?.interval === 'year') {
+              billingPeriod = 'yearly'
+            }
+          } catch (error) {
+            console.error('Error checking owner subscription:', error)
+          }
+        }
+        
+        // Get amount from subscription
+        // For subscriptions with quantity, unit_amount is per unit, so multiply by number of new users
+        const price = subscription.items.data[0]?.price
+        const unitAmount = price?.unit_amount || 0 // Price per unit in cents (e.g., 700 = $7.00)
+        const unitPriceDollars = unitAmount / 100
+        const totalAmountForNewUsers = unitPriceDollars * numberOfNewUsers
+        const amount = `$${totalAmountForNewUsers.toFixed(2)}`
+        
+        // Get billing period from the organization subscription price (not owner's subscription)
+        const isYearly = price?.recurring?.interval === 'year'
+        if (isYearly) {
+          billingPeriod = 'yearly'
+        }
+        
+        console.log(`💰 Billing calculation: ${numberOfNewUsers} seats × $${unitPriceDollars.toFixed(2)} per seat = ${amount} ${billingPeriod}`)
+        
+        // Send billing confirmation email
+        const { EmailService } = await import('@/lib/email-service')
+        await EmailService.sendBillingConfirmation({
+          email: owner.email,
+          organizationName: org.name,
+          numberOfUsers: numberOfNewUsers,
+          amount,
+          billingPeriod,
+          subscriptionId: subscription.id
+        })
+        
+        console.log(`✅ Sent billing confirmation email to ${owner.email} for ${numberOfNewUsers} new user seat(s)`)
+      }
+    }
+  } catch (error) {
+    console.error('❌ Error handling organization subscription update:', error)
+    // Don't throw - this is a side effect, shouldn't break the main webhook
+  }
+}
+
+/**
+ * Handle organization checkout completion
+ * This sends the billing confirmation email using the exact number of users and amount from checkout
+ */
+async function handleOrganizationCheckoutCompleted(session: Stripe.Checkout.Session) {
+  try {
+    const { organization_id, number_of_users } = session.metadata || {}
+    
+    if (!organization_id || !number_of_users) {
+      // Not an organization checkout, skip
+      return
+    }
+    
+    const numberOfUsers = parseInt(number_of_users, 10)
+    if (isNaN(numberOfUsers) || numberOfUsers <= 0) {
+      console.error('❌ Invalid number_of_users in checkout metadata:', number_of_users)
+      return
+    }
+    
+    console.log(`🛒 Processing organization checkout: org=${organization_id}, users=${numberOfUsers}`)
+    
+    // Get organization details
+    const org = await queryOne(
+      `SELECT id, name FROM organizations WHERE id = $1`,
+      [organization_id]
+    )
+    
+    if (!org) {
+      console.error('❌ Organization not found:', organization_id)
+      return
+    }
+    
+    // Get organization owner's email
+    const owner = await queryOne(
+      `SELECT u.email, u.stripe_subscription_id
+       FROM organization_members om
+       INNER JOIN users u ON om.user_id = u.id
+       WHERE om.organization_id = $1 AND om.role = 'owner' AND om.is_active = true
+       LIMIT 1`,
+      [org.id]
+    )
+    
+    if (!owner?.email) {
+      console.error('❌ Organization owner not found for org:', org.id)
+      return
+    }
+    
+    // Get line items to calculate amount accurately
+    let amount = '$0.00'
+    let billingPeriod: 'monthly' | 'yearly' = 'monthly'
+    
+    try {
+      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 })
+      if (lineItems.data.length > 0) {
+        const lineItem = lineItems.data[0]
+        const price = lineItem.price
+        const quantity = lineItem.quantity || numberOfUsers
+        
+        if (price?.unit_amount) {
+          const unitPriceDollars = price.unit_amount / 100
+          const totalAmount = unitPriceDollars * quantity
+          amount = `$${totalAmount.toFixed(2)}`
+          
+          // Get billing period from price
+          if (price.recurring?.interval === 'year') {
+            billingPeriod = 'yearly'
+          }
+          
+          console.log(`💰 Checkout calculation: ${quantity} seats × $${unitPriceDollars.toFixed(2)} per seat = ${amount} ${billingPeriod}`)
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error getting line items from checkout session:', error)
+      // Fallback: try to calculate from subscription if available
+      if (session.subscription) {
+        try {
+          const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
+          const price = subscription.items.data[0]?.price
+          if (price?.unit_amount) {
+            const unitPriceDollars = price.unit_amount / 100
+            const totalAmount = unitPriceDollars * numberOfUsers
+            amount = `$${totalAmount.toFixed(2)}`
+            
+            if (price.recurring?.interval === 'year') {
+              billingPeriod = 'yearly'
+            }
+          }
+        } catch (subError) {
+          console.error('❌ Error getting subscription for fallback calculation:', subError)
+        }
+      }
+    }
+    
+    // Send billing confirmation email with the exact number from checkout
+    const { EmailService } = await import('@/lib/email-service')
+    await EmailService.sendBillingConfirmation({
+      email: owner.email,
+      organizationName: org.name,
+      numberOfUsers: numberOfUsers, // Use the exact number from checkout metadata
+      amount,
+      billingPeriod,
+      subscriptionId: session.subscription as string | undefined
+    })
+    
+    console.log(`✅ Sent billing confirmation email to ${owner.email} for ${numberOfUsers} user seat(s) from checkout`)
+  } catch (error) {
+    console.error('❌ Error handling organization checkout completion:', error)
+    // Don't throw - this is a side effect
+  }
 }

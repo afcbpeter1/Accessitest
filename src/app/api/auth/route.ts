@@ -253,6 +253,35 @@ async function handleRegister(email: string, password: string, name: string, com
         [userResult.id, 3, 0, false]
       )
 
+      // Auto-create organization for the user (simplified model - one org per user)
+      const orgName = company || `${firstName} ${lastName}'s Organization`
+      const org = await queryOne(
+        `INSERT INTO organizations (name, subscription_status, max_teams)
+         VALUES ($1, $2, $3)
+         RETURNING *`,
+        [orgName, 'active', 0] // Start with 0 teams (free tier)
+      )
+      
+      // Set user as owner of their organization
+      await query(
+        `INSERT INTO organization_members (user_id, organization_id, role, joined_at, is_active)
+         VALUES ($1, $2, $3, NOW(), true)`,
+        [userResult.id, org.id, 'owner']
+      )
+      
+      // Create organization credits (migrate from user credits)
+      await query(
+        `INSERT INTO organization_credits (organization_id, credits_remaining, credits_used, unlimited_credits)
+         VALUES ($1, $2, $3, $4)`,
+        [org.id, 3, 0, false]
+      )
+      
+      // Set as user's default organization
+      await query(
+        `UPDATE users SET default_organization_id = $1 WHERE id = $2`,
+        [org.id, userResult.id]
+      )
+
       // Commit transaction
       await query('COMMIT')
 

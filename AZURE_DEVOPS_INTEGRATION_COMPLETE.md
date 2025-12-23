@@ -148,3 +148,6 @@ If you encounter issues:
 
 The integration follows the same patterns as Jira, so if you're familiar with that integration, this should work similarly. All code is well-documented and follows TypeScript best practices.
 
+
+
+
