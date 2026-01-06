@@ -463,28 +463,40 @@ export async function updateMemberRole(
   await query('BEGIN')
   
   try {
-    // Only owner can update roles
+    // Only owner or admin can update roles
     const updater = await queryOne(
       `SELECT role FROM organization_members
        WHERE organization_id = $1 AND user_id = $2 AND is_active = true`,
       [organizationId, updaterId]
     )
     
-    if (!updater || updater.role !== 'owner') {
+    if (!updater || (updater.role !== 'owner' && updater.role !== 'admin')) {
       await query('ROLLBACK')
-      return { success: false, message: 'Only organization owners can update roles' }
+      return { success: false, message: 'Only organization owners and admins can update roles' }
     }
     
-    // Cannot change owner role
+    // Get the member being updated to check their current role
+    const memberToUpdate = await queryOne(
+      `SELECT role FROM organization_members
+       WHERE organization_id = $1 AND user_id = $2 AND is_active = true`,
+      [organizationId, userId]
+    )
+    
+    if (!memberToUpdate) {
+      await query('ROLLBACK')
+      return { success: false, message: 'Member not found' }
+    }
+    
+    // Cannot change owner role (owner role is protected)
+    if (memberToUpdate.role === 'owner') {
+      await query('ROLLBACK')
+      return { success: false, message: 'Cannot change the owner role' }
+    }
+    
+    // Cannot promote to owner (only current owner can transfer ownership via separate process)
     if (newRole === 'owner') {
-      // Transfer ownership
-      // First, demote current owner
-      await query(
-        `UPDATE organization_members
-         SET role = 'admin', updated_at = NOW()
-         WHERE organization_id = $1 AND role = 'owner'`,
-        [organizationId]
-      )
+      await query('ROLLBACK')
+      return { success: false, message: 'Cannot promote to owner role. Owner role cannot be changed.' }
     }
     
     // Update role

@@ -269,6 +269,86 @@ export default function OrganizationPage() {
     }
   }
 
+  const handleAssignToTeam = async (userId: string, teamId: string | null) => {
+    if (!currentOrg) return
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      
+      if (teamId === null || teamId === '') {
+        // Remove from team
+        const response = await fetch('/api/organization/teams/remove', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            organizationId: currentOrg.id,
+            userId
+          })
+        })
+
+        const data = await response.json()
+        if (data.success) {
+          setMessage({ type: 'success', text: 'Member removed from team successfully' })
+          loadOrganizations()
+        } else {
+          setMessage({ type: 'error', text: data.error || 'Failed to remove member from team' })
+        }
+      } else {
+        // Assign to team
+        const response = await fetch('/api/organization/teams/assign', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            organizationId: currentOrg.id,
+            userId,
+            teamId
+          })
+        })
+
+        const data = await response.json()
+        if (data.success) {
+          setMessage({ type: 'success', text: 'Member assigned to team successfully' })
+          loadOrganizations()
+        } else {
+          setMessage({ type: 'error', text: data.error || 'Failed to assign member to team' })
+        }
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'An error occurred' })
+    }
+  }
+
+  // Get current user's role in the organization
+  const getCurrentUserRole = (): 'owner' | 'admin' | 'user' | null => {
+    if (!currentOrg) return null
+    
+    // Get user ID from localStorage
+    try {
+      const userStr = localStorage.getItem('user')
+      if (!userStr) return null
+      
+      const user = JSON.parse(userStr)
+      const userId = user.id || user.userId
+      if (!userId) return null
+      
+      const member = currentOrg.members.find(m => m.user_id === userId)
+      return member?.role || null
+    } catch {
+      return null
+    }
+  }
+
+  const canManageTeams = (): boolean => {
+    const role = getCurrentUserRole()
+    return role === 'owner' || role === 'admin'
+  }
+
   const getRoleIcon = (role: string) => {
     switch (role) {
       case 'owner': return <Crown className="h-4 w-4 text-yellow-500" />
@@ -402,40 +482,66 @@ export default function OrganizationPage() {
                                 <tr>
                                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Team</th>
                                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
                                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
                                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                                 </tr>
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-200">
-                                {currentOrg.members.map((member) => (
-                                  <tr key={member.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      {member.first_name} {member.last_name}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">{member.email}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      <div className="flex items-center">
-                                        {getRoleIcon(member.role)}
-                                        <span className="ml-2 capitalize">{member.role}</span>
-                                      </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                                      {new Date(member.joined_at).toLocaleDateString()}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                      <div className="flex items-center space-x-2">
-                                        {member.role !== 'owner' && (
-                                          <>
+                                {currentOrg.members.map((member) => {
+                                  const memberTeam = teams.find(t => t.id === member.team_id)
+                                  const isAdminOrOwner = canManageTeams()
+                                  
+                                  return (
+                                    <tr key={member.id}>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {member.first_name} {member.last_name}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{member.email}</td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        {isAdminOrOwner ? (
+                                          <select
+                                            value={member.team_id || ''}
+                                            onChange={(e) => handleAssignToTeam(member.user_id, e.target.value || null)}
+                                            className="text-sm border border-gray-300 rounded px-2 py-1"
+                                          >
+                                            <option value="">No Team</option>
+                                            {teams.map((team) => (
+                                              <option key={team.id} value={team.id}>
+                                                {team.name}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        ) : (
+                                          <span className="text-gray-600">
+                                            {memberTeam ? memberTeam.name : 'No Team'}
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center">
+                                          {getRoleIcon(member.role)}
+                                          {isAdminOrOwner && member.role !== 'owner' ? (
                                             <select
                                               value={member.role}
                                               onChange={(e) => handleUpdateRole(member.user_id, e.target.value as 'owner' | 'admin' | 'user')}
-                                              className="text-sm border border-gray-300 rounded px-2 py-1"
+                                              className="ml-2 text-sm border border-gray-300 rounded px-2 py-1"
                                             >
                                               <option value="user">User</option>
                                               <option value="admin">Admin</option>
-                                              <option value="owner">Owner</option>
                                             </select>
+                                          ) : (
+                                            <span className="ml-2 capitalize">{member.role}</span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                                        {new Date(member.joined_at).toLocaleDateString()}
+                                      </td>
+                                      <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center space-x-2">
+                                          {isAdminOrOwner && member.role !== 'owner' && (
                                             <button
                                               onClick={() => handleRemoveMember(member.user_id)}
                                               className="text-red-600 hover:text-red-800"
@@ -443,12 +549,12 @@ export default function OrganizationPage() {
                                             >
                                               <Trash2 className="h-5 w-5" />
                                             </button>
-                                          </>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
                               </tbody>
                             </table>
                           </div>

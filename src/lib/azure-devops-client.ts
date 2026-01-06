@@ -60,7 +60,21 @@ export class AzureDevOpsClient {
   private authHeader: string
 
   constructor(credentials: AzureDevOpsCredentials) {
-    this.organization = credentials.organization
+    // Extract organization name from input - handle both full URL and just the name
+    let orgName = credentials.organization.trim()
+    
+    // If a full URL is provided (e.g., "https://dev.azure.com/a11ytest"), extract just the org name
+    if (orgName.includes('dev.azure.com/')) {
+      const urlMatch = orgName.match(/dev\.azure\.com\/([^\/\s]+)/)
+      if (urlMatch && urlMatch[1]) {
+        orgName = urlMatch[1]
+      }
+    }
+    
+    // Remove any trailing slashes or paths
+    orgName = orgName.split('/')[0].split('?')[0].split('#')[0]
+    
+    this.organization = orgName
     this.pat = decryptTokenFromStorage(credentials.encryptedPat)
     this.baseUrl = `https://dev.azure.com/${this.organization}`
     
