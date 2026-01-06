@@ -120,10 +120,13 @@ export default function SettingsPage() {
     iterationPath: '',
     autoSyncEnabled: false
   })
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('')
   const [azureDevOpsProjects, setAzureDevOpsProjects] = useState<any[]>([])
+  const [azureDevOpsTeams, setAzureDevOpsTeams] = useState<any[]>([])
   const [azureDevOpsWorkItemTypes, setAzureDevOpsWorkItemTypes] = useState<any[]>([])
   const [testingAzureDevOpsConnection, setTestingAzureDevOpsConnection] = useState(false)
   const [loadingAzureDevOpsProjects, setLoadingAzureDevOpsProjects] = useState(false)
+  const [loadingAzureDevOpsTeams, setLoadingAzureDevOpsTeams] = useState(false)
   const [loadingAzureDevOpsWorkItemTypes, setLoadingAzureDevOpsWorkItemTypes] = useState(false)
 
   // Load user data on component mount
@@ -487,6 +490,13 @@ export default function SettingsPage() {
         })
       })
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}: ${response.statusText}` }))
+        setMessage({ type: 'error', text: errorData.error || `Failed to test connection (${response.status})` })
+        console.error('Test connection failed:', errorData)
+        return
+      }
+
       const data = await response.json()
       if (data.success) {
         // Store projects from test response
@@ -502,7 +512,8 @@ export default function SettingsPage() {
         setMessage({ type: 'error', text: data.error || 'Failed to connect to Azure DevOps' })
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to test connection' })
+      console.error('Test connection error:', error)
+      setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to test connection' })
     } finally {
       setTestingAzureDevOpsConnection(false)
     }
@@ -529,8 +540,8 @@ export default function SettingsPage() {
     }
   }
 
-  const loadAzureDevOpsWorkItemTypes = async (project: string) => {
-    setLoadingAzureDevOpsWorkItemTypes(true)
+  const loadAzureDevOpsTeams = async (project: string) => {
+    setLoadingAzureDevOpsTeams(true)
     try {
       const token = localStorage.getItem('accessToken')
       
@@ -539,9 +550,16 @@ export default function SettingsPage() {
       const projectId = projectObj?.id
       
       // Build URL with projectId if available (more reliable)
-      let url = `/api/azure-devops/settings/work-item-types?project=${encodeURIComponent(project)}`
+      // Also include organization and PAT from form if available (for initial setup)
+      let url = `/api/azure-devops/settings/teams?project=${encodeURIComponent(project)}`
       if (projectId) {
         url += `&projectId=${encodeURIComponent(projectId)}`
+      }
+      if (azureDevOpsForm.organization) {
+        url += `&organization=${encodeURIComponent(azureDevOpsForm.organization)}`
+      }
+      if (azureDevOpsForm.pat) {
+        url += `&pat=${encodeURIComponent(azureDevOpsForm.pat)}`
       }
       
       const response = await fetch(url, {
@@ -552,14 +570,62 @@ export default function SettingsPage() {
 
       const data = await response.json()
       if (data.success) {
-        setAzureDevOpsWorkItemTypes(data.workItemTypes || [])
+        console.log(`Loaded ${data.teams?.length || 0} teams`)
+        setAzureDevOpsTeams(data.teams || [])
+      } else {
+        console.error('Failed to load teams:', data.error)
+        setAzureDevOpsTeams([])
+      }
+    } catch (error) {
+      console.error('Failed to load teams:', error)
+      setAzureDevOpsTeams([])
+    } finally {
+      setLoadingAzureDevOpsTeams(false)
+    }
+  }
+
+  const loadAzureDevOpsWorkItemTypes = async (project: string, teamId?: string) => {
+    setLoadingAzureDevOpsWorkItemTypes(true)
+    try {
+      const token = localStorage.getItem('accessToken')
+      
+      // Find project ID from projects list if available
+      const projectObj = azureDevOpsProjects.find(p => p.name === project)
+      const projectId = projectObj?.id
+      
+      // Build URL with projectId and teamId if available
+      let url = `/api/azure-devops/settings/work-item-types?project=${encodeURIComponent(project)}`
+      if (projectId) {
+        url += `&projectId=${encodeURIComponent(projectId)}`
+      }
+      if (teamId) {
+        url += `&teamId=${encodeURIComponent(teamId)}`
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        const workItemTypes = data.workItemTypes || []
+        
+        // Only use the work item types returned from the API - don't add saved ones
+        // The API should return exactly what's configured for the team's backlog
+        console.log(`Loaded ${workItemTypes.length} work item types from team backlog:`, workItemTypes.map(t => t.name).join(', '))
+        
+        setAzureDevOpsWorkItemTypes(workItemTypes)
       } else {
         console.error('Failed to load work item types:', data.error)
         // Still allow user to proceed with defaults
+        setAzureDevOpsWorkItemTypes([])
       }
     } catch (error) {
       console.error('Failed to load work item types:', error)
       // Don't block the user - they can still select from defaults
+      setAzureDevOpsWorkItemTypes([])
     } finally {
       setLoadingAzureDevOpsWorkItemTypes(false)
     }
@@ -567,10 +633,26 @@ export default function SettingsPage() {
 
   const handleAzureDevOpsProjectChange = (project: string) => {
     setAzureDevOpsForm({ ...azureDevOpsForm, project })
+    setSelectedTeamId('') // Clear selected team when project changes
     if (project) {
-      loadAzureDevOpsWorkItemTypes(project)
+      // Load teams for the project
+      loadAzureDevOpsTeams(project)
+      // Clear work item types until a team is selected
+      setAzureDevOpsWorkItemTypes([])
     } else {
-      // Clear work item types when project is cleared
+      // Clear teams and work item types when project is cleared
+      setAzureDevOpsTeams([])
+      setAzureDevOpsWorkItemTypes([])
+    }
+  }
+
+  const handleAzureDevOpsTeamChange = (teamId: string) => {
+    setSelectedTeamId(teamId)
+    if (azureDevOpsForm.project && teamId) {
+      // Load work item types for the selected team
+      loadAzureDevOpsWorkItemTypes(azureDevOpsForm.project, teamId)
+    } else {
+      // Clear work item types if no team selected
       setAzureDevOpsWorkItemTypes([])
     }
   }
@@ -1994,38 +2076,22 @@ export default function SettingsPage() {
                           </p>
                         )}
                       </div>
-                      {(azureDevOpsForm.project || azureDevOpsForm.workItemType) && (
+                      {azureDevOpsForm.project && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Work Item Type {azureDevOpsForm.workItemType && <span className="text-green-600">✓</span>}
                           </label>
-                          <select
+                          <input
+                            type="text"
                             className="input-field"
                             value={azureDevOpsForm.workItemType}
                             onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, workItemType: e.target.value })}
-                            disabled={loadingAzureDevOpsWorkItemTypes}
-                          >
-                            {loadingAzureDevOpsWorkItemTypes ? (
-                              <option>Loading work item types...</option>
-                            ) : (
-                              <>
-                                {azureDevOpsWorkItemTypes.length > 0 ? (
-                                  azureDevOpsWorkItemTypes.map((type) => (
-                                    <option key={type.referenceName} value={type.name}>
-                                      {type.name}
-                                    </option>
-                                  ))
-                                ) : (
-                                  <>
-                                    <option value="Bug">Bug</option>
-                                    <option value="Task">Task</option>
-                                    <option value="User Story">User Story</option>
-                                    <option value="Issue">Issue</option>
-                                  </>
-                                )}
-                              </>
-                            )}
-                          </select>
+                            placeholder="e.g., Bug, Task, Product Backlog Item, Issue"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Enter the exact work item type name as it appears in your Azure DevOps project. 
+                            Common types: Bug, Task, Product Backlog Item, User Story, Issue, Epic, Feature.
+                          </p>
                           {azureDevOpsForm.workItemType && (
                             <p className="text-xs text-green-600 mt-1">
                               ✓ Saved work item type: {azureDevOpsForm.workItemType}

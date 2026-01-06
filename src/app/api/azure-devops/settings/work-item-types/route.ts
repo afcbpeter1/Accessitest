@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const project = searchParams.get('project')
     const projectId = searchParams.get('projectId') // Optional: prefer project ID if available
+    const teamId = searchParams.get('teamId') // Optional: team ID to get work item types for specific team
 
     if (!project) {
       return NextResponse.json(
@@ -47,8 +48,9 @@ export async function GET(request: NextRequest) {
       encryptedPat: integration.encrypted_pat
     })
 
-    // Use projectId if provided, otherwise use project name
-    const workItemTypes = await client.getWorkItemTypes(project, projectId || undefined)
+    // Use teamId if provided to get work item types for that specific team's backlog
+    // Otherwise get from project-level
+    const workItemTypes = await client.getWorkItemTypes(project, projectId || undefined, teamId || undefined)
 
     return NextResponse.json({
       success: true,

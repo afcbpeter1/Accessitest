@@ -14,11 +14,23 @@ export async function POST(request: NextRequest) {
 
     const { organization, pat } = body
 
-    if (!organization || !pat) {
+    // Validate and trim organization
+    const orgTrimmed = organization?.trim()
+    if (!orgTrimmed) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Organization and Personal Access Token are required'
+          error: 'Organization is required'
+        },
+        { status: 400 }
+      )
+    }
+
+    if (!pat || !pat.trim()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Personal Access Token is required'
         },
         { status: 400 }
       )
@@ -29,7 +41,7 @@ export async function POST(request: NextRequest) {
     const encryptedPat = encryptTokenForStorage(pat)
 
     const client = new AzureDevOpsClient({
-      organization,
+      organization: orgTrimmed,
       encryptedPat
     })
 

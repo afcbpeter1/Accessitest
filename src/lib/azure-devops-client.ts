@@ -188,51 +188,185 @@ export class AzureDevOpsClient {
   }
 
   /**
-   * Get work item types for a specific project
-   * Accepts either project name or project ID
-   * Project ID is more reliable, so we try to use that first
+   * Get teams for a specific project
+   * Teams API is at organization level, we get all teams and filter by project
    */
-  async getWorkItemTypes(projectNameOrId: string, projectId?: string): Promise<AzureDevOpsWorkItemType[]> {
-    // If projectId is provided, use it directly (most reliable)
+  async getTeams(projectNameOrId: string, projectId?: string): Promise<Array<{ id: string; name: string }>> {
+    try {
+      // Get all teams from organization (teams API is at org level)
+      // Use $top to get all teams (default is 100, but we can request more if needed)
+      const response = await this.request<{
+        value: Array<{ 
+          id: string
+          name: string
+          projectId?: string
+          projectName?: string
+        }>
+        count?: number
+      }>('/_apis/teams?api-version=7.0&$top=1000')
+      
+      let teams = response.value || []
+      console.log(`Total teams from organization: ${teams.length}`)
+      
+      // Filter teams by project
+      if (projectId) {
+        const beforeFilter = teams.length
+        teams = teams.filter(team => team.projectId === projectId)
+        console.log(`Filtered by projectId ${projectId}: ${beforeFilter} -> ${teams.length}`)
+      } else {
+        // Filter by project name if we don't have project ID
+        const beforeFilter = teams.length
+        teams = teams.filter(team => {
+          const matches = team.projectName === projectNameOrId || 
+                         team.projectId === projectNameOrId ||
+                         (team.projectName && team.projectName.toLowerCase() === projectNameOrId.toLowerCase())
+          return matches
+        })
+        console.log(`Filtered by project name "${projectNameOrId}": ${beforeFilter} -> ${teams.length}`)
+      }
+      
+      // Log team details for debugging
+      if (teams.length > 0) {
+        console.log(`Teams found:`, teams.map(t => ({ id: t.id, name: t.name, projectId: t.projectId, projectName: t.projectName })))
+      } else {
+        console.log(`No teams found. All teams from org:`, response.value?.map(t => ({ id: t.id, name: t.name, projectId: t.projectId, projectName: t.projectName })))
+      }
+      
+      return teams.map(t => ({ id: t.id, name: t.name }))
+    } catch (error) {
+      console.error(`Error fetching teams for project ${projectNameOrId}:`, error)
+      // Try project-specific endpoint as fallback
+      try {
+        const projectIdentifier = projectId || projectNameOrId
+        console.log(`Trying project-specific endpoint: /${projectIdentifier}/_apis/teams`)
+        const response = await this.request<{
+          value: Array<{ id: string; name: string }>
+        }>(`/${encodeURIComponent(projectIdentifier)}/_apis/teams?api-version=7.0`)
+        
+        console.log(`Found ${response.value?.length || 0} teams using project-specific endpoint`)
+        return response.value || []
+      } catch (fallbackError) {
+        console.error(`Fallback teams endpoint also failed:`, fallbackError)
+        return []
+      }
+    }
+  }
+
+  /**
+   * Get work item types from backlog configuration for a specific team
+   * This gets the actual work item types that are configured for that team's backlog
+   * Only returns work item types from the team's actual backlog level (not Epic/Feature levels)
+   */
+  async getWorkItemTypesForTeam(projectNameOrId: string, teamId: string, projectId?: string): Promise<AzureDevOpsWorkItemType[]> {
     const projectIdentifier = projectId || projectNameOrId
+    const workItemTypesMap = new Map<string, AzureDevOpsWorkItemType>()
     
     try {
-      // Try using the identifier directly (works for both ID and encoded name)
-      const response = await this.request<{
-        value: AzureDevOpsWorkItemType[]
-      }>(`/${encodeURIComponent(projectIdentifier)}/_apis/wit/workitemtypes?api-version=7.0`)
+      // Use Backlog Configuration API with team ID to get work item types for that specific team
+      const backlogConfig = await this.request<{
+        backlogLevels: Array<{
+          rank: number
+          name: string
+          workItemTypes: Array<{
+            name: string
+            referenceName: string
+          }>
+        }>
+        portfolioBacklogs?: Array<{
+          rank: number
+          name: string
+          workItemTypes: Array<{
+            name: string
+            referenceName: string
+          }>
+        }>
+      }>(`/${encodeURIComponent(projectIdentifier)}/${encodeURIComponent(teamId)}/_apis/work/backlogconfiguration?api-version=7.0`)
       
-      return response.value || []
-    } catch (error) {
-      console.error(`Error fetching work item types for project ${projectNameOrId}:`, error)
+      // Extract work item types ONLY from the team's actual backlog level
+      // The backlogLevels array contains different levels - we want ONLY the team's backlog (not Epic/Feature)
+      console.log(`Backlog config for team ${teamId}:`, JSON.stringify(backlogConfig, null, 2))
       
-      // If we don't have projectId yet, try to find it from projects list
-      if (!projectId) {
-        try {
-          const projects = await this.getProjects()
-          const projectObj = projects.find(p => p.name === projectNameOrId || p.id === projectNameOrId)
-          
-          if (projectObj && projectObj.id && projectObj.id !== projectNameOrId) {
-            // Try using project ID instead
-            console.log(`Retrying with project ID: ${projectObj.id}`)
-            const response = await this.request<{
-              value: AzureDevOpsWorkItemType[]
-            }>(`/${projectObj.id}/_apis/wit/workitemtypes?api-version=7.0`)
-            return response.value || []
+      if (backlogConfig.backlogLevels && backlogConfig.backlogLevels.length > 0) {
+        // Log all backlog levels for debugging
+        console.log(`Found ${backlogConfig.backlogLevels.length} backlog levels:`, backlogConfig.backlogLevels.map(l => `${l.name} (rank: ${l.rank}, WITs: ${l.workItemTypes?.length || 0})`).join(', '))
+        
+        // The team's actual backlog is typically the one with the LOWEST rank (rank 0 or 1)
+        // Portfolio backlogs (Epic, Feature) have higher ranks
+        // Sort by rank ascending (lowest rank = team backlog)
+        const sortedLevels = [...backlogConfig.backlogLevels].sort((a, b) => (a.rank || 999) - (b.rank || 999))
+        
+        // Get the team's backlog level - it's usually the first one (lowest rank)
+        // But exclude portfolio levels by name
+        let teamBacklogLevel = null
+        for (const level of sortedLevels) {
+          const levelNameLower = (level.name || '').toLowerCase()
+          // Skip portfolio levels by name
+          if (levelNameLower.includes('epic') || 
+              levelNameLower.includes('feature') || 
+              levelNameLower.includes('theme') ||
+              levelNameLower.includes('initiative') ||
+              levelNameLower.includes('portfolio')) {
+            console.log(`Skipping portfolio level: ${level.name}`)
+            continue
           }
-        } catch (fallbackError) {
-          console.error(`Fallback method also failed:`, fallbackError)
+          // This is the team's backlog level (first non-portfolio level)
+          teamBacklogLevel = level
+          console.log(`Selected team backlog level: ${level.name} (rank: ${level.rank})`)
+          break
+        }
+        
+        // If we still didn't find one, use the first level (lowest rank = team backlog)
+        if (!teamBacklogLevel && sortedLevels.length > 0) {
+          teamBacklogLevel = sortedLevels[0]
+          console.log(`Using first level as team backlog: ${teamBacklogLevel.name} (rank: ${teamBacklogLevel.rank})`)
+        }
+        
+        // Get work item types ONLY from this specific level
+        if (teamBacklogLevel && teamBacklogLevel.workItemTypes) {
+          console.log(`Getting work item types from level "${teamBacklogLevel.name}":`, teamBacklogLevel.workItemTypes.map(w => w.name).join(', '))
+          for (const wit of teamBacklogLevel.workItemTypes) {
+            workItemTypesMap.set(wit.referenceName, {
+              name: wit.name,
+              referenceName: wit.referenceName
+            })
+          }
+        } else {
+          console.log(`No work item types found in selected backlog level`)
         }
       }
       
-      // Return common default work item types as last resort
-      console.log(`Returning default work item types for project ${projectNameOrId}`)
-      return [
-        { name: 'Bug', referenceName: 'Microsoft.VSTS.WorkItemTypes.Bug' },
-        { name: 'Task', referenceName: 'Microsoft.VSTS.WorkItemTypes.Task' },
-        { name: 'User Story', referenceName: 'Microsoft.VSTS.WorkItemTypes.UserStory' }
-      ]
+      // Convert map to array - should only have work item types from the team's backlog level
+      const workItemTypes = Array.from(workItemTypesMap.values())
+      
+      if (workItemTypes.length > 0) {
+        console.log(`✅ Found ${workItemTypes.length} work item types for team ${teamId} backlog:`, workItemTypes.map(w => w.name).join(', '))
+        return workItemTypes
+      } else {
+        console.log(`❌ No work item types found for team ${teamId} - available backlog levels:`, backlogConfig.backlogLevels?.map(l => `${l.name} (rank: ${l.rank})`).join(', '))
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching work item types for team ${teamId} in project ${projectNameOrId}:`, error)
+      // Don't fallback - return empty array so user knows it failed
+      return []
     }
+    
+    // Return empty array instead of defaults - we want to show only what's actually configured
+    console.log(`⚠️ Returning empty work item types - team backlog configuration not found`)
+    return []
+  }
+
+  /**
+   * Get work item types for a specific project (legacy method - kept for compatibility)
+   * If teamId is provided, gets work item types for that team's backlog
+   */
+  async getWorkItemTypes(projectNameOrId: string, projectId?: string, teamId?: string): Promise<AzureDevOpsWorkItemType[]> {
+    // If team ID provided, get work item types for that specific team
+    if (teamId) {
+      return this.getWorkItemTypesForTeam(projectNameOrId, teamId, projectId)
+    }
+    
+    // Otherwise, get from project-level backlog config
+    return this.getWorkItemTypesForTeam(projectNameOrId, projectNameOrId, projectId)
   }
 
   /**
