@@ -48,3 +48,4 @@
 5. ⏳ Update team creation to require payment
 6. ⏳ Add team membership checks to all data queries
 
+

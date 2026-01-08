@@ -113,6 +113,18 @@ export async function POST(request: NextRequest) {
         await handlePaymentSucceeded(event.data.object as Stripe.PaymentIntent)
         break
 
+      case 'charge.succeeded':
+      case 'charge.updated':
+        // Handle charge events for credit purchases (fallback if checkout.session.completed didn't fire)
+        const charge = event.data.object as Stripe.Charge
+        if (charge.metadata?.type === 'credits' && charge.metadata?.userId && charge.metadata?.priceId) {
+          console.log(`💳 Processing ${event.type} for credit purchase (fallback)`)
+          await handleChargeSucceeded(charge)
+        } else {
+          console.log(`ℹ️ ${event.type} received but not a credit purchase or missing metadata`)
+        }
+        break
+
       case 'invoice.payment_succeeded':
         await handleInvoicePaymentSucceeded(event.data.object as Stripe.Invoice)
         break
@@ -138,6 +150,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   console.log('📋 Session customer_email:', session.customer_email)
   console.log('📋 Session customer:', session.customer)
   console.log('📋 Session payment_status:', session.payment_status)
+  console.log('📋 Session mode:', session.mode)
+  console.log('📋 Session amount_total:', session.amount_total)
+  console.log('📋 Session currency:', session.currency)
   
   let { userId, priceId, type } = session.metadata || {}
   
@@ -196,14 +211,58 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     console.error('❌ Missing required metadata in checkout session:', { userId, priceId, type })
     console.error('⚠️ Cannot process purchase without userId. Customer email:', session.customer_email)
     console.error('⚠️ Session ID:', session.id)
+    console.error('⚠️ Full session object keys:', Object.keys(session))
     console.error('⚠️ This purchase will NOT be processed. Manual intervention required.')
+    
+    // Try to get line items to see what was purchased
+    try {
+      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 10 })
+      console.error('⚠️ Line items in session:', JSON.stringify(lineItems.data, null, 2))
+    } catch (error) {
+      console.error('⚠️ Could not retrieve line items:', error)
+    }
+    
     return
   }
 
   console.log(`🔍 Processing ${type} purchase for user ${userId}, priceId: ${priceId}`)
 
   if (type === 'credits') {
-    await handleCreditPurchase(userId, priceId)
+    // Get line items to check quantity
+    let totalCredits = 0
+    try {
+      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 })
+      console.log(`📦 Found ${lineItems.data.length} line items`)
+      
+      for (const lineItem of lineItems.data) {
+        if (lineItem.price) {
+          const itemPriceId = lineItem.price.id
+          const quantity = lineItem.quantity || 1
+          const creditsPerItem = getCreditAmountFromPriceId(itemPriceId)
+          
+          console.log(`📦 Line item: priceId=${itemPriceId}, quantity=${quantity}, creditsPerItem=${creditsPerItem}`)
+          
+          if (creditsPerItem > 0) {
+            const creditsForThisItem = creditsPerItem * quantity
+            totalCredits += creditsForThisItem
+            console.log(`💰 Adding ${creditsForThisItem} credits (${creditsPerItem} × ${quantity})`)
+          }
+        }
+      }
+      
+      console.log(`💰 Total credits to add: ${totalCredits}`)
+      
+      if (totalCredits > 0) {
+        // Use the first priceId for package name, but add total credits
+        await handleCreditPurchase(userId, priceId, totalCredits)
+      } else {
+        console.error('❌ No valid credits found in line items')
+        await handleCreditPurchase(userId, priceId) // Fallback to original behavior
+      }
+    } catch (error) {
+      console.error('❌ Error processing line items, falling back to single purchase:', error)
+      await handleCreditPurchase(userId, priceId) // Fallback to original behavior
+    }
   } else if (type === 'subscription') {
     // Handle subscription purchase - activate immediately just like credits
     console.log(`📋 Subscription purchase detected for user ${userId}, priceId: ${priceId}`)
@@ -998,6 +1057,11 @@ async function handleCreditPurchase(userId: string, priceId: string, creditAmoun
       packageName = getPackageNameFromCreditAmount(credits)
     }
 
+    // Get current credits before adding
+    const { getUserCredits } = await import('@/lib/credit-service')
+    const beforeCredits = await getUserCredits(userId)
+    console.log(`📊 Credits before: ${beforeCredits.credits_remaining}`)
+
     // Add credits using the credit service (handles organization vs personal)
     const result = await addCredits(
       userId,
@@ -1005,12 +1069,78 @@ async function handleCreditPurchase(userId: string, priceId: string, creditAmoun
       `Credit purchase: ${packageName}`
     )
 
-    console.log(`Added ${credits} credits to user ${userId}`)
+    console.log(`✅ Added ${credits} credits to user ${userId}`)
+    console.log(`📊 Credits after: ${result.credits_remaining}`)
+    console.log(`📊 Credits added successfully: ${result.credits_remaining - beforeCredits.credits_remaining} (expected: ${credits})`)
+
+    // Verify the credits were actually added
+    const afterCredits = await getUserCredits(userId)
+    if (afterCredits.credits_remaining !== result.credits_remaining) {
+      console.error(`⚠️ WARNING: Credit mismatch! Result says ${result.credits_remaining} but database has ${afterCredits.credits_remaining}`)
+    }
 
     // Create notification for credit purchase
     await NotificationService.notifyCreditPurchase(userId, credits, packageName)
   } catch (error) {
-    console.error('Error adding credits to user:', error)
+    console.error('❌ Error adding credits to user:', error)
+    if (error instanceof Error) {
+      console.error('❌ Error message:', error.message)
+      console.error('❌ Error stack:', error.stack)
+    }
+    throw error // Re-throw to let caller know it failed
+  }
+}
+
+async function handleChargeSucceeded(charge: Stripe.Charge) {
+  try {
+    console.log('💳 Processing charge.succeeded/updated for credit purchase:', charge.id)
+    console.log('📋 Charge metadata:', JSON.stringify(charge.metadata, null, 2))
+    
+    const { userId, priceId, type, creditAmount } = charge.metadata || {}
+    
+    if (!userId || !priceId || type !== 'credits') {
+      console.log('ℹ️ Charge is not a credit purchase or missing metadata, skipping')
+      return
+    }
+    
+    // Get credit amount from metadata or priceId
+    const credits = creditAmount ? parseInt(creditAmount) : getCreditAmountFromPriceId(priceId)
+    
+    if (credits <= 0) {
+      console.error('❌ Invalid credit amount from charge:', credits)
+      return
+    }
+    
+    console.log(`🎫 Processing credit purchase from charge for user ${userId}, credits: ${credits}`)
+    
+    // Check if this was already processed by checkout.session.completed
+    // by checking if there's a recent transaction
+    const recentTransaction = await queryOne(
+      `SELECT id, created_at FROM credit_transactions 
+       WHERE user_id = $1 AND transaction_type = 'purchase' 
+       AND description LIKE $2
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId, `%${priceId}%`]
+    )
+    
+    // If transaction was created in the last 5 minutes, skip (already processed)
+    if (recentTransaction) {
+      const transactionAge = Date.now() - new Date(recentTransaction.created_at).getTime()
+      if (transactionAge < 5 * 60 * 1000) {
+        console.log('ℹ️ Credit purchase already processed by checkout.session.completed, skipping charge handler')
+        return
+      }
+    }
+    
+    // Process the credit purchase
+    await handleCreditPurchase(userId, priceId, credits)
+    
+  } catch (error) {
+    console.error('❌ Error processing charge for credits:', error)
+    if (error instanceof Error) {
+      console.error('❌ Error message:', error.message)
+      console.error('❌ Error stack:', error.stack)
+    }
   }
 }
 

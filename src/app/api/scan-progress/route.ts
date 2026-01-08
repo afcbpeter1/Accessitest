@@ -18,22 +18,121 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
   const reopenedItems = []
   const skippedItems = []
 
+  console.log(`🎫 Starting backlog creation for ${scanResults?.length || 0} scan results with history ID: ${scanHistoryId}`)
+  
+  // Validate input
+  if (!scanResults || !Array.isArray(scanResults) || scanResults.length === 0) {
+    console.error('❌ No scan results provided or empty array')
+    return {
+      total: 0,
+      added: 0,
+      reopened: 0,
+      skipped: 0,
+      addedItems: [],
+      skippedItems: [],
+      error: 'No scan results provided'
+    }
+  }
+  
+  if (!scanHistoryId) {
+    console.error('❌ No scan history ID provided')
+    return {
+      total: 0,
+      added: 0,
+      reopened: 0,
+      skipped: 0,
+      addedItems: [],
+      skippedItems: [],
+      error: 'No scan history ID provided'
+    }
+  }
+
   for (const result of scanResults) {
-    if (!result.issues) continue
+    if (!result) {
+      console.log(`⚠️ Skipping null/undefined result`)
+      continue
+    }
+    
+    if (!result.issues || !Array.isArray(result.issues) || result.issues.length === 0) {
+      console.log(`⚠️ Skipping result - no issues found. URL: ${result.url || 'unknown'}, hasIssues: ${!!result.issues}, issuesLength: ${result.issues?.length || 0}`)
+      continue
+    }
+    
+    // Validate URL before processing
+    if (!result.url) {
+      console.error(`❌ Skipping result - missing URL. Result keys: ${Object.keys(result).join(', ')}`)
+      skippedItems.push({
+        issueId: 'unknown',
+        ruleName: 'unknown',
+        reason: 'Missing URL in scan result'
+      })
+      continue
+    }
+
+    // Safely extract domain from URL
+    let domain = 'unknown'
+    try {
+      const urlObj = new URL(result.url)
+      domain = urlObj.hostname
+    } catch (urlError) {
+      console.error(`❌ Invalid URL format: ${result.url}`, urlError)
+      // Try to extract domain from string if it's not a full URL
+      const urlMatch = result.url.match(/(?:https?:\/\/)?([^\/\s]+)/)
+      if (urlMatch) {
+        domain = urlMatch[1]
+      } else {
+        console.error(`❌ Cannot extract domain from: ${result.url}`)
+        skippedItems.push({
+          issueId: 'unknown',
+          ruleName: 'unknown',
+          reason: `Invalid URL format: ${result.url}`
+        })
+        continue
+      }
+    }
+    
+    console.log(`📄 Processing ${result.issues.length} issues from ${result.url} (domain: ${domain})`)
     
     for (const issue of result.issues) {
       try {
         // Generate unique issue ID based on rule, element, and URL
         const issueId = generateIssueId(issue.id, issue.nodes?.[0]?.target?.[0], result.url)
-        const domain = new URL(result.url).hostname
 
-        // Check if this exact issue already exists for this domain
+        // Check if this exact issue already exists by issue_key (the unique constraint)
+        // issue_key is globally unique, so check globally first
+        // Use LEFT JOIN in case scan_history is missing
         const existingItem = await queryOne(`
-          SELECT i.id, i.status, i.created_at, i.updated_at 
+          SELECT i.id, i.status, i.created_at, i.updated_at, sh.user_id
           FROM issues i
-          JOIN scan_history sh ON i.first_seen_scan_id = sh.id
-          WHERE sh.user_id = $1 AND i.rule_name = $2 AND sh.url LIKE $3
-        `, [userId, issue.id, `%${domain}%`])
+          LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+          WHERE i.issue_key = $1
+        `, [issueId])
+        
+        // If found, verify it belongs to this user (or skip if it doesn't)
+        if (existingItem) {
+          if (existingItem.user_id && existingItem.user_id !== userId) {
+            console.log(`⏭️ Skipping issue ${issue.id} - issue_key exists but belongs to different user`)
+            skippedItems.push({
+              issueId: issueId,
+              ruleName: issue.id,
+              reason: 'Issue exists for different user'
+            })
+            continue
+          }
+          
+          // If user_id is NULL, update the issue to link it to the current scan_history
+          // This ensures it appears in the backlog for this user
+          if (!existingItem.user_id) {
+            console.log(`⚠️ Found issue ${issue.id} with NULL user_id, updating to link to current scan_history`)
+            await query(`
+              UPDATE issues 
+              SET first_seen_scan_id = $1,
+                  updated_at = NOW()
+              WHERE id = $2
+            `, [scanHistoryId, existingItem.id])
+            console.log(`✅ Updated issue ${issue.id} to link to scan_history ${scanHistoryId}`)
+          }
+        }
 
         if (existingItem) {
           // Update last_scan_at and check if we should reopen
@@ -64,6 +163,9 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
               impact: issue.impact,
               status: 'reopened'
             })
+            console.log(`♻️ Reopened issue ${issue.id} (was ${existingItem.status})`)
+          } else {
+            console.log(`⏭️ Skipping existing issue ${issue.id} (status: ${existingItem.status})`)
           }
           continue
         }
@@ -80,25 +182,28 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
         const nextRank = (maxRank?.max_rank || 0) + 1
 
         // Insert new issue using the provided scan history ID
-        const newItem = await queryOne(`
-          INSERT INTO issues (
-            issue_key, rule_id, rule_name, description, impact, wcag_level,
-            total_occurrences, affected_pages, notes,
-            status, priority, rank, story_points, remaining_points,
-            first_seen_scan_id, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-          RETURNING *
-        `, [
+        // Use 'open' status to match the old working version
+        let newItem
+        try {
+          newItem = await queryOne(`
+            INSERT INTO issues (
+              issue_key, rule_id, rule_name, description, impact, wcag_level,
+              total_occurrences, affected_pages, notes,
+              status, priority, rank, story_points, remaining_points,
+              first_seen_scan_id, created_at, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+            RETURNING *
+          `, [
           issueId,
           issue.id, // rule_id
           issue.id, 
-          issue.description, 
-          issue.impact, 
+          issue.description || 'Accessibility issue', 
+          issue.impact || 'moderate', 
           issue.tags?.find((tag: string) => tag.startsWith('wcag')) || 'AA',
           issue.nodes?.length || 1, 
           [result.url], 
           issue.nodes?.[0]?.failureSummary || '', 
-          'open', 
+          'open', // Status - matches old working version
           'medium', 
           nextRank, 
           1, 
@@ -114,23 +219,63 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
           ruleName: issue.id,
           impact: issue.impact
         })
-      } catch (error) {
-        console.error(`Error processing issue ${issue.id}:`, error)
+        console.log(`✅ Added issue ${issue.id} to backlog (ID: ${newItem.id})`)
+        } catch (insertError: any) {
+          // Handle duplicate key error gracefully
+          if (insertError?.code === '23505' && insertError?.constraint === 'issues_issue_key_key') {
+            console.log(`⏭️ Skipping issue ${issue.id} - issue_key already exists (duplicate key constraint)`)
+            skippedItems.push({
+              issueId: issueId,
+              ruleName: issue.id,
+              reason: 'Issue already exists (duplicate key)'
+            })
+          } else {
+            console.error(`❌ Error inserting issue ${issue.id}:`, insertError)
+            skippedItems.push({
+              issueId: issueId,
+              ruleName: issue.id,
+              reason: insertError instanceof Error ? insertError.message : 'Error inserting issue'
+            })
+          }
+        }
+      } catch (error: any) {
+        // Handle any other errors in the outer try block
+        console.error(`❌ Error processing issue ${issue.id}:`, error)
+        if (error instanceof Error) {
+          console.error(`   Error message: ${error.message}`)
+          console.error(`   Error stack: ${error.stack}`)
+        }
         skippedItems.push({
-          issueId: issue.id,
+          issueId: issueId || 'unknown',
           ruleName: issue.id,
-          reason: 'Error processing issue'
+          reason: error instanceof Error ? error.message : 'Error processing issue'
         })
       }
     }
   }
 
+  const totalIssues = scanResults.reduce((sum, result) => sum + (result.issues?.length || 0), 0)
   console.log('✅ Backlog auto-creation result:', {
-    total: scanResults.reduce((sum, result) => sum + (result.issues?.length || 0), 0),
+    total: totalIssues,
     added: addedItems.length,
     reopened: reopenedItems.length,
-    skipped: skippedItems.length
+    skipped: skippedItems.length,
+    scanHistoryId: scanHistoryId
   })
+  
+  // Log skipped items for debugging
+  if (skippedItems.length > 0) {
+    console.log('⚠️ Skipped items:', skippedItems.slice(0, 10)) // Log first 10 skipped items
+  }
+  
+  return {
+    total: totalIssues,
+    added: addedItems.length,
+    reopened: reopenedItems.length,
+    skipped: skippedItems.length,
+    addedItems,
+    skippedItems
+  }
 }
 
 // Auto-create backlog items for unique issues (legacy function)
@@ -322,7 +467,8 @@ function deduplicateIssuesAcrossPages(results: any[]): any[] {
     }
   }
   
-  // Convert back to array and update summaries
+  // Convert back to array and update summaries - EXACT MATCH TO WORKING VERSION
+  // This filter matches deduplicated issues back to their original results
   const deduplicatedResults = results.map(result => {
     const deduplicatedIssues = Array.from(issueMap.values()).filter(issue => 
       issue.nodes?.some((node: any) => 
@@ -718,7 +864,73 @@ export async function POST(request: NextRequest) {
             if (scanHistoryId) {
               try {
                 console.log('🎫 Auto-creating backlog items for unique issues...')
-                await autoCreateBacklogItemsWithHistoryId(user.userId, finalResults.results, scanHistoryId)
+                console.log('📊 Scan results structure:', {
+                  resultsCount: finalResults.results?.length || 0,
+                  firstResult: finalResults.results?.[0] ? {
+                    hasUrl: !!finalResults.results[0].url,
+                    url: finalResults.results[0].url,
+                    issuesCount: finalResults.results[0].issues?.length || 0,
+                    keys: Object.keys(finalResults.results[0])
+                  } : null,
+                  scanHistoryId: scanHistoryId,
+                  totalIssuesInAllResults: finalResults.results?.reduce((sum: number, r: any) => sum + (r.issues?.length || 0), 0) || 0
+                })
+                
+                // Ensure we have results to process
+                if (!finalResults.results || finalResults.results.length === 0) {
+                  console.error('❌ No results to process for backlog creation')
+                  console.error('❌ finalResults structure:', JSON.stringify({
+                    hasResults: !!finalResults.results,
+                    resultsLength: finalResults.results?.length || 0,
+                    resultsType: typeof finalResults.results,
+                    finalResultsKeys: Object.keys(finalResults)
+                  }, null, 2))
+                } else {
+                  // Log detailed info about what we're processing
+                  const totalIssues = finalResults.results.reduce((sum: number, r: any) => sum + (r.issues?.length || 0), 0)
+                  console.log(`📊 Processing ${finalResults.results.length} results with ${totalIssues} total issues for backlog`)
+                  
+                  // Verify scanHistoryId exists in database before proceeding
+                  const { queryOne } = await import('@/lib/database')
+                  const verifyScanHistory = await queryOne(
+                    `SELECT id, user_id, scan_type, url FROM scan_history WHERE id = $1`,
+                    [scanHistoryId]
+                  )
+                  
+                  if (!verifyScanHistory) {
+                    console.error(`❌ CRITICAL: Scan history ${scanHistoryId} does not exist in database!`)
+                    console.error(`❌ Cannot create backlog items without valid scan_history record`)
+                  } else {
+                    console.log(`✅ Verified scan history exists:`, {
+                      id: verifyScanHistory.id,
+                      user_id: verifyScanHistory.user_id,
+                      scan_type: verifyScanHistory.scan_type,
+                      url: verifyScanHistory.url
+                    })
+                    
+                    const backlogResult = await autoCreateBacklogItemsWithHistoryId(user.userId, finalResults.results, scanHistoryId)
+                    console.log('📋 Backlog creation completed:', backlogResult)
+                    
+                    // Send a notification if no items were added
+                    if (backlogResult.added === 0) {
+                      if (backlogResult.total > 0) {
+                        console.warn('⚠️ No backlog items were added despite having issues. Check skipped items:', backlogResult.skippedItems?.slice(0, 10))
+                      } else {
+                        console.warn('⚠️ No backlog items were added - no issues found in scan results')
+                        console.warn('⚠️ This might indicate the deduplication removed all issues or scan found no issues')
+                      }
+                    } else {
+                      console.log(`✅ Successfully added ${backlogResult.added} issues to backlog`)
+                      
+                      // Verify they're actually in the database
+                      const verifyIssues = await queryOne(
+                        `SELECT COUNT(*) as count FROM issues WHERE first_seen_scan_id = $1`,
+                        [scanHistoryId]
+                      )
+                      console.log(`✅ Verified ${verifyIssues.count} issues in database for scan ${scanHistoryId}`)
+                    }
+                  }
+                }
                 
                 // TEMPORARILY DISABLED: Auto-sync to Jira - let user manually sync from backlog
                 // if (issueIds.length > 0) {

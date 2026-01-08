@@ -27,7 +27,61 @@ export async function POST(request: NextRequest) {
     }
 
     // Get issue context (team/organization)
-    const issueContext = await getIssueContext(issueId)
+    let issueContext = await getIssueContext(issueId)
+    
+    // If issue doesn't have a team_id, try to find it from scan_history or user's teams
+    if (!issueContext?.teamId) {
+      // First, try to get team_id from scan_history
+      const scanHistory = await queryOne(
+        `SELECT sh.team_id, sh.organization_id
+         FROM issues i
+         JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+         WHERE i.id = $1`,
+        [issueId]
+      )
+      
+      if (scanHistory?.team_id) {
+        issueContext = {
+          teamId: scanHistory.team_id,
+          organizationId: scanHistory.organization_id
+        }
+        console.log(`📋 Found team ${scanHistory.team_id} from scan_history for issue`)
+      } else {
+        // If no team in scan_history, find a team from the user's organization
+        // that has an assigned Azure DevOps project
+        const userOrg = await queryOne(
+          `SELECT om.organization_id 
+           FROM organization_members om 
+           WHERE om.user_id = $1 AND om.is_active = true 
+           LIMIT 1`,
+          [user.userId]
+        )
+        
+        if (userOrg?.organization_id) {
+          // Find a team in this org that has an assigned Azure DevOps project
+          const teamWithProject = await queryOne(
+            `SELECT t.id, t.azure_devops_project, t.azure_devops_work_item_type
+             FROM teams t
+             INNER JOIN organization_members om ON t.id = om.team_id
+             WHERE t.organization_id = $1 
+               AND om.user_id = $2 
+               AND om.is_active = true
+               AND t.azure_devops_project IS NOT NULL
+             ORDER BY t.created_at DESC
+             LIMIT 1`,
+            [userOrg.organization_id, user.userId]
+          )
+          
+          if (teamWithProject) {
+            issueContext = {
+              teamId: teamWithProject.id,
+              organizationId: userOrg.organization_id
+            }
+            console.log(`📋 Found team ${teamWithProject.id} with assigned project ${teamWithProject.azure_devops_project} for issue without team_id`)
+          }
+        }
+      }
+    }
     
     // Get the appropriate Azure DevOps integration (team > org > personal)
     const integration = await getAzureDevOpsIntegration(
@@ -56,11 +110,11 @@ export async function POST(request: NextRequest) {
       )
       if (team?.azure_devops_project) {
         projectToUse = team.azure_devops_project
-        console.log(`Using team-assigned project: ${projectToUse} (instead of integration project: ${integration.project})`)
+        console.log(`✅ Using team-assigned project: ${projectToUse} (instead of integration project: ${integration.project})`)
       }
       if (team?.azure_devops_work_item_type) {
         workItemTypeToUse = team.azure_devops_work_item_type
-        console.log(`Using team-assigned work item type: ${workItemTypeToUse} (instead of integration work item type: ${integration.work_item_type || 'Bug'})`)
+        console.log(`✅ Using team-assigned work item type: ${workItemTypeToUse} (instead of integration work item type: ${integration.work_item_type || 'Bug'})`)
       }
     }
 

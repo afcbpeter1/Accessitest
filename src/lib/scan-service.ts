@@ -150,16 +150,42 @@ export class ScanService {
    */
   private normalizeUrl(url: string): string {
     try {
-      const urlObj = new URL(url);
+      let normalized = url.trim();
+      
+      // If URL doesn't have a protocol, add https://
+      if (!normalized.match(/^https?:\/\//i)) {
+        normalized = `https://${normalized}`;
+      }
+      
+      const urlObj = new URL(normalized);
+      
       // Remove hash fragments (anchors)
       urlObj.hash = '';
+      
       // Remove trailing slash for root paths
-      if (urlObj.pathname === '/' && url.endsWith('/')) {
+      if (urlObj.pathname === '/' && normalized.endsWith('/')) {
         urlObj.pathname = '';
       }
-      return urlObj.href;
+      
+      // Ensure we have a valid hostname
+      if (!urlObj.hostname || urlObj.hostname === '') {
+        throw new Error('Invalid hostname');
+      }
+      
+      return urlObj.href.replace(/\/$/, ''); // Remove trailing slash
     } catch (error) {
-      return url;
+      console.error(`Failed to normalize URL: ${url}`, error);
+      // Try to fix common issues
+      let fixed = url.trim();
+      if (!fixed.match(/^https?:\/\//i)) {
+        fixed = `https://${fixed}`;
+      }
+      try {
+        return new URL(fixed).href.replace(/\/$/, '');
+      } catch (e) {
+        console.error(`Could not fix URL: ${url}`);
+        return url; // Return original if we can't fix it
+      }
     }
   }
 

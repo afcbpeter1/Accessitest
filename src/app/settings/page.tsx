@@ -72,7 +72,6 @@ export default function SettingsPage() {
     { id: 'account', name: 'Account', icon: User },
     { id: 'subscription', name: 'Subscription', icon: CreditCard },
     { id: 'notifications', name: 'Notifications', icon: Bell },
-    { id: 'integrations', name: 'Integrations', icon: Settings },
     { id: 'security', name: 'Security', icon: Shield },
   ]
 
@@ -137,16 +136,6 @@ export default function SettingsPage() {
     loadAzureDevOpsIntegration()
   }, [])
 
-  // Load integrations when integrations tab is active
-  useEffect(() => {
-    if (activeTab === 'integrations') {
-      // Load immediately when tab becomes active
-      loadJiraIntegration()
-      if (integrationSubTab === 'azure') {
-        loadAzureDevOpsIntegration()
-      }
-    }
-  }, [activeTab, integrationSubTab])
 
   // Load subscription when subscription tab is active
   // Always try to load subscription - it will return null if user doesn't have one
@@ -1474,7 +1463,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {activeTab === 'integrations' && (
+            {false && activeTab === 'integrations' && (
               <div className="space-y-6">
                 {/* Integration Sub-tabs */}
                 <div className="border-b border-gray-200">

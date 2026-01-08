@@ -40,3 +40,4 @@ END $$;
 -- Teams require a paid subscription to be active
 UPDATE teams SET subscription_status = 'inactive' WHERE subscription_status IS NULL;
 
+

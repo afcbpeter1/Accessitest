@@ -302,16 +302,31 @@ export default function NewScan() {
     })
 
     try {
-      // Validate URL format
+      // Validate and normalize URL format
       let normalizedUrl = url.trim()
-      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-        normalizedUrl = `https://${normalizedUrl}`
-      }
+      
+      // Remove any leading/trailing whitespace
+      normalizedUrl = normalizedUrl.trim()
+      
+      // Remove protocol if present (we'll add https://)
+      normalizedUrl = normalizedUrl.replace(/^https?:\/\//i, '')
+      
+      // Remove trailing slash
+      normalizedUrl = normalizedUrl.replace(/\/$/, '')
+      
+      // Add https:// protocol
+      normalizedUrl = `https://${normalizedUrl}`
       
       try {
-        new URL(normalizedUrl) // Validate URL format
+        const urlObj = new URL(normalizedUrl)
+        // Validate that we have a hostname
+        if (!urlObj.hostname || urlObj.hostname === '') {
+          throw new Error('Invalid hostname')
+        }
+        // Use the normalized URL
+        normalizedUrl = urlObj.href.replace(/\/$/, '') // Remove trailing slash from href
       } catch (error) {
-        alert('Please enter a valid URL (e.g., example.com or https://example.com)')
+        alert('Please enter a valid URL (e.g., example.com, www.example.com, or https://example.com)')
         setIsScanning(false)
         return
       }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CreditCard, Zap, AlertTriangle, Plus } from 'lucide-react'
+import { CreditCard, Zap, AlertTriangle, Plus, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 
 interface CreditData {
@@ -27,14 +27,35 @@ export default function CreditDisplay({ className = '', showBuyButton = true }: 
     // Check if we're returning from a successful purchase (check URL params)
     const urlParams = new URLSearchParams(window.location.search)
     if (urlParams.get('success') === 'true') {
-      // Refetch credit data after a short delay to let webhook process
-      setTimeout(() => {
+      // Poll for credit updates - webhook might take a few seconds
+      let attempts = 0
+      const maxAttempts = 10 // Try for up to 10 seconds
+      
+      const pollInterval = setInterval(() => {
+        attempts++
+        console.log(`🔄 Polling for credit update (attempt ${attempts}/${maxAttempts})...`)
         loadCreditData()
-      }, 1500)
+        
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval)
+          console.log('⏱️ Stopped polling for credit updates')
+        }
+      }, 1000) // Poll every second
+      
+      // Clean up interval on unmount
+      return () => clearInterval(pollInterval)
     }
+    
+    // Also set up periodic refresh every 30 seconds to catch webhook updates
+    const refreshInterval = setInterval(() => {
+      loadCreditData()
+    }, 30000)
+    
+    return () => clearInterval(refreshInterval)
   }, [])
 
-  const loadCreditData = async () => {
+  const loadCreditData = async (showLoading = false) => {
+    if (showLoading) setLoading(true)
     try {
       const token = localStorage.getItem('accessToken')
       if (!token) return
@@ -42,18 +63,27 @@ export default function CreditDisplay({ className = '', showBuyButton = true }: 
       const response = await fetch('/api/credits', {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        cache: 'no-store' // Always fetch fresh data
       })
 
       const data = await response.json()
       if (data.success) {
+        console.log('💳 Credit data loaded:', data.credits, 'credits')
         setCreditData(data)
+      } else {
+        console.error('❌ Failed to load credit data:', data.error)
       }
     } catch (error) {
-      console.error('Failed to load credit data:', error)
+      console.error('❌ Failed to load credit data:', error)
     } finally {
       setLoading(false)
     }
+  }
+  
+  const handleRefresh = () => {
+    console.log('🔄 Manually refreshing credits...')
+    loadCreditData(true)
   }
 
   if (loading) {
@@ -123,6 +153,15 @@ export default function CreditDisplay({ className = '', showBuyButton = true }: 
   return (
     <div className={`flex items-center space-x-3 ${className}`}>
       {getCreditDisplay()}
+      
+      <button
+        onClick={handleRefresh}
+        className="p-1 text-gray-500 hover:text-gray-700 transition-colors"
+        title="Refresh credits"
+        disabled={loading}
+      >
+        <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+      </button>
       
       {showBuyButton && !creditData.unlimitedCredits && (
         <Link

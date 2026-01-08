@@ -17,6 +17,7 @@ import {
   Contrast
 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useScreenReaderAnnounce } from '../../hooks/useScreenReaderAnnounce'
 import LoadingSpinner from '../../components/LoadingSpinner'
@@ -83,6 +84,7 @@ interface ScanResults {
 }
 
 export default function HomePage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('overview')
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [scanUrl, setScanUrl] = useState('')
@@ -415,18 +417,26 @@ export default function HomePage() {
               />
             </div>
             <div className="flex items-center space-x-4">
-              <Link 
+              <a 
                 href="/login" 
-                className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                onClick={(e) => {
+                  e.preventDefault()
+                  router.push('/login')
+                }}
+                className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium cursor-pointer"
               >
                 Sign in
-              </Link>
-              <Link 
+              </a>
+              <a 
                 href="/signup" 
-                className="bg-[#0B1220] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800"
+                onClick={(e) => {
+                  e.preventDefault()
+                  router.push('/signup')
+                }}
+                className="bg-[#0B1220] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800 cursor-pointer"
               >
                 Get Started
-              </Link>
+              </a>
             </div>
           </div>
         </div>

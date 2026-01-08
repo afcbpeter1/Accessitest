@@ -33,11 +33,24 @@ export async function GET(request: NextRequest) {
         i.first_seen_scan_id,
         i.status,
         sh.id as scan_history_id,
-        sh.user_id as scan_user_id
+        sh.user_id as scan_user_id,
+        sh.scan_type,
+        sh.url,
+        sh.file_name
       FROM issues i
       LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
       WHERE sh.user_id = $1 OR (sh.user_id IS NULL AND EXISTS (SELECT 1 FROM scan_history WHERE user_id = $1))
-      LIMIT 10
+      ORDER BY i.created_at DESC
+      LIMIT 20
+    `, [user.userId])
+    
+    // Also check scan_history directly
+    const scanHistoryCheck = await pool.query(`
+      SELECT id, user_id, scan_type, url, file_name, created_at, total_issues
+      FROM scan_history
+      WHERE user_id = $1
+      ORDER BY created_at DESC
+      LIMIT 5
     `, [user.userId])
     
     console.log('🔍 DEBUG: Issues found for user:', {
@@ -49,7 +62,19 @@ export async function GET(request: NextRequest) {
         first_seen_scan_id: r.first_seen_scan_id,
         scan_history_id: r.scan_history_id,
         scan_user_id: r.scan_user_id,
-        status: r.status
+        scan_type: r.scan_type,
+        status: r.status,
+        url: r.url,
+        file_name: r.file_name
+      })),
+      recentScans: scanHistoryCheck.rows.map(r => ({
+        id: r.id,
+        user_id: r.user_id,
+        scan_type: r.scan_type,
+        url: r.url,
+        file_name: r.file_name,
+        total_issues: r.total_issues,
+        created_at: r.created_at
       }))
     })
 

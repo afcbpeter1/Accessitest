@@ -9,13 +9,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 })
     }
 
+    // Normalize URL - handle www., https://, and domain names
+    let normalizedUrl = url.trim()
+    
+    // Remove any existing protocol
+    normalizedUrl = normalizedUrl.replace(/^https?:\/\//i, '')
+    
+    // Remove trailing slash
+    normalizedUrl = normalizedUrl.replace(/\/$/, '')
+    
+    // Add https:// protocol
+    normalizedUrl = `https://${normalizedUrl}`
+    
+    // Validate URL
+    try {
+      const urlObj = new URL(normalizedUrl)
+      if (!urlObj.hostname || urlObj.hostname === '') {
+        throw new Error('Invalid hostname')
+      }
+      normalizedUrl = urlObj.href.replace(/\/$/, '') // Remove trailing slash
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'Invalid URL format. Please provide a valid URL (e.g., example.com, www.example.com, or https://example.com)' },
+        { status: 400 }
+      )
+    }
+
     // Create scan options for discovery only
     // Enforce maximum of 200 pages for web crawling (free service)
     const requestedMaxPages = maxPages ?? 50
     const enforcedMaxPages = Math.min(requestedMaxPages, 200)
     
     const scanOptions: ScanOptions = {
-      url,
+      url: normalizedUrl,
       includeSubdomains: includeSubdomains ?? true,
       deepCrawl: deepCrawl ?? true,  // Default to true for page discovery
       maxPages: enforcedMaxPages,
@@ -34,7 +60,14 @@ export async function POST(request: NextRequest) {
 
     // Categorize discovered pages
     const categorizedPages = discoveredUrls.map(url => {
-      const path = new URL(url).pathname.toLowerCase()
+      let path = '/'
+      try {
+        const urlObj = new URL(url)
+        path = urlObj.pathname.toLowerCase()
+      } catch (error) {
+        console.error(`Failed to parse URL for categorization: ${url}`, error)
+        path = '/'
+      }
       let category: 'home' | 'content' | 'forms' | 'blog' | 'legal' | 'other' = 'other'
       let priority: 'high' | 'medium' | 'low' = 'medium'
 
