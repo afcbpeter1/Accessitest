@@ -7,7 +7,7 @@
 Make sure:
 - ✅ Stripe CLI is running: `stripe listen --forward-to localhost:3000/api/stripe-webhook`
 - ✅ Your server is running on port 3000
-- ✅ Your `.env` file has: `STRIPE_WEBHOOK_SECRET=whsec_fed4bdd7ff5430a326168c6c969f937f08f92026eb6808ffa418b6455ff6e3e5`
+- ✅ Your `.env` file has: `STRIPE_WEBHOOK_SECRET=whsec_YOUR_WEBHOOK_SECRET_HERE`
 
 ### 2. Trigger a Test Webhook Event
 
@@ -33,8 +33,8 @@ After triggering, you should see in your server console:
 ### 4. Verify Webhook Secret Match
 
 The webhook secret from CLI output should match your `.env` file exactly:
-- CLI shows: `whsec_fed4bdd7ff5430a326168c6c969f937f08f92026eb6808ffa418b6455ff6e3e5`
-- Your `.env` should have: `STRIPE_WEBHOOK_SECRET=whsec_fed4bdd7ff5430a326168c6c969f937f08f92026eb6808ffa418b6455ff6e3e5`
+- CLI shows: `whsec_...` (copy the full secret from CLI output)
+- Your `.env` should have: `STRIPE_WEBHOOK_SECRET=whsec_...` (use the exact secret from CLI)
 
 **Important**: No quotes, no spaces, exact match!
 

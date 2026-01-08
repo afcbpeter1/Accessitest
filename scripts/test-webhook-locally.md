@@ -4,7 +4,7 @@
 
 ✅ **Your `.env` file has the CLI secret** - This is CORRECT for local development
 ```
-STRIPE_WEBHOOK_SECRET=whsec_fed4bdd7ff5430a326168c6c969f937f08f92026eb6808ffa418b6455ff6e3e5
+STRIPE_WEBHOOK_SECRET=whsec_YOUR_WEBHOOK_SECRET_HERE
 ```
 
 ✅ **Stripe CLI is running** - This forwards events to localhost:3000
