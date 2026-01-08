@@ -5,6 +5,10 @@ export interface Team {
   organization_id: string
   name: string
   description?: string
+  jira_project_key?: string
+  azure_devops_project?: string
+  jira_issue_type?: string
+  azure_devops_work_item_type?: string
   created_at: string
   updated_at: string
 }
@@ -105,7 +109,14 @@ export async function getTeam(teamId: string): Promise<Team | null> {
  */
 export async function updateTeam(
   teamId: string,
-  updates: { name?: string; description?: string },
+  updates: { 
+    name?: string
+    description?: string
+    jira_project_key?: string | null
+    azure_devops_project?: string | null
+    jira_issue_type?: string | null
+    azure_devops_work_item_type?: string | null
+  },
   userId: string
 ): Promise<{ success: boolean; message: string }> {
   // Get team's organization
@@ -140,6 +151,22 @@ export async function updateTeam(
   if (updates.description !== undefined) {
     setClauses.push(`description = $${paramIndex++}`)
     values.push(updates.description)
+  }
+  if (updates.jira_project_key !== undefined) {
+    setClauses.push(`jira_project_key = $${paramIndex++}`)
+    values.push(updates.jira_project_key || null)
+  }
+  if (updates.azure_devops_project !== undefined) {
+    setClauses.push(`azure_devops_project = $${paramIndex++}`)
+    values.push(updates.azure_devops_project || null)
+  }
+  if (updates.jira_issue_type !== undefined) {
+    setClauses.push(`jira_issue_type = $${paramIndex++}`)
+    values.push(updates.jira_issue_type || null)
+  }
+  if (updates.azure_devops_work_item_type !== undefined) {
+    setClauses.push(`azure_devops_work_item_type = $${paramIndex++}`)
+    values.push(updates.azure_devops_work_item_type || null)
   }
   
   if (setClauses.length === 0) {

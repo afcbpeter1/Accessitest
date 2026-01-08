@@ -1,4 +1,7 @@
 import { query, queryOne, queryMany } from './database'
+import { JiraClient } from './jira-client'
+import { mapIssueToJiraSimple } from './jira-mapping-service'
+import { getJiraIntegration } from './integration-selection-service'
 
 /**
  * Download an image from a URL and return as Buffer
@@ -11,8 +14,6 @@ async function downloadImageFromUrl(url: string): Promise<Buffer> {
   const arrayBuffer = await response.arrayBuffer()
   return Buffer.from(arrayBuffer)
 }
-import { JiraClient } from './jira-client'
-import { mapIssueToJiraSimple } from './jira-mapping-service'
 
 /**
  * Auto-sync issues to Jira after scan completion
@@ -45,39 +46,56 @@ export async function autoSyncIssuesToJira(
   let errors = 0
 
   try {
-    // Check if user has Jira integration with auto-sync enabled
-    const integration = await queryOne(
-      `SELECT jira_url, jira_email, encrypted_api_token, project_key, issue_type, auto_sync_enabled
-      FROM jira_integrations 
-      WHERE user_id = $1 AND is_active = true AND auto_sync_enabled = true`,
-      [userId]
-    )
-
-    if (!integration) {
-      // No integration or auto-sync disabled - skip silently
-      return {
-        success: true,
-        created: 0,
-        skipped: issueIds.length,
-        errors: 0,
-        results: issueIds.map(id => ({
-          issueId: id,
-          success: false,
-          error: 'Jira auto-sync not enabled'
-        }))
-      }
-    }
-
-    // Create Jira client
-    const client = new JiraClient({
-      jiraUrl: integration.jira_url,
-      email: integration.jira_email,
-      encryptedApiToken: integration.encrypted_api_token
-    })
-
-    // Process each issue
+    // Process each issue to get team context
     for (const issueId of issueIds) {
       try {
+        // Get issue context (team/organization) to find the right integration
+        const issueContext = await queryOne(
+          `SELECT team_id, organization_id FROM issues WHERE id = $1`,
+          [issueId]
+        )
+
+        // Get the appropriate Jira integration (team > org > personal)
+        const integration = await getJiraIntegration(
+          userId,
+          issueContext?.team_id,
+          issueContext?.organization_id
+        )
+
+        if (!integration || !integration.auto_sync_enabled) {
+          // No integration or auto-sync disabled - skip
+          skipped++
+          results.push({
+            issueId,
+            success: false,
+            error: 'Jira auto-sync not enabled'
+          })
+          continue
+        }
+
+        // Check if team has an assigned project and issue type (overrides integration settings)
+        let projectKeyToUse = integration.project_key
+        let issueTypeToUse = integration.issue_type
+        if (issueContext?.team_id) {
+          const team = await queryOne(
+            `SELECT jira_project_key, jira_issue_type FROM teams WHERE id = $1`,
+            [issueContext.team_id]
+          )
+          if (team?.jira_project_key) {
+            projectKeyToUse = team.jira_project_key
+          }
+          if (team?.jira_issue_type) {
+            issueTypeToUse = team.jira_issue_type
+          }
+        }
+
+        // Create Jira client
+        const client = new JiraClient({
+          jiraUrl: integration.jira_url,
+          email: integration.jira_email,
+          encryptedApiToken: integration.encrypted_api_token
+        })
+
         // Check if issue already has a Jira ticket (duplication prevention)
         const existingMapping = await queryOne(
           `SELECT jira_ticket_key, jira_url 
@@ -297,8 +315,8 @@ export async function autoSyncIssuesToJira(
             suggestions,
             screenshots
           },
-          integration.project_key,
-          integration.issue_type
+          projectKeyToUse,
+          issueTypeToUse
         )
 
         // Create ticket in Jira

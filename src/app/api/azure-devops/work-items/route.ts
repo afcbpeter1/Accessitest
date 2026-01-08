@@ -46,6 +46,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Determine which project and work item type to use: team-assigned takes priority
+    let projectToUse = integration.project
+    let workItemTypeToUse = integration.work_item_type || 'Bug'
+    if (issueContext?.teamId) {
+      const team = await queryOne(
+        `SELECT azure_devops_project, azure_devops_work_item_type FROM teams WHERE id = $1`,
+        [issueContext.teamId]
+      )
+      if (team?.azure_devops_project) {
+        projectToUse = team.azure_devops_project
+        console.log(`Using team-assigned project: ${projectToUse} (instead of integration project: ${integration.project})`)
+      }
+      if (team?.azure_devops_work_item_type) {
+        workItemTypeToUse = team.azure_devops_work_item_type
+        console.log(`Using team-assigned work item type: ${workItemTypeToUse} (instead of integration work item type: ${integration.work_item_type || 'Bug'})`)
+      }
+    }
+
     // Check if issue already has an Azure DevOps work item (duplication prevention)
     const existingMapping = await queryOne(
       `SELECT work_item_id, work_item_url 
@@ -63,7 +81,11 @@ export async function POST(request: NextRequest) {
           organization: integration.organization,
           encryptedPat: integration.encrypted_pat
         })
-        const existingWorkItem = await tempClient.getWorkItem(integration.project, existingMapping.work_item_id)
+        // Use team project if available, otherwise use integration project
+        const projectForCheck = issueContext?.teamId 
+          ? (await queryOne(`SELECT azure_devops_project FROM teams WHERE id = $1`, [issueContext.teamId]))?.azure_devops_project || integration.project
+          : integration.project
+        const existingWorkItem = await tempClient.getWorkItem(projectForCheck, existingMapping.work_item_id)
         
         // Work item exists, return it (don't create duplicate)
         console.log(`✅ Work item ${existingMapping.work_item_id} exists in Azure DevOps, returning existing mapping`)
@@ -283,7 +305,7 @@ export async function POST(request: NextRequest) {
     
     const patches = mapIssueToAzureDevOps(
       issueData,
-      integration.work_item_type || 'Bug',
+      workItemTypeToUse,
       integration.area_path,
       integration.iteration_path
     )
@@ -308,8 +330,8 @@ export async function POST(request: NextRequest) {
           organization: integration.organization,
           encryptedPat: integration.encrypted_pat
         })
-        const existingWorkItem = await tempClient.getWorkItem(integration.project, finalCheck.work_item_id)
-        const workItemUrl = client.getWorkItemUrl(integration.project, finalCheck.work_item_id)
+        const existingWorkItem = await tempClient.getWorkItem(projectToUse, finalCheck.work_item_id)
+        const workItemUrl = client.getWorkItemUrl(projectToUse, finalCheck.work_item_id)
         console.log(`✅ Found existing work item ${finalCheck.work_item_id}, returning it instead of creating duplicate`)
         return NextResponse.json({
           success: true,
@@ -327,15 +349,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create work item in Azure DevOps
-    let createdWorkItem
-    try {
-      console.log(`Creating Azure DevOps work item for issue ${issueId}`)
-      createdWorkItem = await client.createWorkItem(
-        integration.project,
-        integration.work_item_type || 'Bug',
-        patches
-      )
+      // Create work item in Azure DevOps
+      let createdWorkItem
+      try {
+        console.log(`Creating Azure DevOps work item for issue ${issueId}`)
+        createdWorkItem = await client.createWorkItem(
+          projectToUse,
+          workItemTypeToUse,
+          patches
+        )
       console.log(`✅ Successfully created Azure DevOps work item: ${createdWorkItem.id}`)
     } catch (error) {
       // Update issue with error
@@ -355,7 +377,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Build work item URL
-    const workItemUrl = client.getWorkItemUrl(integration.project, createdWorkItem.id)
+    const workItemUrl = client.getWorkItemUrl(projectToUse, createdWorkItem.id)
 
     // Store mapping in database FIRST (before screenshots) so we have a record even if screenshots fail
     try {

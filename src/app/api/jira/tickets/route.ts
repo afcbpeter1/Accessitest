@@ -310,8 +310,8 @@ export async function POST(request: NextRequest) {
         suggestions,
         screenshots // Pass Cloudinary URLs directly
       },
-      integration.project_key,
-      integration.issue_type
+      projectKeyToUse,
+      issueTypeToUse
     )
 
     // Double-check for existing mapping right before creating (prevent race condition)

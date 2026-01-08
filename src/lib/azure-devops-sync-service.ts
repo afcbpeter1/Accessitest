@@ -1,6 +1,7 @@
 import { query, queryOne, queryMany } from './database'
 import { AzureDevOpsClient } from './azure-devops-client'
 import { mapIssueToAzureDevOps } from './azure-devops-mapping-service'
+import { getAzureDevOpsIntegration } from './integration-selection-service'
 
 /**
  * Download an image from a URL and return as Buffer
@@ -45,38 +46,51 @@ export async function autoSyncIssuesToAzureDevOps(
   let errors = 0
 
   try {
-    // Check if user has Azure DevOps integration with auto-sync enabled
-    const integration = await queryOne(
-      `SELECT organization, project, encrypted_pat, work_item_type, area_path, iteration_path, auto_sync_enabled
-      FROM azure_devops_integrations 
-      WHERE user_id = $1 AND is_active = true AND auto_sync_enabled = true`,
-      [userId]
-    )
-
-    if (!integration) {
-      // No integration or auto-sync disabled - skip silently
-      return {
-        success: true,
-        created: 0,
-        skipped: issueIds.length,
-        errors: 0,
-        results: issueIds.map(id => ({
-          issueId: id,
-          success: false,
-          error: 'Azure DevOps auto-sync not enabled'
-        }))
-      }
-    }
-
-    // Create Azure DevOps client
-    const client = new AzureDevOpsClient({
-      organization: integration.organization,
-      encryptedPat: integration.encrypted_pat
-    })
-
-    // Process each issue
+    // Process each issue to get team context
     for (const issueId of issueIds) {
       try {
+        // Get issue context (team/organization) to find the right integration
+        const issueContext = await queryOne(
+          `SELECT team_id, organization_id FROM issues WHERE id = $1`,
+          [issueId]
+        )
+
+        // Get the appropriate Azure DevOps integration (team > org > personal)
+        const integration = await getAzureDevOpsIntegration(
+          userId,
+          issueContext?.team_id,
+          issueContext?.organization_id
+        )
+
+        if (!integration || !integration.auto_sync_enabled) {
+          // No integration or auto-sync disabled - skip
+          skipped++
+          results.push({
+            issueId,
+            success: false,
+            error: 'Azure DevOps auto-sync not enabled'
+          })
+          continue
+        }
+
+        // Check if team has an assigned project (overrides integration project)
+        let projectToUse = integration.project
+        if (issueContext?.team_id) {
+          const team = await queryOne(
+            `SELECT azure_devops_project FROM teams WHERE id = $1`,
+            [issueContext.team_id]
+          )
+          if (team?.azure_devops_project) {
+            projectToUse = team.azure_devops_project
+          }
+        }
+
+        // Create Azure DevOps client
+        const client = new AzureDevOpsClient({
+          organization: integration.organization,
+          encryptedPat: integration.encrypted_pat
+        })
+
         // Check if issue already has an Azure DevOps work item (duplication prevention)
         const existingMapping = await queryOne(
           `SELECT work_item_id, work_item_url 
@@ -262,15 +276,15 @@ export async function autoSyncIssuesToAzureDevOps(
             suggestions,
             screenshots
           },
-          integration.work_item_type || 'Bug',
+          workItemTypeToUse,
           integration.area_path,
           integration.iteration_path
         )
 
         // Create work item in Azure DevOps
         const createdWorkItem = await client.createWorkItem(
-          integration.project,
-          integration.work_item_type || 'Bug',
+          projectToUse,
+          workItemTypeToUse,
           patches
         )
         const workItemUrl = client.getWorkItemUrl(integration.project, createdWorkItem.id)

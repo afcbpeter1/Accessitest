@@ -9,6 +9,7 @@ export interface JiraIntegration {
   encrypted_api_token: string
   project_key: string
   issue_type: string
+  auto_sync_enabled?: boolean
 }
 
 export interface AzureDevOpsIntegration {
@@ -21,6 +22,7 @@ export interface AzureDevOpsIntegration {
   work_item_type: string
   area_path?: string
   iteration_path?: string
+  auto_sync_enabled?: boolean
 }
 
 /**
@@ -144,4 +146,5 @@ export async function getIssueContext(issueId: string): Promise<{
     organizationId: issue.organization_id
   }
 }
+
 
