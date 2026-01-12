@@ -2,7 +2,7 @@ services:
   - type: web
     name: accessitest
     env: node
-    buildCommand: npm install && npm run build
+    buildCommand: bash scripts/install-deps.sh && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
