@@ -379,9 +379,7 @@ export async function POST(request: NextRequest) {
           hsv: group.hsv
         }))
     }
-    
-    console.log('Color detection debug:', debugInfo)
-    
+
     return NextResponse.json({
       success: true,
       results: topResults,

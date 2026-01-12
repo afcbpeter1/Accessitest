@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
 
     const claudeAPI = new ClaudeAPI()
     
-    console.log('🧪 Testing Claude API with:', { issueType, html: html.substring(0, 50) + '...' })
+    + '...' })
     
     const suggestion = await claudeAPI.generateAccessibilitySuggestion(
       html,

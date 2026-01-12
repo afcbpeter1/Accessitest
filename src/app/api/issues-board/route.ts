@@ -8,9 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     // Require authentication
     const user = await getAuthenticatedUser(request)
-    
-    console.log('Issues Board API called by user:', user.userId)
-    
+
     // Get query parameters for pagination
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
@@ -47,9 +45,7 @@ export async function GET(request: NextRequest) {
     
     const total = parseInt(countResult.rows[0].total)
     const totalPages = Math.ceil(total / limit)
-    
-    console.log('Found issues:', result.rows.length, 'for user:', user.userId)
-    
+
     return NextResponse.json({
       success: true,
       data: {

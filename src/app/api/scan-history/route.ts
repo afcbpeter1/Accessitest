@@ -4,10 +4,7 @@ import { ScanHistoryService } from '@/lib/scan-history-service'
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 Scan history API called')
     const user = await getAuthenticatedUser(request)
-    console.log('✅ User authenticated:', user.email)
-    
     const url = new URL(request.url)
     const limit = parseInt(url.searchParams.get('limit') || '10')
     const offset = parseInt(url.searchParams.get('offset') || '0')
@@ -30,9 +27,8 @@ export async function GET(request: NextRequest) {
       })
     } else {
       // Get scan history list with pagination
-      console.log('📋 Fetching scan history for user:', user.userId, 'limit:', limit, 'offset:', offset)
       const { scans, total } = await ScanHistoryService.getScanHistoryPaginated(user.userId, limit, offset)
-      console.log('✅ Found', scans.length, 'scans in history (total:', total, ')')
+      ')
       
       return NextResponse.json({
         success: true,

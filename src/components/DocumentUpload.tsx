@@ -419,20 +419,20 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       // Check if we've already attempted restoration in this session
       const hasRestored = sessionStorage.getItem('documentScanRestored')
       if (hasRestored === 'true') {
-        console.log('ℹ️ Scan restoration already attempted in this session')
+
         return
       }
       
       // Fetch the most recent document scan from history
       const response = await authenticatedFetch('/api/scan-history?limit=1')
       if (!response.ok) {
-        console.log('⚠️ Failed to fetch scan history for restoration')
+
         return
       }
       
       const data = await response.json()
       if (!data.success || !data.scans || data.scans.length === 0) {
-        console.log('ℹ️ No scan history found to restore')
+
         sessionStorage.setItem('documentScanRestored', 'true') // Mark as attempted even if no scans found
         return
       }
@@ -441,8 +441,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       
       // Only restore if it's a document scan
       if (mostRecentScan.scanType === 'document' && mostRecentScan.fileName) {
-        console.log('🔄 Restoring document scan:', mostRecentScan.fileName)
-        
+
         // Fetch full scan details
         const detailsResponse = await authenticatedFetch(`/api/scan-history?scanId=${mostRecentScan.id}`)
         if (detailsResponse.ok) {
@@ -493,11 +492,10 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                 setTimeout(() => {
                   showToast('Restored your most recent scan results.', 'info')
                 }, 100)
-                
-                console.log('✅ Scan restored successfully:', scan.fileName)
+
                 return [restoredDocument, ...prev]
               } else {
-                console.log('ℹ️ Document already restored:', scan.fileName)
+
                 sessionStorage.setItem('documentScanRestored', 'true')
                 return prev
               }
@@ -576,7 +574,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       if (savedScanId || savedIsScanning === 'true') {
         // Only clear if we're not already in the cleared state
         if (currentScanId !== null || isScanning) {
-          console.log('🧹 Clearing stale scan state from localStorage')
+
           localStorage.removeItem('currentScanId')
           localStorage.removeItem('isScanning')
           localStorage.removeItem('scanLogs')
@@ -649,7 +647,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       // No active scans - ensure we're not showing stale state
       const savedIsScanning = localStorage.getItem('isScanning')
       if (savedIsScanning === 'true') {
-        console.log('🧹 Clearing stale scan state on mount')
+
         localStorage.removeItem('currentScanId')
         localStorage.removeItem('isScanning')
         localStorage.removeItem('scanLogs')
@@ -670,10 +668,10 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
   // Debug: Monitor uploaded documents changes
   useEffect(() => {
-    console.log('🔍 Uploaded documents updated:', uploadedDocuments)
+
     uploadedDocuments.forEach(doc => {
       if (doc.status === 'completed' && doc.scanResults) {
-        console.log('🔍 Document with results:', doc.name, doc.scanResults)
+
       }
     })
   }, [uploadedDocuments])
@@ -685,7 +683,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       const response = await authenticatedFetch('/api/credits')
       if (response.ok) {
         const data = await response.json()
-        console.log('🔍 Credit check result:', data)
+
         setUserCredits(data.credits)
         setCanScan(data.canScan)
       } else {
@@ -709,8 +707,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         )
         
         if (recentScan && recentScan.scanResults) {
-          console.log('🔍 Loading scan results for document:', fileName, recentScan.scanResults)
-          
+
           setUploadedDocuments(prev => 
             prev.map(doc => 
               doc.name === fileName 
@@ -816,7 +813,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         // Use server-side check to avoid browser compatibility issues
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
           try {
-            console.log('📄 PDF detected, checking page count...')
+
             addScanLog('📄 Validating PDF page count...')
             
             // Quick server-side page count check
@@ -886,7 +883,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                   continue // Skip this file
                 }
                 
-                console.log(`✅ PDF page count check passed: ${pageCount} pages, ${pdfType} PDF (limit: ${pageLimit} pages)`)
+                `)
                 addScanLog(`✅ PDF validated: ${pageCount} pages (${pdfType} PDF)`)
               } else {
                 // If check fails, log warning but continue (server will check again)
@@ -897,9 +894,9 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
             
             // Generate preview after page count check passes
             try {
-              console.log('🖼️ Generating PDF preview...')
+
               await generatePDFPreview(file, documentId)
-              console.log('✅ PDF preview generation completed')
+
             } catch (previewError) {
               console.error('❌ Could not generate PDF preview:', previewError)
               // Continue without preview - not critical
@@ -911,7 +908,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
             // Don't block upload, let server validate during scan
           }
         } else {
-          console.log('ℹ️ Not a PDF file, skipping preview generation:', file.type)
+
         }
 
         addScanLog('🎉 Document upload complete!')
@@ -937,8 +934,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
   // Generate PDF preview thumbnail
   const generatePDFPreview = async (file: File, documentId: string) => {
     try {
-      console.log('🖼️ Generating PDF preview for:', file.name)
-      
+
       // Try to use pdfjs-dist, but handle module loading errors gracefully
       let pdfjsLib
       try {
@@ -980,9 +976,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         
         // Convert to base64 data URL with better quality
         const preview = canvas.toDataURL('image/jpeg', 0.85)
-        
-        console.log('✅ PDF preview generated successfully, size:', preview.length, 'chars')
-        
+
         // Store preview for this document
         setDocumentPreview(preview)
         
@@ -1047,13 +1041,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     }
     
     try {
-      console.log('📥 Starting download:', {
-        fileName,
-        base64Length: base64.length,
-        mimeType,
-        isWordDoc
-      })
-      
+
       // Validate base64 string
       if (!base64 || base64.length < 100) {
         throw new Error('Invalid base64 data: too short or empty')
@@ -1073,12 +1061,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       }
       const byteArray = new Uint8Array(byteNumbers)
       const blob = new Blob([byteArray], { type: mimeType })
-      
-      console.log('✅ Blob created:', {
-        size: blob.size,
-        type: blob.type
-      })
-      
+
       // Create download link
       const url = URL.createObjectURL(blob)
       const link = window.document.createElement('a')
@@ -1093,8 +1076,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         window.document.body.removeChild(link)
         URL.revokeObjectURL(url)
       }, 100)
-      
-      console.log('✅ Download triggered successfully')
+
       showToast(isWordDoc ? 'Fixed Word document downloaded successfully!' : 'Tagged PDF downloaded successfully!', 'success')
     } catch (error) {
       console.error('❌ Error downloading document:', error)
@@ -1217,13 +1199,13 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     // Get document preview if available - try multiple sources
     const docPreview = document.preview || documentPreview || null
     if (docPreview) {
-      console.log('📸 Setting document preview for scan:', docPreview.substring(0, 50) + '...')
+      + '...')
       setDocumentPreview(docPreview)
     } else {
-      console.log('⚠️ No document preview available for:', document.name)
+
       // Try to generate preview if it's a PDF and we have the file
       if (document.type === 'application/pdf' && document.fileContent) {
-        console.log('🔄 Attempting to generate preview from file content...')
+
         // We can't generate from base64 fileContent easily, so we'll need the original file
         // For now, just log that preview is missing
       }
@@ -1343,13 +1325,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       const taggedPdfBase64 = result.taggedPdfBase64 || scanResult?.taggedPdfBase64
       const taggedPdfFileName = result.taggedPdfFileName || scanResult?.taggedPdfFileName
       
-      console.log('📥 Scan result received:', {
-        hasTaggedPdfInResult: !!result.taggedPdfBase64,
-        hasTaggedPdfInScanResult: !!scanResult?.taggedPdfBase64,
-        taggedPdfFileName: taggedPdfFileName,
-        issuesCount: scanResult?.issues?.length || 0,
-        hasDetailedReport: !!scanResult?.detailedReport,
-        detailedReportCategories: scanResult?.detailedReport ? Object.keys(scanResult.detailedReport.categories || {}) : []
+      : []
       })
       
       // Animate progress to 100% smoothly

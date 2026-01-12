@@ -8,14 +8,11 @@ export async function PUT(request: NextRequest) {
   try {
     // Require authentication
     const user = await getAuthenticatedUser(request)
-    
-    console.log('🎯 Ranks API called by user:', user.userId)
 
     const { rankUpdates } = await request.json()
-    console.log('📊 Received rank updates:', rankUpdates)
 
     if (!rankUpdates || !Array.isArray(rankUpdates)) {
-      console.log('❌ Invalid rank updates data')
+
       return NextResponse.json(
         { error: 'Invalid rank updates data' },
         { status: 400 }
@@ -25,7 +22,7 @@ export async function PUT(request: NextRequest) {
     // Validate rank updates
     for (const update of rankUpdates) {
       if (!update.issueId || typeof update.rank !== 'number') {
-        console.log('❌ Invalid rank update format:', update)
+
         return NextResponse.json(
           { error: 'Invalid rank update format' },
           { status: 400 }
@@ -49,10 +46,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // Update ranks (with user ID to prevent IDOR)
-    console.log('🔄 Calling updateIssueRanks...')
+
     await IssuesBoardDataService.updateIssueRanks(rankUpdates, user.userId)
 
-    console.log('✅ Ranks updated successfully')
     return NextResponse.json({
       success: true,
       message: 'Issue ranks updated successfully'

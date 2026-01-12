@@ -62,7 +62,7 @@ class TokenRefreshService {
       const timeSinceLastActivity = Date.now() - this.lastActivityTime
       
       if (timeSinceLastActivity >= this.INACTIVITY_TIMEOUT) {
-        console.log('⏰ 15 minutes of inactivity detected - logging out')
+
         this.logoutDueToInactivity()
       }
     }, 60 * 1000) // Check every minute
@@ -96,8 +96,7 @@ class TokenRefreshService {
     if (typeof window === 'undefined') {
       return
     }
-    
-    console.log('🚪 Logging out due to inactivity')
+
     localStorage.removeItem('accessToken')
     localStorage.removeItem('user')
     
@@ -107,7 +106,7 @@ class TokenRefreshService {
       showLogoutNotification('You have been logged out due to inactivity. Please log in again.')
     }).catch(() => {
       // Fallback if import fails
-      console.log('⏰ Logged out due to inactivity')
+
     })
     
     // Redirect to login after a short delay
@@ -140,7 +139,7 @@ class TokenRefreshService {
         : timeUntilExpiry < 5 * 60    // Periodic check: refresh if less than 5 min left
       
       if (shouldRefresh) {
-        console.log(`🔄 Token ${refreshOnActivity ? 'refreshing on activity' : 'expires soon'}, refreshing...`)
+
         await this.refreshToken()
       }
     } catch (error) {
@@ -191,7 +190,7 @@ class TokenRefreshService {
         if (data.success && data.token) {
           // Update stored token
           localStorage.setItem('accessToken', data.token)
-          console.log('✅ Token refreshed successfully')
+
           return data.token
         }
       } else {
@@ -229,7 +228,7 @@ class TokenRefreshService {
   // Reset inactivity timer (call this when user logs in)
   public resetInactivityTimer() {
     this.lastActivityTime = Date.now()
-    console.log('🔄 Inactivity timer reset')
+
   }
 }
 

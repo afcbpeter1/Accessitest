@@ -14,12 +14,10 @@ export async function PUT(request: NextRequest) {
     }
 
     const { sprintId, issueId, columnId, newColumnId, toSprintId } = await request.json()
-    
-    console.log('🔄 Move issue API called with:', { sprintId, issueId, columnId, newColumnId, toSprintId })
-    
+
     // Handle moving to different sprint
     if (toSprintId && toSprintId !== sprintId) {
-      console.log('📦 Moving to different sprint:', { from: sprintId, to: toSprintId })
+
       // Verify the target sprint belongs to the user
       const targetSprintCheck = await pool.query(
         'SELECT id FROM sprints WHERE id = $1 AND user_id = $2',
@@ -49,7 +47,6 @@ export async function PUT(request: NextRequest) {
       }
 
       const currentColumn = currentIssue.rows[0]
-      console.log('📍 Current column:', currentColumn.column_name, 'position:', currentColumn.column_position)
 
       // Find equivalent column in target sprint by position
       const targetColumn = await pool.query(`
@@ -73,8 +70,6 @@ export async function PUT(request: NextRequest) {
         finalTargetColumn = targetColumn.rows[columnIndex]
       }
 
-      console.log('🎯 Target column:', finalTargetColumn.name, 'position:', finalTargetColumn.position)
-
       // Remove from current sprint
       await pool.query(
         'DELETE FROM sprint_issues WHERE sprint_id = $1 AND issue_id = $2',
@@ -95,7 +90,6 @@ export async function PUT(request: NextRequest) {
         VALUES ($1, $2, $3, $4, 1)
       `, [toSprintId, issueId, finalTargetColumn.id, newPosition])
 
-      console.log('✅ Successfully moved issue to different sprint in column:', finalTargetColumn.name)
       return NextResponse.json({
         success: true,
         message: `Issue moved to different sprint in ${finalTargetColumn.name} column`
@@ -268,13 +262,6 @@ async function updateBurndownData(sprintId: string) {
     const completedPoints = parseInt(issuesResult.rows[0]?.completed_points || '0')
 
     // Debug logging
-    console.log('📊 Burndown update calculation:', {
-      sprintId,
-      totalPoints,
-      remainingPoints,
-      completedPoints,
-      rawData: issuesResult.rows[0]
-    })
 
     // Insert or update burndown data for today
     const today = new Date().toISOString().split('T')[0]
@@ -288,7 +275,6 @@ async function updateBurndownData(sprintId: string) {
         updated_at = CURRENT_TIMESTAMP
     `, [sprintId, today, totalPoints, remainingPoints, completedPoints])
 
-    console.log(`📊 Updated burndown data for sprint ${sprintId}: ${remainingPoints}/${totalPoints} remaining`)
   } catch (error) {
     console.error('❌ Error updating burndown data:', error)
     // Don't throw error - burndown update failure shouldn't break issue movement

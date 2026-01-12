@@ -18,7 +18,7 @@ export class NotificationService {
          VALUES ($1, $2, $3, $4)`,
         [data.userId, data.title, data.message, data.type]
       )
-      console.log(`📢 Notification created for user ${data.userId}: ${data.title}`)
+
     } catch (error) {
       console.error('❌ Error creating notification:', error)
     }

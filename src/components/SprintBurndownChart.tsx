@@ -50,12 +50,7 @@ export default function SprintBurndownChart({
       const data = await response.json()
 
       if (data.success) {
-        console.log('📊 Burndown chart data received:', {
-          sprintId,
-          totalStoryPoints,
-          burndownData: data.data.burndownData,
-          latestData: data.data.burndownData[data.data.burndownData.length - 1],
-          allData: data.data.burndownData.map((d: any, i: number) => ({ day: d.day, actual: d.actual, completed: d.completed, ideal: d.ideal }))
+        => ({ day: d.day, actual: d.actual, completed: d.completed, ideal: d.ideal }))
         })
         setBurndownData(data.data.burndownData)
       } else {

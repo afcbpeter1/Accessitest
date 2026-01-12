@@ -443,30 +443,17 @@ export default function SprintBoard() {
 
   const handleMoveToSprint = async (issueId: string) => {
     if (!selectedSprint) return
-
-    console.log('🔄 Opening move to sprint modal for issue:', issueId)
     // Show move to sprint modal
     setIssueToMoveToSprint(issueId)
     setShowMoveToSprintModal(true)
   }
 
   const handleMoveToSprintConfirm = async (targetSprintId: string, issueId?: string) => {
-    console.log('🚀 handleMoveToSprintConfirm called with:', targetSprintId, 'issueId:', issueId)
-    console.log('🚀 Current state:', { issueToMoveToSprint, selectedSprint: selectedSprint?.id })
-    
     const actualIssueId = issueId || issueToMoveToSprint
     
     if (!actualIssueId || !selectedSprint) {
-      console.log('❌ Missing required data:', { actualIssueId, selectedSprint })
       return
     }
-
-    console.log('🔄 Moving issue to sprint:', {
-      issueId: actualIssueId,
-      fromSprint: selectedSprint.id,
-      toSprint: targetSprintId
-    })
-
     try {
       const response = await authenticatedFetch('/api/sprint-board/move-issue', {
         method: 'PUT',
@@ -477,13 +464,8 @@ export default function SprintBoard() {
           toSprintId: targetSprintId
         })
       })
-
-      console.log('📡 API Response status:', response.status)
-
       if (response.ok) {
         const result = await response.json()
-        console.log('✅ Move successful:', result)
-        
         // Refresh both the sprints list and current sprint data
         fetchSprints()
         fetchSprintData()
@@ -840,7 +822,6 @@ export default function SprintBoard() {
                                       key={sprint.id}
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        console.log('🔄 Quick move clicked for sprint:', sprint.id, sprint.name)
                                         handleMoveToSprintConfirm(sprint.id, sprintIssue.issue_id)
                                         setShowIssueMenu(null)
                                       }}
@@ -855,7 +836,6 @@ export default function SprintBoard() {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      console.log('🔄 More sprints clicked for issue:', sprintIssue.issue_id)
                                       handleMoveToSprint(sprintIssue.issue_id)
                                       setShowIssueMenu(null)
                                     }}
@@ -993,7 +973,6 @@ export default function SprintBoard() {
                       <button
                         key={sprint.id}
                         onClick={() => {
-                          console.log('🔄 Modal move clicked for sprint:', sprint.id, sprint.name)
                           handleMoveToSprintConfirm(sprint.id)
                         }}
                         className="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"

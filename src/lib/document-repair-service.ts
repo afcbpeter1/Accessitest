@@ -111,9 +111,9 @@ export class DocumentRepairService {
     // Initialize Adobe PDF Services if configured
     this.adobePDFServices = getAdobePDFServices()
     if (this.adobePDFServices) {
-      console.log('✅ Adobe PDF Services configured - will use for PDF auto-tagging')
+
     } else {
-      console.log('⚠️ Adobe PDF Services not configured - PDF auto-tagging unavailable')
+
     }
   }
 
@@ -127,10 +127,10 @@ export class DocumentRepairService {
     issues: DocumentIssue[],
     rebuildWithFixes: boolean = false // New option: rebuild document with layout preservation
   ): Promise<{ repairPlan: RepairPlan[], repairedDocument: Buffer | null }> {
-    console.log(`🔧 Starting document repair for ${fileName} (${fileType})`)
-    console.log(`📋 Found ${issues.length} issues to repair`)
+    `)
+
     if (rebuildWithFixes) {
-      console.log(`🏗️ Rebuild mode: Will recreate document with fixes while preserving layout`)
+
     }
 
     // Generate repair plan using AI
@@ -140,18 +140,16 @@ export class DocumentRepairService {
     const automaticFixes = repairPlan.filter(p => p.fixType === 'automatic')
     const suggestions = repairPlan.filter(p => p.fixType === 'suggestion')
 
-    console.log(`✅ Repair plan generated: ${automaticFixes.length} automatic fixes, ${suggestions.length} suggestions`)
-
     // Apply automatic fixes - use Adobe PDF Services for PDFs if available
     let repairedDocument: Buffer | null = null
     if (automaticFixes.length > 0 || (fileType.includes('pdf') && this.adobePDFServices)) {
       if (fileType.includes('pdf') && this.adobePDFServices) {
         // Use Adobe PDF Services Auto-Tag API for PDFs
-        console.log(`🏷️ Using Adobe PDF Services to auto-tag PDF...`)
+
         const autoTagResult = await this.adobePDFServices.autoTagPDF(fileBuffer)
         
         if (autoTagResult.success && autoTagResult.taggedPdfBuffer) {
-          console.log(`✅ PDF successfully auto-tagged by Adobe`)
+
           repairedDocument = autoTagResult.taggedPdfBuffer
         } else {
           console.warn(`⚠️ Adobe auto-tag failed: ${autoTagResult.error || autoTagResult.message}`)
@@ -163,7 +161,7 @@ export class DocumentRepairService {
           }
         }
       } else if (rebuildWithFixes) {
-        console.log(`🏗️ Rebuilding document with ${automaticFixes.length} fixes applied...`)
+
         // Rebuild preserves layout and applies all fixes
         if (fileType.includes('pdf')) {
           repairedDocument = await this.rebuildPDFWithFixes(fileBuffer, automaticFixes, issues, fileName)
@@ -174,7 +172,7 @@ export class DocumentRepairService {
           repairedDocument = await this.applyRegularRepair(fileBuffer, fileType, automaticFixes, issues, fileName)
         }
       } else {
-        console.log(`🔨 Applying ${automaticFixes.length} automatic fixes...`)
+
         // Regular repair (existing functionality)
         repairedDocument = await this.applyRegularRepair(fileBuffer, fileType, automaticFixes, issues, fileName)
       }
@@ -223,7 +221,6 @@ export class DocumentRepairService {
 
     // Process each issue type
     for (const [issueType, typeIssues] of Object.entries(issuesByType)) {
-      console.log(`🤖 Processing ${typeIssues.length} ${issueType} issues...`)
 
       for (const issue of typeIssues) {
         try {
@@ -400,15 +397,13 @@ export class DocumentRepairService {
     fileName?: string
   ): Promise<Buffer> {
     try {
-      console.log(`📋 Copying PDF exactly and applying fixes in-place...`)
-      
+
       // Load original PDF - PDFDocument.load() creates a copy we can modify
       // This preserves ALL original content: pages, images, text, formatting, structure
       const pdfDoc = await PDFDocument.load(buffer)
       
       // Get all pages from original - they're already copied by load()
       const pages = pdfDoc.getPages()
-      console.log(`✅ Copied ${pages.length} pages exactly from original PDF`)
 
       // Group fixes by type
       const altTextFixes = fixes.filter(f => f.issue.toLowerCase().includes('alt text') || f.issue.toLowerCase().includes('image'))
@@ -425,7 +420,7 @@ export class DocumentRepairService {
                              fix.aiFix.match(/add.*title[:\s]+(.+?)(?:\.|$)/i)
             const title = titleMatch ? titleMatch[1].trim() : fileName.replace(/\.[^/.]+$/, '')
             pdfDoc.setTitle(title)
-            console.log(`✅ Added PDF title: ${title}`)
+
           }
           if (fix.issue.toLowerCase().includes('language')) {
             // Extract language from AI fix or use default
@@ -440,7 +435,7 @@ export class DocumentRepairService {
               if (/^[a-z]{2}$/i.test(langCode)) {
                 language = langCode
                 languageFound = true
-                console.log(`✅ Extracted language: ${language} (from "setting to")`)
+                `)
               }
             }
             
@@ -452,7 +447,7 @@ export class DocumentRepairService {
                 if (/^[a-z]{2}$/i.test(langCode)) {
                   language = langCode
                   languageFound = true
-                  console.log(`✅ Extracted language: ${language} (from "to")`)
+                  `)
                 }
               }
             }
@@ -465,7 +460,7 @@ export class DocumentRepairService {
                 if (/^[a-z]{2}$/i.test(langCode)) {
                   language = langCode
                   languageFound = true
-                  console.log(`✅ Extracted language: ${language} (from "language:")`)
+                  `)
                 }
               }
             }
@@ -478,7 +473,7 @@ export class DocumentRepairService {
                 if (/^[a-z]{2}$/i.test(langCode)) {
                   language = langCode
                   languageFound = true
-                  console.log(`✅ Extracted language: ${language} (from quoted)`)
+                  `)
                 }
               }
             }
@@ -486,9 +481,9 @@ export class DocumentRepairService {
             // Apply the language
             pdfDoc.setLanguage(language)
             if (languageFound) {
-              console.log(`✅ Added PDF language: ${language}`)
+
             } else {
-              console.log(`✅ Added PDF language: ${language} (default fallback, from: ${fix.aiFix.substring(0, 100)})`)
+              })`)
             }
           }
         }
@@ -498,14 +493,14 @@ export class DocumentRepairService {
       // Note: pdf-lib can't easily modify existing images in-place
       // We can only add alt text to new images we create, not existing ones
       if (altTextFixes.length > 0) {
-        console.log(`⚠️ Alt text fixes detected (${altTextFixes.length} fixes)`)
-        console.log(`📝 Note: Cannot add alt text to existing images with pdf-lib - requires document rebuild`)
-        console.log(`💡 Suggestion: Use rebuild mode to fix image alt text issues`)
+        `)
+
+
       }
 
       // Apply heading structure fixes using AI to identify headings
       if (headingFixes.length > 0) {
-        console.log(`🔧 Applying heading structure fixes...`)
+
         try {
           await this.addHeadingStructureToPDF(pdfDoc, headingFixes, issues)
         } catch (headingError) {
@@ -519,18 +514,16 @@ export class DocumentRepairService {
       // Only metadata (title, language) and structure tags have been modified
       const repairedBytes = await pdfDoc.save()
       const repairedBuffer = Buffer.from(repairedBytes)
-      
-      console.log(`✅ PDF repair complete - original structure preserved, fixes applied in-place`)
-      
+
       // Verify the repair was applied (pdf-lib doesn't have getLanguage, so we just verify title)
       try {
         const verificationDoc = await PDFDocument.load(repairedBuffer)
         const title = verificationDoc.getTitle()
         const pageCount = verificationDoc.getPageCount()
-        console.log(`✅ PDF repair verification - Title: "${title || '(none)'}", Pages: ${pageCount} (preserved from original)`)
+        '}", Pages: ${pageCount} (preserved from original)`)
         // Note: pdf-lib doesn't support reading language back, but we've set it above
       } catch (verifyError) {
-        console.log(`⚠️ Could not verify PDF repair (non-critical): ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}`)
+        : ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}`)
       }
       
       return repairedBuffer
@@ -559,9 +552,7 @@ export class DocumentRepairService {
 
       // Use docx library to modify Word document
       const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = await import('docx')
-      
-      console.log(`🔧 Word repair: Processing ${fixes.length} fixes...`)
-      
+
       // Extract text and structure from original document
       const mammoth = require('mammoth')
       const textResult = await mammoth.extractRawText({ buffer })
@@ -578,11 +569,11 @@ export class DocumentRepairService {
       // Use AI to identify headings if needed
       let identifiedHeadings: Array<{ text: string; level: number }> = []
       if (headingFixes.length > 0 && text.length > 0) {
-        console.log(`🔍 Identifying headings in Word document...`)
+
         const headingAnalysis = await this.claudeAPI.identifyHeadings(text)
         if (headingAnalysis && headingAnalysis.headings) {
           identifiedHeadings = headingAnalysis.headings
-          console.log(`✅ Identified ${identifiedHeadings.length} headings`)
+
         }
       }
 
@@ -603,7 +594,7 @@ export class DocumentRepairService {
             alignment: AlignmentType.CENTER,
           })
         )
-        console.log(`✅ Added Word document title: ${title}`)
+
       }
 
       // Process text and add headings where identified
@@ -627,7 +618,7 @@ export class DocumentRepairService {
               heading: headingLevel,
             })
           )
-          console.log(`✅ Added heading (Level ${matchingHeading.level}): ${trimmedLine.substring(0, 50)}`)
+          : ${trimmedLine.substring(0, 50)}`)
         } else {
           // Check if this line contains foreign language content
           let lineLanguage: string | null = null
@@ -648,7 +639,7 @@ export class DocumentRepairService {
                                 langAnalysis.language === 'ja' ? 'ja-JP' :
                                 langAnalysis.language === 'ko' ? 'ko-KR' :
                                 `${langAnalysis.language}-${langAnalysis.language.toUpperCase()}`
-                  console.log(`✅ Identified language "${lineLanguage}" for: "${trimmedLine.substring(0, 50)}..."`)
+                  }..."`)
                   break
                 }
               }
@@ -668,7 +659,7 @@ export class DocumentRepairService {
             })
           )
           if (lineLanguage) {
-            console.log(`✅ Marked paragraph for language "${lineLanguage}": "${trimmedLine.substring(0, 50)}..."`)
+            }..."`)
           }
         }
       }
@@ -700,7 +691,7 @@ export class DocumentRepairService {
 
       // Generate repaired document
       const repairedBuffer = await Packer.toBuffer(doc)
-      console.log(`✅ Word document repaired with ${paragraphs.length} paragraphs`)
+
       return repairedBuffer
     } catch (error) {
       console.error('❌ Word repair error:', error)
@@ -735,8 +726,7 @@ export class DocumentRepairService {
     try {
       // PowerPoint repair requires ZIP/XML manipulation
       // For now, return original with metadata about what would be fixed
-      console.log(`📝 PowerPoint repair: Complex structure manipulation required`)
-      
+
       // Return original document for now - would need deeper XML manipulation
       return buffer
     } catch (error) {
@@ -773,14 +763,14 @@ export class DocumentRepairService {
           if (!document.title) {
             const titleMatch = fix.aiFix.match(/title[:\s]+["']?([^"']+)["']?/i)
             document.title = titleMatch ? titleMatch[1].trim() : 'Document'
-            console.log(`✅ Added HTML title: ${document.title}`)
+
           }
         }
         if (fix.issue.toLowerCase().includes('language')) {
           if (!document.documentElement.lang) {
             const langMatch = fix.aiFix.match(/language[:\s]+([a-z]{2})/i)
             document.documentElement.lang = langMatch ? langMatch[1].toLowerCase() : 'en'
-            console.log(`✅ Added HTML language: ${document.documentElement.lang}`)
+
           }
         }
       }
@@ -796,7 +786,7 @@ export class DocumentRepairService {
               const altMatch = fix.aiFix.match(/alt[:\s]+["']?([^"']+)["']?/i) || 
                               fix.aiFix.match(/add.*alt[:\s]+(.+?)(?:\.|$)/i)
               img.alt = altMatch ? altMatch[1].trim() : 'Image'
-              console.log(`✅ Added alt text to image: ${img.alt}`)
+
             }
           }
         })
@@ -812,7 +802,7 @@ export class DocumentRepairService {
           if (!video.hasAttribute('controls')) {
             video.setAttribute('controls', '')
           }
-          console.log(`✅ Removed autoplay from video`)
+
         })
         
         audios.forEach((audio) => {
@@ -820,7 +810,7 @@ export class DocumentRepairService {
           if (!audio.hasAttribute('controls')) {
             audio.setAttribute('controls', '')
           }
-          console.log(`✅ Removed autoplay from audio`)
+
         })
       }
 
@@ -857,7 +847,7 @@ export class DocumentRepairService {
                   }
                   
                   element.setAttribute('style', newStyle)
-                  console.log(`✅ Fixed contrast: ${foreground}/${background} (${contrast.ratio.toFixed(2)}:1) -> ${newFg}/${newBg} (${suggestions[0].ratio.toFixed(2)}:1)`)
+                  }:1) -> ${newFg}/${newBg} (${suggestions[0].ratio.toFixed(2)}:1)`)
                 }
               }
             }
@@ -880,7 +870,7 @@ export class DocumentRepairService {
                   rule.style.animation = 'none'
                   rule.style.animationName = 'none'
                 }
-                console.log(`✅ Removed CSS animation`)
+
               }
             })
           } catch (e) {
@@ -894,7 +884,7 @@ export class DocumentRepairService {
           const src = img.getAttribute('src')
           if (src && src.toLowerCase().endsWith('.gif')) {
             // Note: Would need to extract first frame - for now, we document it
-            console.log(`📝 Note: Animated GIF detected at ${src} - would convert to static first frame`)
+
           }
         })
       }
@@ -919,7 +909,7 @@ export class DocumentRepairService {
           }
         `
         styleElement.textContent = (styleElement.textContent || '') + focusCSS
-        console.log(`✅ Added focus indicators`)
+
       }
 
       // Generate video captions if needed
@@ -944,7 +934,7 @@ export class DocumentRepairService {
                 track.setAttribute('label', 'English')
                 track.setAttribute('default', '')
                 video.appendChild(track)
-                console.log(`✅ Generated and added captions for video: ${src}`)
+
               }
             } catch (captionError) {
               console.warn(`⚠️ Could not generate captions for video ${src}:`, captionError)
@@ -982,7 +972,7 @@ export class DocumentRepairService {
 
       if (isUrl) {
         // For remote videos, we'd need to download first
-        console.log(`📥 Note: Remote video detected - would download and process: ${videoSrc}`)
+
         // In production, you'd download the video first
         return null
       }
@@ -1017,7 +1007,7 @@ export class DocumentRepairService {
                   try {
                     // Clean up temp audio file
                     await fs.unlink(tempAudioPath).catch(() => {})
-                    console.log(`✅ Generated captions: ${captionPath}`)
+
                     resolve(captionPath)
                   } catch (cleanupError) {
                     resolve(captionPath) // Return even if cleanup fails
@@ -1065,7 +1055,7 @@ export class DocumentRepairService {
 
 `
       await fs.writeFile(captionPath, vttContent)
-      console.log(`📝 Generated placeholder captions: ${captionPath}`)
+
       return captionPath
     } catch (error) {
       console.warn(`⚠️ Fallback caption generation failed:`, error)
@@ -1134,17 +1124,16 @@ export class DocumentRepairService {
 
       // If we have text, use AI to identify headings
       if (fullText.length > 0) {
-        console.log(`🔍 Analyzing document text to identify headings (${fullText.length} chars)...`)
+        ...`)
         const headingAnalysis = await this.claudeAPI.identifyHeadings(fullText)
         
         if (headingAnalysis && headingAnalysis.headings && headingAnalysis.headings.length > 0) {
-          console.log(`📋 AI identified ${headingAnalysis.headings.length} potential headings`)
-          
+
           // Log what headings would be added
           // Note: pdf-lib has limited structure tree support, but we document the structure
           for (const heading of headingAnalysis.headings) {
             const level = Math.min(Math.max(heading.level || 1, 1), 6)
-            console.log(`✅ Identified heading: Level ${level} - "${heading.text.substring(0, 60)}${heading.text.length > 60 ? '...' : ''}"`)
+            }${heading.text.length > 60 ? '...' : ''}"`)
           }
           
           // Add bookmarks/outline for headings (pdf-lib supports this)
@@ -1152,16 +1141,16 @@ export class DocumentRepairService {
             // pdf-lib doesn't have a direct outline API, but we can document the structure
             // The headings are identified and logged - this helps with accessibility
             // For full structure tree support, we'd need advanced PDF libraries
-            console.log(`✅ Heading structure identified and documented (${headingAnalysis.headings.length} headings)`)
-            console.log(`📝 Note: Full PDF structure tree modification requires advanced PDF libraries, but headings are identified for accessibility tools`)
+            `)
+
           } catch (outlineError) {
             console.warn(`⚠️ Could not add outline:`, outlineError)
           }
         } else {
-          console.log(`⚠️ No headings identified by AI`)
+
         }
       } else {
-        console.log(`⚠️ No document text available for heading analysis`)
+
       }
     } catch (error) {
       console.error('❌ Error adding heading structure:', error)
@@ -1187,8 +1176,6 @@ export class DocumentRepairService {
 
       if (foreignLangIssues.length === 0) return
 
-      console.log(`🌐 Processing ${foreignLangIssues.length} foreign language content issues...`)
-
       for (const issue of foreignLangIssues) {
         try {
           // Extract the foreign language text from issue context
@@ -1199,12 +1186,12 @@ export class DocumentRepairService {
           
           if (langAnalysis && langAnalysis.language) {
             const langCode = langAnalysis.language.toLowerCase()
-            console.log(`✅ Identified foreign language: ${langCode} in "${context.substring(0, 50)}..."`)
+            }..."`)
             
             // Note: pdf-lib doesn't support adding language attributes to specific text spans
             // This would require direct PDF structure tree manipulation
             // For now, we document what would be done
-            console.log(`📝 Note: Language tag "${langCode}" would be added to text span (requires structure tree manipulation)`)
+            `)
           }
         } catch (langError) {
           console.error(`⚠️ Error processing language tag:`, langError)
@@ -1228,8 +1215,7 @@ export class DocumentRepairService {
     fileName: string
   ): Promise<Buffer> {
     try {
-      console.log(`🏗️ Copying PDF exactly and applying fixes in-place...`)
-      
+
       // STEP 1: Copy the document exactly - this preserves ALL original content
       const { PDFDocument } = await import('pdf-lib')
       const pdfDoc = await PDFDocument.load(buffer) // This copies everything exactly
@@ -1237,15 +1223,12 @@ export class DocumentRepairService {
       // Get original pages - they're already copied
       const originalPages = pdfDoc.getPages()
       const originalPageSize = originalPages[0]?.getSize() || { width: 612, height: 792 }
-      console.log(`✅ Copied ${originalPages.length} pages exactly from original PDF`)
-      
+
       // Extract content for analysis (but don't recreate - we'll modify in-place)
       const { PDFParser } = await import('./pdf-parser')
       const parser = new PDFParser()
       const parsed = await parser.parsePDF(buffer)
-      
-      console.log(`📄 Document has: ${parsed.pages} pages, ${parsed.text.length} chars, ${parsed.images.length} images, ${parsed.structure.tables.length} tables, ${parsed.formFields.length} form fields`)
-      
+
       // Set metadata with fixes
       const titleFix = fixes.find(f => f.issue.toLowerCase().includes('title'))
       const langFix = fixes.find(f => f.issue.toLowerCase().includes('language'))
@@ -1254,7 +1237,7 @@ export class DocumentRepairService {
         const titleMatch = titleFix.aiFix.match(/title[:\s]+["']?([^"']+)["']?/i)
         const title = titleMatch ? titleMatch[1].trim() : fileName.replace(/\.[^/.]+$/, '')
         pdfDoc.setTitle(title)
-        console.log(`✅ Set PDF title: ${title}`)
+
       } else if (parsed.metadata.title) {
         pdfDoc.setTitle(parsed.metadata.title)
       }
@@ -1277,7 +1260,7 @@ export class DocumentRepairService {
         const validLangCodes = ['en', 'fr', 'es', 'de', 'it', 'pt', 'nl', 'pl', 'ru', 'ja', 'zh', 'ko', 'ar', 'he', 'hi', 'sv', 'da', 'fi', 'no', 'cs', 'sk', 'hu', 'ro', 'bg', 'hr', 'sr', 'sl', 'et', 'lv', 'lt', 'mt', 'ga', 'cy', 'eu', 'ca', 'gl', 'is', 'fo', 'mk', 'sq', 'tr', 'az', 'ka', 'hy', 'uk', 'kk', 'ky', 'uz', 'mn', 'vi', 'th', 'id', 'ms', 'tl', 'sw', 'zu', 'af', 'xh', 'yo', 'ig', 'ha', 'am', 'ti', 'om', 'so', 'rw', 'mg', 'ny', 'sn', 'st', 'tn', 'ts', 've']
         const validLang = /^[a-z]{2}$/.test(lang) && (validLangCodes.includes(lang) || !invalidCodes.includes(lang)) ? lang : 'en'
         pdfDoc.setLanguage(validLang)
-        console.log(`✅ Set PDF language: ${validLang}`)
+
       } else if (parsed.metadata.language) {
         pdfDoc.setLanguage(parsed.metadata.language)
       }
@@ -1294,7 +1277,7 @@ export class DocumentRepairService {
         const headingAnalysis = await this.claudeAPI.identifyHeadings(parsed.text)
         if (headingAnalysis && headingAnalysis.headings) {
           identifiedHeadings = headingAnalysis.headings
-          console.log(`✅ Identified ${identifiedHeadings.length} headings for rebuild`)
+
         }
       }
       
@@ -1365,7 +1348,7 @@ export class DocumentRepairService {
                       )
                       if (text && text.trim().length > 0) {
                         imageTextReplacements.set(`Page ${img.page}`, text.trim())
-                        console.log(`✅ Extracted text from image using OCR: "${text.trim().substring(0, 50)}..."`)
+                        .substring(0, 50)}..."`)
                         // Don't embed the image, we'll replace it with text
                         continue
                       }
@@ -1394,7 +1377,7 @@ export class DocumentRepairService {
                         height: img.height || 100,
                         page: img.page
                       })
-                      console.log(`✅ Prepared image for page ${img.page} with alt text: "${altText.substring(0, 30)}..."`)
+                      }..."`)
                     }
                   } catch (embedError) {
                     console.warn(`⚠️ Could not embed image from page ${img.page}:`, embedError)
@@ -1433,23 +1416,23 @@ export class DocumentRepairService {
           const catalog = await pdfjsDocument.catalog
           if (catalog && catalog.structTreeRoot) {
             structureTree = catalog.structTreeRoot
-            console.log(`✅ Found existing structure tree in PDF`)
+
           } else {
-            console.log(`📝 No existing structure tree - will create one`)
+
           }
         } catch (structError) {
-          console.log(`📝 Could not access structure tree: ${structError instanceof Error ? structError.message : 'Unknown'}`)
+
         }
         
         // Apply heading structure fixes using pdfjs-dist structure tree
         if (headingFixes.length > 0 && identifiedHeadings.length > 0) {
-          console.log(`🔧 Applying heading structure fixes (${identifiedHeadings.length} headings)...`)
+          ...`)
           try {
             // pdf-lib doesn't support structure tree modification directly
             // But we can document the structure for accessibility tools
             // The headings are identified and will be in the repair report
             await this.addHeadingStructureToPDF(pdfDoc, headingFixes, issues)
-            console.log(`✅ Heading structure identified and documented`)
+
           } catch (headingError) {
             console.warn(`⚠️ Could not apply heading structure:`, headingError)
           }
@@ -1458,10 +1441,10 @@ export class DocumentRepairService {
         // Apply foreign language fixes
         const foreignLangFixes = fixes.filter(f => f.issue.toLowerCase().includes('foreign language'))
         if (foreignLangFixes.length > 0) {
-          console.log(`🌐 Applying foreign language fixes (${foreignLangFixes.length} fixes)...`)
+          ...`)
           try {
             await this.addLanguageTagsToPDF(pdfDoc, foreignLangFixes, issues)
-            console.log(`✅ Foreign language content identified and documented`)
+
           } catch (langError) {
             console.warn(`⚠️ Could not apply language tags:`, langError)
           }
@@ -1469,9 +1452,9 @@ export class DocumentRepairService {
         
         // For alt text - we can't modify existing images, but we document them
         if (altTextFixes.length > 0) {
-          console.log(`🖼️ Alt text fixes identified (${altTextFixes.length} fixes)`)
-          console.log(`📝 Note: Cannot add alt text to existing images with pdf-lib`)
-          console.log(`💡 Alt text is documented in repair report for manual application`)
+          `)
+
+
         }
         
         // All structure fixes are now handled by PyMuPDF below
@@ -1484,21 +1467,17 @@ export class DocumentRepairService {
       // STEP 3: Use PyMuPDF to apply structure fixes (if available)
       // PyMuPDF can actually modify the PDF structure tree
       let finalBuffer = buffer
-      
-      console.log(`🔍 Checking PyMuPDF availability...`)
-      console.log(`   - PyMuPDF wrapper initialized: ${this.pymupdfWrapper !== null}`)
-      
+
+
       if (this.pymupdfWrapper) {
         try {
           // Check if PyMuPDF is available
-          console.log(`🔍 Checking Python and PyMuPDF dependencies...`)
+
           const deps = await this.pymupdfWrapper.checkDependencies()
-          console.log(`   - Python available: ${deps.python}`)
-          console.log(`   - PyMuPDF available: ${deps.pymupdf}`)
-          
+
+
           if (deps.python && deps.pymupdf) {
-            console.log(`🐍 Using PyMuPDF to apply structure fixes...`)
-            
+
             // Save pdf-lib version (with metadata fixes) to temp file
             const tempDir = tmpdir()
             const tempInput = path.join(tempDir, `pdf-input-${Date.now()}.pdf`)
@@ -1509,9 +1488,7 @@ export class DocumentRepairService {
             
             // Convert fixes to PyMuPDF format
             const structureFixes: PDFStructureFix[] = []
-            
-            console.log(`📋 Preparing fixes for PyMuPDF: ${fixes.length} total fixes available`)
-            
+
             // Add heading fixes
             if (headingFixes.length > 0 && identifiedHeadings.length > 0) {
               for (const heading of identifiedHeadings) {
@@ -1708,24 +1685,23 @@ export class DocumentRepairService {
             }
             
             // Apply structure fixes with PyMuPDF
-            console.log(`📊 Prepared ${structureFixes.length} structure fixes for PyMuPDF:`)
-            console.log(`   - Headings: ${structureFixes.filter(f => f.type === 'heading').length}`)
-            console.log(`   - Alt Text: ${structureFixes.filter(f => f.type === 'altText').length}`)
-            console.log(`   - Language: ${structureFixes.filter(f => f.type === 'language').length}`)
-            console.log(`   - Tables: ${structureFixes.filter(f => f.type === 'table').length}`)
-            console.log(`   - Lists: ${structureFixes.filter(f => f.type === 'list').length}`)
-            console.log(`   - Other: ${structureFixes.filter(f => !['heading', 'altText', 'language', 'table', 'list'].includes(f.type)).length}`)
+
+            .length}`)
+            .length}`)
+            .length}`)
+            .length}`)
+            .length}`)
+            ).length}`)
             
             // Log what issues we're trying to fix
-            console.log(`📝 Issues being fixed: ${fixes.map(f => f.issue).join(', ')}`)
-            console.log(`📝 Original issues descriptions: ${issues.map(i => i.description).join(', ')}`)
-            console.log(`📝 Fix types: ${fixes.map(f => `${f.issue} -> ${f.fixType}`).join(', ')}`)
-            console.log(`📝 Structure fixes details: ${JSON.stringify(structureFixes.slice(0, 3), null, 2)}`)
+            .join(', ')}`)
+            .join(', ')}`)
+            .join(', ')}`)
+            , null, 2)}`)
             
             if (structureFixes.length > 0) {
-              console.log(`✅ Will use PyMuPDF to apply ${structureFixes.length} structure fixes`)
-              console.log(`🔧 Applying ${structureFixes.length} structure fixes with PyMuPDF...`)
-              
+
+
               // Extract language more carefully - avoid matching "Th" from "The", "gn" from "language", etc.
               let extractedLang: string | undefined = undefined
               if (langFix) {
@@ -1778,9 +1754,8 @@ export class DocumentRepairService {
                 title: titleFix ? (titleFix.aiFix.match(/title[:\s]+["']?([^"']+)["']?/i)?.[1] || fileName.replace(/\.[^/.]+$/, '')) : undefined,
                 language: extractedLang
               }
-              
-              console.log(`📤 Calling PyMuPDF with ${structureFixes.length} fixes...`)
-              console.log(`📋 Fix types: ${[...new Set(structureFixes.map(f => f.type))].join(', ')}`)
+
+              )].join(', ')}`)
               
               finalBuffer = await this.pymupdfWrapper.repairPDF({
                 inputPath: tempInput,
@@ -1788,24 +1763,21 @@ export class DocumentRepairService {
                 fixes: structureFixes,
                 metadata: Object.keys(metadata).length > 0 ? metadata : undefined
               })
-              
-              console.log(`✅ PyMuPDF returned buffer: ${finalBuffer.length} bytes`)
-              
+
               // Cleanup temp files
               await fs.unlink(tempInput).catch(() => {})
               await fs.unlink(tempOutput).catch(() => {})
-              
-              console.log(`✅ PyMuPDF structure fixes applied successfully`)
+
             } else {
               // No structure fixes, just use pdf-lib version
-              console.log(`⚠️ No structure fixes prepared - only metadata fixes will be applied`)
-              console.log(`📝 This means the issues might not match auto-fix patterns or fixes weren't prepared correctly`)
-              console.log(`📝 Fixes available: ${fixes.length}, Structure fixes prepared: ${structureFixes.length}`)
+
+
+
               finalBuffer = Buffer.from(repairedBytes)
             }
           } else {
-            console.log(`⚠️ PyMuPDF not available (Python: ${deps.python}, PyMuPDF: ${deps.pymupdf})`)
-            console.log(`📝 Install with: pip install pymupdf`)
+            `)
+
             // Fall back to pdf-lib version
             const repairedBytes = await pdfDoc.save()
             finalBuffer = Buffer.from(repairedBytes)
@@ -1820,15 +1792,14 @@ export class DocumentRepairService {
         // PyMuPDF wrapper not available, use pdf-lib version
         const repairedBytes = await pdfDoc.save()
         finalBuffer = Buffer.from(repairedBytes)
-        console.log(`📝 PyMuPDF not available - only metadata fixes applied`)
+
       }
-      
-      console.log(`✅ PDF repair complete`)
+
       return finalBuffer
     } catch (error) {
       console.error('❌ PDF rebuild error:', error)
       // Fallback to regular repair
-      console.log(`⚠️ Falling back to regular repair...`)
+
       return await this.repairPDF(buffer, fixes, issues, fileName)
     }
   }
@@ -1961,8 +1932,7 @@ export class DocumentRepairService {
     fileName: string
   ): Promise<Buffer> {
     try {
-      console.log(`🏗️ Rebuilding Word document with comprehensive fixes...`)
-      
+
       // Extract content using mammoth (preserves structure)
       const mammoth = require('mammoth')
       const textResult = await mammoth.extractRawText({ buffer })
@@ -1979,9 +1949,7 @@ export class DocumentRepairService {
       
       const text = textResult.value
       const html = htmlResult.value
-      
-      console.log(`📄 Extracted: ${text.length} characters, HTML structure preserved`)
-      
+
       // Use docx library to rebuild with proper structure
       const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, ExternalHyperlink } = await import('docx')
       
@@ -1997,11 +1965,11 @@ export class DocumentRepairService {
       // Use AI to identify headings if needed
       let identifiedHeadings: Array<{ text: string; level: number }> = []
       if (headingFixes.length > 0 && text.length > 0) {
-        console.log(`🔍 Identifying headings in Word document...`)
+
         const headingAnalysis = await this.claudeAPI.identifyHeadings(text)
         if (headingAnalysis && headingAnalysis.headings) {
           identifiedHeadings = headingAnalysis.headings
-          console.log(`✅ Identified ${identifiedHeadings.length} headings`)
+
         }
       }
       
@@ -2027,13 +1995,13 @@ export class DocumentRepairService {
             alignment: AlignmentType.CENTER,
           })
         )
-        console.log(`✅ Added Word document title: ${title}`)
+
       }
       
       // Identify foreign language content if needed
       const foreignLanguageMap = new Map<string, string>() // Map of text -> language code
       if (languageFixes.length > 0) {
-        console.log(`🔍 Identifying foreign language content...`)
+
         for (const langFix of languageFixes) {
           const issue = issues.find(i => i.id === langFix.issueId)
           if (issue && issue.elementLocation) {
@@ -2050,7 +2018,7 @@ export class DocumentRepairService {
                               langAnalysis.language === 'ko' ? 'ko-KR' :
                               `${langAnalysis.language}-${langAnalysis.language.toUpperCase()}`
               foreignLanguageMap.set(issue.elementLocation, langCode)
-              console.log(`✅ Identified language "${langCode}" for: "${issue.elementLocation.substring(0, 50)}..."`)
+              }..."`)
             }
           }
         }
@@ -2085,7 +2053,7 @@ export class DocumentRepairService {
           const table = this.rebuildTableInWord(tableRows)
           if (table) {
             paragraphs.push(table)
-            console.log(`✅ Rebuilt table with ${tableRows.length} rows and proper headers`)
+
           }
           tableRows = []
           inTable = false
@@ -2108,7 +2076,7 @@ export class DocumentRepairService {
           // Rebuild list with proper structure
           const listParagraphs = this.rebuildListInWord(listItems, listType)
           paragraphs.push(...listParagraphs)
-          console.log(`✅ Rebuilt ${listType} list with ${listItems.length} items`)
+
           listItems = []
           inList = false
         }
@@ -2127,7 +2095,7 @@ export class DocumentRepairService {
               heading: headingLevel,
             })
           )
-          console.log(`✅ Added heading (Level ${matchingHeading.level}): ${trimmedLine.substring(0, 50)}`)
+          : ${trimmedLine.substring(0, 50)}`)
         } else {
           // Check if this line contains foreign language content
           let lineLanguage: string | null = null
@@ -2153,7 +2121,7 @@ export class DocumentRepairService {
                 ]
               })
             )
-            console.log(`✅ Added link: ${linkText} -> ${url}${lineLanguage ? ` (language: ${lineLanguage})` : ''}`)
+            ` : ''}`)
           } else {
             // Add as regular paragraph
             // Note: docx library doesn't support span-level language on TextRun
@@ -2166,8 +2134,8 @@ export class DocumentRepairService {
               })
             )
             if (lineLanguage) {
-              console.log(`✅ Identified foreign language "${lineLanguage}" in: "${trimmedLine.substring(0, 50)}..."`)
-              console.log(`📝 Note: Span-level language tagging requires XML manipulation - document language set to ${lineLanguage}`)
+              }..."`)
+
             }
           }
         }
@@ -2206,13 +2174,13 @@ export class DocumentRepairService {
       
       // Generate repaired document
       const repairedBuffer = await Packer.toBuffer(doc)
-      console.log(`✅ Word document rebuilt with ${paragraphs.length} elements, layout preserved`)
+
       return repairedBuffer
       
     } catch (error) {
       console.error('❌ Word rebuild error:', error)
       // Fallback to regular repair
-      console.log(`⚠️ Falling back to regular repair...`)
+
       return await this.repairWord(buffer, fixes, issues, fileName)
     }
   }

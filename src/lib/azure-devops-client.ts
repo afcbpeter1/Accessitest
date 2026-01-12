@@ -206,13 +206,12 @@ export class AzureDevOpsClient {
       }>('/_apis/teams?api-version=7.0&$top=1000')
       
       let teams = response.value || []
-      console.log(`Total teams from organization: ${teams.length}`)
-      
+
       // Filter teams by project
       if (projectId) {
         const beforeFilter = teams.length
         teams = teams.filter(team => team.projectId === projectId)
-        console.log(`Filtered by projectId ${projectId}: ${beforeFilter} -> ${teams.length}`)
+
       } else {
         // Filter by project name if we don't have project ID
         const beforeFilter = teams.length
@@ -222,14 +221,14 @@ export class AzureDevOpsClient {
                          (team.projectName && team.projectName.toLowerCase() === projectNameOrId.toLowerCase())
           return matches
         })
-        console.log(`Filtered by project name "${projectNameOrId}": ${beforeFilter} -> ${teams.length}`)
+
       }
       
       // Log team details for debugging
       if (teams.length > 0) {
-        console.log(`Teams found:`, teams.map(t => ({ id: t.id, name: t.name, projectId: t.projectId, projectName: t.projectName })))
+        ))
       } else {
-        console.log(`No teams found. All teams from org:`, response.value?.map(t => ({ id: t.id, name: t.name, projectId: t.projectId, projectName: t.projectName })))
+        ))
       }
       
       return teams.map(t => ({ id: t.id, name: t.name }))
@@ -238,12 +237,11 @@ export class AzureDevOpsClient {
       // Try project-specific endpoint as fallback
       try {
         const projectIdentifier = projectId || projectNameOrId
-        console.log(`Trying project-specific endpoint: /${projectIdentifier}/_apis/teams`)
+
         const response = await this.request<{
           value: Array<{ id: string; name: string }>
         }>(`/${encodeURIComponent(projectIdentifier)}/_apis/teams?api-version=7.0`)
-        
-        console.log(`Found ${response.value?.length || 0} teams using project-specific endpoint`)
+
         return response.value || []
       } catch (fallbackError) {
         console.error(`Fallback teams endpoint also failed:`, fallbackError)
@@ -284,11 +282,11 @@ export class AzureDevOpsClient {
       
       // Extract work item types ONLY from the team's actual backlog level
       // The backlogLevels array contains different levels - we want ONLY the team's backlog (not Epic/Feature)
-      console.log(`Backlog config for team ${teamId}:`, JSON.stringify(backlogConfig, null, 2))
+      )
       
       if (backlogConfig.backlogLevels && backlogConfig.backlogLevels.length > 0) {
         // Log all backlog levels for debugging
-        console.log(`Found ${backlogConfig.backlogLevels.length} backlog levels:`, backlogConfig.backlogLevels.map(l => `${l.name} (rank: ${l.rank}, WITs: ${l.workItemTypes?.length || 0})`).join(', '))
+        `).join(', '))
         
         // The team's actual backlog is typically the one with the LOWEST rank (rank 0 or 1)
         // Portfolio backlogs (Epic, Feature) have higher ranks
@@ -306,24 +304,24 @@ export class AzureDevOpsClient {
               levelNameLower.includes('theme') ||
               levelNameLower.includes('initiative') ||
               levelNameLower.includes('portfolio')) {
-            console.log(`Skipping portfolio level: ${level.name}`)
+
             continue
           }
           // This is the team's backlog level (first non-portfolio level)
           teamBacklogLevel = level
-          console.log(`Selected team backlog level: ${level.name} (rank: ${level.rank})`)
+          `)
           break
         }
         
         // If we still didn't find one, use the first level (lowest rank = team backlog)
         if (!teamBacklogLevel && sortedLevels.length > 0) {
           teamBacklogLevel = sortedLevels[0]
-          console.log(`Using first level as team backlog: ${teamBacklogLevel.name} (rank: ${teamBacklogLevel.rank})`)
+          `)
         }
         
         // Get work item types ONLY from this specific level
         if (teamBacklogLevel && teamBacklogLevel.workItemTypes) {
-          console.log(`Getting work item types from level "${teamBacklogLevel.name}":`, teamBacklogLevel.workItemTypes.map(w => w.name).join(', '))
+          .join(', '))
           for (const wit of teamBacklogLevel.workItemTypes) {
             workItemTypesMap.set(wit.referenceName, {
               name: wit.name,
@@ -331,7 +329,7 @@ export class AzureDevOpsClient {
             })
           }
         } else {
-          console.log(`No work item types found in selected backlog level`)
+
         }
       }
       
@@ -339,10 +337,10 @@ export class AzureDevOpsClient {
       const workItemTypes = Array.from(workItemTypesMap.values())
       
       if (workItemTypes.length > 0) {
-        console.log(`✅ Found ${workItemTypes.length} work item types for team ${teamId} backlog:`, workItemTypes.map(w => w.name).join(', '))
+        .join(', '))
         return workItemTypes
       } else {
-        console.log(`❌ No work item types found for team ${teamId} - available backlog levels:`, backlogConfig.backlogLevels?.map(l => `${l.name} (rank: ${l.rank})`).join(', '))
+        `).join(', '))
       }
     } catch (error) {
       console.error(`❌ Error fetching work item types for team ${teamId} in project ${projectNameOrId}:`, error)
@@ -351,7 +349,7 @@ export class AzureDevOpsClient {
     }
     
     // Return empty array instead of defaults - we want to show only what's actually configured
-    console.log(`⚠️ Returning empty work item types - team backlog configuration not found`)
+
     return []
   }
 
@@ -393,7 +391,7 @@ export class AzureDevOpsClient {
         description: wit.description
       }))
       
-      console.log(`✅ Found ${workItemTypes.length} work item types for project ${projectIdentifier}:`, workItemTypes.map(w => w.name).join(', '))
+      .join(', '))
       return workItemTypes
     } catch (error) {
       console.error(`❌ Error fetching work item types for project ${projectIdentifier}:`, error)
@@ -412,7 +410,7 @@ export class AzureDevOpsClient {
   ): Promise<CreateWorkItemResponse> {
     const url = `/${encodeURIComponent(project)}/_apis/wit/workitems/$${workItemType}?api-version=7.0`
     
-    console.log('🔵 Creating Azure DevOps work item with data:', JSON.stringify(patches, null, 2))
+    )
     
     try {
       const result = await this.request<CreateWorkItemResponse>(url, {
@@ -422,7 +420,7 @@ export class AzureDevOpsClient {
         },
         body: JSON.stringify(patches)
       })
-      console.log('✅ Azure DevOps work item created successfully:', result)
+
       return result
     } catch (error) {
       console.error('❌ Error creating Azure DevOps work item:', error)

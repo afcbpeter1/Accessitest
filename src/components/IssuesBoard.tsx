@@ -68,7 +68,6 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
   const [syncingToJira, setSyncingToJira] = useState<string | null>(null)
 
   useEffect(() => {
-    console.log('IssuesBoard component mounted, fetching issues...')
     fetchIssues()
     fetchSprints()
     checkJiraIntegration()
@@ -173,19 +172,11 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
         limit: pagination.limit.toString(),
         ...filters
       })
-      
-      console.log('Fetching issues from:', `/api/issues-board?${queryParams}`)
       const response = await fetch(`/api/issues-board?${queryParams}`)
-      console.log('Response status:', response.status)
       const data = await response.json()
-      console.log('Response data:', data)
-      
       if (data.success) {
-        console.log('Setting issues:', data.data.issues)
         setIssues(data.data.issues || [])
         setPagination(data.data.pagination || pagination)
-        console.log('Issues set:', data.data.issues?.length || 0)
-        console.log('New issues data:', data.data.issues)
       } else {
         console.error('API returned error:', data.error)
       }
@@ -210,7 +201,6 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
   }
 
   const handleDragStart = (e: React.DragEvent, issueId: string) => {
-    console.log('🚀 DRAG START:', issueId)
     setDraggedItem(issueId)
     setIsReordering(true)
     e.dataTransfer.effectAllowed = 'move'
@@ -224,7 +214,6 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
 
   const handleDragEnter = (e: React.DragEvent, issueId: string) => {
     e.preventDefault()
-    console.log('🎯 DRAG ENTER:', issueId, 'draggedItem:', draggedItem)
     if (issueId !== draggedItem) {
       setDragOverItem(issueId)
     }
@@ -237,9 +226,6 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
 
   const handleDrop = async (e: React.DragEvent, targetIssueId: string) => {
     e.preventDefault()
-    console.log('🎯 DROP EVENT FIRED:', draggedItem, 'onto:', targetIssueId)
-    console.log('🎯 Current dragOverItem:', dragOverItem)
-    
     if (!draggedItem || draggedItem === targetIssueId) {
       setDraggedItem(null)
       setDragOverItem(null)
@@ -589,26 +575,21 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
                 aria-label={`Issue ${index + 1}: ${issue.rule_name}`}
                 draggable={true}
                 onDragStart={(e) => {
-                  console.log('🚀 DRAG START on issue:', issue.id)
                   handleDragStart(e, issue.id)
                 }}
                 onDragOver={(e) => {
                   handleDragOver(e)
                 }}
                 onDragEnter={(e) => {
-                  console.log('🎯 DRAG ENTER on issue:', issue.id)
                   handleDragEnter(e, issue.id)
                 }}
                 onDragLeave={(e) => {
-                  console.log('👋 DRAG LEAVE on issue:', issue.id)
                   handleDragLeave(e)
                 }}
                 onDrop={(e) => {
-                  console.log('🎯 DROP on issue:', issue.id)
                   handleDrop(e, issue.id)
                 }}
                 onDragEnd={() => {
-                  console.log('🏁 DRAG END')
                   // Reset drag state with a small delay to ensure it happens
                   setTimeout(() => {
                     setDraggedItem(null)

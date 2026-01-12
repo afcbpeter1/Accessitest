@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     if (existingMapping) {
       // Verify the ticket still exists in Jira before returning it
-      console.log(`Found existing mapping for issue ${issueId} -> ticket ${existingMapping.jira_ticket_key}, verifying it exists in Jira...`)
+
       try {
         const tempClient = new JiraClient({
           jiraUrl: integration.jira_url,
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         const existingTicket = await tempClient.getIssue(existingMapping.jira_ticket_key)
         
         // Ticket exists, return it (don't create duplicate)
-        console.log(`✅ Ticket ${existingMapping.jira_ticket_key} exists in Jira, returning existing mapping`)
+
         return NextResponse.json({
           success: true,
           ticket: {
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         // Ticket doesn't exist in Jira anymore (deleted or not found)
         // Delete the stale mapping and continue to create a new one
         const errorMsg = verifyError instanceof Error ? verifyError.message : 'Unknown error'
-        console.log(`❌ Ticket ${existingMapping.jira_ticket_key} not found in Jira (${errorMsg}), deleting stale mapping and creating new ticket`)
+        , deleting stale mapping and creating new ticket`)
         
         try {
           await query(
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
             `UPDATE issues SET jira_synced = false, jira_ticket_key = NULL WHERE id = $1`,
             [issueId]
           )
-          console.log(`✅ Deleted stale mapping for issue ${issueId}, will create new ticket`)
+
         } catch (deleteError) {
           console.error(`Failed to delete stale mapping:`, deleteError)
           // Continue anyway - we'll try to create a new ticket
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
         // Continue to create a new ticket below
       }
     } else {
-      console.log(`No existing mapping found for issue ${issueId}, will create new ticket`)
+
     }
 
     // Get issue details with scan results for full remediation data
@@ -273,13 +273,9 @@ export async function POST(request: NextRequest) {
       // Get screenshots from scan results (web scans only)
       if (issue.scan_results?.results?.[0]?.screenshots) {
         screenshots = issue.scan_results.results[0].screenshots
-        console.log(`Found screenshots in scan_results:`, {
-          hasFullPage: !!screenshots.fullPage,
-          hasElements: !!screenshots.elements,
-          elementsCount: screenshots.elements?.length || 0
-        })
+
       } else {
-        console.log(`No screenshots found in scan_results for issue ${issueId}`)
+
       }
     }
 
@@ -322,7 +318,7 @@ export async function POST(request: NextRequest) {
     
     if (finalCheck) {
       // Another request created a ticket between our check and now
-      console.log(`⚠️ Race condition detected: mapping found for issue ${issueId} -> ${finalCheck.jira_ticket_key}, verifying...`)
+
       try {
         const tempClient = new JiraClient({
           jiraUrl: integration.jira_url,
@@ -330,7 +326,7 @@ export async function POST(request: NextRequest) {
           encryptedApiToken: integration.encrypted_api_token
         })
         const existingTicket = await tempClient.getIssue(finalCheck.jira_ticket_key)
-        console.log(`✅ Found existing ticket ${finalCheck.jira_ticket_key}, returning it instead of creating duplicate`)
+
         return NextResponse.json({
           success: true,
           ticket: {
@@ -343,7 +339,7 @@ export async function POST(request: NextRequest) {
         })
       } catch (verifyError) {
         // Ticket doesn't exist, delete stale mapping and continue
-        console.log(`❌ Stale mapping found, deleting and continuing...`)
+
         await query(`DELETE FROM jira_ticket_mappings WHERE issue_id = $1`, [issueId])
       }
     }
@@ -351,9 +347,9 @@ export async function POST(request: NextRequest) {
     // Create ticket in Jira
     let createdTicket
     try {
-      console.log(`Creating Jira ticket for issue ${issueId}`)
+
       createdTicket = await client.createIssue(jiraIssue)
-      console.log(`✅ Successfully created Jira ticket: ${createdTicket.key}`)
+
     } catch (error) {
       // Update issue with error
       const errorMessage = error instanceof Error ? error.message : 'Failed to create Jira ticket'
@@ -377,8 +373,7 @@ export async function POST(request: NextRequest) {
     // Store mapping in database FIRST (before screenshots) so we have a record even if screenshots fail
     // Use ON CONFLICT to handle race conditions - if another request created a ticket, update instead of failing
     try {
-      console.log(`Storing Jira mapping for issue ${issueId} -> ticket ${createdTicket.key}`)
-      
+
       // Check one more time if a mapping was created by another request
       const lastCheck = await queryOne(
         `SELECT jira_ticket_key FROM jira_ticket_mappings WHERE issue_id = $1 LIMIT 1`,
@@ -388,7 +383,7 @@ export async function POST(request: NextRequest) {
       if (lastCheck && lastCheck.jira_ticket_key !== createdTicket.key) {
         // Another request created a different ticket - this is a race condition
         // Delete the ticket we just created and return the existing one
-        console.log(`⚠️ Race condition: Another ticket ${lastCheck.jira_ticket_key} was created, deleting our ticket ${createdTicket.key}`)
+
         try {
           // Try to delete the ticket we just created (optional - Jira might not allow this)
           // For now, just return the existing mapping
@@ -435,7 +430,7 @@ export async function POST(request: NextRequest) {
         WHERE id = $2`,
         [createdTicket.key, issueId]
       )
-      console.log(`✅ Successfully stored mapping for issue ${issueId}`)
+
     } catch (dbError) {
       // Log but don't fail - ticket is already created in Jira
       console.error(`❌ Failed to store Jira mapping in database for issue ${issueId}:`, dbError)
@@ -443,10 +438,9 @@ export async function POST(request: NextRequest) {
 
     // Screenshots are now linked directly in the description via Cloudinary URLs
     // No need to upload as attachments - the links are already in the description
-    console.log(`Screenshots are linked directly in description via Cloudinary URLs`)
 
     // Always return success if ticket was created, even if screenshots failed
-    console.log(`✅ Returning success for Jira ticket creation: ${createdTicket.key}`)
+
     return NextResponse.json({
       success: true,
       ticket: {

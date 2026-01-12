@@ -501,7 +501,7 @@ export default function SettingsPage() {
       if (data.success) {
         // Store projects from test response
         const projects = data.projects || []
-        console.log('Projects received from test:', projects)
+
         setAzureDevOpsProjects(projects)
         if (projects.length > 0) {
           setMessage({ type: 'success', text: `Connection successful! Found ${projects.length} project(s). Please select a project.` })
@@ -570,7 +570,7 @@ export default function SettingsPage() {
 
       const data = await response.json()
       if (data.success) {
-        console.log(`Loaded ${data.teams?.length || 0} teams`)
+
         setAzureDevOpsTeams(data.teams || [])
       } else {
         console.error('Failed to load teams:', data.error)
@@ -614,7 +614,7 @@ export default function SettingsPage() {
         
         // Only use the work item types returned from the API - don't add saved ones
         // The API should return exactly what's configured for the team's backlog
-        console.log(`Loaded ${workItemTypes.length} work item types from team backlog:`, workItemTypes.map(t => t.name).join(', '))
+        .join(', '))
         
         setAzureDevOpsWorkItemTypes(workItemTypes)
       } else {

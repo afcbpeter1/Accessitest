@@ -199,7 +199,7 @@ export async function addSeatsToOwnerSubscription(
         organization_id: organizationId // Track which organization these seats belong to
       }
     })
-    console.log(`✅ Added ${numberOfUsers} seats to existing subscription item. New quantity: ${newQuantity} (prorated)`)
+    `)
   } else {
     // Add new item to subscription
     updatedSubscription = await stripe.subscriptions.update(subscription.id, {
@@ -217,11 +217,11 @@ export async function addSeatsToOwnerSubscription(
         organization_id: organizationId // Track which organization these seats belong to
       }
     })
-    console.log(`✅ Added new subscription item with ${numberOfUsers} seats (prorated)`)
+    `)
   }
   
   // Update organization max_users immediately
-  console.log(`🔄 Updating organization ${organizationId} max_users...`)
+
   const org = await queryOne(
     `SELECT max_users FROM organizations WHERE id = $1`,
     [organizationId]
@@ -233,9 +233,7 @@ export async function addSeatsToOwnerSubscription(
   
   const currentMaxUsers = org?.max_users || 0
   const newMaxUsers = currentMaxUsers + numberOfUsers
-  
-  console.log(`📊 Organization ${organizationId}: current=${currentMaxUsers}, adding=${numberOfUsers}, new=${newMaxUsers}`)
-  
+
   const updateResult = await query(
     `UPDATE organizations 
      SET max_users = $1, subscription_status = 'active', updated_at = NOW()
@@ -243,15 +241,14 @@ export async function addSeatsToOwnerSubscription(
     [newMaxUsers, organizationId]
   )
   
-  console.log(`✅ Updated organization ${organizationId} max_users from ${currentMaxUsers} to ${newMaxUsers} (rows affected: ${updateResult.rowCount || 0})`)
+  `)
   
   // Verify the update
   const verifyOrg = await queryOne(
     `SELECT max_users, subscription_status FROM organizations WHERE id = $1`,
     [organizationId]
   )
-  console.log(`✅ Verified organization ${organizationId} update: max_users=${verifyOrg?.max_users}, status=${verifyOrg?.subscription_status}`)
-  
+
   return {
     success: true,
     subscriptionId: updatedSubscription.id,
@@ -340,7 +337,7 @@ export async function reduceSeatsFromOwnerSubscription(
         organization_seats_added: '0'
       }
     })
-    console.log(`✅ Removed all organization seats from subscription (prorated refund)`)
+    `)
   } else {
     // Update quantity
     updatedSubscription = await stripe.subscriptions.update(subscription.id, {
@@ -354,7 +351,7 @@ export async function reduceSeatsFromOwnerSubscription(
         organization_seats_added: newQuantity.toString()
       }
     })
-    console.log(`✅ Reduced ${numberOfUsersToRemove} seats from subscription. New quantity: ${newQuantity} (prorated refund)`)
+    `)
   }
   
   // Update organization max_users immediately
@@ -371,9 +368,7 @@ export async function reduceSeatsFromOwnerSubscription(
      WHERE id = $2`,
     [newMaxUsers, organizationId]
   )
-  
-  console.log(`✅ Updated organization ${organizationId} max_users from ${currentMaxUsers} to ${newMaxUsers}`)
-  
+
   return {
     success: true,
     subscriptionId: updatedSubscription.id,
@@ -440,12 +435,11 @@ export async function createCheckoutSession(
   }
   
   // Create checkout session
-  console.log(`🛒 Creating separate checkout session for organization ${organizationId}:`)
-  console.log(`   - Number of users: ${numberOfUsers}`)
-  console.log(`   - Price ID: ${priceId}`)
-  console.log(`   - Customer ID: ${customerId}`)
-  console.log(`   - Billing period: ${billingPeriod || 'monthly'}`)
-  
+
+
+
+
+
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
@@ -462,11 +456,9 @@ export async function createCheckoutSession(
       number_of_users: numberOfUsers.toString()
     }
   })
-  
-  console.log(`✅ Checkout session created: ${session.id}`)
-  console.log(`   - URL: ${session.url}`)
-  console.log(`   - Metadata: organization_id=${organizationId}, number_of_users=${numberOfUsers}`)
-  
+
+
+
   return {
     sessionId: session.id,
     url: session.url || ''

@@ -125,8 +125,7 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
     }
   }
 
-  console.log('✅ Backlog auto-creation result:', {
-    total: scanResults.reduce((sum, result) => sum + (result.issues?.length || 0), 0),
+  => sum + (result.issues?.length || 0), 0),
     added: addedItems.length,
     reopened: reopenedItems.length,
     skipped: skippedItems.length
@@ -270,8 +269,7 @@ async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId
     }
   }
 
-  console.log('✅ Backlog auto-creation result:', {
-    total: scanResults.reduce((sum, result) => sum + (result.issues?.length || 0), 0),
+  => sum + (result.issues?.length || 0), 0),
     added: addedItems.length,
     reopened: reopenedItems.length,
     skipped: skippedItems.length
@@ -354,7 +352,7 @@ function deduplicateIssuesAcrossPages(results: any[]): any[] {
     }
   })
   
-  console.log(`🔄 Issue deduplication: ${results.reduce((sum, r) => sum + (r.issues?.length || 0), 0)} total issues → ${Array.from(issueMap.values()).length} unique issues`)
+  => sum + (r.issues?.length || 0), 0)} total issues → ${Array.from(issueMap.values()).length} unique issues`)
   
   return deduplicatedResults
 }
@@ -385,7 +383,7 @@ export async function POST(request: NextRequest) {
     // Check and deduct credits before starting scan
     const scanId = `web_scan_${Date.now()}`
     
-    console.log('Processing scan for user:', user.userId) // Debug log
+    // Debug log
     
     // Register the scan in the database (with error handling)
     try {
@@ -410,7 +408,7 @@ export async function POST(request: NextRequest) {
 
     // If user doesn't have credit data, create it with 3 free credits
     if (!creditData) {
-      console.log('Creating credit record for user:', user.userId) // Debug log
+      // Debug log
       await query(
         `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
          VALUES ($1, $2, $3, $4)`,
@@ -436,7 +434,7 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         // If amount column doesn't exist, try with credits_amount column
         if (error.message.includes('amount')) {
-          console.log('Amount column missing, trying with credits_amount...')
+
           await query(
             `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
              VALUES ($1, $2, $3, $4)`,
@@ -556,23 +554,17 @@ export async function POST(request: NextRequest) {
               }
               
               try {
-                console.log(`🔍 Starting scan for ${pageUrl}`)
-                
+
                 // Initialize browser if not already done
                 if (!scanService.browser) {
-                  console.log('🌐 Initializing browser...')
+
                   await scanService.initializeBrowser()
                 }
                 
                 // Scan the specific page directly
-                console.log(`🧪 Scanning page with tags: ${selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508']}`)
+
                 const pageResult = await scanService.scanPage(pageUrl, selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508'])
-                
-                console.log(`✅ Scan completed for ${pageUrl}:`, {
-                  issues: pageResult.issues?.length || 0,
-                  summary: pageResult.summary
-                })
-                
+
                 // Ensure the result has a url property for backlog creation
                 const resultWithUrl = {
                   ...pageResult,
@@ -709,7 +701,7 @@ export async function POST(request: NextRequest) {
                    selectedTags: selectedTags
                  }
                })
-               console.log('✅ Scan results stored in history with ID:', scanHistoryId)
+
              } catch (error) {
                console.error('Failed to store scan results in history:', error)
              }
@@ -717,15 +709,13 @@ export async function POST(request: NextRequest) {
             // Auto-create backlog items for unique issues (AFTER scan history is stored)
             if (scanHistoryId) {
               try {
-                console.log('🎫 Auto-creating backlog items for unique issues...')
+
                 await autoCreateBacklogItemsWithHistoryId(user.userId, finalResults.results, scanHistoryId)
                 
                 // TEMPORARILY DISABLED: Auto-sync to Jira - let user manually sync from backlog
                 // if (issueIds.length > 0) {
-                //   console.log(`🔗 Auto-syncing ${issueIds.length} issues to Jira...`)
-                //   const syncResult = await autoSyncIssuesToJira(user.userId, issueIds)
-                //   console.log(`✅ Jira sync complete: ${syncResult.created} created, ${syncResult.skipped} skipped, ${syncResult.errors} errors`)
-                // }
+                //   //   const syncResult = await autoSyncIssuesToJira(user.userId, issueIds)
+                //   // }
               } catch (error) {
                 console.error('❌ Error auto-creating backlog items:', error)
                 if (error instanceof Error) {

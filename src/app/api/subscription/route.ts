@@ -383,7 +383,7 @@ async function handleReactivateSubscription(request: NextRequest, user: any) {
           })
         }
       } catch (invoiceError) {
-        console.log('Could not retrieve upcoming invoice for next billing date')
+
       }
       
       // If still no date, calculate from billing interval
@@ -419,14 +419,7 @@ async function handleReactivateSubscription(request: NextRequest, user: any) {
       const firstName = userData.first_name || ''
       const lastName = userData.last_name || ''
       const customerName = (firstName || lastName) ? `${firstName} ${lastName}`.trim() : undefined
-      
-      console.log('📧 Sending subscription reactivation email:', {
-        to: userData.email,
-        plan: planName,
-        reactivationDate,
-        nextBillingDate
-      })
-      
+
       await sendSubscriptionReactivationEmail({
         customerEmail: userData.email,
         customerName,
@@ -435,8 +428,7 @@ async function handleReactivateSubscription(request: NextRequest, user: any) {
         nextBillingDate: nextBillingDate || undefined,
         billingPeriod: billingPeriod as 'Monthly' | 'Yearly'
       })
-      
-      console.log('✅ Subscription reactivation email sent successfully')
+
     }
 
     return NextResponse.json({

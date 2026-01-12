@@ -273,13 +273,7 @@ export default function ProductBacklog() {
         
         // Log diagnostics if available
         if (data.diagnostics) {
-          console.log('📊 Backlog Diagnostics:', {
-            totalIssuesInDatabase: data.diagnostics.totalIssuesInDatabase,
-            issuesInSprints: data.diagnostics.issuesInSprints,
-            issuesThatShouldBeInBacklog: data.diagnostics.issuesThatShouldBeInBacklog,
-            issuesActuallyReturned: data.diagnostics.issuesActuallyReturned,
-            statusBreakdown: data.diagnostics.statusBreakdown
-          })
+
         }
       } else {
         console.error('❌ API returned success: false', data)

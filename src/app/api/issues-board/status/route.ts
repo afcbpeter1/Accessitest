@@ -7,14 +7,11 @@ export async function PUT(request: NextRequest) {
   try {
     // Require authentication
     const user = await getAuthenticatedUser(request)
-    
-    console.log('🎯 Issue Status API called by user:', user.userId)
 
     const { issueId, status, notes, deferredReason } = await request.json()
-    console.log('📊 Received status update:', { issueId, status, notes, deferredReason })
 
     if (!issueId || !status) {
-      console.log('❌ Missing required fields')
+
       return NextResponse.json(
         { error: 'Issue ID and status are required' },
         { status: 400 }
@@ -31,14 +28,13 @@ export async function PUT(request: NextRequest) {
     )
 
     if (result.rows.length === 0) {
-      console.log('❌ Issue not found')
+
       return NextResponse.json(
         { error: 'Issue not found' },
         { status: 404 }
       )
     }
 
-    console.log('✅ Issue status updated successfully')
     return NextResponse.json({
       success: true,
       data: result.rows[0]

@@ -212,7 +212,6 @@ export class WordParser {
       
       if (gif89aPos !== -1 || gif87aPos !== -1) {
         const pos = gif89aPos !== -1 ? gif89aPos : gif87aPos
-        console.log(`🎬 Detected GIF image in .doc file at offset ${pos}`)
         images.push({
           id: `doc_image_${imageIndex}`,
           page: 1, // Can't determine page from binary
@@ -234,7 +233,6 @@ export class WordParser {
     while (searchOffset < buffer.length - 10) {
       const jpegPos = buffer.indexOf(jpeg, searchOffset)
       if (jpegPos !== -1) {
-        console.log(`📸 Detected JPEG image in .doc file at offset ${jpegPos}`)
         images.push({
           id: `doc_image_${imageIndex}`,
           page: 1,
@@ -256,7 +254,6 @@ export class WordParser {
     while (searchOffset < buffer.length - 10) {
       const pngPos = buffer.indexOf(png, searchOffset)
       if (pngPos !== -1) {
-        console.log(`📸 Detected PNG image in .doc file at offset ${pngPos}`)
         images.push({
           id: `doc_image_${imageIndex}`,
           page: 1,
@@ -273,7 +270,7 @@ export class WordParser {
       }
     }
     
-    console.log(`📸 Detected ${images.length} images in .doc file (basic binary detection)`)
+    `)
     return images
   }
   
@@ -426,7 +423,7 @@ export class WordParser {
             const altText = docPrMatch[1].trim()
             if (altText) {
               xmlAltTexts.set(imageIndex, altText)
-              console.log(`📋 Found alt text in XML for image ${imageIndex}: "${altText.substring(0, 50)}..."`)
+              }..."`)
             }
             imageIndex++
           }
@@ -438,7 +435,7 @@ export class WordParser {
             const altText = docPrMatch[1].trim()
             if (altText && !xmlAltTexts.has(imageIndex)) {
               xmlAltTexts.set(imageIndex, altText)
-              console.log(`📋 Found alt text in XML (block format) for image ${imageIndex}: "${altText.substring(0, 50)}..."`)
+              for image ${imageIndex}: "${altText.substring(0, 50)}..."`)
             }
             imageIndex++
           }
@@ -484,7 +481,7 @@ export class WordParser {
       if (src.toLowerCase().includes('.gif') || src.toLowerCase().includes('gif')) {
         imageType = 'gif'
         isAnimated = true // GIFs in Word are typically animated
-        console.log(`🎬 Word document: Detected GIF image (likely animated)`)
+        `)
       } else if (src.toLowerCase().includes('.jpg') || src.toLowerCase().includes('.jpeg')) {
         imageType = 'jpeg'
       } else if (src.toLowerCase().includes('.png')) {
@@ -495,7 +492,7 @@ export class WordParser {
       if (src.startsWith('data:image/gif')) {
         imageType = 'gif'
         isAnimated = true
-        console.log(`🎬 Word document: Detected GIF in data URI (likely animated)`)
+        `)
       }
       
       // Check if mammoth extracted actual image data
@@ -509,7 +506,7 @@ export class WordParser {
             ))) {
           imageType = 'gif'
           isAnimated = true
-          console.log(`🎬 Word document: Detected GIF from image data (animated)`)
+          `)
         }
       }
       
@@ -529,9 +526,8 @@ export class WordParser {
       })
       
       if (altText) {
-        console.log(`📋 Image ${imageIndex} has alt text: "${altText.substring(0, 50)}${altText.length > 50 ? '...' : ''}"`)
+        }${altText.length > 50 ? '...' : ''}"`)
       } else {
-        console.log(`📋 Image ${imageIndex} has no alt text`)
       }
       
       imageIndex++
@@ -555,7 +551,7 @@ export class WordParser {
                 type: 'gif',
                 isAnimated: true,
               })
-              console.log(`🎬 Word document: Detected GIF from mammoth image extraction (animated)`)
+              `)
             }
           }
         })
@@ -679,9 +675,8 @@ export class WordParser {
         
         // Only return title if it's not empty and not "No"
         if (title && title.toLowerCase() !== 'no' && title.toLowerCase() !== 'none' && title.length > 0) {
-          console.log(`📋 Extracted metadata - Title: "${title}"`)
         } else {
-          console.log(`📋 Extracted metadata - Title: null (empty or "No")`)
+          `)
           title = null
         }
         

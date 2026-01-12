@@ -40,17 +40,7 @@ export async function GET(request: NextRequest) {
       LIMIT 10
     `, [user.userId])
     
-    console.log('🔍 DEBUG: Issues found for user:', {
-      totalIssues: debugIssues.rows.length,
-      issues: debugIssues.rows.map(r => ({
-        id: r.id,
-        issue_key: r.issue_key,
-        rule_name: r.rule_name,
-        first_seen_scan_id: r.first_seen_scan_id,
-        scan_history_id: r.scan_history_id,
-        scan_user_id: r.scan_user_id,
-        status: r.status
-      }))
+    )
     })
 
     // Get ALL issues for the backlog, excluding those already in sprints
@@ -95,20 +85,11 @@ export async function GET(request: NextRequest) {
         i.created_at ASC,
         i.id ASC
     `, [user.userId])
-    
-    console.log('📋 Backlog query result:', {
-      rowsReturned: result.rows.length,
-      firstRow: result.rows[0] || null
-    })
-
 
     // Convert to backlog format
     const backlogItems = result.rows.map(issue => {
       // Debug: Log scan results structure
-      console.log('🔍 Debug scan results for issue:', issue.rule_name, {
-        hasScanResults: !!issue.scan_results,
-        remediationReportLength: issue.scan_results?.remediationReport?.length || 0,
-        remediationReport: issue.scan_results?.remediationReport?.map((r: any) => ({
+      => ({
           ruleName: r.ruleName,
           hasSuggestions: !!r.suggestions,
           suggestionsLength: r.suggestions?.length || 0
@@ -242,13 +223,7 @@ export async function GET(request: NextRequest) {
           const offendingElements = remediationItem?.offendingElements || []
           
           // Debug: Log what we found
-          console.log('🔍 Debug suggestions for', issue.rule_name, {
-            isDocumentScan,
-            hasNotes: !!issue.notes,
-            foundRemediationItem: !!remediationItem,
-            suggestionsCount: suggestions.length,
-            matchedRuleName: remediationItem?.ruleName,
-            suggestions: suggestions.slice(0, 2) // Show first 2 suggestions
+          // Show first 2 suggestions
           })
           
           return {

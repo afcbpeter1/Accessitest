@@ -124,7 +124,7 @@ export default function ScanningAnimation({ fileName, isScanning, progress = 0, 
                 console.error('Preview data:', documentPreview.substring(0, 100))
               }}
               onLoad={() => {
-                console.log('✅ Document preview image loaded successfully')
+
               }}
             />
             

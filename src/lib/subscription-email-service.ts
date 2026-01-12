@@ -385,7 +385,6 @@ export async function sendSubscriptionPaymentEmail(data: SubscriptionPaymentData
       return { success: false, error: 'No message ID in response' }
     }
 
-    console.log('✅ Subscription payment email sent successfully! Message ID:', result.data.id)
     return { success: true, messageId: result.data.id }
 
   } catch (error) {
@@ -736,7 +735,6 @@ export async function sendSubscriptionCancellationEmail(data: SubscriptionCancel
       return { success: false, error: 'No message ID in response' }
     }
 
-    console.log('✅ Subscription cancellation email sent successfully! Message ID:', result.data.id)
     return { success: true, messageId: result.data.id }
 
   } catch (error) {
@@ -1062,7 +1060,6 @@ export async function sendSubscriptionReactivationEmail(data: SubscriptionReacti
       return { success: false, error: 'No message ID in response' }
     }
 
-    console.log('✅ Subscription reactivation email sent successfully! Message ID:', result.data.id)
     return { success: true, messageId: result.data.id }
 
   } catch (error) {

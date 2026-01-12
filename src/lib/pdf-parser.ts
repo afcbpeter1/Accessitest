@@ -167,7 +167,7 @@ export class PDFParser {
       // Extract images - skip pdfjs-dist (causes ES module errors), use fallback
       // Images will be detected from text analysis instead
       const images: Array<{ id: string; page: number; altText: string | null; width: number; height: number; type: string; isAnimated: boolean }> = []
-      console.log('📸 Skipping image extraction (pdfjs-dist not available) - using text-based detection')
+      - using text-based detection')
 
       // Extract links from text
       const links = this.extractLinks(pdfParseResult.text, pdfParseResult.numpages || pages.length)
@@ -177,7 +177,6 @@ export class PDFParser {
 
       // Extract structure tree using pdfjs-dist (for language attributes, tags, etc.)
       const structureTree = await this.extractStructureTree(buffer)
-      console.log(`📋 Structure tree extracted: ${structureTree.length} root elements`)
 
       return {
         text: pdfParseResult.text,
@@ -305,7 +304,7 @@ export class PDFParser {
                           headerHex.toLowerCase().startsWith('474946383761')) { // GIF87a in hex
                         imageType = 'gif'
                         isAnimated = true // GIFs are assumed animated unless proven otherwise
-                        console.log(`🎬 Detected GIF image on page ${pageNum} (likely animated)`)
+                        `)
                       } else if (headerHex.startsWith('ffd8')) {
                         imageType = 'jpeg'
                       } else if (headerHex.startsWith('89504e47')) {
@@ -317,7 +316,7 @@ export class PDFParser {
                           if (dataStr.includes('GIF89a') || dataStr.includes('GIF87a')) {
                             imageType = 'gif'
                             isAnimated = true
-                            console.log(`🎬 Detected GIF image on page ${pageNum} via data scan (likely animated)`)
+                            `)
                           }
                         }
                       }
@@ -367,9 +366,7 @@ export class PDFParser {
           console.warn(`⚠️ Failed to extract images from page ${pageNum}:`, pageError)
         }
       }
-      
-      console.log(`📸 Extracted ${images.length} images from PDF`)
-      
+
     } catch (error) {
       console.warn('⚠️ Failed to extract images using pdfjs-dist, using fallback:', error)
       
@@ -377,7 +374,7 @@ export class PDFParser {
       try {
         // This is a basic fallback - pdf-lib doesn't easily expose images
         // But we can at least return empty array rather than failing
-        console.log('📸 Using fallback image detection (no images detected)')
+        ')
       } catch (fallbackError) {
         console.warn('⚠️ Fallback image extraction also failed:', fallbackError)
       }
@@ -422,8 +419,7 @@ export class PDFParser {
         const scriptPath = path.join(process.cwd(), 'scripts', 'extract-pdf-structure.py')
         const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
         const cmd = `${pythonCmd} "${scriptPath}" "${tempPdfPath}"`
-        
-        console.log(`🐍 Extracting structure tree using PyMuPDF...`)
+
         const { stdout, stderr } = await execAsync(cmd, {
           maxBuffer: 10 * 1024 * 1024 // 10MB buffer
         })
@@ -441,13 +437,12 @@ export class PDFParser {
         }
         
         const structureTree = result.structureTree || []
-        console.log(`📋 Extracted structure tree with ${structureTree.length} root elements using PyMuPDF`)
-        
+
         // Log language attributes found
         const findLanguages = (nodes: any[]): void => {
           for (const node of nodes) {
             if (node.language) {
-              console.log(`🌐 Found language "${node.language}" in tag type: ${node.type}`)
+
             }
             if (node.children && Array.isArray(node.children)) {
               findLanguages(node.children)

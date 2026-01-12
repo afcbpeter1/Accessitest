@@ -131,7 +131,6 @@ except Exception as e:
       // Try to extract image and use vision API if available
       let imageData: { base64: string; mediaType: string } | null = null
       if (docxPath && imageId) {
-        console.log(`📸 Attempting to extract image ${imageId} for vision analysis...`)
         imageData = await this.extractImageFromWord(docxPath, imageId)
       }
       
@@ -417,9 +416,6 @@ Return ONLY the language code, nothing else.`
     }
   ): Promise<WordAutoFixResult> {
     try {
-      console.log('🤖 Starting Word AI auto-fix process...')
-      console.log(`📋 Processing ${issues.length} issues`)
-
       // Check if this is a .docx file
       const isDocx = wordBuffer[0] === 0x50 && wordBuffer[1] === 0x4B // PK (ZIP signature)
       if (!isDocx) {
@@ -497,7 +493,6 @@ Return ONLY the language code, nothing else.`
       const headingFixes: Array<{ paragraphIndex: number; level: number; text: string }> = []
       if (colorContrastIssues.length > 0 && documentText) {
         try {
-          console.log(`🎨 Processing ${colorContrastIssues.length} color contrast issues...`)
           const { calculateContrastRatio } = require('./color-contrast-analyzer')
           
           for (const issue of colorContrastIssues) {
@@ -535,7 +530,7 @@ Return ONLY the language code, nothing else.`
                     newColor: suggestedColor,
                     elementLocation: issue.elementLocation
                   })
-                  console.log(`✅ Suggested accessible color: ${currentColorHex || 'unknown'} -> ${suggestedColor} (contrast: ${contrast.ratio.toFixed(2)}:1)`)
+                  }:1)`)
                 }
               }
             }
@@ -547,7 +542,6 @@ Return ONLY the language code, nothing else.`
       
       if (linkTextIssues.length > 0 && documentText) {
         try {
-          console.log(`🔗 Processing ${linkTextIssues.length} link text issues...`)
           for (const issue of linkTextIssues) {
             const linkText = issue.elementContent || issue.elementLocation || issue.description || ''
             const url = issue.elementId || '' // URL might be in elementId
@@ -557,7 +551,7 @@ Return ONLY the language code, nothing else.`
                              linkText.toLowerCase().includes('here') ||
                              linkText.toLowerCase().includes('link'))) {
               // Use AI to generate better link text
-              console.log(`🔗 Generating better link text for: "${linkText.substring(0, 50)}..."`)
+              }..."`)
               const betterText = await this.generateBetterLinkText(linkText, url, fileName)
               
               if (betterText && betterText !== linkText) {
@@ -567,7 +561,6 @@ Return ONLY the language code, nothing else.`
                   url: url,
                   elementLocation: issue.elementLocation
                 })
-                console.log(`✅ Generated better link text: "${betterText}"`)
               }
             }
           }
@@ -575,20 +568,10 @@ Return ONLY the language code, nothing else.`
           console.warn(`⚠️ Could not process link text fixes: ${error}`)
         }
       }
-
-      console.log(`🖼️ Found ${altTextIssues.length} image alt text issues`)
-      console.log(`📊 Found ${tableSummaryIssues.length} table summary issues`)
-      console.log(`📝 Found ${metadataIssues.length} metadata issues`)
-      console.log(`📑 Found ${headingIssues.length} heading issues`)
-      console.log(`🌐 Found ${languageIssues.length} language span issues`)
-      console.log(`🎨 Found ${colorContrastIssues.length} color contrast issues`)
-      console.log(`🔗 Found ${linkTextIssues.length} link text issues`)
-
       const totalFixableIssues = altTextIssues.length + tableSummaryIssues.length + metadataIssues.length + 
                                  headingIssues.length + languageIssues.length + colorContrastIssues.length + linkTextIssues.length
       
       if (totalFixableIssues === 0) {
-        console.log('⚠️ No fixable issues found - returning early')
         return {
           success: true, // Still success, just no fixes to apply
           fixedWordBuffer: wordBuffer, // Return original buffer
@@ -603,8 +586,6 @@ Return ONLY the language code, nothing else.`
       const outputPath = path.join(tempDir, `output-${Date.now()}.docx`)
       
       await fs.writeFile(inputPath, wordBuffer)
-      console.log(`📁 Created temp Word doc: ${inputPath}`)
-      
       // Generate fixes using AI
       const imageFixes: WordImageFix[] = []
       const tableFixes: WordTableFix[] = []
@@ -618,8 +599,6 @@ Return ONLY the language code, nothing else.`
           // Try to find image ID from parsed structure or issue
           const imageId = issue.elementId || parsedStructure?.images?.[idx]?.id || `image${idx}`
           const context = issue.elementContent || issue.description || `Image in document`
-          
-          console.log(`🤖 Generating alt text for image ${idx}...`)
           const altText = await this.generateAltTextForImage(context, fileName, inputPath, imageId)
           
           imageFixes.push({
@@ -628,7 +607,7 @@ Return ONLY the language code, nothing else.`
             elementLocation: issue.elementLocation
           })
           
-          console.log(`✅ Generated alt text: "${altText.substring(0, 50)}..."`)
+          }..."`)
         } catch (error) {
           const errorMsg = `Failed to generate alt text for image ${idx}: ${error instanceof Error ? error.message : 'Unknown error'}`
           console.error(`❌ ${errorMsg}`)
@@ -679,15 +658,12 @@ Return ONLY the language code, nothing else.`
                 const sampleCells = cells.slice(tableInfo.columns, Math.min(tableInfo.columns + 6, cells.length))
                 
                 tableContent = `Table with ${tableInfo.rows} rows and ${tableInfo.columns} columns.\nHeaders/First row: ${headerRow}${sampleCells.length > 0 ? `\nSample data: ${sampleCells.join(', ')}` : ''}`
-                console.log(`📊 Extracted actual table content for AI summary generation`)
               }
             }
           } catch (extractError) {
             console.warn(`⚠️ Could not extract table content from Word document, using issue description: ${extractError}`)
             // Fall back to issue description
           }
-          
-          console.log(`🤖 Generating AI table summary for table ${idx}...`)
           const summary = await this.generateTableSummary(tableContent, fileName)
           
           // Check if table has headers from parsed structure
@@ -700,7 +676,7 @@ Return ONLY the language code, nothing else.`
             elementLocation: issue.elementLocation
           })
           
-          console.log(`✅ Generated table summary: "${summary.substring(0, 50)}..."`)
+          }..."`)
         } catch (error) {
           const errorMsg = `Failed to generate table summary for table ${idx}: ${error instanceof Error ? error.message : 'Unknown error'}`
           console.error(`❌ ${errorMsg}`)
@@ -711,12 +687,9 @@ Return ONLY the language code, nothing else.`
       // Handle heading fixes using AI
       if (headingIssues.length > 0 && documentText) {
         try {
-          console.log(`🔍 Using AI to identify headings in document...`)
           const headingAnalysis = await this.claudeAPI.identifyHeadings(documentText)
           
           if (headingAnalysis && headingAnalysis.headings && headingAnalysis.headings.length > 0) {
-            console.log(`✅ AI identified ${headingAnalysis.headings.length} potential headings`)
-            
             // Match identified headings to actual paragraphs in document
             // We need to find which paragraphs contain these heading texts
             const docLines = documentText.split('\n').filter(line => line.trim().length > 0)
@@ -755,7 +728,7 @@ Return ONLY the language code, nothing else.`
                   level: identifiedHeading.level || 1,
                   text: headingText
                 })
-                console.log(`📑 Found heading candidate at paragraph ${paragraphIndex}: "${headingText.substring(0, 50)}..." (Level ${identifiedHeading.level})`)
+                }..." (Level ${identifiedHeading.level})`)
               } else {
                 console.warn(`⚠️ Could not find paragraph for heading: "${headingText.substring(0, 50)}..."`)
               }
@@ -786,7 +759,6 @@ Return ONLY the language code, nothing else.`
             }
           }
           metadata.title = title
-          console.log(`📝 Generated document title: "${title}"`)
           metadataFixes++
         }
         
@@ -803,7 +775,7 @@ Return ONLY the language code, nothing else.`
           const elementLocation = issue.elementLocation || ''
           
           // Use AI to identify the language
-          console.log(`🌐 Identifying language for: "${foreignText.substring(0, 50)}..."`)
+          }..."`)
           const langResult = await this.identifyLanguage(foreignText, fileName)
           
           if (langResult && langResult.language) {
@@ -825,7 +797,7 @@ Return ONLY the language code, nothing else.`
               elementLocation: elementLocation
             })
             
-            console.log(`✅ Identified language "${langCode}" for text: "${foreignText.substring(0, 50)}..."`)
+            }..."`)
           }
         } catch (error) {
           console.warn(`⚠️ Could not identify language for issue: ${error}`)
@@ -857,9 +829,6 @@ Return ONLY the language code, nothing else.`
         '--output', outputPath,
         '--fixes', fixesJsonPath
       ].join(' ')
-
-      console.log(`🐍 Running Word repair script: ${cmd}`)
-
       // Execute Python script
       let stdout = ''
       let stderr = ''
@@ -879,13 +848,10 @@ Return ONLY the language code, nothing else.`
         // Check if output file exists despite error
         try {
           await fs.access(outputPath)
-          console.log(`⚠️ Script reported error but output file exists, attempting to use it...`)
         } catch {
           throw new Error(`Python script failed and no output file was created: ${execError.message}`)
         }
       }
-
-      console.log(`📄 Python script stdout: ${stdout}`)
       if (stderr && !stderr.includes('WARNING') && !stderr.includes('INFO')) {
         console.warn(`📄 Python script stderr: ${stderr}`)
       }
@@ -899,9 +865,6 @@ Return ONLY the language code, nothing else.`
 
       // Read the fixed document
       const fixedBuffer = await fs.readFile(outputPath)
-      
-      console.log(`✅ Word auto-fix complete: ${fixedBuffer.length} bytes`)
-
       // Cleanup
       await fs.unlink(inputPath).catch(() => {})
       await fs.unlink(outputPath).catch(() => {})

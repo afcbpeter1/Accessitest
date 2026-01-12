@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
     let projects: Array<{ id: string; name: string; description?: string }> = []
     try {
       projects = await client.getProjects()
-      console.log(`✅ Fetched ${projects.length} projects from Azure DevOps`)
     } catch (error) {
       console.error('❌ Error fetching projects:', error)
       // Return success even if projects fail (connection works)
@@ -71,9 +70,6 @@ export async function POST(request: NextRequest) {
       description: p.description,
       displayName: p.name
     }))
-
-    console.log(`📋 Returning ${projectsResponse.length} projects in test response`)
-
     return NextResponse.json({
       success: true,
       user: connectionTest.user,

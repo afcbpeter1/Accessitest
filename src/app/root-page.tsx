@@ -26,7 +26,7 @@ export default function RootPage() {
           const now = Math.floor(Date.now() / 1000)
           
           if (payload.exp && payload.exp < now) {
-            console.log('❌ Token expired - redirecting to home')
+
             localStorage.removeItem('accessToken')
             localStorage.removeItem('user')
             router.push('/home')
@@ -34,7 +34,7 @@ export default function RootPage() {
           }
         }
       } catch (error) {
-        console.log('❌ Invalid token format - redirecting to home')
+
         localStorage.removeItem('accessToken')
         localStorage.removeItem('user')
         router.push('/home')

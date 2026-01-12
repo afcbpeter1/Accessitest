@@ -230,8 +230,6 @@ export async function POST(request: NextRequest) {
     const user = await getAuthenticatedUser(request)
     
     const body: DocumentScanRequest = await request.json()
-    
-    console.log('🔍 Starting document scan for:', body.fileName)
 
     scanId = body.scanId || `scan_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     
@@ -310,8 +308,7 @@ export async function POST(request: NextRequest) {
           await query('COMMIT')
           
           const newCredits = result.rows[0]?.credits_remaining || 0
-          console.log(`💳 Deducted credit. Remaining: ${newCredits}`)
-          
+
           if (newCredits <= 3 && !creditData!.unlimited_credits) {
             await NotificationService.notifyLowCredits(user.userId, newCredits)
           }
@@ -328,7 +325,7 @@ export async function POST(request: NextRequest) {
       })
 
       // Step 1: Scan Word document
-      console.log('🔍 Step 1: Scanning Word document...')
+
       const scanner = new ComprehensiveDocumentScanner()
       const scanResult = await scanner.scanDocument(
         fileBuffer,
@@ -343,16 +340,10 @@ export async function POST(request: NextRequest) {
       }
 
       const originalIssues = scanResult.issues || []
-      console.log(`📋 Found ${originalIssues.length} issues in Word document`)
-      console.log(`📊 Scan result structure:`, {
-        hasIssues: !!scanResult.issues,
-        issuesCount: scanResult.issues?.length || 0,
-        hasMetadata: !!scanResult.metadata,
-        hasSummary: !!scanResult.summary
-      })
+
 
       // Step 2: Apply auto-fixes
-      console.log('🤖 Step 2: Applying automatic fixes using AI...')
+
       const wordAutoFixService = new WordAutoFixService()
       
       // Extract document text from scan result
@@ -373,7 +364,7 @@ export async function POST(request: NextRequest) {
         undefined // parsedStructure - will be extracted from issues if needed
       )
 
-      console.log(`🔧 Auto-fix result: success=${autoFixResult.success}, fixes=${JSON.stringify(autoFixResult.fixesApplied)}`)
+      }`)
       if (autoFixResult.errors && autoFixResult.errors.length > 0) {
         console.error(`❌ Auto-fix errors:`, autoFixResult.errors)
       }
@@ -384,10 +375,9 @@ export async function POST(request: NextRequest) {
 
       if (autoFixResult.success && autoFixResult.fixedWordBuffer) {
         fixedWordBuffer = autoFixResult.fixedWordBuffer
-        console.log(`✅ Auto-fix complete: ${autoFixResult.fixesApplied.altText} alt texts, ${autoFixResult.fixesApplied.tableSummaries} table summaries`)
 
         // Step 3: Re-scan fixed document
-        console.log('🔍 Step 3: Re-scanning fixed Word document...')
+
         const fixedScanResult = await scanner.scanDocument(
           fixedWordBuffer,
           body.fileName,
@@ -397,7 +387,6 @@ export async function POST(request: NextRequest) {
         )
 
         remainingIssues = fixedScanResult.issues || []
-        console.log(`📋 Remaining issues after auto-fix: ${remainingIssues.length}`)
 
         // Generate comparison report
         // Track which issues were actually fixed by comparing issue descriptions
@@ -441,13 +430,12 @@ export async function POST(request: NextRequest) {
               : 0
           }
         }
-        
-        console.log(`📊 Comparison: Original=${originalCount}, Remaining=${remainingCount}, Fixed=${fixedCount}, Improvement=${comparisonReport.improvement.improvementPercentage}%`)
-        console.log(`🔧 Auto-fix claimed: altText=${autoFixResult.fixesApplied.altText}, metadata=${autoFixResult.fixesApplied.metadata}, headings=${autoFixResult.fixesApplied.headings}`)
+
+
       }
 
       // Step 4: Generate AI suggestions for remaining issues
-      console.log('🤖 Step 4: Generating AI suggestions for remaining issues...')
+
       const claudeAPI = new ClaudeAPI()
       const documentType = isWord ? 'Word document' : 'PDF document'
       const enhancedIssues = await Promise.all(
@@ -565,7 +553,7 @@ export async function POST(request: NextRequest) {
           
           if (scanHistoryResult?.id) {
             await autoAddDocumentIssuesToBacklog(user.userId, enhancedIssues, scanHistoryResult.id, body.fileName)
-            console.log('✅ Word document issues added to backlog')
+
           }
         } catch (backlogError) {
           console.error('❌ Failed to add Word document issues to backlog:', backlogError)
@@ -648,7 +636,7 @@ export async function POST(request: NextRequest) {
         )
       }
       
-      console.log(`📄 PDF validation: ${pageCount} pages, ${Math.round(fileBuffer.length / (1024 * 1024))}MB, type: ${pdfType} (limit: ${pageLimit} pages)`)
+      )}MB, type: ${pdfType} (limit: ${pageLimit} pages)`)
     } catch (pageCountError: any) {
       console.warn(`⚠️ Could not check page count: ${pageCountError.message}`)
       // Continue processing - we'll let Adobe API handle the error if it's too large
@@ -778,14 +766,14 @@ export async function POST(request: NextRequest) {
     
     // Step 1: Auto-tag the PDF using Adobe's API FIRST
     // This fixes missing tags and prepares the document for accessibility checking
-    console.log('🏷️ Step 1: Auto-tagging PDF with Adobe PDF Services...')
+
     const autoTagResult = await adobePDFServices.autoTagPDF(fileBuffer)
     
     let taggedPdfBuffer = fileBuffer
     let taggingSuccess = false
     
     if (autoTagResult.success && autoTagResult.taggedPdfBuffer) {
-      console.log('✅ PDF successfully auto-tagged by Adobe')
+
       taggedPdfBuffer = autoTagResult.taggedPdfBuffer
       taggingSuccess = true
     } else {
@@ -810,7 +798,7 @@ export async function POST(request: NextRequest) {
               [user.userId]
             )
             await query('COMMIT')
-            console.log('✅ Refunded credit due to page limit error')
+
           } catch (refundError) {
             await query('ROLLBACK')
             console.error('❌ Failed to refund credit:', refundError)
@@ -859,7 +847,7 @@ export async function POST(request: NextRequest) {
     // - Page Content: alt text, fonts, text language, structure
     // - Form Fields: labels, tab order, field properties
     // - All WCAG 2.1 AA and PDF/UA compliance checks
-    console.log('🔍 Step 2: Running comprehensive accessibility check on TAGGED PDF (all pages, all checks)...')
+    ...')
     
     // Initialize variables that will be used in both success and error paths
     let reportCategories: any = undefined
@@ -869,10 +857,9 @@ export async function POST(request: NextRequest) {
     const accessibilityResult = await adobePDFServices.checkAccessibility(taggedPdfBuffer)
     
     if (accessibilityResult.success && accessibilityResult.report) {
-      console.log(`✅ Adobe Accessibility Check complete: ${accessibilityResult.report.summary.totalIssues} issues found.`)
-      console.log(`📊 Report summary:`, JSON.stringify(accessibilityResult.report.summary, null, 2))
-      console.log(`📋 Issues found:`, accessibilityResult.report.issues?.length || 0)
-      
+
+      )
+
       // Get ALL checks from the report (Passed, Failed, Needs manual check, Skipped)
       // The report contains all checks organized by category (like Acrobat's report)
       let adobeIssues = accessibilityResult.report.issues || []
@@ -887,24 +874,24 @@ export async function POST(request: NextRequest) {
         // If Adobe reports "Tagged PDF" as Passed, it means the PDF now has tags (we added them)
         // Add an informational issue to let the user know the original PDF was missing tags
         if (taggedPdfCheck && (taggedPdfCheck.Status || taggedPdfCheck.status) === 'Passed') {
-          console.log('ℹ️ Original PDF was missing tags - auto-tagged during scan')
+
           // Note: We don't add this as a "Failed" issue since we've already fixed it
           // But we'll include it in metadata so users know what was fixed
         }
       }
       
       // Log full report structure for debugging
-      console.log('📄 Full accessibility report structure:', JSON.stringify(accessibilityResult.report, null, 2))
-      console.log('📊 Report categories:', Object.keys(accessibilityResult.report.categories || {}))
-      console.log('📊 Has categories:', !!accessibilityResult.report.categories)
-      console.log('📊 Categories count:', accessibilityResult.report.categories ? Object.keys(accessibilityResult.report.categories).length : 0)
+      )
+      )
+
+      .length : 0)
       
       // Build categories from issues if not available in report
       // NOTE: This will be replaced with re-scan results if auto-fix succeeds
       reportCategories = accessibilityResult.report.categories
       reportSummary = accessibilityResult.report.summary
       if (!reportCategories && adobeIssues.length > 0) {
-        console.log('⚠️ No categories in report, building from issues...')
+
         reportCategories = {}
         adobeIssues.forEach((issue: any) => {
           const category = issue.category || 'Other'
@@ -923,7 +910,7 @@ export async function POST(request: NextRequest) {
             elementTag: issue.elementTag
           })
         })
-        console.log('📊 Built categories from issues:', Object.keys(reportCategories))
+        )
       }
       
       // Filter to get ONLY Failed issues (exclude "Needs manual check" - those are informational only)
@@ -948,17 +935,15 @@ export async function POST(request: NextRequest) {
         })),
         summary: accessibilityResult.report.summary
       }
-      
-      console.log(`🔍 Found ${adobeIssues.length} total checks, ${issuesNeedingRemediation.length} Failed issues`)
-      console.log(`⏭️ Skipping AI suggestions for original scan - will generate only for remaining issues after auto-fix`)
-      
+
+
       // Don't generate AI suggestions yet - wait until after auto-fix and re-scan
       // This avoids wasting API calls on issues that will be auto-fixed
       let enhancedIssues: any[] = []
       
       // Step 3: Apply automatic fixes using AI + PyMuPDF
       // This is our USP - automatically fix issues like alt text and table summaries
-      console.log('🤖 Step 3: Applying automatic fixes using AI...')
+
       let autoFixedPdfBuffer: Buffer | undefined = undefined
       let autoFixResult: any = undefined
       let verificationResult: any = null
@@ -974,7 +959,7 @@ export async function POST(request: NextRequest) {
           const pdfParse = require('pdf-parse')
           const pdfParseResult = await pdfParse(taggedPdfBuffer, { max: 0 })
           documentText = pdfParseResult.text
-          console.log(`📄 Extracted ${documentText.length} characters for AI analysis`)
+
         } catch (textError) {
           console.warn('⚠️ Could not extract document text for AI analysis:', textError)
           // Continue without text - AI can still work with issue descriptions
@@ -995,20 +980,19 @@ export async function POST(request: NextRequest) {
         
         if (autoFixResult.success && autoFixResult.fixedPdfBuffer) {
           autoFixedPdfBuffer = autoFixResult.fixedPdfBuffer
-          console.log(`✅ Auto-fix complete: ${autoFixResult.fixesApplied.altText} alt texts, ${autoFixResult.fixesApplied.tableSummaries} table summaries`)
-          
+
           // Verify fixes were actually applied (same as test scripts)
-          console.log('🔍 Step 4: Verifying fixes were applied to PDF...')
+
           try {
             verificationResult = await verifyPDFFixes(autoFixedPdfBuffer)
             if (verificationResult.success) {
-              console.log(`✅ Verification passed:`)
-              console.log(`   - Document is tagged: ${verificationResult.isTagged ? 'Yes' : 'No'}`)
-              console.log(`   - MarkInfo/Marked: ${verificationResult.isMarked ? 'Yes' : 'No'}`)
-              console.log(`   - Document language: ${verificationResult.language || 'Not set'}`)
-              console.log(`   - Document title: ${verificationResult.title ? 'Yes' : 'No'}`)
-              console.log(`   - Bookmarks: ${verificationResult.bookmarkCount || 0}`)
-              console.log(`   - Structure elements: ${verificationResult.structureElements || 0} (Figures: ${verificationResult.figureCount || 0}, Tables: ${verificationResult.tableCount || 0}, Headings: ${verificationResult.headingCount || 0})`)
+
+
+
+
+
+
+              `)
             } else {
               console.warn(`⚠️ Verification failed: ${verificationResult.error || 'Unknown error'}`)
             }
@@ -1020,15 +1004,14 @@ export async function POST(request: NextRequest) {
           ;(autoFixResult as any).verification = verificationResult
           
           // Re-scan the FIXED PDF to get only remaining issues (avoid duplicate work)
-          console.log('🔍 Step 5: Re-scanning FIXED PDF to identify remaining issues...')
+
           const fixedPdfAccessibilityResult = await adobePDFServices.checkAccessibility(autoFixedPdfBuffer)
           
           if (fixedPdfAccessibilityResult.success && fixedPdfAccessibilityResult.report) {
             // USE RE-SCAN RESULTS for detailed report (not original scan)
             reportCategories = fixedPdfAccessibilityResult.report.categories || reportCategories
             reportSummary = fixedPdfAccessibilityResult.report.summary || reportSummary
-            console.log(`✅ Re-scan complete: Using re-scan results for detailed report`)
-            
+
             const fixedPdfIssues = fixedPdfAccessibilityResult.report.issues || []
             const remainingFailedIssues = fixedPdfIssues.filter((issue: any) => {
               const status = issue.status || 'Passed'
@@ -1090,15 +1073,14 @@ export async function POST(request: NextRequest) {
                   : 0
               }
             }
-            
-            console.log(`✅ Re-scan complete: ${fixedPdfIssues.length} total checks, ${remainingFailedIssues.length} remaining failed issues`)
-            console.log(`📊 Issues fixed: ${fixedIssues.length} out of ${originalScanResults.failedIssues} (${comparisonReport.improvement.improvementPercentage}% improvement)`)
-            console.log(`📋 Comparison Report:`, JSON.stringify(comparisonReport, null, 2))
+
+            `)
+            )
             
             // Replace enhancedIssues with only remaining issues from fixed PDF
             if (remainingFailedIssues.length > 0) {
               // Enhance remaining issues with AI suggestions (only generate for issues that couldn't be auto-fixed)
-              console.log(`🤖 Generating AI remediation for ${remainingFailedIssues.length} remaining issues...`)
+
               const remainingClaudeAPI = new ClaudeAPI()
               const remainingEnhancedIssues = await Promise.all(
                 remainingFailedIssues.map(async (issue: any, index: number) => {
@@ -1145,9 +1127,7 @@ export async function POST(request: NextRequest) {
                       locationForAI = 'Document'
                     }
                   }
-                  
-                  console.log(`🤖 Generating AI remediation for remaining issue ${index + 1}/${remainingFailedIssues.length}: ${issue.rule || issue.ruleName || 'Unknown rule'}`)
-                  
+
                   const aiSuggestion = await remainingClaudeAPI.generateDocumentAccessibilitySuggestion(
                     elementContext,
                     issue.rule || issue.ruleName || 'Accessibility',
@@ -1188,14 +1168,14 @@ export async function POST(request: NextRequest) {
             } else {
               // All issues were fixed!
               enhancedIssues = []
-              console.log('🎉 All issues were auto-fixed! No remaining issues.')
+
             }
           }
         } else {
           console.warn('⚠️ Auto-fix failed or no fixes applied:', autoFixResult.errors)
           // If auto-fix failed, generate AI suggestions for original issues
           if (issuesNeedingRemediation.length > 0) {
-            console.log(`🤖 Auto-fix failed - generating AI suggestions for ${issuesNeedingRemediation.length} original issues...`)
+
             const claudeAPI = new ClaudeAPI()
             enhancedIssues = await Promise.all(
               issuesNeedingRemediation.map(async (adobeIssue: any, index: number) => {
@@ -1280,7 +1260,7 @@ export async function POST(request: NextRequest) {
         console.error('❌ Auto-fix service error:', autoFixError)
         // If auto-fix errors, generate AI suggestions for original issues
         if (issuesNeedingRemediation.length > 0 && enhancedIssues.length === 0) {
-          console.log(`🤖 Auto-fix error - generating AI suggestions for ${issuesNeedingRemediation.length} original issues...`)
+
           const claudeAPI = new ClaudeAPI()
           enhancedIssues = await Promise.all(
             issuesNeedingRemediation.map(async (adobeIssue: any, index: number) => {
@@ -1433,9 +1413,9 @@ export async function POST(request: NextRequest) {
           ;(finalScanResult as any).autoFixed = true
           ;(finalScanResult as any).autoFixStats = autoFixResult?.fixesApplied
           ;(finalScanResult as any).verification = verificationResult // Include verification results (same as test scripts)
-          console.log(`✅ Auto-fixed PDF stored for download: ${finalScanResult.taggedPdfFileName}`)
-          console.log(`   Fixes applied: ${autoFixResult?.fixesApplied.altText || 0} alt texts, ${autoFixResult?.fixesApplied.tableSummaries || 0} table summaries`)
-          console.log(`   Base64 size: ${Math.round(base64String.length / 1024)} KB`)
+
+
+          } KB`)
         } catch (error) {
           console.error('❌ Failed to convert auto-fixed PDF to base64:', error)
           // Fall through to tagged PDF
@@ -1448,9 +1428,9 @@ export async function POST(request: NextRequest) {
           const base64String = autoTagResult.taggedPdfBuffer.toString('base64')
           finalScanResult.taggedPdfBase64 = base64String
           finalScanResult.taggedPdfFileName = body.fileName.replace(/\.pdf$/i, '_tagged.pdf')
-          console.log(`✅ Tagged PDF stored for download: ${finalScanResult.taggedPdfFileName}`)
-          console.log(`   Base64 size: ${Math.round(base64String.length / 1024)} KB`)
-          console.log(`   Buffer size: ${Math.round(autoTagResult.taggedPdfBuffer.length / 1024)} KB`)
+
+          } KB`)
+          } KB`)
         } catch (error) {
           console.error('❌ Failed to convert tagged PDF to base64:', error)
           console.warn('⚠️ Tagged PDF will not be available for download')
@@ -1544,7 +1524,7 @@ export async function POST(request: NextRequest) {
             [scanStatus.userId, 'refund', 1, `Refund for cancelled scan: ${scanId}`]
           )
           await query('COMMIT')
-          console.log(`💰 Credit refunded for cancelled scan ${scanId}`)
+
         } catch (refundError) {
           await query('ROLLBACK')
           console.error('❌ Failed to refund credit on cancellation:', refundError)
@@ -1560,9 +1540,7 @@ export async function POST(request: NextRequest) {
         { status: 200 }
       )
     }
-    
-    console.log(`✅ Adobe scan completed: ${finalScanResult.issues.length} issues found`)
-    
+
     // Use the final scan result (already enhanced with AI)
     const scanResult = finalScanResult
     
@@ -1592,8 +1570,7 @@ export async function POST(request: NextRequest) {
     }
       
     scanDatabase.set(scanRecord.id, scanRecord)
-    console.log(`💾 Scan results saved to database: ${scanRecord.id}`)
-    
+
     // Clean up scan record
     activeScans.delete(scanId)
     
@@ -1630,23 +1607,15 @@ export async function POST(request: NextRequest) {
           selectedTags: body.selectedTags || []
         }
       })
-      console.log('✅ Document scan results stored in history')
 
       // Auto-add issues to product backlog
       // scanHistoryResult is the ID string, not an object
-      console.log('🔍 Backlog addition check:', {
-        hasIssues: !!scanResult.issues,
-        issuesCount: scanResult.issues?.length || 0,
-        hasScanHistoryResult: !!scanHistoryResult,
-        scanHistoryResultType: typeof scanHistoryResult,
-        scanHistoryResultValue: scanHistoryResult
-      })
-      
+
       if (scanResult.issues && scanResult.issues.length > 0 && scanHistoryResult) {
-        console.log(`🔄 Attempting to add ${scanResult.issues.length} document issues to backlog...`)
+
         try {
           backlogResult = await autoAddDocumentIssuesToBacklog(user.userId, scanResult.issues, scanHistoryResult, body.fileName)
-          console.log('✅ Document issues automatically added to product backlog:', JSON.stringify(backlogResult, null, 2))
+          )
           
           // Auto-sync to Jira if enabled (AFTER backlog items are created)
           try {
@@ -1654,9 +1623,9 @@ export async function POST(request: NextRequest) {
             const issueIds = await getIssueIdsFromScan(scanHistoryResult)
             
             if (issueIds.length > 0) {
-              console.log(`🔗 Auto-syncing ${issueIds.length} document issues to Jira...`)
+
               const syncResult = await autoSyncIssuesToJira(user.userId, issueIds)
-              console.log(`✅ Jira sync complete: ${syncResult.created} created, ${syncResult.skipped} skipped, ${syncResult.errors} errors`)
+
             }
           } catch (jiraError) {
             // Don't fail scan if Jira sync fails
@@ -1669,9 +1638,9 @@ export async function POST(request: NextRequest) {
             const issueIds = await getIssueIdsFromScanAzure(scanHistoryResult)
             
             if (issueIds.length > 0) {
-              console.log(`🔗 Auto-syncing ${issueIds.length} document issues to Azure DevOps...`)
+
               const syncResult = await autoSyncIssuesToAzureDevOps(user.userId, issueIds)
-              console.log(`✅ Azure DevOps sync complete: ${syncResult.created} created, ${syncResult.skipped} skipped, ${syncResult.errors} errors`)
+
             }
           } catch (azureDevOpsError) {
             // Don't fail scan if Azure DevOps sync fails
@@ -1708,7 +1677,7 @@ export async function POST(request: NextRequest) {
     if (scanResult.taggedPdfBase64) {
       responseData.taggedPdfBase64 = scanResult.taggedPdfBase64
       responseData.taggedPdfFileName = scanResult.taggedPdfFileName
-      console.log('✅ Including tagged PDF in response')
+
     } else {
       console.warn('⚠️ No tagged PDF to include in response')
     }
@@ -1740,7 +1709,7 @@ export async function POST(request: NextRequest) {
           [currentScan.userId]
         )
         await query('COMMIT')
-        console.log('✅ Refunded credit due to scan error')
+
       } catch (refundError) {
         await query('ROLLBACK')
         console.error('❌ Failed to refund credit:', refundError)
@@ -1784,8 +1753,7 @@ export async function DELETE(request: NextRequest) {
     
     // Mark scan as cancelled
     scanStatus.cancelled = true
-    console.log(`🚫 Scan ${scanId} marked for cancellation`)
-    
+
     // Refund credit if scan was cancelled (only if credits were deducted)
     if (scanStatus.creditTransactionId && scanStatus.userId && scanStatus.userId === user.userId) {
       try {
@@ -1818,7 +1786,7 @@ export async function DELETE(request: NextRequest) {
             )
             
             await query('COMMIT')
-            console.log(`💰 Credit refunded for cancelled scan ${scanId}`)
+
           } catch (refundError) {
             await query('ROLLBACK')
             console.error('❌ Failed to refund credit:', refundError)
@@ -1852,8 +1820,7 @@ export async function DELETE(request: NextRequest) {
     }
     
     scanDatabase.set(cancelledScanRecord.id, cancelledScanRecord)
-    console.log(`💾 Cancelled scan saved to database: ${cancelledScanRecord.id}`)
-    
+
     return NextResponse.json({
       success: true,
       message: 'Scan cancelled successfully. Credit has been refunded if applicable.'
@@ -1922,7 +1889,7 @@ async function enhanceWithAI(scanResult: any, request: DocumentScanRequest, scan
     // Enhance ALL issues with AI for comprehensive recommendations
     const issuesToEnhance = scanResult.issues
     
-    console.log(`🤖 Starting AI enhancement for ${issuesToEnhance.length}/${scanResult.issues.length} issues (all issues)`)
+    `)
     
     // Process issues sequentially instead of concurrently to avoid rate limiting
     const enhancedIssues = []
@@ -1930,8 +1897,7 @@ async function enhanceWithAI(scanResult: any, request: DocumentScanRequest, scan
     for (let i = 0; i < issuesToEnhance.length; i++) {
       const issue = scanResult.issues[i]
       try {
-        console.log(`🤖 Enhancing issue ${i + 1}/${issuesToEnhance.length}:`, issue.description)
-        
+
         // Create detailed context for AI with all available information
         const issueContext = `
 Issue: ${issue.description}
@@ -1955,9 +1921,7 @@ File Type: ${request.fileType}
           issue.elementContent || issue.context || issue.elementLocation,
           issue.pageNumber
         )
-        
-        console.log(`✅ AI enhancement completed for issue ${i + 1}`)
-        
+
         enhancedIssues.push({
           ...issue,
           recommendation: aiRecommendation
@@ -1965,7 +1929,7 @@ File Type: ${request.fileType}
         
         // Reduced delay to 1 second for faster processing
         if (i < issuesToEnhance.length - 1) {
-          console.log('⏳ Waiting 1 second before processing next issue...')
+
           await new Promise(resolve => setTimeout(resolve, 1000))
         }
         
@@ -1977,14 +1941,12 @@ File Type: ${request.fileType}
         
         // Even on error, wait before continuing to next issue
         if (i < issuesToEnhance.length - 1) {
-          console.log('⏳ Waiting 1 second after error before processing next issue...')
+
           await new Promise(resolve => setTimeout(resolve, 1000))
         }
       }
     }
-    
-    console.log('🎉 AI enhancement completed for critical/serious issues')
-    
+
     // Add non-enhanced issues back
     const nonEnhancedIssues = scanResult.issues.filter((issue: any) => 
       issue.type !== 'critical' && issue.type !== 'serious'

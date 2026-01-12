@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: accessitest
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DISABLE_OPENCOLLECTIVE
+        value: 1
+    # Increase build timeout if needed (default is 10 minutes)
+    # plan: starter  # or your plan name
+

@@ -56,11 +56,11 @@ export async function POST(request: NextRequest) {
       )
       if (team?.azure_devops_project) {
         projectToUse = team.azure_devops_project
-        console.log(`Using team-assigned project: ${projectToUse} (instead of integration project: ${integration.project})`)
+        `)
       }
       if (team?.azure_devops_work_item_type) {
         workItemTypeToUse = team.azure_devops_work_item_type
-        console.log(`Using team-assigned work item type: ${workItemTypeToUse} (instead of integration work item type: ${integration.work_item_type || 'Bug'})`)
+        `)
       }
     }
 
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
 
     if (existingMapping) {
       // Verify the work item still exists in Azure DevOps before returning it
-      console.log(`Found existing mapping for issue ${issueId} -> work item ${existingMapping.work_item_id}, verifying it exists...`)
+
       try {
         const tempClient = new AzureDevOpsClient({
           organization: integration.organization,
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
         const existingWorkItem = await tempClient.getWorkItem(projectForCheck, existingMapping.work_item_id)
         
         // Work item exists, return it (don't create duplicate)
-        console.log(`✅ Work item ${existingMapping.work_item_id} exists in Azure DevOps, returning existing mapping`)
+
         return NextResponse.json({
           success: true,
           workItem: {
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
         // Work item doesn't exist in Azure DevOps anymore (deleted or not found)
         // Delete the stale mapping and continue to create a new one
         const errorMsg = verifyError instanceof Error ? verifyError.message : 'Unknown error'
-        console.log(`❌ Work item ${existingMapping.work_item_id} not found in Azure DevOps (${errorMsg}), deleting stale mapping and creating new work item`)
+        , deleting stale mapping and creating new work item`)
         
         try {
           await query(
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
             `UPDATE issues SET azure_devops_synced = false, azure_devops_work_item_id = NULL WHERE id = $1`,
             [issueId]
           )
-          console.log(`✅ Deleted stale mapping for issue ${issueId}, will create new work item`)
+
         } catch (deleteError) {
           console.error(`Failed to delete stale mapping:`, deleteError)
           // Continue anyway - we'll try to create a new work item
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
         // Continue to create a new work item below
       }
     } else {
-      console.log(`No existing mapping found for issue ${issueId}, will create new work item`)
+
     }
 
     // Get issue details with scan results for full remediation data
@@ -293,14 +293,7 @@ export async function POST(request: NextRequest) {
       suggestions,
       screenshots
     }
-    
-    console.log('📋 Issue data for mapping:', {
-      hasDescription: !!issueData.description,
-      hasOffendingElements: issueData.offendingElements?.length > 0,
-      hasSuggestions: issueData.suggestions?.length > 0,
-      hasScreenshots: !!issueData.screenshots,
-      ruleName: issueData.rule_name,
-      description: issueData.description?.substring(0, 100)
+
     })
     
     const patches = mapIssueToAzureDevOps(
@@ -310,10 +303,7 @@ export async function POST(request: NextRequest) {
       integration.iteration_path
     )
     
-    console.log(`🔵 Generated ${patches.length} patches for Azure DevOps work item:`, patches.map(p => ({
-      path: p.path,
-      valueLength: typeof p.value === 'string' ? p.value.length : 'non-string',
-      valuePreview: typeof p.value === 'string' ? p.value.substring(0, 100) : p.value
+    : p.value
     })))
 
     // Double-check for existing mapping right before creating (prevent race condition)
@@ -324,7 +314,7 @@ export async function POST(request: NextRequest) {
     
     if (finalCheck) {
       // Another request created a work item between our check and now
-      console.log(`⚠️ Race condition detected: mapping found for issue ${issueId} -> ${finalCheck.work_item_id}, verifying...`)
+
       try {
         const tempClient = new AzureDevOpsClient({
           organization: integration.organization,
@@ -332,7 +322,7 @@ export async function POST(request: NextRequest) {
         })
         const existingWorkItem = await tempClient.getWorkItem(projectToUse, finalCheck.work_item_id)
         const workItemUrl = client.getWorkItemUrl(projectToUse, finalCheck.work_item_id)
-        console.log(`✅ Found existing work item ${finalCheck.work_item_id}, returning it instead of creating duplicate`)
+
         return NextResponse.json({
           success: true,
           workItem: {
@@ -344,7 +334,7 @@ export async function POST(request: NextRequest) {
         })
       } catch (verifyError) {
         // Work item doesn't exist, delete stale mapping and continue
-        console.log(`❌ Stale mapping found, deleting and continuing...`)
+
         await query(`DELETE FROM azure_devops_work_item_mappings WHERE issue_id = $1`, [issueId])
       }
     }
@@ -352,13 +342,13 @@ export async function POST(request: NextRequest) {
       // Create work item in Azure DevOps
       let createdWorkItem
       try {
-        console.log(`Creating Azure DevOps work item for issue ${issueId}`)
+
         createdWorkItem = await client.createWorkItem(
           projectToUse,
           workItemTypeToUse,
           patches
         )
-      console.log(`✅ Successfully created Azure DevOps work item: ${createdWorkItem.id}`)
+
     } catch (error) {
       // Update issue with error
       const errorMessage = error instanceof Error ? error.message : 'Failed to create Azure DevOps work item'
@@ -381,8 +371,7 @@ export async function POST(request: NextRequest) {
 
     // Store mapping in database FIRST (before screenshots) so we have a record even if screenshots fail
     try {
-      console.log(`Storing Azure DevOps mapping for issue ${issueId} -> work item ${createdWorkItem.id}`)
-      
+
       // Check one more time if a mapping was created by another request
       const lastCheck = await queryOne(
         `SELECT work_item_id FROM azure_devops_work_item_mappings WHERE issue_id = $1 LIMIT 1`,
@@ -391,7 +380,7 @@ export async function POST(request: NextRequest) {
       
       if (lastCheck && lastCheck.work_item_id !== createdWorkItem.id) {
         // Another request created a different work item - this is a race condition
-        console.log(`⚠️ Race condition: Another work item ${lastCheck.work_item_id} was created, returning existing one`)
+
         const existingMapping = await queryOne(
           `SELECT * FROM azure_devops_work_item_mappings WHERE issue_id = $1 LIMIT 1`,
           [issueId]
@@ -430,7 +419,7 @@ export async function POST(request: NextRequest) {
         WHERE id = $2`,
         [createdWorkItem.id, issueId]
       )
-      console.log(`✅ Successfully stored mapping for issue ${issueId}`)
+
     } catch (dbError) {
       // Log but don't fail - work item is already created in Azure DevOps
       console.error(`❌ Failed to store Azure DevOps mapping in database for issue ${issueId}:`, dbError)
@@ -438,10 +427,9 @@ export async function POST(request: NextRequest) {
 
     // Screenshots are linked directly in the description via Cloudinary URLs
     // Optional: Can also upload as attachments if needed
-    console.log(`Screenshots are linked directly in description via Cloudinary URLs`)
 
     // Always return success if work item was created, even if screenshots failed
-    console.log(`✅ Returning success for Azure DevOps work item creation: ${createdWorkItem.id}`)
+
     return NextResponse.json({
       success: true,
       workItem: {

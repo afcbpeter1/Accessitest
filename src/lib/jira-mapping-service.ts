@@ -560,10 +560,10 @@ export function addMediaNodesToDescription(
   attachments: Array<{ id: string; filename: string }>,
   jiraBaseUrl?: string
 ): any {
-  console.log(`addMediaNodesToDescription called with ${attachments.length} attachment(s)`)
+  `)
   
   if (!description || !description.content || !Array.isArray(description.content)) {
-    console.log('❌ Invalid description structure')
+
     return description
   }
 
@@ -577,7 +577,7 @@ export function addMediaNodesToDescription(
         item.content && 
         item.content.some((c: any) => c.text && c.text.includes('Visual Evidence'))) {
       visualEvidenceIndex = i
-      console.log(`Found Visual Evidence heading at index ${i}`)
+
       break
     }
   }
@@ -593,7 +593,7 @@ export function addMediaNodesToDescription(
         const paragraphText = updatedContent[i].content?.map((c: any) => c.text).join('') || ''
         if (paragraphText.includes('Screenshots are being attached') || paragraphText.includes('being attached')) {
           paragraphIndex = i
-          console.log(`Found placeholder paragraph at index ${i}: "${paragraphText}"`)
+
           break
         }
       }
@@ -604,7 +604,7 @@ export function addMediaNodesToDescription(
       for (let i = headingIndex + 1; i < updatedContent.length && i < headingIndex + 3; i++) {
         if (updatedContent[i].type === 'paragraph') {
           paragraphIndex = i
-          console.log(`Using first paragraph after heading at index ${i}`)
+
           break
         }
       }

@@ -77,11 +77,7 @@ export class AdobePDFServices {
 
   constructor(config: AdobePDFServicesConfig) {
     this.config = config
-    console.log('🔧 AdobePDFServices constructor called with:', {
-      hasClientId: !!config.clientId,
-      hasClientSecret: !!config.clientSecret,
-    })
-    
+
     // Initialize PDF Services SDK
     try {
       const credentials = new ServicePrincipalCredentials({
@@ -90,7 +86,7 @@ export class AdobePDFServices {
       })
       
       this.pdfServices = new PDFServices({ credentials })
-      console.log('✅ Adobe PDF Services SDK initialized successfully')
+
     } catch (error) {
       console.error('❌ Failed to initialize Adobe PDF Services SDK:', error)
       this.pdfServices = null
@@ -125,20 +121,17 @@ export class AdobePDFServices {
         throw new Error('PDF Services SDK not initialized')
       }
 
-      console.log(`📤 Starting Adobe Auto-Tag using SDK...`)
-      console.log(`📄 PDF size: ${pdfBuffer.length} bytes`)
 
       // Step 1: Upload the PDF asset
-      console.log(`📤 Step 1: Uploading PDF asset...`)
+
       const readStream = this.bufferToStream(pdfBuffer)
       const inputAsset = await this.pdfServices.upload({
         readStream,
         mimeType: MimeType.PDF
       })
-      console.log(`✅ PDF uploaded successfully`)
 
       // Step 2: Create parameters and job
-      console.log(`📤 Step 2: Creating auto-tag job with parameters...`)
+
       const params = new AutotagPDFParams({
         generateReport: true,  // Generate XLSX report
         shiftHeadings: true    // Shift headings so document title is only H1
@@ -148,32 +141,29 @@ export class AdobePDFServices {
       const autotagPdfJob = new AutotagPDFJob({ inputAsset, params })
 
       // Step 3: Submit job and wait for result
-      console.log(`📤 Step 3: Submitting job and waiting for result...`)
+
       const pollingURL = await this.pdfServices.submit({ job: autotagPdfJob })
-      console.log(`✅ Job submitted, polling for result...`)
-      
+
       const pdfServicesResponse = await this.pdfServices.getJobResult({
         pollingURL,
         resultType: AutotagPDFResult
       })
 
-      console.log(`✅ Job completed successfully`)
-
       // Step 4: Download the tagged PDF
-      console.log(`📤 Step 4: Downloading tagged PDF...`)
+
       const resultAsset = pdfServicesResponse.result.taggedPDF
       const streamAsset = await this.pdfServices.getContent({ asset: resultAsset })
       const taggedPdfBuffer = await this.streamToBuffer(streamAsset.readStream)
-      console.log(`✅ Downloaded tagged PDF (${taggedPdfBuffer.length} bytes)`)
+      `)
 
       // Step 5: Download the report (optional)
       let reportBuffer: Buffer | undefined
       if (pdfServicesResponse.result.report) {
-        console.log(`📤 Step 5: Downloading tagging report...`)
+
         const resultAssetReport = pdfServicesResponse.result.report
         const streamAssetReport = await this.pdfServices.getContent({ asset: resultAssetReport })
         reportBuffer = await this.streamToBuffer(streamAssetReport.readStream)
-        console.log(`✅ Downloaded report (${reportBuffer.length} bytes)`)
+        `)
       }
 
       return {
@@ -222,17 +212,14 @@ export class AdobePDFServices {
         throw new Error('PDF Services SDK not initialized')
       }
 
-      console.log(`📤 Starting Adobe Accessibility Check using SDK...`)
-      console.log(`📄 PDF size: ${pdfBuffer.length} bytes`)
 
       // Step 1: Upload the PDF asset
-      console.log(`📤 Step 1: Uploading PDF asset...`)
+
       const readStream = this.bufferToStream(pdfBuffer)
       const inputAsset = await this.pdfServices.upload({
         readStream,
         mimeType: MimeType.PDF
       })
-      console.log(`✅ PDF uploaded successfully`)
 
       // Step 2: Create and submit the accessibility check job
       // By default, checks ALL pages and ALL accessibility categories:
@@ -240,16 +227,16 @@ export class AdobePDFServices {
       // - Page content (alt text, color contrast, fonts, text language)
       // - Form fields (labels, tab order, field properties)
       // - All WCAG 2.1 AA and PDF/UA compliance checks
-      console.log(`📤 Step 2: Creating comprehensive accessibility check job (all pages, all checks)...`)
+      ...`)
       
       const paramsOptions: any = {}
       // If page range is specified, use it; otherwise check all pages (default)
       if (options?.pageStart && options?.pageEnd) {
         paramsOptions.pageStart = options.pageStart
         paramsOptions.pageEnd = options.pageEnd
-        console.log(`   Checking pages ${options.pageStart} to ${options.pageEnd}`)
+
       } else {
-        console.log(`   Checking all pages in document`)
+
       }
       
       const params = new PDFAccessibilityCheckerParams(paramsOptions)
@@ -257,29 +244,26 @@ export class AdobePDFServices {
 
       // Submit job and wait for result
       const pollingURL = await this.pdfServices.submit({ job: checkAccessibilityJob })
-      console.log(`✅ Job submitted, polling for result...`)
-      
+
       const pdfServicesResponse = await this.pdfServices.getJobResult({
         pollingURL,
         resultType: PDFAccessibilityCheckerResult
       })
-
-      console.log(`✅ Job completed successfully`)
 
       // Step 3: Get the accessibility report
       // The report is ALWAYS an asset that needs to be downloaded
       let parsedReport: any
       
       // Log the FULL result structure for debugging - CRITICAL for troubleshooting
-      console.log('📋 PDF Services Response structure (COMPLETE):')
-      console.log('   Result type:', typeof pdfServicesResponse.result)
-      console.log('   Result keys:', Object.keys(pdfServicesResponse.result || {}))
-      console.log('   Has report:', !!pdfServicesResponse.result?.report)
-      console.log('   Full result (COMPLETE, no truncation):', JSON.stringify(pdfServicesResponse.result, null, 2))
+      :')
+
+      )
+
+      :', JSON.stringify(pdfServicesResponse.result, null, 2))
       
       // Also log the full response object to see if report is elsewhere
-      console.log('📋 Full PDF Services Response (COMPLETE):')
-      console.log(JSON.stringify(pdfServicesResponse, null, 2))
+      :')
+      )
       
       // CRITICAL: The report is in result._report (with underscore), which is an asset reference
       // We MUST download it to get the actual JSON report
@@ -291,24 +275,22 @@ export class AdobePDFServices {
         console.error('   Result structure:', JSON.stringify(pdfServicesResponse.result, null, 2))
         throw new Error('No report asset found in PDF Services response - cannot generate accessibility report')
       }
-      
-      console.log('📦 Report asset found:')
-      console.log('   Type:', typeof reportAsset)
-      console.log('   Keys:', typeof reportAsset === 'object' ? Object.keys(reportAsset) : 'N/A')
-      console.log('   Full asset:', JSON.stringify(reportAsset, null, 2))
+
+
+      : 'N/A')
+      )
       
       // ALWAYS download the report - it's never embedded
-      console.log(`📤 Step 3: Downloading accessibility report from asset...`)
-      
+
       // Try SDK getContent first
       let reportDownloaded = false
       try {
-        console.log('   Attempting SDK getContent...')
+
         const streamAsset = await this.pdfServices.getContent({ asset: reportAsset })
         const reportBuffer = await this.streamToBuffer(streamAsset.readStream)
         const reportText = reportBuffer.toString('utf8')
-        console.log(`✅ Report downloaded via SDK (${reportBuffer.length} bytes)`)
-        console.log(`   Report preview (first 1000 chars):`, reportText.substring(0, 1000))
+        `)
+        :`, reportText.substring(0, 1000))
         
         if (reportText.length < 100) {
           throw new Error(`Report too short (${reportText.length} bytes) - likely not the actual report`)
@@ -316,7 +298,7 @@ export class AdobePDFServices {
         
         parsedReport = JSON.parse(reportText)
         reportDownloaded = true
-        console.log(`✅ Report parsed successfully from SDK`)
+
       } catch (sdkError: any) {
         console.error('❌ SDK getContent failed:', sdkError.message)
         console.error('   Error stack:', sdkError.stack?.substring(0, 500))
@@ -325,16 +307,16 @@ export class AdobePDFServices {
         if (reportAsset && typeof reportAsset === 'object') {
           if ('_downloadURI' in reportAsset && typeof reportAsset._downloadURI === 'string') {
             const downloadURI = reportAsset._downloadURI
-            console.log(`📤 Attempting direct download from URI...`)
-            console.log(`   URI (first 150 chars): ${downloadURI.substring(0, 150)}...`)
+
+            : ${downloadURI.substring(0, 150)}...`)
             try {
               const response = await fetch(downloadURI)
               if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`)
               }
               const reportText = await response.text()
-              console.log(`✅ Report downloaded from URI (${reportText.length} bytes)`)
-              console.log(`   Report preview (first 1000 chars):`, reportText.substring(0, 1000))
+              `)
+              :`, reportText.substring(0, 1000))
               
               if (reportText.length < 100) {
                 throw new Error(`Report too short (${reportText.length} bytes) - likely not the actual report`)
@@ -342,7 +324,7 @@ export class AdobePDFServices {
               
               parsedReport = JSON.parse(reportText)
               reportDownloaded = true
-              console.log(`✅ Report parsed successfully from URI`)
+
             } catch (uriError: any) {
               console.error('❌ Failed to download from URI:', uriError.message)
               console.error('   Error details:', uriError)
@@ -367,9 +349,9 @@ export class AdobePDFServices {
       }
 
       // Log the FULL parsed report for debugging
-      console.log('📄 Parsed accessibility report structure:')
-      console.log('   Top-level keys:', Object.keys(parsedReport))
-      console.log('   Full report (COMPLETE):', JSON.stringify(parsedReport, null, 2))
+
+      )
+      :', JSON.stringify(parsedReport, null, 2))
       
       // Validate we got actual report data
       if (!parsedReport || Object.keys(parsedReport).length === 0) {
@@ -380,25 +362,23 @@ export class AdobePDFServices {
       // Check for all possible report structures (Adobe uses "Detailed Report" and "Summary")
       const detailedReport = parsedReport['Detailed Report'] || parsedReport.detailedReport || parsedReport.detailed_report
       const reportSummary = parsedReport.Summary || parsedReport.summary
-      
-      console.log('   Has "Detailed Report":', !!detailedReport)
-      console.log('   Has "Summary":', !!reportSummary)
-      console.log('   Has categories:', !!parsedReport.categories)
-      console.log('   Has document:', !!parsedReport.document)
-      console.log('   Has pageContent:', !!parsedReport.pageContent)
-      console.log('   Has forms:', !!parsedReport.forms)
-      console.log('   Has alternateText:', !!parsedReport.alternateText)
-      console.log('   Has tables:', !!parsedReport.tables)
-      console.log('   Has lists:', !!parsedReport.lists)
-      console.log('   Has headings:', !!parsedReport.headings)
-      console.log('   Has issues:', !!parsedReport.issues)
-      console.log('   Has checks:', !!parsedReport.checks)
-      console.log('   Has results:', !!parsedReport.results)
-      console.log('   Has violations:', !!parsedReport.violations)
-      console.log('   Has summary:', !!parsedReport.summary)
-      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
       if (reportSummary) {
-        console.log('   Summary:', JSON.stringify(reportSummary, null, 2))
+        )
       }
       
       // Check if report has any actual content
@@ -418,9 +398,7 @@ export class AdobePDFServices {
         console.error('   Top-level keys:', Object.keys(parsedReport))
         throw new Error('Report downloaded but contains no accessibility check data')
       }
-      
-      console.log('✅ Report validation passed - has content')
-      
+
       // Determine if PDF is compliant
       const compliant = (parsedReport.summary?.criticalIssues || 0) === 0 && 
                        (parsedReport.summary?.warnings || 0) === 0
@@ -435,7 +413,7 @@ export class AdobePDFServices {
       if (detailedReport && typeof detailedReport === 'object') {
         // Adobe uses category names as keys: "Document", "Page Content", "Forms", etc.
         categories = detailedReport
-        console.log('✅ Found categories in "Detailed Report":', Object.keys(categories))
+        )
       } else if (parsedReport.categories) {
         categories = parsedReport.categories
       } else if (parsedReport.document || parsedReport.pageContent || parsedReport.forms) {
@@ -486,7 +464,7 @@ export class AdobePDFServices {
             })
           }
         })
-        console.log(`📊 Extracted ${allChecks.length} total checks from ${Object.keys(categories).length} categories`)
+        .length} categories`)
       }
       
       // Also try to extract from other report formats
@@ -547,7 +525,7 @@ export class AdobePDFServices {
             })
           }
         })
-        console.log(`📊 Extracted ${allChecks.length} total checks from ${Object.keys(categories).length} categories`)
+        .length} categories`)
       }
       
       // Filter to only get issues (Failed, Needs manual check) - not Passed or Skipped
@@ -556,7 +534,7 @@ export class AdobePDFServices {
         return status === 'Failed' || status === 'Needs manual check' || status === 'Failed manually'
       })
       
-      console.log(`📊 Filtered to ${issues.length} issues (Failed + Needs manual check) from ${allChecks.length} total checks`)
+      from ${allChecks.length} total checks`)
       
       // Map issues to our format with status
       // Adobe uses "Status" (capital S) and "Rule" (capital R)
@@ -595,15 +573,8 @@ export class AdobePDFServices {
         
         // Log the raw description to see what Adobe provides (for debugging)
         if (process.env.NODE_ENV === 'development' || process.env.DEBUG_ADOBE) {
-          console.log(`   📝 Raw description for "${ruleName}":`, description)
-          console.log(`   📍 Raw location fields:`, {
-            location: check.location,
-            Location: check.Location,
-            context: check.context,
-            elementLocation: check.elementLocation,
-            objLocation: check.objLocation,
-            page: check.page || check.Page || check.pageNumber || check.pageNum
-          })
+
+
         }
         
         // Try to extract location from various fields, or infer from description
@@ -614,7 +585,7 @@ export class AdobePDFServices {
         if (explicitPage) {
           location = `Page ${explicitPage}`
           if (process.env.NODE_ENV === 'development' || process.env.DEBUG_ADOBE) {
-            console.log(`   ✅ Using explicit page field: Page ${explicitPage}`)
+
           }
         } else if (!location || location === 'Unknown location') {
           // Try to extract location info from description
@@ -641,7 +612,7 @@ export class AdobePDFServices {
           if (pageNumber) {
             location = `Page ${pageNumber}`
             if (process.env.NODE_ENV === 'development' || process.env.DEBUG_ADOBE) {
-              console.log(`   ✅ Extracted page number from description: Page ${pageNumber}`)
+
             }
           } else {
             // Try to extract section/context info from description
@@ -649,7 +620,7 @@ export class AdobePDFServices {
             if (sectionMatch) {
               location = sectionMatch[1].trim()
               if (process.env.NODE_ENV === 'development' || process.env.DEBUG_ADOBE) {
-                console.log(`   ✅ Extracted section from description: ${location}`)
+
               }
             } else {
               // Use rule name to provide context (e.g., "Figures alternate text" = all figures)
@@ -668,13 +639,13 @@ export class AdobePDFServices {
                 location = ruleName !== 'Unknown' ? ruleName : 'Document'
               }
               if (process.env.NODE_ENV === 'development' || process.env.DEBUG_ADOBE) {
-                console.log(`   ⚠️ No location found in description, inferred from rule: ${location}`)
+
               }
             }
           }
         } else {
           if (process.env.NODE_ENV === 'development' || process.env.DEBUG_ADOBE) {
-            console.log(`   ✅ Using provided location: ${location}`)
+
           }
         }
         
@@ -842,10 +813,10 @@ export class AdobePDFServices {
         passedCount = reportSummary.Passed || reportSummary.passed || 0
         needsManualCheckCount = reportSummary['Needs manual check'] || reportSummary.needsManualCheck || 0
         skippedCount = reportSummary.Skipped || reportSummary.skipped || 0
-        console.log(`📊 Using Adobe Summary: ${failedCount} failed, ${needsManualCheckCount} needs manual check, ${passedCount} passed, ${skippedCount} skipped`)
+
       } else if (Object.keys(mappedCategories).length > 0) {
         // Count from categories if available
-        console.log(`📊 Counting checks from ${Object.keys(mappedCategories).length} categories`)
+        .length} categories`)
         Object.values(mappedCategories).forEach((categoryChecks: any[]) => {
           categoryChecks.forEach((check: any) => {
             if (check.status === 'Failed') failedCount++
@@ -854,17 +825,17 @@ export class AdobePDFServices {
             else if (check.status === 'Skipped') skippedCount++
           })
         })
-        console.log(`📊 Summary from categories: ${failedCount} failed, ${needsManualCheckCount} needs manual check, ${passedCount} passed, ${skippedCount} skipped`)
+
       } else {
         // Fallback to counting from mapped issues
         failedCount = mappedIssues.filter((i: any) => i.status === 'Failed').length
         passedCount = mappedIssues.filter((i: any) => i.status === 'Passed').length
         needsManualCheckCount = mappedIssues.filter((i: any) => i.status === 'Needs manual check').length
         skippedCount = mappedIssues.filter((i: any) => i.status === 'Skipped').length
-        console.log(`📊 Summary from issues: ${failedCount} failed, ${needsManualCheckCount} needs manual check`)
+
       }
       
-      console.log(`📋 Total issues to report: ${mappedIssues.length} (Failed: ${failedCount}, Needs manual check: ${needsManualCheckCount})`)
+      `)
       
       return {
         success: true,
@@ -920,24 +891,21 @@ export function getAdobePDFServices(): AdobePDFServices | null {
   const organizationId = process.env.ADOBE_PDF_SERVICES_ORG_ID
   const accountId = process.env.ADOBE_PDF_SERVICES_ACCOUNT_ID
 
-  console.log('🔍 Checking Adobe PDF Services configuration...')
-  console.log(`   Client ID: ${clientId ? clientId.substring(0, 8) + '...' : 'NOT SET'}`)
-  console.log(`   Client Secret: ${clientSecret ? 'SET' : 'NOT SET'}`)
-  console.log(`   Org ID: ${organizationId || 'NOT SET'}`)
-  console.log(`   Account ID: ${accountId || 'NOT SET'}`)
+  + '...' : 'NOT SET'}`)
+
+
 
   if (!clientId) {
-    console.log('⚠️ ADOBE_PDF_SERVICES_CLIENT_ID not set in environment')
+
     return null
   }
 
   if (!clientSecret) {
-    console.log('⚠️ ADOBE_PDF_SERVICES_CLIENT_SECRET not set in environment')
+
     return null
   }
 
-  console.log(`✅ Adobe PDF Services configured with Client ID: ${clientId.substring(0, 8)}...`)
-  console.log(`✅ Using Adobe PDF Services Node.js SDK`)
+  }...`)
 
   return new AdobePDFServices({
     clientId,

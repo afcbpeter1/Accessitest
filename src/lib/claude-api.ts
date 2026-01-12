@@ -47,9 +47,7 @@ export class ClaudeAPI {
       console.warn('⚠️ ANTHROPIC_API_KEY not found in environment variables');
     }
     
-    console.log('🔧 Claude API Config:', {
-      apiUrl: this.apiUrl,
-      apiKey: this.apiKey ? '***' + this.apiKey.slice(-4) : 'MISSING',
+    : 'MISSING',
       provider: 'Anthropic Official API',
       rateLimit: `${this.minRequestInterval}ms between requests`,
       maxConcurrent: this.maxConcurrentRequests
@@ -65,7 +63,7 @@ export class ClaudeAPI {
         try {
           // Wait for any active requests to complete
           while (this.activeRequests >= this.maxConcurrentRequests) {
-            console.log('⏳ Waiting for active request to complete...');
+
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
           
@@ -74,7 +72,7 @@ export class ClaudeAPI {
           const timeSinceLastRequest = now - this.lastRequestTime;
           if (timeSinceLastRequest < this.minRequestInterval) {
             const waitTime = this.minRequestInterval - timeSinceLastRequest;
-            console.log(`⏳ Rate limiting: waiting ${waitTime}ms before next request`);
+
             await new Promise(resolve => setTimeout(resolve, waitTime));
           }
           
@@ -118,7 +116,7 @@ export class ClaudeAPI {
       
       // Always wait between requests to prevent any rate limiting
       if (this.requestQueue.length > 0) {
-        console.log(`⏳ Queue processing: waiting ${this.minRequestInterval}ms before next request`);
+
         await new Promise(resolve => setTimeout(resolve, this.minRequestInterval));
       }
     }
@@ -199,10 +197,9 @@ export class ClaudeAPI {
     cssSelector: string
   ): Promise<string> {
     try {
-      console.log('🚀 Claude API: Starting request for', issueType);
-      console.log('📝 Claude API: HTML length:', html.length);
-      console.log('🎯 Claude API: CSS Selector:', cssSelector);
-      
+
+
+
       const systemPrompt = `You are an expert web accessibility consultant. Provide concise, actionable fixes for accessibility issues.
 
 Guidelines:
@@ -226,14 +223,12 @@ Problem: ${failureSummary}
 
 Provide a specific, actionable fix for this exact element.`;
 
-      console.log('📤 Claude API: Sending request...');
       const response = await this.makeRateLimitedRequest(() => 
         this.callClaudeAPI([
           { role: 'user', content: userPrompt }
         ], systemPrompt)
       );
 
-      console.log('📥 Claude API: Received response, length:', response.length);
       return response;
     } catch (error) {
       console.error('❌ Claude API error:', error);
@@ -257,12 +252,11 @@ Provide a specific, actionable fix for this exact element.`;
     documentType?: string // 'PDF document' or 'Word document'
   ): Promise<string> {
     try {
-      console.log('🚀 Claude API: Starting document analysis for', fileName);
-      console.log('📝 Claude API: Issue:', issueDescription);
-      console.log('📄 Claude API: Section:', section);
-      console.log('📍 Claude API: Page:', pageNumber);
-      console.log('📄 Claude API: Element:', elementContent || 'Not provided');
-      
+
+
+
+
+
       const isWordDoc = documentType?.toLowerCase().includes('word') || fileType?.toLowerCase().includes('word') || fileName?.toLowerCase().endsWith('.docx') || fileName?.toLowerCase().endsWith('.doc')
       const docType = isWordDoc ? 'Word document' : 'PDF document'
       const toolName = isWordDoc ? 'Microsoft Word' : 'Adobe Acrobat Pro'
@@ -331,14 +325,12 @@ Provide step-by-step instructions to fix THIS specific issue using ${toolName}. 
 IMPORTANT: Provide instructions specific to ${toolName} for ${docType}s. Do NOT mention tools for the other document type.
 Do NOT say you need more information - use what's provided. Do NOT tell them to run the accessibility checker - we've already done that.`;
 
-      console.log('📤 Claude API: Sending document analysis request...');
       const response = await this.makeRateLimitedRequest(() => 
         this.callClaudeAPI([
           { role: 'user', content: userPrompt }
         ], systemPrompt)
       );
 
-      console.log('📥 Claude API: Received document analysis response, length:', response.length);
       return response;
     } catch (error) {
       console.error('❌ Claude API document analysis error:', error);
@@ -450,16 +442,15 @@ Can this be automatically fixed? What will be changed?`;
       requestBody.system = systemPrompt;
     }
 
-    console.log('🌐 Claude API: Making request to:', this.apiUrl);
-    console.log('🔑 Claude API: Using key:', this.apiKey ? '***' + this.apiKey.slice(-4) : 'MISSING');
-    console.log('📊 Claude API: Request body size:', JSON.stringify(requestBody).length);
+    : 'MISSING');
+    .length);
 
     const maxRetries = 2; // Reduced retries to be more conservative
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`📡 Claude API: Making request (attempt ${attempt}/${maxRetries})...`)
+        ...`)
         
         // Create a timeout promise (60 seconds)
         const timeoutPromise = new Promise<never>((_, reject) => {
@@ -480,12 +471,10 @@ Can this be automatically fixed? What will be changed?`;
         // Race between fetch and timeout
         const response = await Promise.race([fetchPromise, timeoutPromise])
 
-        console.log('📡 Claude API: Response status:', response.status, response.statusText);
-
         if (response.status === 529) {
           // Overloaded error - wait much longer and retry
           const waitTime = Math.pow(2, attempt) * 5000; // 10s, 20s backoff
-          console.log(`⚠️ Claude API overloaded (529), waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`);
+          , waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           lastError = new Error(`Claude API overloaded (attempt ${attempt}/${maxRetries})`);
           continue;
@@ -498,16 +487,14 @@ Can this be automatically fixed? What will be changed?`;
         }
 
         const data: ClaudeResponse = await response.json();
-        console.log('✅ Claude API: Success, response data:', JSON.stringify(data, null, 2));
-        console.log('📝 Claude API: Content blocks found:', data.content?.length || 0);
-        
+        );
+
         // Extract text content from the response
         const textContent = data.content
           ?.filter(block => block.type === 'text')
           ?.map(block => block.text)
           ?.join('') || 'No response from Claude API';
-        
-        console.log('📄 Claude API: Extracted text length:', textContent.length);
+
         return textContent;
         
       } catch (error) {
@@ -516,7 +503,7 @@ Can this be automatically fixed? What will be changed?`;
         
         if (attempt < maxRetries) {
           const waitTime = Math.pow(2, attempt) * 3000; // 6s, 12s backoff
-          console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }

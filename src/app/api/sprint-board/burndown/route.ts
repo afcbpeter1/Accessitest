@@ -81,13 +81,6 @@ export async function GET(request: NextRequest) {
       const completedPoints = parseInt(issuesResult.rows[0]?.completed_points || '0')
 
       // Debug logging
-      console.log('📊 Burndown initial calculation:', {
-        sprintId,
-        totalPoints,
-        remainingPoints,
-        completedPoints,
-        rawData: issuesResult.rows[0]
-      })
 
       // Get detailed issue data for debugging
       const detailedIssues = await pool.query(`
@@ -103,9 +96,6 @@ export async function GET(request: NextRequest) {
         WHERE si.sprint_id = $1
         ORDER BY sc.position, si.position
       `, [sprintId])
-
-      console.log('📊 Detailed issues data:', detailedIssues.rows)
-
 
       // Create initial burndown entry for today
       const today = new Date().toISOString().split('T')[0]
@@ -179,15 +169,6 @@ export async function GET(request: NextRequest) {
     const currentRemaining = parseInt(currentIssuesResult.rows[0]?.remaining_points || currentTotal.toString())
     const currentCompleted = parseInt(currentIssuesResult.rows[0]?.completed_points || '0')
 
-    console.log('📊 Current sprint status:', {
-      total: currentTotal,
-      remaining: currentRemaining,
-      completed: currentCompleted,
-      totalStoryPoints: totalStoryPoints,
-      sprintId,
-      rawCurrentData: currentIssuesResult.rows[0]
-    })
-
     // Debug: Check what issues are actually in the sprint and their columns
     try {
       const debugIssues = await pool.query(`
@@ -205,11 +186,9 @@ export async function GET(request: NextRequest) {
         ORDER BY sc.position, si.position
       `, [sprintId])
 
-      console.log('📊 All issues in sprint:', debugIssues.rows)
-      
       // Check which columns are marked as done columns
       const doneColumns = debugIssues.rows.filter(issue => issue.is_done_column === true)
-      console.log('📊 Issues in Done columns:', doneColumns)
+
     } catch (debugError) {
       console.error('Debug query error:', debugError)
     }
@@ -263,13 +242,7 @@ export async function GET(request: NextRequest) {
 
       // Debug logging for each day
       if (day <= 2) {
-        console.log(`📊 Day ${day} data:`, {
-          day,
-          actualRemaining,
-          actualCompleted,
-          currentRemaining,
-          currentCompleted
-        })
+
       }
 
       chartData.push({

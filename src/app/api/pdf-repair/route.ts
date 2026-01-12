@@ -36,15 +36,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    console.log(`🔧 Starting PDF repair for: ${fileName}`)
-
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer()
     const fileBuffer = Buffer.from(arrayBuffer)
 
     // Step 1: Scan the PDF first to get issues
-    console.log(`📋 Step 1: Scanning PDF to identify issues...`)
     const scanner = new ComprehensiveDocumentScanner()
     const scanResult = await scanner.scanDocument(
       fileBuffer,
@@ -53,11 +49,7 @@ export async function POST(request: NextRequest) {
       undefined, // No selected tags - run full scan
       () => false // No cancellation
     )
-
-    console.log(`📋 Found ${scanResult.issues.length} issues in PDF`)
-
     // Step 2: Repair the PDF using Adobe PDF Services
-    console.log(`🏷️ Step 2: Auto-tagging PDF using Adobe PDF Services...`)
     const repairService = new DocumentRepairService()
     const repairResult = await repairService.repairDocument(
       fileBuffer,
@@ -75,11 +67,7 @@ export async function POST(request: NextRequest) {
         repairPlan: repairResult.repairPlan
       }, { status: 500 })
     }
-
-    console.log(`✅ PDF successfully repaired/tagged`)
-
     // Step 3: Rescan the repaired PDF to verify fixes
-    console.log(`🔍 Step 3: Rescanning repaired PDF to verify fixes...`)
     const rescanResult = await scanner.scanDocument(
       repairResult.repairedDocument,
       fileName.replace('.pdf', '_fixed.pdf'),
@@ -88,7 +76,7 @@ export async function POST(request: NextRequest) {
       () => false
     )
 
-    console.log(`📊 Rescan results: ${rescanResult.issues.length} issues remaining (was ${scanResult.issues.length})`)
+    `)
 
     // Convert repaired PDF to base64 for download
     const repairedPdfBase64 = repairResult.repairedDocument.toString('base64')

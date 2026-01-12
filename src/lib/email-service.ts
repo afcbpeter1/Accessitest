@@ -105,8 +105,6 @@ export class EmailService {
         console.error('📧 Attempted to send to:', email)
         return false
       }
-
-      console.log('✅ Verification email sent successfully! Message ID:', result.data?.id)
       return true
     } catch (error) {
       console.error('❌ Exception sending verification email:', error)
@@ -216,8 +214,6 @@ export class EmailService {
         console.error('❌ Failed to send organization invitation email. Error:', JSON.stringify(result.error, null, 2))
         return false
       }
-
-      console.log('✅ Organization invitation email sent successfully! Message ID:', result.data?.id)
       return true
     } catch (error) {
       console.error('❌ Exception sending organization invitation email:', error)
@@ -332,8 +328,6 @@ export class EmailService {
         console.error('❌ Failed to send billing confirmation email. Error:', JSON.stringify(result.error, null, 2))
         return false
       }
-
-      console.log('✅ Billing confirmation email sent successfully! Message ID:', result.data?.id)
       return true
     } catch (error) {
       console.error('❌ Exception sending billing confirmation email:', error)

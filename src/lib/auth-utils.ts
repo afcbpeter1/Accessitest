@@ -28,7 +28,7 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
         const now = Math.floor(Date.now() / 1000)
         
         if (payload.exp && payload.exp < now) {
-          console.log('❌ Token expired locally - immediate logout')
+
           localStorage.removeItem('accessToken')
           localStorage.removeItem('user')
           showLogoutNotification('Your session has expired. Please log in again.')
@@ -39,7 +39,7 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
         }
       }
     } catch (error) {
-      console.log('❌ Invalid token format - immediate logout')
+
       localStorage.removeItem('accessToken')
       localStorage.removeItem('user')
       showLogoutNotification('Invalid session. Please log in again.')

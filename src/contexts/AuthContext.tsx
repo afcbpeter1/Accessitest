@@ -56,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Start token refresh service if user is authenticated
     // The service is a singleton and starts automatically, but we verify it's working
     if (isAuthenticated()) {
-      console.log('🔄 Token refresh service active - will refresh token on activity')
+
       // Reset inactivity timer when user is authenticated
       tokenRefreshService.resetInactivityTimer()
     }

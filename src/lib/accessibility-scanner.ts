@@ -93,8 +93,7 @@ export class AccessibilityScanner {
    * This method should be called from within a Puppeteer page context
    */
   async scanPageInBrowser(page: any, selectedTags?: string[]): Promise<ScanResult> {
-    console.log(`🔍 AccessibilityScanner.scanPageInBrowser called`)
-    
+
     // Get the current URL from the page
     const currentUrl = await page.url();
     
@@ -113,7 +112,7 @@ export class AccessibilityScanner {
         'EN-301-549'          // European accessibility standard
       ];
       
-      console.log(`🏷️ Tags to check: ${tagsToCheck.join(', ')}`)
+      }`)
       
       // CRITICAL: Fix the fundamental WCAG tag mapping issue
       // The problem: wcag22aa/wcag22aaa tags don't include all the rules they should!
@@ -122,12 +121,12 @@ export class AccessibilityScanner {
         // Add wcag2aa for complete AA rule set (includes color-contrast)
         if (!tagsToCheck.includes('wcag2aa')) {
           tagsToCheck.push('wcag2aa');
-          console.log('🔍 Added wcag2aa tag for complete WCAG 2.0 AA rule set');
+
         }
         // Add wcag2aaa for complete AAA rule set (includes color-contrast-enhanced)
         if (tagsToCheck.some(tag => tag.includes('AAA')) && !tagsToCheck.includes('wcag2aaa')) {
           tagsToCheck.push('wcag2aaa');
-          console.log('🔍 Added wcag2aaa tag for complete WCAG 2.0 AAA rule set');
+
         }
       }
       
@@ -156,59 +155,41 @@ export class AccessibilityScanner {
         });
         
       // Debug: Log the tags being used
-      console.log('🔍 Axe-core scanning with tags:', tags);
-      
+
       // Debug: Log available rules and their tags
       const allRules = axe.getRules();
       const colorContrastRule = allRules.find(rule => rule.ruleId === 'color-contrast');
       const colorContrastEnhancedRule = allRules.find(rule => rule.ruleId === 'color-contrast-enhanced');
       
       if (colorContrastRule) {
-        console.log('🔍 Color-contrast rule tags:', colorContrastRule.tags);
-        console.log('🔍 Color-contrast rule enabled:', colorContrastRule.enabled);
+
+
       }
       
       if (colorContrastEnhancedRule) {
-        console.log('🔍 Color-contrast-enhanced rule tags:', colorContrastEnhancedRule.tags);
-        console.log('🔍 Color-contrast-enhanced rule enabled:', colorContrastEnhancedRule.enabled);
+
+
       }
       
       // Debug: Show all disabled rules that might be relevant
       const disabledRules = allRules.filter(rule => !rule.enabled);
-      console.log('🔍 Disabled rules that might be relevant:', disabledRules.map(rule => ({
-        id: rule.ruleId,
-        description: rule.description,
-        tags: rule.tags,
-        enabled: rule.enabled
-      })));
+      ));
       
       // Debug: Log best-practice rules
       const bestPracticeRules = allRules.filter(rule => rule.tags.includes('best-practice'));
-      console.log('🔍 Best-practice rules:', bestPracticeRules.map(rule => ({
-        id: rule.ruleId,
-        description: rule.description,
-        tags: rule.tags
-      })));
+      ));
       
       // Debug: Log Section 508 rules
       const section508Rules = allRules.filter(rule => rule.tags.includes('section508'));
-      console.log('🔍 Section 508 rules:', section508Rules.map(rule => ({
-        id: rule.ruleId,
-        description: rule.description,
-        tags: rule.tags
-      })));
+      ));
       
       // Debug: Log EN 301 549 rules
       const en301549Rules = allRules.filter(rule => rule.tags.includes('EN-301-549'));
-      console.log('🔍 EN 301 549 rules:', en301549Rules.map(rule => ({
-        id: rule.ruleId,
-        description: rule.description,
-        tags: rule.tags
-      })));
+      ));
       
       // Run axe-core analysis with comprehensive rule set
       // CRITICAL: Enable all rules that should be active for comprehensive testing
-      console.log(`🧪 Running axe-core analysis with tags: ${tags.join(', ')}`)
+      }`)
       
       const results = await axe.run({
         runOnly: {
@@ -261,10 +242,7 @@ export class AccessibilityScanner {
       });
       
       // Debug: Log the results
-      console.log('🔍 Axe-core results:', {
-        violations: results.violations.length,
-        passes: results.passes.length,
-        violationIds: results.violations.map(v => v.id),
+      ,
         colorContrastViolations: results.violations.filter(v => v.id === 'color-contrast').length,
         colorContrastEnhancedViolations: results.violations.filter(v => v.id === 'color-contrast-enhanced').length,
         section508Violations: results.violations.filter(v => v.tags.includes('section508')).length,
@@ -274,8 +252,8 @@ export class AccessibilityScanner {
       
       // Debug: Show which rules were actually executed
       const executedRules = [...results.violations, ...results.passes].map(r => r.id);
-      console.log('🔍 Rules executed:', executedRules);
-      console.log('🔍 Color contrast rules executed:', executedRules.filter(id => id.includes('color-contrast')));
+
+      ));
       
       return results;
       }, tagsToCheck);
@@ -310,14 +288,6 @@ export class AccessibilityScanner {
         incomplete: results.incomplete.length,
         inapplicable: results.inapplicable.length
       };
-      
-      console.log(`📊 Processed issues:`, {
-        total: issues.length,
-        critical: summary.critical,
-        serious: summary.serious,
-        moderate: summary.moderate,
-        minor: summary.minor
-      });
 
       // Check WCAG 2.2 compliance
       const wcag22Compliance = this.checkWCAG22Compliance(issues, results);
@@ -325,43 +295,40 @@ export class AccessibilityScanner {
       // Capture screenshots and upload to Cloudinary
       let screenshots = null;
       try {
-        console.log('📸 Capturing screenshots...');
-        console.log(`📊 Issues to screenshot: ${issues.length}`);
-        
+
+
         // Take a full page screenshot (optimized for smaller file size)
-        console.log('📸 Taking full page screenshot...');
+
         const fullPageScreenshot = await page.screenshot({
           fullPage: true,
           encoding: 'base64',
           quality: 80,
           type: 'jpeg'
         }) as string;
-        console.log(`✅ Full page screenshot captured: ${fullPageScreenshot ? 'Yes' : 'No'}`);
 
         // Take a viewport screenshot (optimized for smaller file size)
-        console.log('📸 Taking viewport screenshot...');
+
         const viewportScreenshot = await page.screenshot({
           fullPage: false,
           encoding: 'base64',
           quality: 80,
           type: 'jpeg'
         }) as string;
-        console.log(`✅ Viewport screenshot captured: ${viewportScreenshot ? 'Yes' : 'No'}`);
 
         // Capture screenshots of elements with issues
-        console.log('📸 Capturing element screenshots...');
+
         const elementScreenshots = [];
         for (const issue of issues.slice(0, 5)) { // Limit to first 5 issues
-          console.log(`📸 Processing issue: ${issue.id} (${issue.nodes?.length || 0} nodes)`);
+          `);
           for (const node of issue.nodes || []) {
             const selector = node.target?.[0];
             if (selector) {
-              console.log(`📸 Attempting to screenshot element: ${selector}`);
+
               try {
                 // Try to find and screenshot the element
                 const element = await page.$(selector);
                 if (element) {
-                  console.log(`✅ Element found, taking screenshot...`);
+
                   const elementScreenshot = await element.screenshot({
                     encoding: 'base64',
                     quality: 80,
@@ -375,9 +342,9 @@ export class AccessibilityScanner {
                     screenshot: elementScreenshot,
                     boundingBox: await element.boundingBox()
                   });
-                  console.log(`✅ Element screenshot captured for ${selector}`);
+
                 } else {
-                  console.log(`❌ Element not found: ${selector}`);
+
                 }
               } catch (elementError) {
                 console.warn(`❌ Failed to screenshot element ${selector}:`, elementError);
@@ -385,10 +352,9 @@ export class AccessibilityScanner {
             }
           }
         }
-        console.log(`📸 Element screenshots captured: ${elementScreenshots.length}`);
 
         // Upload screenshots to Cloudinary
-        console.log('☁️ Uploading screenshots to Cloudinary...');
+
         const timestamp = Date.now();
         const scanId = `scan_${timestamp}`;
         
@@ -441,8 +407,7 @@ export class AccessibilityScanner {
             cloudinaryId: uploadResults[2 + index]?.public_id || null
           }))
         };
-        
-        console.log(`☁️ Screenshots uploaded to Cloudinary: ${uploadResults.length} images`);
+
       } catch (screenshotError) {
         console.error('❌ Screenshot capture failed:', screenshotError);
         console.error('Screenshot error details:', {
@@ -453,24 +418,22 @@ export class AccessibilityScanner {
       }
 
       // Generate AI-enhanced suggestions for each issue with rate limiting
-      console.log(`🔍 Generating AI suggestions for ${issues.length} accessibility issues...`);
-      
+
       // Process issues sequentially to avoid overwhelming the API
       for (let i = 0; i < issues.length; i++) {
         const issue = issues[i];
         try {
-          console.log(`🤖 Processing AI suggestion ${i + 1}/${issues.length} for issue: ${issue.id}`);
-          
+
           const suggestions = await this.generateContextualSuggestions(issue);
           if (suggestions.length > 0) {
             // Add suggestions to the issue object
             (issue as any).suggestions = suggestions;
-            console.log(`✅ AI suggestions generated for issue: ${issue.id}`);
+
           }
           
           // Add delay between issues to prevent rate limiting (2 seconds)
           if (i < issues.length - 1) {
-            console.log('⏳ Waiting 2 seconds before processing next issue...');
+
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
           
@@ -479,7 +442,7 @@ export class AccessibilityScanner {
           
           // Even on error, wait before continuing to prevent rate limiting
           if (i < issues.length - 1) {
-            console.log('⏳ Waiting 2 seconds after error before processing next issue...');
+
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
         }
@@ -493,14 +456,7 @@ export class AccessibilityScanner {
         wcag22Compliance,
         screenshots
       };
-      
-      console.log(`🎯 Final scan result:`, {
-        url: finalResult.url,
-        issuesCount: finalResult.issues.length,
-        summary: finalResult.summary,
-        hasScreenshots: !!finalResult.screenshots
-      });
-      
+
       return finalResult;
     } catch (error) {
       console.error('Error scanning page for accessibility issues:', error);
@@ -545,14 +501,8 @@ export class AccessibilityScanner {
    * Check WCAG 2.2 compliance levels (including AAA)
    */
   private checkWCAG22Compliance(issues: AccessibilityIssue[], results: any) {
-    console.log('🔍 Checking WCAG 2.2 compliance...');
-    console.log('📊 Issues count:', issues.length);
-    console.log('📊 WCAG22Rules structure:', {
-      hasLevelA: !!wcag22Rules.levelA,
-      hasLevelAA: !!wcag22Rules.levelAA,
-      hasLevelAAA: !!wcag22Rules.levelAAA,
-      levelALength: wcag22Rules.levelA?.length || 0
-    });
+
+
 
     // Simplified compliance check based on issue severity
     const criticalIssues = issues.filter(issue => issue.impact === 'critical').length;
@@ -708,9 +658,9 @@ export class AccessibilityScanner {
       
       // Check if we already have a cached response for this issue
       if (this.aiResponseCache.has(cacheKey)) {
-        console.log('💾 Using cached AI response for:', issue.id);
+
         const aiSuggestion = this.aiResponseCache.get(cacheKey)!;
-        console.log('🤖 Cached Claude API response:', aiSuggestion.substring(0, 200) + '...');
+        + '...');
         
         // Extract code example from AI response if it contains markdown code blocks
         const codeBlockMatch = aiSuggestion.match(/```(?:html|css|js|javascript)?\s*\n([\s\S]*?)```/);
@@ -737,7 +687,7 @@ export class AccessibilityScanner {
         }];
       }
 
-      console.log('🔍 Calling Claude API for:', issue.id, 'with HTML:', html.substring(0, 100) + '...');
+      + '...');
       
       const aiSuggestion = await this.claudeAPI.generateAccessibilitySuggestion(
         html,
@@ -748,9 +698,8 @@ export class AccessibilityScanner {
 
       // Cache the response for future use
       this.aiResponseCache.set(cacheKey, aiSuggestion);
-      console.log('💾 Cached AI response for:', issue.id);
 
-      console.log('🤖 Claude API response:', aiSuggestion.substring(0, 200) + '...');
+      + '...');
 
       if (aiSuggestion && !aiSuggestion.includes('Unable to get AI suggestion')) {
         // Extract code example from AI response if it contains markdown code blocks
@@ -777,11 +726,11 @@ export class AccessibilityScanner {
           priority: this.getPriorityForImpact(issue.impact)
         }];
       } else {
-        console.log('⚠️ Claude API returned fallback message');
+
       }
     } catch (error) {
       console.error('❌ Claude API failed:', error);
-      console.log('🔄 Claude API failed for:', issue.id);
+
     }
 
     // If no AI suggestion, get the best rule-based suggestion with code example

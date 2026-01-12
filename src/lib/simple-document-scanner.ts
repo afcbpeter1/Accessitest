@@ -26,7 +26,7 @@ export interface SimpleScanResult {
 
 export class SimpleDocumentScanner {
   async scanDocument(buffer: Buffer, fileName: string, fileType: string): Promise<SimpleScanResult> {
-    console.log(`🔍 Simple scanner: ${fileName} (${fileType}) - ${buffer.length} bytes`)
+    - ${buffer.length} bytes`)
     
     // Extract document content
     let documentContent = ''
@@ -39,11 +39,9 @@ export class SimpleDocumentScanner {
          const data = await pdfParse(buffer, {})
          documentContent = data.text
          pagesAnalyzed = data.numpages || 1
-         console.log(`📄 PDF parsed: ${pagesAnalyzed} pages, ${documentContent.length} characters`)
        } else {
         // For other file types, extract as text
         documentContent = buffer.toString('utf-8')
-        console.log(`📄 Text extracted: ${documentContent.length} characters`)
       }
     } catch (error) {
       console.error('Document parsing failed:', error)

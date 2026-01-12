@@ -87,12 +87,12 @@ export async function POST(request: NextRequest) {
       // Navigate to the URL with fallback for www/non-www
       let finalUrl = normalizedUrl
       try {
-        console.log(`Attempting to navigate to: ${normalizedUrl}`)
+
         await page.goto(normalizedUrl, { 
           waitUntil: 'domcontentloaded',
           timeout: 30000 
         })
-        console.log(`Successfully navigated to: ${normalizedUrl}`)
+
         finalUrl = normalizedUrl
       } catch (navigationError) {
         console.error('Navigation error:', navigationError)
@@ -106,12 +106,12 @@ export async function POST(request: NextRequest) {
         }
         
         try {
-          console.log(`Trying alternative URL: ${alternativeUrl}`)
+
           await page.goto(alternativeUrl, { 
             waitUntil: 'domcontentloaded',
             timeout: 30000 
           })
-          console.log(`Successfully navigated to: ${alternativeUrl}`)
+
           finalUrl = alternativeUrl
         } catch (alternativeError) {
           console.error('Alternative navigation error:', alternativeError)
@@ -213,8 +213,7 @@ export async function POST(request: NextRequest) {
 
         // For free scans, keep screenshots as base64 data URLs for immediate display
         // No need to upload to Cloudinary since these are temporary
-        console.log('📸 Preparing screenshots for free scan display...')
-        
+
         screenshots = {
           fullPage: fullPageScreenshot ? `data:image/png;base64,${fullPageScreenshot}` : null,
           viewport: viewportScreenshot ? `data:image/png;base64,${viewportScreenshot}` : null,
@@ -223,8 +222,7 @@ export async function POST(request: NextRequest) {
             screenshot: `data:image/png;base64,${element.screenshot}`
           }))
         }
-        
-        console.log(`📸 Screenshots prepared for display: ${elementScreenshots.length + 2} images`)
+
       } catch (screenshotError) {
         console.warn('Failed to capture or upload screenshots:', screenshotError)
         // Continue without screenshots
@@ -273,10 +271,10 @@ export async function POST(request: NextRequest) {
 
       // Auto-create backlog items for unique issues (for authenticated users)
       try {
-        console.log('🎫 Auto-creating backlog items for free scan...')
+
         // Note: Free scans don't have authentication, so we skip auto-creation
         // This would need to be handled differently for authenticated users
-        console.log('⚠️ Skipping auto-creation for free scan (no authentication)')
+        ')
       } catch (error) {
         console.error('❌ Error auto-creating backlog items for free scan:', error)
       }

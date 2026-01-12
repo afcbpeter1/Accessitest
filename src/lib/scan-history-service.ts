@@ -95,8 +95,6 @@ export class ScanHistoryService {
    * Get scan history for a user (summary only)
    */
   static async getScanHistory(userId: string, limit: number = 50): Promise<ScanHistoryItem[]> {
-    console.log('🔍 ScanHistoryService.getScanHistory called for user:', userId)
-    
     try {
       const results = await query(
         `SELECT 
@@ -110,8 +108,6 @@ export class ScanHistoryService {
         LIMIT $2`,
         [userId, limit]
       )
-      
-      console.log('✅ Query successful, found', results.rows.length, 'rows')
       return results.rows.map(row => ({
         id: row.id,
         scanType: row.scan_type,
@@ -142,8 +138,6 @@ export class ScanHistoryService {
    * Get scan history for a user with pagination
    */
   static async getScanHistoryPaginated(userId: string, limit: number = 10, offset: number = 0): Promise<{ scans: ScanHistoryItem[], total: number }> {
-    console.log('🔍 ScanHistoryService.getScanHistoryPaginated called for user:', userId, 'limit:', limit, 'offset:', offset)
-    
     try {
       // Get total count
       const countResult = await queryOne(
@@ -165,8 +159,6 @@ export class ScanHistoryService {
         LIMIT $2 OFFSET $3`,
         [userId, limit, offset]
       )
-      
-      console.log('✅ Query successful, found', results.rows.length, 'rows out of', total, 'total')
       const scans = results.rows.map(row => ({
         id: row.id,
         scanType: row.scan_type,

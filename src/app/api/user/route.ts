@@ -44,7 +44,7 @@ async function handleGetUser(request: NextRequest, user: any) {
         }
       } catch (error) {
         // Subscription not found in Stripe, ignore
-        console.log('Subscription not found in Stripe:', error)
+
       }
     }
 

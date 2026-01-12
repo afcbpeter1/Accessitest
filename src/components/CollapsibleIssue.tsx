@@ -233,7 +233,7 @@ export default function CollapsibleIssue({
   scanId,
   scanType = 'web'
 }: CollapsibleIssueProps) {
-  console.log('🔍 CollapsibleIssue received scanType:', scanType, 'for issue:', issueId);
+
   const [isExpanded, setIsExpanded] = useState(false) // Start collapsed by default
   const [copied, setCopied] = useState(false)
   const [screenshotFadeIn, setScreenshotFadeIn] = useState(false)

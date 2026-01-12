@@ -12,8 +12,6 @@ export async function POST(request: NextRequest) {
     
     const { url, pagesToScan, includeSubdomains, scanType, wcagLevel, selectedTags } = await request.json()
 
-    console.log('Scan API received:', { url, pagesToScan, pagesToScanLength: pagesToScan?.length })
-
     if (!url || !pagesToScan || pagesToScan.length === 0) {
       return NextResponse.json({ error: 'URL and pages to scan are required' }, { status: 400 })
     }
@@ -118,7 +116,7 @@ export async function POST(request: NextRequest) {
       
       try {
         const pageResults = await scanService.startScan(pageScanOptions, (progress) => {
-          console.log(`Scan Progress for ${pageUrl}: ${progress.status} - ${progress.message}`)
+
         })
         results.push(...pageResults)
       } catch (error) {
@@ -187,7 +185,7 @@ export async function POST(request: NextRequest) {
         complianceSummary,
         remediationReport
       })
-      console.log('Issues board integration:', issuesBoardIntegration)
+
     } catch (error) {
       console.error('Issues board integration failed:', error)
       // Don't fail the scan if issues board integration fails

@@ -3,8 +3,6 @@ import puppeteer from 'puppeteer'
 
 export async function GET() {
   try {
-    console.log('Testing Puppeteer...')
-    
     const browser = await puppeteer.launch({
       headless: 'new',
       args: [
@@ -29,8 +27,6 @@ export async function GET() {
       })
       
       const title = await page.title()
-      console.log('Successfully loaded example.com, title:', title)
-      
       return NextResponse.json({
         success: true,
         message: 'Puppeteer is working',

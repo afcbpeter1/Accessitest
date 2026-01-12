@@ -131,8 +131,6 @@ export async function DELETE(
       )
     }
 
-    console.log(`✅ Successfully deleted issue ${issueId} for user ${user.userId}`)
-
     return NextResponse.json({
       success: true,
       message: 'Issue deleted successfully'

@@ -220,14 +220,14 @@ export class JiraClient {
    */
   async createIssue(issueData: CreateIssueRequest): Promise<CreateIssueResponse> {
     // Log the request for debugging
-    console.log('🔵 Creating Jira issue with data:', JSON.stringify(issueData, null, 2))
+    )
     
     try {
       const result = await this.request<CreateIssueResponse>('/issue', {
         method: 'POST',
         body: JSON.stringify(issueData)
       })
-      console.log('✅ Jira issue created successfully:', result)
+
       return result
     } catch (error) {
       console.error('❌ Error creating Jira issue:', error)

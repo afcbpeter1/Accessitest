@@ -180,7 +180,7 @@ except Exception as e:
       // Try to extract image and use vision API if available
       let imageData: { base64: string; mediaType: string } | null = null
       if (pdfPath !== undefined && imageIndex !== undefined) {
-        console.log(`📸 Attempting to extract image ${imageIndex} from page ${pageNumber} for vision analysis...`)
+
         imageData = await this.extractImageFromPDF(pdfPath, pageNumber, imageIndex)
       }
       
@@ -548,8 +548,7 @@ Return ONLY the improved link text, nothing else.`
     documentText?: string // Optional: full document text for bookmarks/reading order
   ): Promise<AutoFixResult> {
     try {
-      console.log('🤖 Starting AI auto-fix process...')
-      console.log(`📋 Processing ${issues.length} issues`)
+
 
       // Filter issues that can be auto-fixed
       const altTextIssues = issues.filter(issue => {
@@ -686,22 +685,21 @@ Return ONLY the improved link text, nothing else.`
                desc.includes('assistive technologies')
       })
 
-      console.log(`🖼️ Found ${altTextIssues.length} image alt text issues`)
-      console.log(`📊 Found ${tableSummaryIssues.length} table summary issues`)
-      console.log(`📝 Found ${metadataIssues.length} metadata issues`)
-      console.log(`🔖 Found ${bookmarkIssues.length} bookmark issues`)
-      console.log(`📖 Found ${readingOrderIssues.length} reading order issues`)
-      console.log(`🎨 Found ${colorContrastIssues.length} color contrast issues`)
-      console.log(`🌐 Found ${languageIssues.length} language span issues`)
-      console.log(`📋 Found ${formLabelIssues.length} form label issues`)
-      console.log(`🔗 Found ${linkTextIssues.length} link text issues`)
-      console.log(`📏 Found ${textSizeIssues.length} text size issues`)
-      console.log(`🔤 Found ${fontEmbeddingIssues.length} font embedding issues`)
-      console.log(`⌨️ Found ${tabOrderIssues.length} tab order issues`)
-      console.log(`📋 Found ${formFieldPropertiesIssues.length} form field properties issues`)
-      console.log(`🔗 Found ${linkValidationIssues.length} link validation issues`)
-      console.log(`🔒 Found ${securitySettingsIssues.length} security settings issues`)
-      console.log(`📝 Found ${taggedAnnotationsIssues.length} tagged annotations issues (may need manual review)`)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      `)
 
       // Check if PyMuPDF is available
       const deps = await this.pymupdfWrapper.checkDependencies()
@@ -720,7 +718,6 @@ Return ONLY the improved link text, nothing else.`
       const outputPath = path.join(tempDir, `output-${Date.now()}.pdf`)
       
       await fs.writeFile(inputPath, pdfBuffer)
-      console.log(`📁 Created temp PDF: ${inputPath}`)
 
       // Generate fixes using AI
       const fixes: PDFStructureFix[] = []
@@ -745,8 +742,7 @@ Return ONLY the improved link text, nothing else.`
               context = `${context}\n\nSurrounding text on page ${page}:\n${pageText.substring(0, 500)}`
             }
           }
-          
-          console.log(`🤖 Generating alt text for image ${idx} on page ${page}...`)
+
           // Pass PDF path and image index for vision API
           const altText = await this.generateAltTextForImage(context, page, fileName, inputPath, idx)
           
@@ -757,7 +753,7 @@ Return ONLY the improved link text, nothing else.`
             elementLocation: issue.elementLocation
           })
           
-          console.log(`✅ Generated alt text: "${altText.substring(0, 50)}..."`)
+          }..."`)
         } catch (error) {
           const errorMsg = `Failed to generate alt text for page ${issue.page || issue.pageNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
           console.error(`❌ ${errorMsg}`)
@@ -779,8 +775,7 @@ Return ONLY the improved link text, nothing else.`
               context = `${context}\n\nSurrounding text on page ${page}:\n${pageText.substring(0, 1000)}`
             }
           }
-          
-          console.log(`🤖 Generating table summary for page ${page}...`)
+
           const summary = await this.generateTableSummary(context, page, fileName)
           
           fixes.push({
@@ -790,7 +785,7 @@ Return ONLY the improved link text, nothing else.`
             elementLocation: issue.elementLocation
           })
           
-          console.log(`✅ Generated table summary: "${summary.substring(0, 50)}..."`)
+          }..."`)
         } catch (error) {
           const errorMsg = `Failed to generate table summary for page ${issue.page || issue.pageNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
           console.error(`❌ ${errorMsg}`)
@@ -820,7 +815,7 @@ Return ONLY the improved link text, nothing else.`
       // Generate bookmarks if needed and document text is available
       if (bookmarkIssues.length > 0 && documentText) {
         try {
-          console.log(`🤖 Generating bookmarks from document structure...`)
+
           const bookmarks = await this.generateBookmarks(documentText, fileName)
           
           if (bookmarks.length > 0) {
@@ -834,7 +829,7 @@ Return ONLY the improved link text, nothing else.`
               })
             }
             bookmarkFixes = bookmarks.length
-            console.log(`✅ Generated ${bookmarks.length} bookmarks`)
+
           }
         } catch (error) {
           const errorMsg = `Failed to generate bookmarks: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -848,7 +843,7 @@ Return ONLY the improved link text, nothing else.`
         try {
           for (const issue of readingOrderIssues) {
             const page = issue.page || issue.pageNumber || 1
-            console.log(`🤖 Analyzing reading order for page ${page}...`)
+
             const order = await this.analyzeReadingOrder(documentText, page)
             
             if (order.length > 0) {
@@ -881,8 +876,7 @@ Return ONLY the improved link text, nothing else.`
             const page = issue.page || issue.pageNumber || 1
             const context = issue.elementContent || issue.description || ''
             const pageTextForIssue = this.extractPageText(documentText || '', page) || ''
-            
-            console.log(`🤖 Identifying language for text on page ${page}...`)
+
             const langResult = await this.identifyLanguage(context, pageTextForIssue, fileName)
             
             if (langResult && langResult.language !== 'en') {
@@ -893,7 +887,7 @@ Return ONLY the improved link text, nothing else.`
                 language: langResult.language
               })
               languageFixes++
-              console.log(`✅ Identified language: ${langResult.language} for text on page ${page}`)
+
             }
           }
           
@@ -978,7 +972,7 @@ Return ONLY the improved link text, nothing else.`
                 })
                 
                 colorContrastFixes++
-                console.log(`✅ Fixed color contrast: ${foreground}/${background} (${contrast.ratio.toFixed(2)}:1) -> ${newColors.foreground}/${newColors.background || background} (${newColors.ratio.toFixed(2)}:1)`)
+                }:1) -> ${newColors.foreground}/${newColors.background || background} (${newColors.ratio.toFixed(2)}:1)`)
               }
             }
           }
@@ -996,8 +990,7 @@ Return ONLY the improved link text, nothing else.`
           for (const issue of formLabelIssues) {
             const page = issue.page || issue.pageNumber || 1
             const context = issue.elementContent || issue.description || ''
-            
-            console.log(`🤖 Generating form label for page ${page}...`)
+
             const label = await this.generateFormLabel(context, page, fileName)
             
             if (label) {
@@ -1008,7 +1001,7 @@ Return ONLY the improved link text, nothing else.`
                 elementLocation: issue.elementLocation
               })
               formLabelFixes++
-              console.log(`✅ Generated form label: "${label}"`)
+
             }
           }
         } catch (error) {
@@ -1026,8 +1019,7 @@ Return ONLY the improved link text, nothing else.`
             const page = issue.page || issue.pageNumber || 1
             const context = issue.elementContent || issue.description || ''
             const pageText = this.extractPageText(documentText || '', page) || ''
-            
-            console.log(`🤖 Improving link text for page ${page}...`)
+
             const improvedText = await this.improveLinkText(context, pageText, page, fileName)
             
             if (improvedText) {
@@ -1039,7 +1031,7 @@ Return ONLY the improved link text, nothing else.`
                 elementLocation: issue.elementLocation
               })
               linkTextFixes++
-              console.log(`✅ Improved link text: "${context.substring(0, 30)}..." -> "${improvedText.substring(0, 30)}..."`)
+              }..." -> "${improvedText.substring(0, 30)}..."`)
             }
           }
         } catch (error) {
@@ -1072,7 +1064,7 @@ Return ONLY the improved link text, nothing else.`
                 elementLocation: issue.elementLocation
               })
               textSizeFixes++
-              console.log(`✅ Text size fix: ${currentSize}pt -> ${minSize}pt on page ${page}`)
+
             }
           }
         } catch (error) {
@@ -1104,7 +1096,7 @@ Return ONLY the improved link text, nothing else.`
               elementLocation: issue.elementLocation
             })
             fontEmbeddingFixes++
-            console.log(`⚠️ Font embedding issue flagged for font: ${fontName} on page ${page}`)
+
           }
         } catch (error) {
           const errorMsg = `Failed to process font embedding: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -1127,7 +1119,7 @@ Return ONLY the improved link text, nothing else.`
               elementLocation: issue.elementLocation
             })
             tabOrderFixes++
-            console.log(`✅ Tab order fix for page ${page}`)
+
           }
         } catch (error) {
           const errorMsg = `Failed to fix tab order: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -1160,7 +1152,7 @@ Return ONLY the improved link text, nothing else.`
               elementLocation: issue.elementLocation
             })
             formFieldPropertiesFixes++
-            console.log(`✅ Form field properties fix for page ${page}`)
+
           }
         } catch (error) {
           const errorMsg = `Failed to fix form field properties: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -1195,7 +1187,7 @@ Return ONLY the improved link text, nothing else.`
                 elementLocation: issue.elementLocation
               })
               linkValidationFixes++
-              console.log(`⚠️ Invalid link detected: ${linkUrl.substring(0, 50)}... on page ${page}`)
+              }... on page ${page}`)
             }
           }
         } catch (error) {
@@ -1216,7 +1208,7 @@ Return ONLY the improved link text, nothing else.`
             elementLocation: 'Document'
           })
           securitySettingsFixes++
-          console.log(`✅ Security settings fix will be applied to document`)
+
         } catch (error) {
           const errorMsg = `Failed to fix security settings: ${error instanceof Error ? error.message : 'Unknown error'}`
           console.error(`❌ ${errorMsg}`)
@@ -1225,7 +1217,7 @@ Return ONLY the improved link text, nothing else.`
       }
 
       if (fixes.length === 0 && Object.keys(metadata).length === 0) {
-        console.log('⚠️ No fixes to apply')
+
         // Cleanup
         await fs.unlink(inputPath).catch(() => {})
         return {
@@ -1236,8 +1228,6 @@ Return ONLY the improved link text, nothing else.`
         }
       }
 
-      console.log(`🔧 Applying ${fixes.length} fixes using PyMuPDF...`)
-
       // Apply fixes using PyMuPDF
       const fixedBuffer = await this.pymupdfWrapper.repairPDF({
         inputPath,
@@ -1245,8 +1235,6 @@ Return ONLY the improved link text, nothing else.`
         fixes,
         metadata: Object.keys(metadata).length > 0 ? metadata : undefined
       })
-
-      console.log(`✅ Auto-fix complete: ${fixedBuffer.length} bytes`)
 
       // Cleanup
       await fs.unlink(inputPath).catch(() => {})

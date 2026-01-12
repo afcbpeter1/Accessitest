@@ -109,11 +109,9 @@ function ScanDetailsContent() {
       const data = await response.json()
       
         if (data.success) {
-          console.log('🔍 Scan data received:', data.scan)
-          console.log('🔍 Scan type from API:', data.scan.scanType)
-          console.log('🔍 Scan results structure:', JSON.stringify(data.scan.scanResults, null, 2))
-          console.log('🔍 Compliance summary structure:', JSON.stringify(data.scan.complianceSummary, null, 2))
-        console.log('🔍 Remediation report structure:', JSON.stringify(data.scan.remediationReport, null, 2))
+          )
+          )
+        )
         setScan(data.scan)
       } else {
         setError(data.error || 'Scan not found')
@@ -535,9 +533,6 @@ function ScanDetailsContent() {
                       })
                     }
                   }
-                  
-                  console.log('🔍 Processed issues:', issues)
-                  
                   if (issues.length === 0) {
                     return (
                       <div className="text-center py-8">
@@ -593,9 +588,6 @@ function ScanDetailsContent() {
                           ],
                           priority: (issue.type === 'critical' || issue.type === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
                         };
-
-          console.log('🔍 Page scanType:', scan.scanType, 'for issue:', issueIndex);
-
           return (
             <CollapsibleIssue
               key={`issue-${issueIndex}`}

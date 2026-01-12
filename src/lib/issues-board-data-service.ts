@@ -147,11 +147,11 @@ export class IssuesBoardDataService {
    */
   static async updateIssueRanks(rankUpdates: Array<{ issueId: string; rank: number }>, userId: string): Promise<void> {
     try {
-      console.log('🔄 Updating issue ranks:', rankUpdates, 'for user:', userId)
+
       await pool.query('BEGIN')
       
       for (const update of rankUpdates) {
-        console.log(`📝 Updating issue ${update.issueId} to rank ${update.rank}`)
+
         // Only update if issue belongs to the user (prevents IDOR)
         const result = await pool.query(
           'UPDATE issues SET rank = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
@@ -160,11 +160,11 @@ export class IssuesBoardDataService {
         if (result.rowCount === 0) {
           console.warn(`⚠️ Issue ${update.issueId} not found or doesn't belong to user ${userId}`)
         }
-        console.log(`✅ Updated ${result.rowCount} rows for issue ${update.issueId}`)
+
       }
       
       await pool.query('COMMIT')
-      console.log('✅ All ranks updated successfully')
+
     } catch (error) {
       await pool.query('ROLLBACK')
       console.error('❌ Error updating issue ranks:', error)

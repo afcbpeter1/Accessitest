@@ -41,7 +41,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           const now = Math.floor(Date.now() / 1000)
           
           if (payload.exp && payload.exp < now) {
-            console.log('❌ Token expired locally - immediate logout')
+
             localStorage.removeItem('accessToken')
             localStorage.removeItem('user')
             setAuthStatus('unauthenticated')
@@ -50,7 +50,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
           }
         }
       } catch (error) {
-        console.log('❌ Invalid token format - immediate logout')
+
         localStorage.removeItem('accessToken')
         localStorage.removeItem('user')
         setAuthStatus('unauthenticated')
@@ -70,7 +70,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
         if (!response.ok) {
           // Token is invalid or expired
-          console.log('🔍 Authentication failed:', response.status, response.statusText)
+
           localStorage.removeItem('accessToken')
           localStorage.removeItem('user')
           setAuthStatus('unauthenticated')

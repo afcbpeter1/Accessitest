@@ -41,15 +41,14 @@ class AnalyticsService {
         // User revoked consent - disable analytics
         this.disable()
       }
-      console.log('📊 Analytics disabled: User has not accepted cookies')
+
       return
     }
 
     // Initialize analytics services here
     // Example: Google Analytics, Mixpanel, etc.
     this.initialized = true
-    console.log('📊 Analytics initialized with user consent')
-    
+
     // You can add actual analytics initialization here:
     // - Google Analytics: gtag('config', 'GA_MEASUREMENT_ID')
     // - Mixpanel: mixpanel.init('MIXPANEL_TOKEN')
@@ -68,7 +67,7 @@ class AnalyticsService {
     
     // Disable analytics services
     // Example: Clear analytics cookies, reset tracking, etc.
-    console.log('📊 Analytics disabled: User consent revoked')
+
   }
 
   /**
@@ -87,7 +86,6 @@ class AnalyticsService {
     }
 
     // Log for debugging (remove in production)
-    console.log('📊 Analytics Event:', eventData)
 
     // Send to analytics service
     // Example implementations:
@@ -166,7 +164,7 @@ class AnalyticsService {
     // Set user ID in analytics service
     // Example: mixpanel.identify(userId)
     // Example: gtag('config', 'GA_MEASUREMENT_ID', { user_id: userId })
-    console.log('📊 Analytics User ID set:', userId)
+
   }
 
   /**
@@ -179,7 +177,7 @@ class AnalyticsService {
 
     // Clear user data from analytics
     // Example: mixpanel.reset()
-    console.log('📊 Analytics user data cleared')
+
   }
 
   /**

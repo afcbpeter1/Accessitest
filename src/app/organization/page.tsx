@@ -692,7 +692,7 @@ export default function OrganizationPage() {
       const data = await response.json()
       if (data.success) {
         const projects = data.projects || []
-        console.log('Projects received from test:', projects)
+
         setAzureDevOpsProjects(projects)
         if (projects.length > 0) {
           setMessage({ type: 'success', text: `Connection successful! Found ${projects.length} project(s). Please select a project.` })
@@ -758,7 +758,7 @@ export default function OrganizationPage() {
 
       const data = await response.json()
       if (data.success) {
-        console.log(`Loaded ${data.teams?.length || 0} teams`)
+
         setAzureDevOpsTeams(data.teams || [])
       } else {
         console.error('Failed to load teams:', data.error)
@@ -797,7 +797,7 @@ export default function OrganizationPage() {
       const data = await response.json()
       if (data.success) {
         const workItemTypes = data.workItemTypes || []
-        console.log(`Loaded ${workItemTypes.length} work item types from team backlog:`, workItemTypes.map(t => t.name).join(', '))
+        .join(', '))
         setAzureDevOpsWorkItemTypes(workItemTypes)
       } else {
         console.error('Failed to load work item types:', data.error)

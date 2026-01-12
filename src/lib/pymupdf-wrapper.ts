@@ -83,18 +83,15 @@ export class PyMuPDFWrapper {
         ...(options.metadata?.author ? ['--author', options.metadata.author] : [])
       ].join(' ')
 
-      console.log(`🐍 Running PyMuPDF rebuild with fixes: ${cmd}`)
-      console.log(`📋 Fixes being passed to Python: ${JSON.stringify(options.fixes, null, 2).substring(0, 500)}...`)
-      console.log(`📋 Total fixes: ${options.fixes.length}`)
+      .substring(0, 500)}...`)
 
       // Execute Python script
       const { stdout, stderr } = await execAsync(cmd, {
         maxBuffer: 10 * 1024 * 1024 // 10MB buffer
       })
 
-      console.log(`📄 Python script stdout: ${stdout}`)
       if (stderr) {
-        console.log(`📄 Python script stderr: ${stderr}`)
+
       }
 
       if (stderr && !stderr.includes('WARNING') && !stderr.includes('INFO') && !stderr.includes('SUCCESS')) {
@@ -105,7 +102,7 @@ export class PyMuPDFWrapper {
       // Check if output file exists and has content
       try {
         const stats = await fs.stat(options.outputPath)
-        console.log(`📊 Rebuilt PDF size: ${stats.size} bytes`)
+
         if (stats.size === 0) {
           throw new Error('PyMuPDF output file is empty')
         }
@@ -114,11 +111,8 @@ export class PyMuPDFWrapper {
         throw new Error(`PyMuPDF output file not found or empty: ${options.outputPath}`)
       }
 
-      console.log(`✅ PyMuPDF rebuild complete: ${stdout}`)
-
       // Read rebuilt PDF
       const repairedBuffer = await fs.readFile(options.outputPath)
-      console.log(`✅ Read rebuilt PDF: ${repairedBuffer.length} bytes`)
 
       // Cleanup
       await fs.unlink(fixesJsonPath).catch(() => {})
@@ -141,16 +135,16 @@ export class PyMuPDFWrapper {
       try {
         const { stdout: pythonVersion } = await execAsync('python --version')
         hasPython = pythonVersion.includes('Python 3')
-        console.log(`   ✅ Found Python: ${pythonVersion.trim()}`)
+        }`)
       } catch (error) {
-        console.log(`   ⚠️ 'python' command failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+
         try {
           const { stdout: pythonVersion } = await execAsync('python3 --version')
           hasPython = pythonVersion.includes('Python 3')
           pythonCmd = 'python3'
-          console.log(`   ✅ Found Python3: ${pythonVersion.trim()}`)
+          }`)
         } catch (error2) {
-          console.log(`   ❌ 'python3' command also failed: ${error2 instanceof Error ? error2.message : 'Unknown error'}`)
+
           hasPython = false
         }
       }
@@ -162,21 +156,21 @@ export class PyMuPDFWrapper {
           const { stdout } = await execAsync(`${pythonCmd} -c "import fitz; print(fitz.version)"`)
           hasPyMuPDF = stdout.includes('1.') || stdout.includes('2.')
           if (hasPyMuPDF) {
-            console.log(`   ✅ PyMuPDF found: ${stdout.trim()}`)
+            }`)
           } else {
-            console.log(`   ⚠️ PyMuPDF import succeeded but version check failed: ${stdout.trim()}`)
+            }`)
           }
         } catch (error) {
-          console.log(`   ❌ PyMuPDF import failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+
           hasPyMuPDF = false
         }
       } else {
-        console.log(`   ⚠️ Skipping PyMuPDF check - Python not available`)
+
       }
 
       return { python: hasPython, pymupdf: hasPyMuPDF }
     } catch (error) {
-      console.log(`   ❌ Dependency check failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+
       return { python: false, pymupdf: false }
     }
   }

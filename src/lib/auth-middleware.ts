@@ -13,7 +13,7 @@ export interface AuthenticatedUser {
 export function verifyToken(token: string): AuthenticatedUser | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as any
-    console.log('🔍 JWT Token verified for user:', decoded.userId, decoded.email)
+
     return {
       userId: decoded.userId,
       email: decoded.email,
@@ -94,27 +94,26 @@ export function requireAuthOptional(handler: (request: NextRequest, user: Authen
 // Direct function to get authenticated user (for use in API routes)
 export async function getAuthenticatedUser(request: NextRequest): Promise<AuthenticatedUser> {
   const token = getAuthToken(request)
-  console.log('🔍 Auth middleware - token found:', token ? 'Yes' : 'No') // Debug log
+  // Debug log
   
   if (!token) {
-    console.log('❌ Auth middleware - no token found') // Debug log
+    // Debug log
     throw new Error('Authentication required')
   }
 
   const user = verifyToken(token)
-  console.log('🔍 Auth middleware - user verified:', user ? 'Yes' : 'No', user) // Debug log
+  // Debug log
   
   if (!user) {
-    console.log('❌ Auth middleware - token verification failed') // Debug log
+    // Debug log
     throw new Error('Invalid or expired token')
   }
 
   if (!user.emailVerified) {
-    console.log('❌ Auth middleware - email not verified') // Debug log
+    // Debug log
     throw new Error('Email verification required')
   }
 
-  console.log('✅ Auth middleware - user authenticated successfully:', user.userId, user.email)
   return user
 }
 

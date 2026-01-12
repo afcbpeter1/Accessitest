@@ -102,7 +102,6 @@ async function updateBurndownData(sprintId: string) {
         updated_at = CURRENT_TIMESTAMP
     `, [sprintId, today, totalPoints, remainingPoints, completedPoints])
 
-    console.log(`📊 Updated burndown data for sprint ${sprintId}: ${remainingPoints}/${totalPoints} remaining`)
   } catch (error) {
     console.error('❌ Error updating burndown data:', error)
     // Don't throw error - burndown update failure shouldn't break issue removal

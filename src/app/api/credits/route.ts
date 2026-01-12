@@ -162,7 +162,7 @@ export async function PUT(request: NextRequest) {
       stripePaymentIntentId
     )
     
-    console.log(`💳 Credits added for user ${user.userId}: +${creditsToAdd} credits (${packageName})`)
+    `)
     
     return NextResponse.json({
       success: true,

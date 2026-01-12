@@ -18,13 +18,6 @@ export async function autoAddDocumentIssuesToBacklog(
   skippedItems: any[]
 }> {
   try {
-    console.log(`🔄 autoAddDocumentIssuesToBacklog called with:`, {
-      userId,
-      issuesCount: issues.length,
-      scanHistoryId,
-      fileName
-    })
-    
     const addedItems = []
     const skippedItems = []
 
@@ -120,8 +113,7 @@ export async function autoAddDocumentIssuesToBacklog(
         const finalPrioritySafe = finalPriority.length <= 20 ? finalPriority : finalPriority.substring(0, 20)
         
         // Log all values before insert to debug
-        console.log('🔍 Pre-insert validation:', {
-          finalStatus: `"${finalStatusSafe}" (${finalStatusSafe.length} chars)`,
+        `,
           finalWcagLevel: `"${finalWcagLevelSafe}" (${finalWcagLevelSafe.length} chars)`,
           finalImpact: `"${finalImpactSafe}" (${finalImpactSafe.length} chars)`,
           finalPriority: `"${finalPrioritySafe}" (${finalPrioritySafe.length} chars)`,
@@ -188,11 +180,7 @@ export async function autoAddDocumentIssuesToBacklog(
       }
     }
 
-    console.log('✅ Document backlog auto-creation result:', {
-      total: issues.length,
-      added: addedItems.length,
-      skipped: skippedItems.length,
-      addedItems: addedItems.map(item => ({ id: item.id, ruleName: item.ruleName })),
+    ),
       skippedItems: skippedItems.map(item => ({ issueId: item.issueId, reason: item.reason }))
     })
     

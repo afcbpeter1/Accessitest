@@ -36,7 +36,7 @@ export async function DELETE(request: NextRequest) {
       if (userData.stripe_subscription_id) {
         try {
           await stripe.subscriptions.cancel(userData.stripe_subscription_id)
-          console.log(`✅ Cancelled Stripe subscription: ${userData.stripe_subscription_id}`)
+
         } catch (stripeError: any) {
           // Log but don't fail - subscription might already be cancelled
           console.warn(`⚠️ Could not cancel Stripe subscription: ${stripeError.message}`)
@@ -52,10 +52,9 @@ export async function DELETE(request: NextRequest) {
         AND table_schema = 'public'
         ORDER BY table_name
       `)
-      
-      console.log(`📋 Found ${tablesWithUserId.rows.length} tables with user_id column:`)
+
       tablesWithUserId.rows.forEach(row => {
-        console.log(`  - ${row.table_name}`)
+
       })
 
       // Delete from all tables that have user_id (except users table - we'll delete that last)
@@ -74,13 +73,13 @@ export async function DELETE(request: NextRequest) {
               `DELETE FROM organization_members WHERE user_id = $1 OR invited_by = $1`,
               [user.userId]
             )
-            console.log(`✅ Deleted ${result.rowCount} rows from organization_members for user: ${user.userId} (including where user was inviter)`)
+            `)
           } else {
             const result = await client.query(
               `DELETE FROM ${tableName} WHERE user_id = $1`,
               [user.userId]
             )
-            console.log(`✅ Deleted ${result.rowCount} rows from ${tableName} for user: ${user.userId}`)
+
           }
         } catch (error: any) {
           // Check if transaction is already aborted
@@ -112,10 +111,9 @@ export async function DELETE(request: NextRequest) {
           AND ccu.column_name = 'id'
           AND tc.table_schema = 'public'
       `)
-      
-      console.log(`📋 Found ${tablesReferencingUsers.rows.length} tables with foreign keys to users.id:`)
+
       tablesReferencingUsers.rows.forEach(row => {
-        console.log(`  - ${row.table_name}.${row.column_name}`)
+
       })
 
       // Delete from tables that reference users.id via foreign key
@@ -133,7 +131,7 @@ export async function DELETE(request: NextRequest) {
             `DELETE FROM ${tableName} WHERE ${columnName} = $1`,
             [user.userId]
           )
-          console.log(`✅ Deleted ${result.rowCount} rows from ${tableName} for user: ${user.userId}`)
+
         } catch (error: any) {
           if (error.code === '25P02') {
             console.error(`❌ Transaction aborted. Previous operation failed.`)
@@ -146,15 +144,13 @@ export async function DELETE(request: NextRequest) {
 
       // Finally, delete the user record itself
       const deleteUserResult = await client.query('DELETE FROM users WHERE id = $1', [user.userId])
-      console.log(`✅ Deleted user: ${user.userId}, rows affected: ${deleteUserResult.rowCount}`)
-      
+
       if (deleteUserResult.rowCount === 0) {
         throw new Error('User was not deleted - user ID may not exist')
       }
 
       // Commit transaction
       await client.query('COMMIT')
-      console.log(`✅ Transaction committed successfully for user: ${user.userId}`)
 
       return NextResponse.json({
         success: true,

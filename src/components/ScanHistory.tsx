@@ -266,7 +266,7 @@ export default function ScanHistory({ type = 'all', className = '' }: ScanHistor
                     <button
                       onClick={() => {
                         // Show detailed results in a modal or navigate to detailed view
-                        console.log('View detailed results for:', scan.id)
+
                       }}
                       className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
                     >
@@ -276,7 +276,7 @@ export default function ScanHistory({ type = 'all', className = '' }: ScanHistor
                       <button
                         onClick={() => {
                           // Cancel scan
-                          console.log('Cancel scan:', scan.scanId)
+
                         }}
                         className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
                       >

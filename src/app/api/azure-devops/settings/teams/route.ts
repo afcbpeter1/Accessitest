@@ -60,9 +60,9 @@ export async function GET(request: NextRequest) {
     })
 
     // Get teams for the project
-    console.log(`Fetching teams for project: ${project}, projectId: ${projectId || 'none'}`)
+
     const teams = await client.getTeams(project, projectId || undefined)
-    console.log(`Found ${teams.length} teams:`, teams.map(t => t.name).join(', '))
+    .join(', '))
 
     return NextResponse.json({
       success: true,

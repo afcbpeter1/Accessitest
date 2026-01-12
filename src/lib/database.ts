@@ -4,7 +4,6 @@ import { Pool } from 'pg'
 const dbUrl = process.env.DATABASE_URL
 if (dbUrl) {
   const urlParts = new URL(dbUrl)
-  console.log('🔗 Database URL:', `${urlParts.protocol}//${urlParts.hostname}:${urlParts.port}${urlParts.pathname}`)
 } else {
   console.error('❌ DATABASE_URL not found in environment variables')
 }
@@ -23,7 +22,6 @@ export async function testConnection() {
     const client = await pool.connect()
     await client.query('SELECT NOW()')
     client.release()
-    console.log('✅ Database connection successful')
     return true
   } catch (error) {
     console.error('❌ Database connection failed:', error)
@@ -37,7 +35,6 @@ export async function query(text: string, params?: any[]) {
   try {
     const res = await pool.query(text, params)
     const duration = Date.now() - start
-    console.log('Executed query', { text, duration, rows: res.rowCount })
     return res
   } catch (error) {
     console.error('Database query error:', error)
