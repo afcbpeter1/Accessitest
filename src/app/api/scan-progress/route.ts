@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { ScanService, ScanOptions } from '@/lib/scan-service'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
-import { queryOne, query, queryMany } from '@/lib/database'
+import { queryOne, query } from '@/lib/database'
 import { NotificationService } from '@/lib/notification-service'
 import { ScanStateService } from '@/lib/scan-state-service'
 
@@ -24,47 +24,32 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
     for (const issue of result.issues) {
       try {
         // Generate unique issue ID based on rule, element, and URL
-        const issueId = generateIssueId(issue.id, issue.nodes?.[0]?.target?.[0], result.url)
-        const domain = new URL(result.url).hostname
+        // This makes each occurrence unique (same rule on different elements = different issue)
+        const elementSelector = issue.nodes?.[0]?.target?.[0] || ''
+        const issueId = generateIssueId(issue.id, elementSelector, result.url)
 
-        // Check if this exact issue already exists for this domain
+        // Check if this EXACT issue already exists using issue_key (not just rule_name)
+        // This ensures each unique occurrence gets its own backlog item
         const existingItem = await queryOne(`
           SELECT i.id, i.status, i.created_at, i.updated_at 
           FROM issues i
-          JOIN scan_history sh ON i.first_seen_scan_id = sh.id
-          WHERE sh.user_id = $1 AND i.rule_name = $2 AND sh.url LIKE $3
-        `, [userId, issue.id, `%${domain}%`])
+          WHERE i.issue_key = $1
+        `, [issueId])
 
         if (existingItem) {
-          // Update last_scan_at and check if we should reopen
-          const now = new Date()
-          const lastSeen = new Date(existingItem.updated_at || existingItem.created_at)
-          const daysSinceLastSeen = Math.floor((now.getTime() - lastSeen.getTime()) / (1000 * 60 * 60 * 24))
+          // Update the existing issue's occurrence count and timestamp
+          await query(`
+            UPDATE issues 
+            SET updated_at = NOW(),
+                total_occurrences = total_occurrences + 1
+            WHERE id = $1
+          `, [existingItem.id])
 
-          // If issue was closed/done and it's been more than 7 days, reopen it
-          if ((existingItem.status === 'done' || existingItem.status === 'cancelled') && daysSinceLastSeen > 7) {
-            await query(`
-              UPDATE issues 
-              SET status = 'backlog', 
-                  updated_at = NOW(),
-                  rank = (
-                    SELECT COALESCE(MAX(rank), 0) + 1 
-                    FROM issues 
-                    WHERE first_seen_scan_id IN (
-                      SELECT id FROM scan_history WHERE user_id = $1
-                    )
-                  )
-              WHERE id = $2
-            `, [userId, existingItem.id])
-
-            reopenedItems.push({
-              id: existingItem.id,
-              issueId: issueId,
-              ruleName: issue.id,
-              impact: issue.impact,
-              status: 'reopened'
-            })
-          }
+          skippedItems.push({
+            issueId: issue.id,
+            ruleName: issue.id,
+            reason: 'Exact duplicate (same rule + element + URL)'
+          })
           continue
         }
 
@@ -98,7 +83,7 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
           issue.nodes?.length || 1, 
           [result.url], 
           issue.nodes?.[0]?.failureSummary || '', 
-          'open', 
+          'backlog', 
           'medium', 
           nextRank, 
           1, 
@@ -125,7 +110,8 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
     }
   }
 
-  => sum + (result.issues?.length || 0), 0),
+  console.log('✅ Backlog auto-creation result:', {
+    total: scanResults.reduce((sum, result) => sum + (result.issues?.length || 0), 0),
     added: addedItems.length,
     reopened: reopenedItems.length,
     skipped: skippedItems.length
@@ -240,7 +226,7 @@ async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId
           issue.impact, 
           issue.tags?.find((tag: string) => tag.startsWith('wcag')) || 'AA',
           issue.nodes?.length || 1, 
-          [resultUrl], 
+          [result.url], 
           issue.nodes?.[0]?.failureSummary || '', 
           'backlog', 
           'medium', 
@@ -269,7 +255,8 @@ async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId
     }
   }
 
-  => sum + (result.issues?.length || 0), 0),
+  console.log('✅ Backlog auto-creation result:', {
+    total: scanResults.reduce((sum, result) => sum + (result.issues?.length || 0), 0),
     added: addedItems.length,
     reopened: reopenedItems.length,
     skipped: skippedItems.length
@@ -286,11 +273,8 @@ function deduplicateIssuesAcrossPages(results: any[]): any[] {
     if (!result.issues) continue
     
     for (const issue of result.issues) {
-      // Create a unique key based on issue ID and FULL element selector path
-      // This ensures same rule on different elements = different issues
-      // But same rule on same element across pages = same issue (grouped)
-      const elementSelector = issue.nodes?.[0]?.target?.join(' > ') || issue.nodes?.[0]?.target?.[0] || 'unknown'
-      const key = `${issue.id}_${elementSelector}`
+      // Create a unique key based on issue ID and selector
+      const key = `${issue.id}_${issue.nodes?.[0]?.target?.join('_') || 'unknown'}`
       
       if (issueMap.has(key)) {
         // Merge with existing issue - combine node counts and pages
@@ -352,7 +336,7 @@ function deduplicateIssuesAcrossPages(results: any[]): any[] {
     }
   })
   
-  => sum + (r.issues?.length || 0), 0)} total issues → ${Array.from(issueMap.values()).length} unique issues`)
+  console.log(`🔄 Issue deduplication: ${results.reduce((sum, r) => sum + (r.issues?.length || 0), 0)} total issues → ${Array.from(issueMap.values()).length} unique issues`)
   
   return deduplicatedResults
 }
@@ -383,7 +367,7 @@ export async function POST(request: NextRequest) {
     // Check and deduct credits before starting scan
     const scanId = `web_scan_${Date.now()}`
     
-    // Debug log
+    console.log('Processing scan for user:', user.userId) // Debug log
     
     // Register the scan in the database (with error handling)
     try {
@@ -408,7 +392,7 @@ export async function POST(request: NextRequest) {
 
     // If user doesn't have credit data, create it with 3 free credits
     if (!creditData) {
-      // Debug log
+      console.log('Creating credit record for user:', user.userId) // Debug log
       await query(
         `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
          VALUES ($1, $2, $3, $4)`,
@@ -434,7 +418,7 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         // If amount column doesn't exist, try with credits_amount column
         if (error.message.includes('amount')) {
-
+          console.log('Amount column missing, trying with credits_amount...')
           await query(
             `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
              VALUES ($1, $2, $3, $4)`,
@@ -554,24 +538,24 @@ export async function POST(request: NextRequest) {
               }
               
               try {
-
+                console.log(`🔍 Starting scan for ${pageUrl}`)
+                
                 // Initialize browser if not already done
                 if (!scanService.browser) {
-
+                  console.log('🌐 Initializing browser...')
                   await scanService.initializeBrowser()
                 }
                 
                 // Scan the specific page directly
-
+                console.log(`🧪 Scanning page with tags: ${selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508']}`)
                 const pageResult = await scanService.scanPage(pageUrl, selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508'])
-
-                // Ensure the result has a url property for backlog creation
-                const resultWithUrl = {
-                  ...pageResult,
-                  url: pageResult.url || pageUrl
-                }
                 
-                results.push(resultWithUrl)
+                console.log(`✅ Scan completed for ${pageUrl}:`, {
+                  issues: pageResult.issues?.length || 0,
+                  summary: pageResult.summary
+                })
+                
+                results.push(pageResult)
                 
                 // Send page completion
                 sendProgress({
@@ -701,31 +685,37 @@ export async function POST(request: NextRequest) {
                    selectedTags: selectedTags
                  }
                })
-
+               console.log('✅ Scan results stored in history with ID:', scanHistoryId)
              } catch (error) {
                console.error('Failed to store scan results in history:', error)
              }
 
-            // Auto-create backlog items for unique issues (AFTER scan history is stored)
-            if (scanHistoryId) {
-              try {
-
-                await autoCreateBacklogItemsWithHistoryId(user.userId, finalResults.results, scanHistoryId)
-                
-                // TEMPORARILY DISABLED: Auto-sync to Jira - let user manually sync from backlog
-                // if (issueIds.length > 0) {
-                //   //   const syncResult = await autoSyncIssuesToJira(user.userId, issueIds)
-                //   // }
-              } catch (error) {
-                console.error('❌ Error auto-creating backlog items:', error)
-                if (error instanceof Error) {
-                  console.error('Error message:', error.message)
-                  console.error('Error stack:', error.stack)
-                }
-              }
-            } else {
-              console.error('❌ Cannot create backlog items - no scan history ID')
-            }
+             // Auto-create backlog items for unique issues (AFTER scan history is stored)
+             if (scanHistoryId) {
+               try {
+                 console.log('🎫 Auto-creating backlog items for unique issues...')
+                 await autoCreateBacklogItemsWithHistoryId(user.userId, finalResults.results, scanHistoryId)
+                 
+                 // Auto-sync to Jira if enabled (AFTER backlog items are created)
+                 try {
+                   const { autoSyncIssuesToJira, getIssueIdsFromScan } = await import('@/lib/jira-sync-service')
+                   const issueIds = await getIssueIdsFromScan(scanHistoryId)
+                   
+                   if (issueIds.length > 0) {
+                     console.log(`🔗 Auto-syncing ${issueIds.length} issues to Jira...`)
+                     const syncResult = await autoSyncIssuesToJira(user.userId, issueIds)
+                     console.log(`✅ Jira sync complete: ${syncResult.created} created, ${syncResult.skipped} skipped, ${syncResult.errors} errors`)
+                   }
+                 } catch (jiraError) {
+                   // Don't fail scan if Jira sync fails
+                   console.error('❌ Error auto-syncing to Jira:', jiraError)
+                 }
+               } catch (error) {
+                 console.error('❌ Error auto-creating backlog items:', error)
+               }
+             } else {
+               console.error('❌ Cannot create backlog items - no scan history ID')
+             }
 
              // Close the stream
              controller.close()

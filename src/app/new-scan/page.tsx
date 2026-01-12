@@ -86,6 +86,15 @@ export default function NewScan() {
       const wcagLevelParam = searchParams.get('wcagLevel')
       const selectedTagsParam = searchParams.get('selectedTags')
       const pagesToScanParam = searchParams.get('pagesToScan')
+      
+      console.log('🔄 URL parameters detected:', {
+        url: urlParam,
+        includeSubdomains: includeSubdomainsParam,
+        wcagLevel: wcagLevelParam,
+        selectedTags: selectedTagsParam,
+        pagesToScan: pagesToScanParam
+      })
+
       if (urlParam) {
         // Ensure URL has protocol for proper validation
         const normalizedUrl = urlParam.startsWith('http') ? urlParam : `https://${urlParam}`
@@ -119,7 +128,11 @@ export default function NewScan() {
         hasAutoStartedRef.current = false // Reset auto-start flag for new rerun
         
         // Mark that we should auto-start the scan
-        ,
+        console.log('🚀 Rerun scan detected - will auto-start with settings:', {
+          url: urlParam,
+          includeSubdomains: includeSubdomainsParam === 'true',
+          wcagLevel: wcagLevelParam,
+          selectedTags: selectedTagsParam?.split(','),
           pagesToScan: pages
         })
       }
@@ -131,6 +144,8 @@ export default function NewScan() {
     const webScans = activeScans.filter(scan => scan.type === 'web')
     if (webScans.length > 0) {
       const activeScan = webScans[0] // Get the most recent web scan
+      console.log('🔄 Restoring web scan state from global context:', activeScan)
+      
       setActiveScanId(activeScan.scanId)
       setIsScanning(activeScan.status === 'scanning' || activeScan.status === 'analyzing' || activeScan.status === 'crawling')
       
@@ -147,10 +162,12 @@ export default function NewScan() {
       } else {
         // For active scans, ensure we show the progress UI
         // The scanProgress will be available via activeScanId
+        console.log('📊 Active scan restored - showing progress UI')
       }
     } else {
       // No active scans - clear the active scan ID
       if (activeScanId) {
+        console.log('🧹 No active scans found - clearing active scan ID')
         setActiveScanId(null)
         setIsScanning(false)
       }
@@ -160,6 +177,7 @@ export default function NewScan() {
   // Auto-start scan when coming from rerun
   useEffect(() => {
     if (searchParams && searchParams.get('url') && selectedPages.length > 0 && !isScanning && !hasAutoStartedRef.current) {
+      console.log('🚀 Auto-starting rerun scan now...')
       hasAutoStartedRef.current = true // Prevent multiple auto-starts
       setTimeout(() => {
         scanSelectedPages()
@@ -217,6 +235,8 @@ export default function NewScan() {
             if (activeScan.url) {
               setUrl(activeScan.url)
             }
+            
+            console.log('Resumed active scan:', activeScan.scanId)
           }
         }
       }
@@ -413,6 +433,7 @@ export default function NewScan() {
   }
 
   const scanSelectedPages = async () => {
+    console.log('🚀 Starting scan with selectedPages:', selectedPages)
     setIsScanning(true)
     setScanError(null)
     setScanResults([])
@@ -437,6 +458,9 @@ export default function NewScan() {
         console.error('❌ No pages selected for scanning')
         throw new Error('No pages selected for scanning')
       }
+      
+      console.log('📄 Pages to scan:', pagesToScan)
+
       // Update progress
       updateScan(scanId, {
         currentPage: 0,
@@ -486,6 +510,9 @@ export default function NewScan() {
         console.error('❌ No response body from scan API')
         throw new Error('No response body')
       }
+      
+      console.log('📡 Starting to read scan response stream...')
+
       let buffer = ''
       
       while (true) {
@@ -516,6 +543,13 @@ export default function NewScan() {
                   message: data.message
                 })
               } else if (data.type === 'page_start' || data.type === 'progress') {
+                console.log('🔄 Scan progress update:', {
+                  type: data.type,
+                  currentPage: data.currentPage,
+                  totalPages: data.totalPages,
+                  status: data.status,
+                  message: data.message
+                })
                 updateScan(scanId, {
                   currentPage: data.currentPage,
                   totalPages: data.totalPages,
@@ -530,6 +564,8 @@ export default function NewScan() {
                   message: data.message
                 })
               } else if (data.type === 'complete') {
+                console.log('✅ Scan complete data received:', data)
+                console.log('📊 Scan results:', data.results)
                 updateScan(scanId, {
                   currentPage: data.currentPage,
                   totalPages: data.totalPages,
@@ -542,6 +578,8 @@ export default function NewScan() {
                 
                 // Store the results
                 if (data.results) {
+                  console.log('💾 Setting scan results:', data.results)
+                  console.log('📊 Results count:', data.results.results?.length || 0)
                   setScanResults(data.results.results)
                   setRemediationReport(data.results.remediationReport || [])
                   
@@ -561,7 +599,7 @@ export default function NewScan() {
                   // Auto-hide notification after 8 seconds
                   setTimeout(() => setShowSuccessNotification(false), 8000)
                 } else {
-                  // Debug log
+                  console.log('No results in complete data') // Debug log
                 }
               } else if (data.type === 'error') {
                 // Clear active scan ID on error
@@ -1523,7 +1561,7 @@ export default function NewScan() {
         </div>
 
         {/* Detailed Scan Results */}
-        {}
+        {console.log('🔍 Scan results state:', { length: scanResults.length, results: scanResults })}
         {scanResults.length > 0 && (
           <div className="mt-8">
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
@@ -1659,6 +1697,7 @@ export default function NewScan() {
                     scanId={currentScanId}
                     onStatusChange={(issueId, status) => {
                       // Handle status changes - could save to database
+                      console.log('Issue status changed:', issueId, status)
                     }}
                   />
                 ))
@@ -1724,6 +1763,7 @@ export default function NewScan() {
                               scanId={currentScanId}
                               onStatusChange={(issueId, status) => {
                                 // Handle status changes - could save to database
+                                console.log('Issue status changed:', issueId, status)
                               }}
                             />
                           );

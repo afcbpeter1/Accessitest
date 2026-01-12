@@ -284,7 +284,8 @@ export class ScanService {
     
     // Final deduplication to ensure no duplicates remain
     const uniqueUrls = Array.from(new Set(discoveredUrls));
-
+    console.log(`🔍 Page discovery completed: ${discoveredUrls.length} URLs found, ${uniqueUrls.length} unique after deduplication`);
+    
     return uniqueUrls;
   }
 
@@ -304,7 +305,8 @@ export class ScanService {
    * Scan a single page for accessibility issues
    */
   async scanPage(url: string, selectedTags?: string[]): Promise<ScanResult> {
-
+    console.log(`🔍 ScanService.scanPage called for: ${url}`)
+    
     if (!this.browser) {
       throw new Error('Browser not initialized');
     }
@@ -312,25 +314,34 @@ export class ScanService {
     const page = await this.browser.newPage();
     
     try {
-
+      console.log(`🌐 Navigating to ${url}...`)
       // Navigate to the page
       await page.goto(url, { 
         waitUntil: 'networkidle2',
         timeout: 30000 
       });
+      console.log(`✅ Page loaded successfully`)
 
+      console.log(`🔧 Injecting axe-core...`)
       // Inject axe-core into the page
       await page.addScriptTag({
         url: 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.3/axe.min.js'
       });
+      console.log(`✅ Axe-core injected successfully`)
 
       // Use our accessibility scanner with selected tags
       // CRITICAL: Default to comprehensive WCAG compliance (includes all levels)
       const tagsToUse = selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508'];
-      }`)
+      console.log(`🧪 Running accessibility scan with tags: ${tagsToUse.join(', ')}`)
       
       const result = await this.scanner.scanPageInBrowser(page, tagsToUse);
-
+      
+      console.log(`📊 Scan result:`, {
+        issues: result.issues?.length || 0,
+        summary: result.summary,
+        url: result.url
+      })
+      
       return result;
     } finally {
       await page.close();

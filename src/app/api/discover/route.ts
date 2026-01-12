@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
 
     // Discover pages only (no scanning)
     const discoveredUrls = await scanService.discoverPages(scanOptions, (progress) => {
+      console.log(`Discovery Progress: ${progress.status} - ${progress.message}`)
     })
 
     // Categorize discovered pages

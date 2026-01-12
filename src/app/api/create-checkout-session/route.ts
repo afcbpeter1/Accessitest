@@ -23,37 +23,38 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(request: NextRequest) {
   try {
-
-    )
+    console.log('🔑 Stripe Secret Key exists:', !!process.env.STRIPE_SECRET_KEY)
+    console.log('🔑 Stripe Secret Key starts with:', process.env.STRIPE_SECRET_KEY?.substring(0, 7))
     
     // Get account info to verify we're connected to the right account
     try {
       const account = await stripe.accounts.retrieve()
-
-
+      console.log('🏢 Connected to Stripe Account ID:', account.id)
+      console.log('🏢 Account Type:', account.type)
     } catch (accountError) {
-
+      console.log('❌ Could not retrieve account info:', accountError)
     }
     
     const { priceId, userId, userEmail, successUrl, cancelUrl } = await request.json()
-
+    console.log('📦 Received priceId:', priceId)
+    
     // Try to retrieve the specific price to see what error we get
     try {
       const price = await stripe.prices.retrieve(priceId)
-
+      console.log('✅ Price found:', price.id, price.nickname || price.product)
     } catch (priceError) {
-
+      console.log('❌ Price retrieval error:', priceError.message)
     }
 
     // List all prices to see what actually exists
     try {
       const prices = await stripe.prices.list({ limit: 20 })
-
+      console.log('📋 Available prices in account:')
       prices.data.forEach(p => {
-        - $${(p.unit_amount || 0) / 100}`)
+        console.log(`  - ${p.id} (${p.nickname || 'no nickname'}) - $${(p.unit_amount || 0) / 100}`)
       })
     } catch (listError: any) {
-
+      console.log('❌ Could not list prices:', listError.message)
     }
 
     if (!priceId) {
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
           }
         } catch (error) {
           // Subscription not found in Stripe, user can create a new one
-
+          console.log('Existing subscription not found in Stripe, allowing new subscription creation')
         }
       }
     }
@@ -161,10 +162,12 @@ export async function POST(request: NextRequest) {
 
     const session = await stripe.checkout.sessions.create(sessionParams)
 
-
-
-    )
-
+    console.log('✅ Checkout session created:', session.id)
+    console.log('📋 Session URL:', session.url)
+    console.log('📋 Session mode:', session.mode)
+    console.log('📋 Session metadata:', JSON.stringify(session.metadata, null, 2))
+    console.log('📋 Session status:', session.status)
+    console.log('📋 Session payment status:', session.payment_status)
 
     return NextResponse.json({ 
       success: true, 
