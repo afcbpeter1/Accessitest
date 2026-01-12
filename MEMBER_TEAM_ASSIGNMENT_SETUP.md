@@ -104,3 +104,4 @@ When a member is assigned to a team:
 - **Team Board Assignment**: Teams must be assigned to boards for proper ticket routing
 - **Team Management**: Teams must exist before members can be assigned to them
 
+

@@ -92,3 +92,4 @@ UNIQUE CONSTRAINT: (team_id, integration_type)
 - Board assignments are automatically removed when a team is deleted (CASCADE)
 - The feature only works for teams that have at least one active integration configured
 
+

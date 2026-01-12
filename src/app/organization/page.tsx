@@ -2335,14 +2335,35 @@ export default function OrganizationPage() {
 
 // Billing Tab Component
 function BillingTab({ organization }: { organization: Organization | null }) {
-  const [billingStatus, setBillingStatus] = useState<{ canAdd: boolean; currentUsers: number; maxUsers: number } | null>(null)
+  const [billingStatus, setBillingStatus] = useState<{ 
+    canAdd: boolean; 
+    currentUsers: number; 
+    maxUsers: number;
+    pricing?: {
+      monthly?: { priceId: string; amount: number; currency: string };
+      yearly?: { priceId: string; amount: number; currency: string };
+    };
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [addingUsers, setAddingUsers] = useState(false)
   const [usersToAdd, setUsersToAdd] = useState(1)
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly')
 
   useEffect(() => {
     if (organization) {
       loadBillingStatus()
+    }
+  }, [organization])
+
+  // Reload billing status when returning from checkout
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const success = urlParams.get('success')
+    if (success === 'true' && organization) {
+      // Reload billing status after a short delay to allow webhook to process
+      setTimeout(() => {
+        loadBillingStatus()
+      }, 2000)
     }
   }, [organization])
 
@@ -2380,15 +2401,28 @@ function BillingTab({ organization }: { organization: Organization | null }) {
         },
         body: JSON.stringify({
           organizationId: organization.id,
-          numberOfUsers: usersToAdd
+          numberOfUsers: usersToAdd,
+          billingPeriod: billingPeriod
         })
       })
 
       const data = await response.json()
       if (data.success && data.url) {
-        window.location.href = data.url
+        // If sessionId is 'immediate', seats were added directly - just reload
+        if (data.sessionId === 'immediate') {
+          loadBillingStatus()
+          alert('Users added successfully!')
+        } else {
+          window.location.href = data.url
+        }
       } else {
-        alert(data.error || 'Failed to create checkout session')
+        // Show user-friendly error message
+        const errorMsg = data.error || 'Failed to create checkout session'
+        if (errorMsg.includes('must have an active') || errorMsg.includes('Please subscribe first')) {
+          alert('You need to have an active monthly or yearly subscription before you can add users to your organization. Please subscribe first.')
+        } else {
+          alert(errorMsg)
+        }
       }
     } catch (error) {
       alert('An error occurred')
@@ -2446,36 +2480,136 @@ function BillingTab({ organization }: { organization: Organization | null }) {
 
           <div className="border-t border-gray-200 pt-6">
             <h4 className="font-semibold text-gray-900 mb-4">Add Users</h4>
-            <div className="flex items-center space-x-4">
-              <input
-                type="number"
-                min="1"
-                value={usersToAdd}
-                onChange={(e) => setUsersToAdd(parseInt(e.target.value) || 1)}
-                className="w-24 px-3 py-2 border border-gray-300 rounded-lg"
-              />
-              <span className="text-gray-600">users</span>
-              <button
-                onClick={handleAddUsers}
-                disabled={addingUsers}
-                className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-              >
-                {addingUsers ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Users
-                  </>
-                )}
-              </button>
+            
+            {/* Subscription Requirement Notice */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm text-blue-800 font-medium mb-1">
+                    Subscription Required
+                  </p>
+                  <p className="text-sm text-blue-700">
+                    You must have an active monthly or yearly subscription before you can add users to your organization. 
+                    <a href="/pricing" className="text-blue-600 hover:text-blue-800 underline ml-1">
+                      Subscribe now
+                    </a>
+                  </p>
+                </div>
+              </div>
             </div>
+            
+            {/* Billing Period Selector */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Billing Period
+              </label>
+              <div className="flex space-x-4">
+                <button
+                  type="button"
+                  onClick={() => setBillingPeriod('monthly')}
+                  className={`flex-1 px-4 py-2 rounded-lg border-2 transition-colors ${
+                    billingPeriod === 'monthly'
+                      ? 'border-primary-600 bg-primary-50 text-primary-700'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="font-semibold">Monthly</div>
+                  {billingStatus?.pricing?.monthly && (
+                    <div className="text-xs mt-1">
+                      ${billingStatus.pricing.monthly.amount.toFixed(2)}/user/month
+                    </div>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingPeriod('yearly')}
+                  className={`flex-1 px-4 py-2 rounded-lg border-2 transition-colors ${
+                    billingPeriod === 'yearly'
+                      ? 'border-primary-600 bg-primary-50 text-primary-700'
+                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                  }`}
+                >
+                  <div className="font-semibold">Yearly</div>
+                  {billingStatus?.pricing?.yearly && (
+                    <div className="text-xs mt-1">
+                      ${billingStatus.pricing.yearly.amount.toFixed(2)}/user/year
+                    </div>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Number of Users Input */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Number of Users
+              </label>
+              <div className="flex items-center space-x-4">
+                <input
+                  type="number"
+                  min="1"
+                  value={usersToAdd}
+                  onChange={(e) => setUsersToAdd(parseInt(e.target.value) || 1)}
+                  className="w-24 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <span className="text-gray-600">users</span>
+              </div>
+            </div>
+
+            {/* Total Amount Display */}
+            {billingStatus?.pricing && (
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">Total Amount:</span>
+                  <span className="text-2xl font-bold text-gray-900">
+                    {billingPeriod === 'monthly' && billingStatus.pricing.monthly
+                      ? `$${(billingStatus.pricing.monthly.amount * usersToAdd).toFixed(2)}`
+                      : billingPeriod === 'yearly' && billingStatus.pricing.yearly
+                      ? `$${(billingStatus.pricing.yearly.amount * usersToAdd).toFixed(2)}`
+                      : '$0.00'}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {billingPeriod === 'monthly' 
+                    ? `Billed monthly: ${usersToAdd} × $${billingStatus.pricing.monthly?.amount.toFixed(2) || '0.00'} = $${((billingStatus.pricing.monthly?.amount || 0) * usersToAdd).toFixed(2)}`
+                    : `Billed yearly: ${usersToAdd} × $${billingStatus.pricing.yearly?.amount.toFixed(2) || '0.00'} = $${((billingStatus.pricing.yearly?.amount || 0) * usersToAdd).toFixed(2)}`}
+                </div>
+              </div>
+            )}
+
+            {/* Add Users Button */}
+            <button
+              onClick={handleAddUsers}
+              disabled={addingUsers}
+              className="w-full flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {addingUsers ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Users
+                </>
+              )}
+            </button>
             <p className="text-sm text-gray-600 mt-2">
               You'll be redirected to Stripe to complete the payment
             </p>
+            
+            {/* Manual refresh button */}
+            <button
+              onClick={() => {
+                loadBillingStatus()
+                setMessage({ type: 'info', text: 'Refreshing billing status...' })
+              }}
+              className="mt-4 text-sm text-primary-600 hover:text-primary-700 underline"
+            >
+              Refresh Status
+            </button>
           </div>
         </div>
       )}

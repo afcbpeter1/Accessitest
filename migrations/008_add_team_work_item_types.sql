@@ -40,3 +40,4 @@ CREATE INDEX IF NOT EXISTS idx_teams_azure_devops_work_item_type ON teams(azure_
 COMMENT ON COLUMN teams.jira_issue_type IS 'The Jira issue type to use when creating tickets for this team (e.g., "Bug", "Task", "Story"). Overrides integration default.';
 COMMENT ON COLUMN teams.azure_devops_work_item_type IS 'The Azure DevOps work item type to use when creating work items for this team (e.g., "Bug", "Task", "Product Backlog Item"). Overrides integration default.';
 
+

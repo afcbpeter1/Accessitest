@@ -151,3 +151,4 @@ The integration follows the same patterns as Jira, so if you're familiar with th
 
 
 
+

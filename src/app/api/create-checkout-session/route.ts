@@ -162,6 +162,13 @@ export async function POST(request: NextRequest) {
 
     const session = await stripe.checkout.sessions.create(sessionParams)
 
+    console.log('✅ Checkout session created:', session.id)
+    console.log('📋 Session URL:', session.url)
+    console.log('📋 Session mode:', session.mode)
+    console.log('📋 Session metadata:', JSON.stringify(session.metadata, null, 2))
+    console.log('📋 Session status:', session.status)
+    console.log('📋 Session payment status:', session.payment_status)
+
     return NextResponse.json({ 
       success: true, 
       sessionId: session.id,

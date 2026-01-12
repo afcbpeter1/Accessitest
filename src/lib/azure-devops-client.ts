@@ -356,8 +356,9 @@ export class AzureDevOpsClient {
   }
 
   /**
-   * Get work item types for a specific project (legacy method - kept for compatibility)
+   * Get work item types for a specific project
    * If teamId is provided, gets work item types for that team's backlog
+   * Otherwise, gets work item types from the project level
    */
   async getWorkItemTypes(projectNameOrId: string, projectId?: string, teamId?: string): Promise<AzureDevOpsWorkItemType[]> {
     // If team ID provided, get work item types for that specific team
@@ -365,8 +366,40 @@ export class AzureDevOpsClient {
       return this.getWorkItemTypesForTeam(projectNameOrId, teamId, projectId)
     }
     
-    // Otherwise, get from project-level backlog config
-    return this.getWorkItemTypesForTeam(projectNameOrId, projectNameOrId, projectId)
+    // Otherwise, get from project-level work item types API
+    return this.getWorkItemTypesForProject(projectNameOrId, projectId)
+  }
+
+  /**
+   * Get work item types from project level (not team-specific)
+   * Uses the project-level work item types API
+   */
+  async getWorkItemTypesForProject(projectNameOrId: string, projectId?: string): Promise<AzureDevOpsWorkItemType[]> {
+    const projectIdentifier = projectId || projectNameOrId
+    
+    try {
+      // Use project-level work item types API
+      const response = await this.request<{
+        value: Array<{
+          name: string
+          referenceName: string
+          description?: string
+        }>
+      }>(`/${encodeURIComponent(projectIdentifier)}/_apis/wit/workitemtypes?api-version=7.0`)
+      
+      const workItemTypes = (response.value || []).map(wit => ({
+        name: wit.name,
+        referenceName: wit.referenceName,
+        description: wit.description
+      }))
+      
+      console.log(`✅ Found ${workItemTypes.length} work item types for project ${projectIdentifier}:`, workItemTypes.map(w => w.name).join(', '))
+      return workItemTypes
+    } catch (error) {
+      console.error(`❌ Error fetching work item types for project ${projectIdentifier}:`, error)
+      // Return empty array instead of throwing - allows UI to handle gracefully
+      return []
+    }
   }
 
   /**

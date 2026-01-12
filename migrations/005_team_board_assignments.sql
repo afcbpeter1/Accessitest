@@ -27,3 +27,4 @@ CREATE INDEX IF NOT EXISTS idx_team_board_assignments_integration ON team_board_
 -- Add comment
 COMMENT ON TABLE team_board_assignments IS 'Stores which board (Jira or Azure DevOps) each team is assigned to. Only one board per team per integration type.';
 
+

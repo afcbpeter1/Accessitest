@@ -59,3 +59,4 @@ Teams now have a `sprint_board_id` field. You'll need to:
 - Add UI to select/configure sprint boards for each team
 - Update the sprint board page to filter by team's sprint board
 
+

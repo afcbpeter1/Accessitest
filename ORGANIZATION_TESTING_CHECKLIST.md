@@ -304,3 +304,4 @@ psql -d your_db -c "SELECT o.name, om.role FROM organizations o JOIN organizatio
 psql -d your_db -c "SELECT organization_id, credits_remaining FROM organization_credits;"
 ```
 
+

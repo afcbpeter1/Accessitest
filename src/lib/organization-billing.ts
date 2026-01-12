@@ -39,10 +39,28 @@ export async function getOrCreateStripeCustomer(organizationId: string, organiza
 }
 
 /**
- * Get the appropriate seat price ID based on organization owner's subscription
+ * Get the appropriate seat price ID based on billing period
+ * @param billingPeriod - 'monthly' or 'yearly'. If not provided, defaults based on owner's subscription
  */
-async function getSeatPriceId(organizationId: string): Promise<string> {
-  // Get organization owner
+async function getSeatPriceId(organizationId: string, billingPeriod?: 'monthly' | 'yearly'): Promise<string> {
+  // If billing period is explicitly provided, use it
+  if (billingPeriod === 'yearly') {
+    const yearlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID_YEARLY
+    if (!yearlyPriceId) {
+      throw new Error('STRIPE_PER_USER_PRICE_ID_YEARLY not configured')
+    }
+    return yearlyPriceId
+  }
+  
+  if (billingPeriod === 'monthly') {
+    const monthlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID
+    if (!monthlyPriceId) {
+      throw new Error('STRIPE_PER_USER_PRICE_ID not configured')
+    }
+    return monthlyPriceId
+  }
+  
+  // Auto-detect based on owner's subscription (backward compatibility)
   const owner = await queryOne(
     `SELECT u.id, u.stripe_subscription_id
      FROM organization_members om
@@ -54,7 +72,11 @@ async function getSeatPriceId(organizationId: string): Promise<string> {
   
   if (!owner) {
     // Default to monthly if no owner found
-    return process.env.STRIPE_PER_USER_PRICE_ID || ''
+    const monthlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID
+    if (!monthlyPriceId) {
+      throw new Error('STRIPE_PER_USER_PRICE_ID not configured')
+    }
+    return monthlyPriceId
   }
   
   // Check if owner has a yearly subscription
@@ -86,14 +108,316 @@ async function getSeatPriceId(organizationId: string): Promise<string> {
 }
 
 /**
+ * Get price information for display
+ */
+export async function getSeatPriceInfo(billingPeriod: 'monthly' | 'yearly'): Promise<{ priceId: string; amount: number; currency: string }> {
+  const priceId = billingPeriod === 'yearly' 
+    ? (process.env.STRIPE_PER_USER_PRICE_ID_YEARLY || '')
+    : (process.env.STRIPE_PER_USER_PRICE_ID || '')
+  
+  if (!priceId) {
+    throw new Error(`STRIPE_PER_USER_PRICE_ID${billingPeriod === 'yearly' ? '_YEARLY' : ''} not configured`)
+  }
+  
+  try {
+    const price = await stripe.prices.retrieve(priceId)
+    return {
+      priceId,
+      amount: (price.unit_amount || 0) / 100, // Convert cents to dollars
+      currency: price.currency.toUpperCase()
+    }
+  } catch (error) {
+    console.error('Error retrieving price:', error)
+    throw new Error('Could not retrieve price information')
+  }
+}
+
+/**
+ * Add seats to owner's existing subscription (preferred method)
+ * This adds organization seats to the owner's personal subscription for unified billing
+ */
+export async function addSeatsToOwnerSubscription(
+  organizationId: string,
+  numberOfUsers: number,
+  billingPeriod?: 'monthly' | 'yearly'
+): Promise<{ success: boolean; subscriptionId?: string; message: string }> {
+  // Get organization owner
+  const owner = await queryOne(
+    `SELECT u.id, u.stripe_subscription_id, u.email
+     FROM organization_members om
+     INNER JOIN users u ON om.user_id = u.id
+     WHERE om.organization_id = $1 AND om.role = 'owner' AND om.is_active = true
+     LIMIT 1`,
+    [organizationId]
+  )
+  
+  if (!owner) {
+    throw new Error('Organization owner not found')
+  }
+  
+  if (!owner.stripe_subscription_id) {
+    throw new Error('Organization owner does not have an active subscription. Please subscribe first.')
+  }
+  
+  // Get owner's subscription
+  let subscription: Stripe.Subscription
+  try {
+    subscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id)
+  } catch (error) {
+    throw new Error('Could not retrieve owner subscription. Please ensure the subscription is active.')
+  }
+  
+  if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+    throw new Error('Owner subscription is not active. Please activate your subscription first.')
+  }
+  
+  // Get appropriate price ID (monthly or yearly based on owner's subscription)
+  const priceId = await getSeatPriceId(organizationId)
+  
+  if (!priceId) {
+    throw new Error('Seat pricing not configured. Please set STRIPE_PER_USER_PRICE_ID and/or STRIPE_PER_USER_PRICE_ID_YEARLY')
+  }
+  
+  // Check if this price already exists in the subscription
+  const existingItem = subscription.items.data.find(item => item.price.id === priceId)
+  
+  let updatedSubscription: Stripe.Subscription
+  
+  if (existingItem) {
+    // Update existing item quantity
+    // Stripe automatically prorates when quantity changes mid-cycle
+    const newQuantity = (existingItem.quantity || 0) + numberOfUsers
+    updatedSubscription = await stripe.subscriptions.update(subscription.id, {
+      items: [{
+        id: existingItem.id,
+        quantity: newQuantity
+      }],
+      proration_behavior: 'create_prorations', // Explicitly enable prorating
+      metadata: {
+        ...subscription.metadata,
+        organization_seats_added: (parseInt(subscription.metadata?.organization_seats_added || '0', 10) + numberOfUsers).toString(),
+        organization_id: organizationId // Track which organization these seats belong to
+      }
+    })
+    console.log(`✅ Added ${numberOfUsers} seats to existing subscription item. New quantity: ${newQuantity} (prorated)`)
+  } else {
+    // Add new item to subscription
+    updatedSubscription = await stripe.subscriptions.update(subscription.id, {
+      items: [
+        ...subscription.items.data.map(item => ({ id: item.id })),
+        {
+          price: priceId,
+          quantity: numberOfUsers
+        }
+      ],
+      proration_behavior: 'create_prorations', // Explicitly enable prorating
+      metadata: {
+        ...subscription.metadata,
+        organization_seats_added: numberOfUsers.toString(),
+        organization_id: organizationId // Track which organization these seats belong to
+      }
+    })
+    console.log(`✅ Added new subscription item with ${numberOfUsers} seats (prorated)`)
+  }
+  
+  // Update organization max_users immediately
+  console.log(`🔄 Updating organization ${organizationId} max_users...`)
+  const org = await queryOne(
+    `SELECT max_users FROM organizations WHERE id = $1`,
+    [organizationId]
+  )
+  
+  if (!org) {
+    throw new Error(`Organization ${organizationId} not found`)
+  }
+  
+  const currentMaxUsers = org?.max_users || 0
+  const newMaxUsers = currentMaxUsers + numberOfUsers
+  
+  console.log(`📊 Organization ${organizationId}: current=${currentMaxUsers}, adding=${numberOfUsers}, new=${newMaxUsers}`)
+  
+  const updateResult = await query(
+    `UPDATE organizations 
+     SET max_users = $1, subscription_status = 'active', updated_at = NOW()
+     WHERE id = $2`,
+    [newMaxUsers, organizationId]
+  )
+  
+  console.log(`✅ Updated organization ${organizationId} max_users from ${currentMaxUsers} to ${newMaxUsers} (rows affected: ${updateResult.rowCount || 0})`)
+  
+  // Verify the update
+  const verifyOrg = await queryOne(
+    `SELECT max_users, subscription_status FROM organizations WHERE id = $1`,
+    [organizationId]
+  )
+  console.log(`✅ Verified organization ${organizationId} update: max_users=${verifyOrg?.max_users}, status=${verifyOrg?.subscription_status}`)
+  
+  return {
+    success: true,
+    subscriptionId: updatedSubscription.id,
+    message: `Successfully added ${numberOfUsers} seat(s) to your subscription. Charges are prorated and will appear on your next invoice.`
+  }
+}
+
+/**
+ * Reduce seats from owner's existing subscription
+ * This reduces organization seats from the owner's personal subscription
+ */
+export async function reduceSeatsFromOwnerSubscription(
+  organizationId: string,
+  numberOfUsersToRemove: number
+): Promise<{ success: boolean; subscriptionId?: string; message: string }> {
+  // Get organization owner
+  const owner = await queryOne(
+    `SELECT u.id, u.stripe_subscription_id, u.email
+     FROM organization_members om
+     INNER JOIN users u ON om.user_id = u.id
+     WHERE om.organization_id = $1 AND om.role = 'owner' AND om.is_active = true
+     LIMIT 1`,
+    [organizationId]
+  )
+  
+  if (!owner) {
+    throw new Error('Organization owner not found')
+  }
+  
+  if (!owner.stripe_subscription_id) {
+    throw new Error('Organization owner does not have an active subscription.')
+  }
+  
+  // Get owner's subscription
+  let subscription: Stripe.Subscription
+  try {
+    subscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id)
+  } catch (error) {
+    throw new Error('Could not retrieve owner subscription. Please ensure the subscription is active.')
+  }
+  
+  if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+    throw new Error('Owner subscription is not active.')
+  }
+  
+  // Get appropriate price ID - try to find existing seat price first
+  // Check both monthly and yearly prices to find which one is in the subscription
+  const monthlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID
+  const yearlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID_YEARLY
+  
+  // Find the organization seat item (could be monthly or yearly)
+  const existingItem = subscription.items.data.find(item => 
+    item.price.id === monthlyPriceId || item.price.id === yearlyPriceId
+  )
+  
+  if (!existingItem) {
+    throw new Error('No organization seats found in subscription.')
+  }
+  
+  const priceId = existingItem.price.id
+  
+  if (!existingItem) {
+    throw new Error('No organization seats found in subscription.')
+  }
+  
+  const currentQuantity = existingItem.quantity || 0
+  const newQuantity = Math.max(0, currentQuantity - numberOfUsersToRemove)
+  
+  if (newQuantity === currentQuantity) {
+    throw new Error('Cannot reduce seats - already at minimum.')
+  }
+  
+  let updatedSubscription: Stripe.Subscription
+  
+  if (newQuantity === 0) {
+    // Remove the item entirely
+    updatedSubscription = await stripe.subscriptions.update(subscription.id, {
+      items: [
+        ...subscription.items.data
+          .filter(item => item.id !== existingItem.id)
+          .map(item => ({ id: item.id }))
+      ],
+      proration_behavior: 'create_prorations', // Prorate the refund
+      metadata: {
+        ...subscription.metadata,
+        organization_seats_added: '0'
+      }
+    })
+    console.log(`✅ Removed all organization seats from subscription (prorated refund)`)
+  } else {
+    // Update quantity
+    updatedSubscription = await stripe.subscriptions.update(subscription.id, {
+      items: [{
+        id: existingItem.id,
+        quantity: newQuantity
+      }],
+      proration_behavior: 'create_prorations', // Prorate the refund
+      metadata: {
+        ...subscription.metadata,
+        organization_seats_added: newQuantity.toString()
+      }
+    })
+    console.log(`✅ Reduced ${numberOfUsersToRemove} seats from subscription. New quantity: ${newQuantity} (prorated refund)`)
+  }
+  
+  // Update organization max_users immediately
+  const org = await queryOne(
+    `SELECT max_users FROM organizations WHERE id = $1`,
+    [organizationId]
+  )
+  const currentMaxUsers = org?.max_users || 0
+  const newMaxUsers = Math.max(0, currentMaxUsers - numberOfUsersToRemove)
+  
+  await query(
+    `UPDATE organizations 
+     SET max_users = $1, updated_at = NOW()
+     WHERE id = $2`,
+    [newMaxUsers, organizationId]
+  )
+  
+  console.log(`✅ Updated organization ${organizationId} max_users from ${currentMaxUsers} to ${newMaxUsers}`)
+  
+  return {
+    success: true,
+    subscriptionId: updatedSubscription.id,
+    message: `Successfully reduced ${numberOfUsersToRemove} seat(s). You'll receive a prorated credit on your next invoice.`
+  }
+}
+
+/**
  * Create Stripe checkout session for adding users to organization
+ * This creates a separate subscription for the organization (fallback method)
  */
 export async function createCheckoutSession(
   organizationId: string,
   numberOfUsers: number,
   successUrl: string,
-  cancelUrl: string
+  cancelUrl: string,
+  useOwnerSubscription: boolean = true,
+  billingPeriod?: 'monthly' | 'yearly'
 ): Promise<{ sessionId: string; url: string }> {
+  // Require owner to have a subscription before adding users
+  if (useOwnerSubscription) {
+    try {
+      const result = await addSeatsToOwnerSubscription(organizationId, numberOfUsers, billingPeriod)
+      if (result.success) {
+        // Return a success response that redirects immediately
+        return {
+          sessionId: 'immediate',
+          url: successUrl + '&added=true&method=subscription'
+        }
+      }
+    } catch (error) {
+      // If owner doesn't have a subscription, throw error instead of falling back
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (errorMessage.includes('does not have an active subscription')) {
+        throw new Error('You must have an active monthly or yearly subscription before you can add users to your organization. Please subscribe first.')
+      } else if (errorMessage.includes('subscription is not active')) {
+        throw new Error('Your subscription is not active. Please activate your subscription before adding users.')
+      } else {
+        // Re-throw other errors
+        throw error
+      }
+    }
+  }
+  
   const org = await queryOne(
     `SELECT name, stripe_customer_id FROM organizations WHERE id = $1`,
     [organizationId]
@@ -108,14 +432,20 @@ export async function createCheckoutSession(
     ? org.stripe_customer_id
     : await getOrCreateStripeCustomer(organizationId, org.name, '') // Email will be set later
   
-  // Get appropriate price ID (monthly or yearly based on owner's subscription)
-  const priceId = await getSeatPriceId(organizationId)
+  // Get appropriate price ID (monthly or yearly based on parameter or owner's subscription)
+  const priceId = await getSeatPriceId(organizationId, billingPeriod)
   
   if (!priceId) {
     throw new Error('Seat pricing not configured. Please set STRIPE_PER_USER_PRICE_ID and/or STRIPE_PER_USER_PRICE_ID_YEARLY')
   }
   
   // Create checkout session
+  console.log(`🛒 Creating separate checkout session for organization ${organizationId}:`)
+  console.log(`   - Number of users: ${numberOfUsers}`)
+  console.log(`   - Price ID: ${priceId}`)
+  console.log(`   - Customer ID: ${customerId}`)
+  console.log(`   - Billing period: ${billingPeriod || 'monthly'}`)
+  
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
@@ -132,6 +462,10 @@ export async function createCheckoutSession(
       number_of_users: numberOfUsers.toString()
     }
   })
+  
+  console.log(`✅ Checkout session created: ${session.id}`)
+  console.log(`   - URL: ${session.url}`)
+  console.log(`   - Metadata: organization_id=${organizationId}, number_of_users=${numberOfUsers}`)
   
   return {
     sessionId: session.id,

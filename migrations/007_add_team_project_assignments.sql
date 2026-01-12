@@ -40,3 +40,4 @@ CREATE INDEX IF NOT EXISTS idx_teams_azure_devops_project ON teams(azure_devops_
 COMMENT ON COLUMN teams.jira_project_key IS 'The Jira project key assigned to this team (e.g., "SCRUM"). Set from the organization integrations.';
 COMMENT ON COLUMN teams.azure_devops_project IS 'The Azure DevOps project name assigned to this team (e.g., "A11ytest Scrm"). Set from the organization integrations.';
 
+

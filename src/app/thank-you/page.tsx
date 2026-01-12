@@ -3,29 +3,92 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CheckCircle2, Mail, BadgeCheck, ArrowDown } from 'lucide-react'
+import { CheckCircle2, Mail, BadgeCheck, ArrowDown, Loader2, RefreshCw } from 'lucide-react'
 
 export default function ThankYouPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) {
-    return null
-  }
+  const [subscriptionStatus, setSubscriptionStatus] = useState<'checking' | 'active' | 'pending' | 'error'>('checking')
+  const [refreshCount, setRefreshCount] = useState(0)
 
   const plan = searchParams.get('plan') || 'Your Purchase'
   const amount = searchParams.get('amount') || '$0.00'
   const type = searchParams.get('type') || 'purchase'
   const billing = searchParams.get('billing')
   const success = searchParams.get('success')
+  const isSubscription = type === 'subscription'
+
+  // Check subscription status
+  const checkSubscriptionStatus = async () => {
+    if (!isSubscription) {
+      setSubscriptionStatus('active') // For non-subscriptions, assume active
+      return
+    }
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      const response = await fetch('/api/user', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      const data = await response.json()
+      if (data.success && data.user) {
+        const userPlan = data.user.planType || data.user.plan || 'free'
+        const hasSubscription = data.user.subscription || data.user.stripeSubscriptionId
+        
+        if (userPlan !== 'free' || hasSubscription) {
+          setSubscriptionStatus('active')
+          // Trigger refresh in sidebar
+          window.dispatchEvent(new CustomEvent('refreshUserData'))
+        } else if (refreshCount < 10) {
+          // Keep checking for up to 10 times (20 seconds total)
+          setRefreshCount(prev => prev + 1)
+          setTimeout(checkSubscriptionStatus, 2000)
+        } else {
+          setSubscriptionStatus('pending')
+        }
+      }
+    } catch (error) {
+      console.error('Error checking subscription status:', error)
+      if (refreshCount < 5) {
+        setRefreshCount(prev => prev + 1)
+        setTimeout(checkSubscriptionStatus, 2000)
+      } else {
+        setSubscriptionStatus('error')
+      }
+    }
+  }
+
+  const manualRefresh = () => {
+    setRefreshCount(0)
+    setSubscriptionStatus('checking')
+    checkSubscriptionStatus()
+    window.dispatchEvent(new CustomEvent('refreshUserData'))
+  }
+
+  useEffect(() => {
+    setMounted(true)
+    
+    if (success === 'true') {
+      // Start checking subscription status
+      checkSubscriptionStatus()
+      
+      // Also trigger immediate refresh
+      window.dispatchEvent(new CustomEvent('refreshUserData'))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run once on mount
+
+  if (!mounted) {
+    return null
+  }
 
   // Determine if this is a subscription or credit purchase
-  const isSubscription = type === 'subscription'
   const isCredits = type === 'credits'
 
   // Extract credit amount from plan name if it's a credit pack
@@ -104,11 +167,47 @@ export default function ThankYouPage() {
             {/* Account Updated */}
             <div className="flex items-start space-x-4 p-4 bg-green-50 rounded-lg">
               <BadgeCheck className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
-              <div>
+              <div className="flex-1">
                 <h3 className="font-semibold text-gray-900 mb-1">Account Updated</h3>
+                {isSubscription && subscriptionStatus === 'checking' && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Activating your subscription...</span>
+                  </div>
+                )}
+                {isSubscription && subscriptionStatus === 'pending' && (
+                  <div className="space-y-2">
+                    <p className="text-gray-600 text-sm mb-2">
+                      Your subscription is being processed. This may take a few moments.
+                    </p>
+                    <button
+                      onClick={manualRefresh}
+                      className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Refresh Status</span>
+                    </button>
+                  </div>
+                )}
+                {isSubscription && subscriptionStatus === 'error' && (
+                  <div className="space-y-2">
+                    <p className="text-red-600 text-sm mb-2">
+                      There was an issue activating your subscription. Please contact support or try refreshing.
+                    </p>
+                    <button
+                      onClick={manualRefresh}
+                      className="flex items-center space-x-2 text-sm text-blue-600 hover:text-blue-800"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Try Again</span>
+                    </button>
+                  </div>
+                )}
                 <p className="text-gray-600 text-sm">
-                  {isSubscription 
+                  {isSubscription && subscriptionStatus === 'active'
                     ? 'Your subscription is now active and you can start using all features immediately.'
+                    : isSubscription
+                    ? 'Your subscription will be activated shortly.'
                     : 'Your credits have been added to your account and you can start scanning immediately.'
                   }
                 </p>

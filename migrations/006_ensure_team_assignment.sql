@@ -25,3 +25,4 @@ END $$;
 -- Add comment
 COMMENT ON COLUMN organization_members.team_id IS 'The team this member is assigned to. NULL means no team assignment.';
 
+
