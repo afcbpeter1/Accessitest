@@ -4,7 +4,7 @@
 
 Spaceship hosting supports Git-based deployments, so you can connect your GitHub repository and deploy automatically.
 
-## Step-by-Step Deployment
+## Step-by-Step Deployment (cPanel)
 
 ### 1. Push Your Code to GitHub
 
@@ -17,14 +17,91 @@ git commit -m "Ready for production deployment"
 git push origin main
 ```
 
-### 2. Connect GitHub to Spaceship
+### 2. Set Up Node.js App in cPanel
 
-1. Log into your Spaceship hosting dashboard
-2. Go to "Add New Site" or "Deploy"
-3. Select "Connect GitHub Repository"
-4. Authorize Spaceship to access your GitHub account
-5. Select your repository: `Accessitest` (or your repo name)
-6. Select the branch: `main` (or `master`)
+1. In cPanel, scroll to the **"Exclusive"** section
+2. Click **"Setup Node.js App"**
+3. Click **"Create Application"** button
+
+### 3. Configure Your Node.js Application
+
+Fill in the form:
+
+**Application Details:**
+- **Node.js version:** Select `18.x` or `20.x` (check your `package.json` engines)
+- **Application mode:** Select `Production`
+- **Application root:** `/home/uvbnfavach/nodejs` (or similar - this is your home directory)
+- **Application URL:** Select your domain `a11ytest.ai` (or subdomain)
+- **Application startup file:** `server.js` (we'll create this)
+
+**Click "Create"**
+
+### 4. Connect to GitHub Repository
+
+After creating the app, you should see options to:
+- **Deploy from Git** - Click this
+- Enter your GitHub repository URL: `https://github.com/yourusername/Accessitest.git`
+- Or use SSH: `git@github.com:yourusername/Accessitest.git`
+- **Branch:** `main` (or `master`)
+- Click **"Deploy"** or **"Pull"**
+
+**If Git option is not available:**
+- You'll need to upload files manually (see Step 5)
+
+### 5. Manual Upload (If Git Not Available)
+
+1. In cPanel, go to **"Files"** → **"File Manager"**
+2. Navigate to your Node.js app directory (usually `/home/uvbnfavach/nodejs/your-app-name`)
+3. Upload all your project files (except `node_modules` and `.next`)
+4. Or use FTP/SFTP to upload files
+
+### 6. Create Production Startup File
+
+**I've created a `server.js` file in your project root** - this file is already in your repository.
+
+If you need to create it manually in cPanel:
+1. In File Manager, navigate to your Node.js app directory
+2. Create a new file called `server.js`
+3. Copy the contents from the `server.js` file in your project root
+
+**Note:** The `server.js` file is already in your GitHub repo, so if you deployed from Git, it should already be there!
+
+### 7. Set Environment Variables
+
+In the Node.js App manager in cPanel:
+
+1. Find your application
+2. Click **"Edit"** or **"Environment Variables"**
+3. Add all your environment variables (see Step 4 in original guide)
+4. Click **"Save"**
+
+### 8. Install Dependencies & Build
+
+In the Node.js App manager:
+
+1. Find your application
+2. Click **"NPM Install"** (this runs `npm install`)
+3. Wait for dependencies to install
+4. Click **"Run NPM Script"** and enter: `build`
+5. Or use the terminal/SSH to run:
+   ```bash
+   cd /home/uvbnfavach/nodejs/your-app-name
+   npm install
+   npm run build
+   ```
+
+### 9. Update Startup File
+
+In Node.js App manager:
+- **Application startup file:** Change to `server.js`
+- **Application URL:** Make sure it's set to your domain
+- Click **"Save"**
+
+### 10. Restart Application
+
+1. In Node.js App manager, find your app
+2. Click **"Restart"**
+3. Your app should now be live!
 
 ### 3. Configure Build Settings
 
