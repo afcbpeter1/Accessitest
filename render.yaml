@@ -2,7 +2,7 @@ services:
   - type: web
     name: accessitest
     env: node
-    buildCommand: bash scripts/install-deps.sh && npm run build
+    buildCommand: DISABLE_OPENCOLLECTIVE=1 npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
