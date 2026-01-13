@@ -13,14 +13,19 @@ Build fails with `find: './node_modules/...': No such file or directory` errors 
 4. Scroll to **Build & Deploy** section
 5. Update **Build Command** to (try Option A first, if it still fails use Option B):
 
-   **Option A (Recommended):**
+   **Option A (Recommended - try this first):**
    ```bash
-   npm config set opencollective false && DISABLE_OPENCOLLECTIVE=1 npm install && npm run build
+   DISABLE_OPENCOLLECTIVE=1 npm install && npm run build
    ```
 
-   **Option B (If Option A still fails - more aggressive):**
+   **Option B (If Option A still shows find errors):**
    ```bash
-   npm install --ignore-scripts && npm rebuild && npm run build
+   DISABLE_OPENCOLLECTIVE=1 npm ci && npm run build
+   ```
+
+   **Option C (If both above fail - skips all postinstall scripts, then rebuilds native modules):**
+   ```bash
+   npm install --ignore-scripts && npm rebuild --update-binary && npm run build
    ```
 
 6. Click **Save Changes**

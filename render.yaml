@@ -5,7 +5,7 @@ services:
     region: oregon  # or your preferred region
     plan: starter  # Change to your plan: free, starter, standard, pro, etc.
     branch: master  # Branch to deploy from
-    buildCommand: npm config set opencollective false && DISABLE_OPENCOLLECTIVE=1 npm install && npm run build
+    buildCommand: DISABLE_OPENCOLLECTIVE=1 npm install && npm run build
     startCommand: node server.js
     healthCheckPath: /
     autoDeploy: true  # Auto-deploy on push to master branch
