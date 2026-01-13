@@ -79,7 +79,7 @@ function DashboardContent() {
             }
           }
         })
-        const uniqueWebsites = [...new Set(validUrls)]
+        const uniqueWebsites = Array.from(new Set(validUrls)) as string[]
         setWebsites(uniqueWebsites)
         
         // Calculate analytics for all scans

@@ -1,6 +1,6 @@
 import { Spec } from 'axe-core';
 
-export const axeConfig: Spec = {
+export const axeConfig: any = {
   // WCAG 2.2 AA compliance
   standards: {
     wcag2aa: 'wcag2aa',
@@ -9,7 +9,7 @@ export const axeConfig: Spec = {
     wcag21aaa: 'wcag21aaa',
     wcag22aa: 'wcag22aa',
     wcag22aaa: 'wcag22aaa'
-  },
+  } as any,
   
   // Reporter configuration
   reporter: 'v2',

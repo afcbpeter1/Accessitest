@@ -498,7 +498,7 @@ Return ONLY the language code, nothing else.`
           for (const issue of colorContrastIssues) {
             // Extract color information from issue
             const elementContent = issue.elementContent || issue.elementLocation || ''
-            const context = issue.context || issue.description || ''
+            const context = (issue as any).context || issue.description || ''
             
             // Try to extract hex color from context (e.g., "#CCCCCC" or "color #CCCCCC")
             const hexMatch = context.match(/#([0-9a-f]{6}|[0-9a-f]{3})/i)
@@ -630,13 +630,13 @@ Return ONLY the language code, nothing else.`
             const htmlResult = await mammoth.convertToHtml({ buffer: wordBuffer }, {})
             
             // Extract table HTML from mammoth output
-            const tableRegex = /<table[^>]*>(.*?)<\/table>/gs
+            const tableRegex = /<table[^>]*>([\s\S]*?)<\/table>/g
             const tableMatches = Array.from(htmlResult.value.matchAll(tableRegex))
             
             if (tableMatches[idx] && parsedStructure?.tables?.[idx]) {
-              const tableHtml = tableMatches[idx][1]
+              const tableHtml = (tableMatches[idx] as RegExpMatchArray)[1]
               // Extract text content from table cells
-              const cellTextRegex = /<(td|th)[^>]*>(.*?)<\/\1>/gs
+              const cellTextRegex = /<(td|th)[^>]*>([\s\S]*?)<\/\1>/g
               const cells: string[] = []
               let cellMatch
               
@@ -879,7 +879,7 @@ Return ONLY the language code, nothing else.`
           headings: headingFixes.length,
           colorContrast: 0, // TODO: implement
           language: languageSpanFixes.length,
-          linkText: linkTextFixes
+          linkText: linkTextFixes.length
         },
         errors: errors.length > 0 ? errors : undefined
       }

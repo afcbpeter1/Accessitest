@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
     try {
       const price = await stripe.prices.retrieve(priceId)
       console.log('✅ Price found:', price.id, price.nickname || price.product)
-    } catch (priceError) {
-      console.log('❌ Price retrieval error:', priceError.message)
+    } catch (priceError: any) {
+      console.log('Price retrieval error:', priceError.message)
     }
 
     // List all prices to see what actually exists

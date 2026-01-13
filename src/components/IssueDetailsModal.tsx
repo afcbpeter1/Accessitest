@@ -313,22 +313,23 @@ ${issueStatus.status === 'deferred' ? `## ⏸️ Deferred Reason\n${issueStatus.
               {/* Use CollapsibleIssue component for consistency */}
               <CollapsibleIssue
                 issueId={issue.id}
-                title={issue.rule_name}
+                ruleName={issue.rule_name}
                 description={issue.description}
                 impact={issue.impact}
-                wcagLevel={issue.wcag_level}
-                helpUrl={issue.help_url}
+                wcag22Level={issue.wcag_level}
+                help={issue.description || ''}
+                helpUrl={issue.help_url || ''}
+                totalOccurrences={issue.total_occurrences || 1}
+                affectedUrls={issue.affected_pages || []}
+                offendingElements={[]}
                 suggestions={[{
                   type: 'fix' as const,
                   description: issue.description,
                   priority: (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
                 }]}
+                priority={(issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'}
                 screenshots={mockScanResult.screenshots}
-                issueStatus={issueStatus}
-                onStatusChange={handleStatusChange}
-                onNotesChange={handleNotesChange}
-                onDeferredReasonChange={handleDeferredReasonChange}
-                isExpanded={true}
+                scanId={''}
               />
             </div>
           </div>

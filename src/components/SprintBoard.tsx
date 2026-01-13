@@ -9,7 +9,8 @@ import {
   Target,
   Users,
   BarChart3,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react'
 import IssueDetailModal from './IssueDetailModal'
 import SprintSettingsModal from './SprintSettingsModal'
@@ -47,7 +48,7 @@ interface SprintIssue {
   story_points: number
   remaining_points?: number
   assignee_id?: string
-  created_at: string
+  start_date: string
   updated_at: string
   rule_name: string
   description: string
@@ -63,7 +64,6 @@ interface SprintIssue {
   url: string
   scan_results?: any
   // Add the same fields as BacklogItem for consistency
-  issue_id: string
   element_selector?: string
   element_html?: string
   failure_summary?: string
@@ -215,9 +215,9 @@ export default function SprintBoard() {
         // If we should select the newest sprint (after creation) or no sprint is selected
         if (data.data.sprints.length > 0) {
           if (selectNewest || !selectedSprint) {
-            // Sort by created_at descending and select the newest
+            // Sort by start_date descending and select the newest
             const sortedSprints = [...data.data.sprints].sort((a, b) => 
-              new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+              new Date(b.start_date).getTime() - new Date(a.start_date).getTime()
             )
             setSelectedSprint(sortedSprints[0])
           }
@@ -480,7 +480,8 @@ export default function SprintBoard() {
       }
     } catch (error) {
       console.error('❌ Error moving issue to sprint:', error)
-      alert(`Error moving issue: ${error.message}`)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      alert(`Error moving issue: ${errorMessage}`)
     }
   }
 
@@ -565,7 +566,7 @@ export default function SprintBoard() {
                 className="px-3 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 {sprints
-                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
                   .map(sprint => (
                     <option key={sprint.id} value={sprint.id}>
                       {sprint.name} ({sprint.status}) - {new Date(sprint.start_date).toLocaleDateString('en-US', { 
@@ -815,7 +816,7 @@ export default function SprintBoard() {
                                 {/* Move to other sprints */}
                                 {sprints
                                   .filter(sprint => sprint.id !== selectedSprint?.id)
-                                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                                  .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
                                   .slice(0, 3) // Show max 3 other sprints
                                   .map(sprint => (
                                     <button
@@ -880,7 +881,7 @@ export default function SprintBoard() {
                           <span>{sprintIssue.total_occurrences}</span>
                         </div>
                         <div className="flex items-center gap-1">
-                          <span>{new Date(sprintIssue.created_at).toLocaleDateString()}</span>
+                          <span>{new Date(sprintIssue.start_date).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </div>
@@ -968,7 +969,7 @@ export default function SprintBoard() {
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {sprints
                     .filter(sprint => sprint.id !== selectedSprint?.id)
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime())
                     .map(sprint => (
                       <button
                         key={sprint.id}

@@ -51,7 +51,7 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
   }
   
   // Add authorization header if token exists
-  const headers = {
+  const headers: any = {
     'Content-Type': 'application/json',
     ...options.headers,
   }

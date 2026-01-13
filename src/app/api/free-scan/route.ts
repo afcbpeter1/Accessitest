@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
       })
 
       // Wait for axe to be available
-      await page.waitForFunction(() => typeof window.axe !== 'undefined')
+      await page.waitForFunction(() => typeof (window as any).axe !== 'undefined')
 
       // Run basic accessibility scan
       const results = await page.evaluate(async () => {

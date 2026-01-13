@@ -21,6 +21,9 @@ export interface SimpleScanResult {
     scanDate: string
     scanEngine: string
     standard: string
+    fileSize?: number
+    wordCount?: number
+    pagesAnalyzed?: number
   }
 }
 

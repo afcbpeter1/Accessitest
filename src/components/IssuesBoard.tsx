@@ -292,7 +292,7 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
     setIssues(prevIssues => 
       prevIssues.map(issue => 
         issue.id === issueId 
-          ? { ...issue, status, notes, deferredReason }
+          ? { ...issue, status: status as 'open' | 'in_progress' | 'resolved' | 'deferred' | 'duplicate', notes, deferredReason }
           : issue
       )
     )

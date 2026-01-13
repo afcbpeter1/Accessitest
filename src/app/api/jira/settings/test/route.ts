@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch available projects
-    let projects = []
+    let projects: any[] = []
     try {
       projects = await client.getProjects()
     } catch (error) {

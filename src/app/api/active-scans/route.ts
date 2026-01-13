@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       success: true,
       scans: activeScans
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching active scans:', error)
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to fetch active scans' },
@@ -51,7 +51,7 @@ export async function DELETE(request: NextRequest) {
       success: true,
       message: 'Scan cancelled successfully'
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error cancelling scan:', error)
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to cancel scan' },

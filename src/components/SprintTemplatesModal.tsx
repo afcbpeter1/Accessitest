@@ -34,7 +34,7 @@ export default function SprintTemplatesModal({ isOpen, onClose, onSprintCreated 
     name: '',
     description: '',
     duration_days: 14,
-    recurrence_type: 'none' as const,
+    recurrence_type: 'none' as 'none' | 'weekly' | 'biweekly' | 'monthly',
     auto_create: false,
     advance_creation_days: 7,
     default_goal: ''
@@ -168,7 +168,7 @@ export default function SprintTemplatesModal({ isOpen, onClose, onSprintCreated 
       name: template.name,
       description: template.description,
       duration_days: template.duration_days,
-      recurrence_type: template.recurrence_type,
+      recurrence_type: template.recurrence_type as 'none' | 'weekly' | 'biweekly' | 'monthly',
       auto_create: template.auto_create,
       advance_creation_days: template.advance_creation_days,
       default_goal: template.default_goal

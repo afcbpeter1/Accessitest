@@ -241,7 +241,7 @@ export default function CollapsibleIssue({
 
   // Trigger fade-in animation when screenshots are available
   useEffect(() => {
-    if (screenshots && (screenshots.viewport || screenshots.elements?.length > 0)) {
+    if (screenshots && (screenshots.viewport || (screenshots.elements && screenshots.elements.length > 0))) {
       // Small delay to ensure smooth animation
       const timer = setTimeout(() => {
         setScreenshotFadeIn(true)

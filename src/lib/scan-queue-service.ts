@@ -101,7 +101,7 @@ export class ScanQueueService {
       [userId, 'queued', 'running']
     )
     
-    if (activeUserScans[0].count >= this.scanLimits.maxScansPerUser) {
+    if (activeUserScans.rows[0] && activeUserScans.rows[0].count >= this.scanLimits.maxScansPerUser) {
       throw new Error(`You can only have ${this.scanLimits.maxScansPerUser} scan(s) running at a time. Please wait for your current scan to complete.`)
     }
 
@@ -111,7 +111,7 @@ export class ScanQueueService {
       [userId]
     )
     
-    if (hourlyScans[0].count >= this.scanLimits.maxScansPerHour) {
+    if (hourlyScans.rows[0] && hourlyScans.rows[0].count >= this.scanLimits.maxScansPerHour) {
       throw new Error(`You have reached the hourly limit of ${this.scanLimits.maxScansPerHour} scans. Please try again later.`)
     }
 
@@ -121,7 +121,7 @@ export class ScanQueueService {
       [userId]
     )
     
-    if (dailyScans[0].count >= this.scanLimits.maxScansPerDay) {
+    if (dailyScans.rows[0] && dailyScans.rows[0].count >= this.scanLimits.maxScansPerDay) {
       throw new Error(`You have reached the daily limit of ${this.scanLimits.maxScansPerDay} scans. Please try again tomorrow.`)
     }
   }
@@ -135,7 +135,7 @@ export class ScanQueueService {
       ['running']
     )
     
-    if (activeScans[0].count >= this.scanLimits.maxConcurrentScans) {
+    if (activeScans.rows[0] && activeScans.rows[0].count >= this.scanLimits.maxConcurrentScans) {
       throw new Error(`System is currently at capacity (${this.scanLimits.maxConcurrentScans} scans running). Your scan has been queued and will start automatically when capacity is available.`)
     }
   }
@@ -159,7 +159,7 @@ export class ScanQueueService {
       [this.scanLimits.maxConcurrentScans - this.activeScans.size]
     )
 
-    for (const scan of queuedScans) {
+    for (const scan of queuedScans.rows) {
       if (this.activeScans.size >= this.scanLimits.maxConcurrentScans) {
         break
       }
@@ -170,7 +170,7 @@ export class ScanQueueService {
         [scan.user_id, 'running']
       )
 
-      if (userActiveScans[0].count >= this.scanLimits.maxScansPerUser) {
+      if (userActiveScans.rows[0] && userActiveScans.rows[0].count >= this.scanLimits.maxScansPerUser) {
         continue // Skip this scan, user already has max concurrent scans
       }
 
@@ -202,7 +202,7 @@ export class ScanQueueService {
       
     } catch (error) {
       console.error(`Failed to start scan ${scan.id}:`, error)
-      await this.markScanFailed(scan.id, error.message)
+      await this.markScanFailed(scan.id, (error as Error).message)
     }
   }
 
@@ -227,19 +227,21 @@ export class ScanQueueService {
         
       } else if (scan.scan_type === 'document') {
         // Import and use document scan service
-        const { DocumentScanService } = await import('./document-scan-service')
-        const documentScanService = new DocumentScanService()
-        
-        // Execute document scan
-        const results = await documentScanService.scanDocument(scan.scan_settings)
-        
-        // Mark as completed
-        await this.markScanCompleted(scanId, results)
+        // TODO: Implement document scan service
+        // const { DocumentScanService } = await import('./document-scan-service')
+        // const documentScanService = new DocumentScanService()
+        // 
+        // // Execute document scan
+        // const results = await documentScanService.scanDocument(scan.scan_settings)
+        // 
+        // // Mark as completed
+        // await this.markScanCompleted(scanId, results)
+        throw new Error('Document scan service not yet implemented')
       }
       
     } catch (error) {
       console.error(`Scan execution failed for ${scanId}:`, error)
-      await this.markScanFailed(scanId, error.message)
+      await this.markScanFailed(scanId, (error as Error).message)
     }
   }
 
@@ -323,7 +325,7 @@ export class ScanQueueService {
       [userId]
     )
 
-    return results.map(result => ({
+    return results.rows.map(result => ({
       id: result.id,
       userId: result.user_id,
       scanType: result.scan_type,

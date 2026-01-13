@@ -1027,7 +1027,6 @@ Return ONLY the improved link text, nothing else.`
                 type: 'linkText',
                 page: page,
                 text: improvedText,
-                originalText: context,
                 elementLocation: issue.elementLocation
               })
               linkTextFixes++
@@ -1146,9 +1145,6 @@ Return ONLY the improved link text, nothing else.`
             fixes.push({
               type: 'formFieldProperties',
               page: page,
-              fieldName: fieldName,
-              required: isRequired,
-              helpText: helpText,
               elementLocation: issue.elementLocation
             })
             formFieldPropertiesFixes++
@@ -1182,8 +1178,6 @@ Return ONLY the improved link text, nothing else.`
               fixes.push({
                 type: 'linkValidation',
                 page: page,
-                url: linkUrl,
-                isValid: false,
                 elementLocation: issue.elementLocation
               })
               linkValidationFixes++

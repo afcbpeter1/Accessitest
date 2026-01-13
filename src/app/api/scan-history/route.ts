@@ -44,20 +44,21 @@ export async function GET(request: NextRequest) {
     // Provide more specific error messages
     let errorMessage = 'Failed to fetch scan history'
     let statusCode = 500
+    const errorDetails = error instanceof Error ? error.message : String(error)
     
-    if (error.message?.includes('Authentication required')) {
+    if (errorDetails.includes('Authentication required')) {
       errorMessage = 'Authentication required'
       statusCode = 401
-    } else if (error.message?.includes('relation "scan_history" does not exist')) {
+    } else if (errorDetails.includes('relation "scan_history" does not exist')) {
       errorMessage = 'Scan history table not found. Please contact support.'
       statusCode = 500
-    } else if (error.message?.includes('connection')) {
+    } else if (errorDetails.includes('connection')) {
       errorMessage = 'Database connection error. Please try again.'
       statusCode = 503
     }
     
     return NextResponse.json(
-      { success: false, error: errorMessage, details: error.message },
+      { success: false, error: errorMessage, details: errorDetails },
       { status: statusCode }
     )
   }

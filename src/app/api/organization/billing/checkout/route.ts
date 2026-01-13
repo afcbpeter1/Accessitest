@@ -170,18 +170,12 @@ export async function PUT(request: NextRequest) {
     if (isReduce) {
       // Reduce seats
       const result = await reduceSeatsFromOwnerSubscription(organizationId, numberOfUsers)
-      return NextResponse.json({
-        success: true,
-        ...result
-      })
+      return NextResponse.json(result)
     } else {
       // Add seats - requires owner to have an active subscription
       try {
         const result = await addSeatsToOwnerSubscription(organizationId, numberOfUsers)
-        return NextResponse.json({
-          success: true,
-          ...result
-        })
+        return NextResponse.json(result)
       } catch (error) {
         // If owner doesn't have subscription, return error instead of falling back
         const errorMessage = error instanceof Error ? error.message : 'Failed to add seats'

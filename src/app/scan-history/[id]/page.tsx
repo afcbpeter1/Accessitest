@@ -184,7 +184,7 @@ function ScanDetailsContent() {
       const issueIds = issuesData.issues?.map((i: any) => i.id) || []
       
       if (issueIds.length === 0) {
-        showAlert('No issues found in this scan to sync')
+        showAlert('No Issues', 'No issues found in this scan to sync')
         return
       }
 
@@ -220,10 +220,10 @@ function ScanDetailsContent() {
       }
 
       setJiraSyncResult({ created, skipped, errors })
-      showAlert(`Jira sync complete: ${created} created, ${skipped} skipped, ${errors} errors`)
+      showAlert('Jira Sync Complete', `Jira sync complete: ${created} created, ${skipped} skipped, ${errors} errors`)
     } catch (error) {
       console.error('Error syncing to Jira:', error)
-      showAlert('Failed to sync issues to Jira')
+      showAlert('Sync Failed', 'Failed to sync issues to Jira')
     } finally {
       setSyncingToJira(false)
     }
@@ -593,6 +593,7 @@ function ScanDetailsContent() {
               key={`issue-${issueIndex}`}
               {...collapsibleIssue}
               scanType={scan.scanType}
+              scanId={params.id as string}
             />
           );
                       })}

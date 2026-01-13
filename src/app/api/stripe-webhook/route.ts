@@ -552,9 +552,9 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
         
         // Calculate access end date - should be end of current billing period
         let accessEndDate: string
-        if (subscription.current_period_end && subscription.current_period_end > subscription.current_period_start) {
+        if ((subscription as any).current_period_end && (subscription as any).current_period_end > (subscription as any).current_period_start) {
           // Use the period end from Stripe (this should be one month/year after start)
-          accessEndDate = new Date(subscription.current_period_end * 1000).toLocaleDateString('en-US', {
+          accessEndDate = new Date((subscription as any).current_period_end * 1000).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
             day: 'numeric'
@@ -563,7 +563,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
         } else {
           // If period_end is missing or same as start, calculate based on billing interval
           console.log('⚠️ current_period_end is missing or invalid, calculating from billing interval')
-          const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000) : new Date()
+          const periodStart = (subscription as any).current_period_start ? new Date((subscription as any).current_period_start * 1000) : new Date()
           const billingInterval = subscription.items?.data[0]?.price?.recurring?.interval || 'month'
           const intervalCount = subscription.items?.data[0]?.price?.recurring?.interval_count || 1
           
@@ -592,8 +592,8 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
           cancellationDate,
           accessEndDate,
           savedCredits,
-          current_period_start: subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toLocaleDateString() : 'N/A',
-          current_period_end: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toLocaleDateString() : 'N/A'
+          current_period_start: (subscription as any).current_period_start ? new Date((subscription as any).current_period_start * 1000).toLocaleDateString() : 'N/A',
+          current_period_end: (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000).toLocaleDateString() : 'N/A'
         })
         
         await sendSubscriptionCancellationEmail({
@@ -712,9 +712,9 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         
         // Calculate access end date - should be end of current billing period
         let accessEndDate: string
-        if (subscription.current_period_end && subscription.current_period_end > subscription.current_period_start) {
+        if ((subscription as any).current_period_end && (subscription as any).current_period_end > (subscription as any).current_period_start) {
           // Use the period end from Stripe (this should be one month/year after start)
-          accessEndDate = new Date(subscription.current_period_end * 1000).toLocaleDateString('en-US', {
+          accessEndDate = new Date((subscription as any).current_period_end * 1000).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
             day: 'numeric'
@@ -723,7 +723,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         } else {
           // If period_end is missing or same as start, calculate based on billing interval
           console.log('⚠️ current_period_end is missing or invalid, calculating from billing interval')
-          const periodStart = subscription.current_period_start ? new Date(subscription.current_period_start * 1000) : new Date()
+          const periodStart = (subscription as any).current_period_start ? new Date((subscription as any).current_period_start * 1000) : new Date()
           const billingInterval = subscription.items?.data[0]?.price?.recurring?.interval || 'month'
           const intervalCount = subscription.items?.data[0]?.price?.recurring?.interval_count || 1
           
@@ -752,8 +752,8 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
           cancellationDate,
           accessEndDate,
           savedCredits,
-          current_period_start: subscription.current_period_start ? new Date(subscription.current_period_start * 1000).toLocaleDateString() : 'N/A',
-          current_period_end: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toLocaleDateString() : 'N/A'
+          current_period_start: (subscription as any).current_period_start ? new Date((subscription as any).current_period_start * 1000).toLocaleDateString() : 'N/A',
+          current_period_end: (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000).toLocaleDateString() : 'N/A'
         })
         
         await sendSubscriptionCancellationEmail({
@@ -778,14 +778,15 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   console.log('💳 Processing invoice.payment_succeeded:', invoice.id)
   
   // Only process subscription invoices (skip one-time payments)
-  if (!invoice.subscription) {
+  const inv = invoice as any
+  if (!inv.subscription) {
     console.log('⚠️ Invoice is not for a subscription, skipping')
     return
   }
 
   try {
     // Get subscription details
-    const subscription = await stripe.subscriptions.retrieve(invoice.subscription as string)
+    const subscription = await stripe.subscriptions.retrieve(inv.subscription as string)
     
     // FIRST: Check if this is an organization subscription and handle it
     const customerId = subscription.customer as string
@@ -876,7 +877,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
     if (!userId || !planType) {
       if (invoice.parent && 'subscription_details' in invoice.parent) {
         const subDetails = invoice.parent.subscription_details
-        if (subDetails.metadata) {
+        if (subDetails && subDetails.metadata) {
           userId = subDetails.metadata.userId || userId
           planType = subDetails.metadata.planType || planType
         }
@@ -985,6 +986,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
     
     // Get customer email for payment email
     let customerEmail: string | null = null
+    let customerName: string | null = null
     if (invoice.customer_email) {
       customerEmail = invoice.customer_email
     } else if (subscription.customer) {
@@ -998,6 +1000,25 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
       }
     }
 
+    // Get customer name if we have userId
+    if (userId && !customerName) {
+      try {
+        const userData = await queryOne(
+          `SELECT first_name, last_name FROM users WHERE id = $1`,
+          [userId]
+        )
+        if (userData) {
+          const firstName = userData.first_name || ''
+          const lastName = userData.last_name || ''
+          if (firstName || lastName) {
+            customerName = `${firstName} ${lastName}`.trim()
+          }
+        }
+      } catch (error) {
+        console.error('Error getting user name:', error)
+      }
+    }
+
     if (customerEmail) {
       // Get price details for email
       const price = subscription.items.data[0]?.price
@@ -1007,8 +1028,8 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
         const billingPeriod = price.recurring?.interval === 'month' ? 'Monthly' : 'Yearly'
         
         // Calculate next billing date
-        const nextBillingDate = subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toLocaleDateString('en-US', {
+        const nextBillingDate = (subscription as any).current_period_end
+          ? new Date((subscription as any).current_period_end * 1000).toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'long',
               day: 'numeric'
@@ -1036,7 +1057,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
           planName,
           amount,
           billingPeriod: billingPeriod as 'Monthly' | 'Yearly',
-          invoiceId: invoice.id,
+          invoiceId: invoice.id || '',
           date: paymentDate,
           nextBillingDate
         })

@@ -85,6 +85,9 @@ export async function autoSyncIssuesToAzureDevOps(
           }
         }
 
+        // Get work item type (use integration default or 'Bug' as fallback)
+        const workItemTypeToUse = integration.work_item_type || 'Bug'
+
         // Create Azure DevOps client
         const client = new AzureDevOpsClient({
           organization: integration.organization,

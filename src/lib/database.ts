@@ -54,4 +54,5 @@ export async function queryMany(text: string, params?: any[]) {
   return result.rows
 }
 
+export { pool }
 export default pool

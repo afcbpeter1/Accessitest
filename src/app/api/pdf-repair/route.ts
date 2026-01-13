@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { DocumentRepairService } from '@/lib/document-repair-service'
 import { ComprehensiveDocumentScanner } from '@/lib/comprehensive-document-scanner'
-import { authenticatedFetch } from '@/lib/auth-utils'
+import { getAuthenticatedUser } from '@/lib/auth-middleware'
 
 /**
  * PDF Repair API
@@ -10,13 +10,7 @@ import { authenticatedFetch } from '@/lib/auth-utils'
 export async function POST(request: NextRequest) {
   try {
     // Check authentication
-    const authResult = await authenticatedFetch(request)
-    if (!authResult.authenticated) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
+    const user = await getAuthenticatedUser(request)
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -86,17 +80,17 @@ export async function POST(request: NextRequest) {
       message: 'PDF repaired and rescanned successfully',
       originalScan: {
         issues: scanResult.issues,
-        score: scanResult.score,
+        score: scanResult.overallScore,
         summary: scanResult.summary
       },
       repairedScan: {
         issues: rescanResult.issues,
-        score: rescanResult.score,
+        score: rescanResult.overallScore,
         summary: rescanResult.summary
       },
       improvement: {
         issuesFixed: scanResult.issues.length - rescanResult.issues.length,
-        scoreImprovement: rescanResult.score - scanResult.score,
+        scoreImprovement: rescanResult.overallScore - scanResult.overallScore,
         issuesRemaining: rescanResult.issues.length
       },
       repairedPdf: repairedPdfBase64,

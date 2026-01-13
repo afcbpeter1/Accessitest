@@ -57,7 +57,7 @@ export default function OrganizationPage() {
   const [teams, setTeams] = useState<Team[]>([])
   const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'teams' | 'billing' | 'integrations'>('overview')
   const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null)
   
   // Auto-dismiss messages after 5 seconds
   useEffect(() => {
@@ -544,9 +544,9 @@ export default function OrganizationPage() {
     try {
       const token = localStorage.getItem('accessToken')
       
-      const saveData = { ...jiraForm }
+      const saveData: any = { ...jiraForm }
       if (!saveData.apiToken && jiraIntegration) {
-        delete saveData.apiToken
+        saveData.apiToken = undefined
       }
       
       const response = await fetch('/api/jira/settings', {
@@ -797,7 +797,7 @@ export default function OrganizationPage() {
       const data = await response.json()
       if (data.success) {
         const workItemTypes = data.workItemTypes || []
-        console.log(`Loaded ${workItemTypes.length} work item types from team backlog:`, workItemTypes.map(t => t.name).join(', '))
+        console.log(`Loaded ${workItemTypes.length} work item types from team backlog:`, workItemTypes.map((t: any) => t.name).join(', '))
         setAzureDevOpsWorkItemTypes(workItemTypes)
       } else {
         console.error('Failed to load work item types:', data.error)
@@ -839,9 +839,9 @@ export default function OrganizationPage() {
     try {
       const token = localStorage.getItem('accessToken')
       
-      const saveData = { ...azureDevOpsForm }
+      const saveData: any = { ...azureDevOpsForm }
       if (!saveData.pat && azureDevOpsIntegration) {
-        delete saveData.pat
+        saveData.pat = undefined
       }
       
       const response = await fetch('/api/azure-devops/settings', {
@@ -994,9 +994,10 @@ export default function OrganizationPage() {
       if (data.success) {
         setMessage({ type: 'success', text: `Project assigned to team successfully` })
         // Load work item types for the new project
-        if (projectValue && projectType === 'jira') {
-          await loadWorkItemTypesForTeam(teamId, projectType, projectValue)
-        }
+        // TODO: Implement loadWorkItemTypesForTeam function
+        // if (projectValue && projectType === 'jira') {
+        //   await loadWorkItemTypesForTeam(teamId, projectType, projectValue)
+        // }
         loadTeams(currentOrg.id)
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to assign project to team' })
@@ -1050,9 +1051,10 @@ export default function OrganizationPage() {
           return updated
         })
         // Load work item types if Jira project changed
-        if (changes.jira_project_key) {
-          await loadWorkItemTypesForTeam(teamId, 'jira', changes.jira_project_key)
-        }
+        // TODO: Implement loadWorkItemTypesForTeam function
+        // if (changes.jira_project_key) {
+        //   await loadWorkItemTypesForTeam(teamId, 'jira', changes.jira_project_key)
+        // }
         loadTeams(currentOrg.id)
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to save team settings' })
@@ -1828,9 +1830,9 @@ export default function OrganizationPage() {
                                       <>
                                         <button
                                           onClick={async () => {
-                                            const saveData = { ...jiraForm, issueType: jiraForm.issueType || 'Bug' }
+                                            const saveData: any = { ...jiraForm, issueType: jiraForm.issueType || 'Bug' }
                                             if (!saveData.apiToken && jiraIntegration) {
-                                              delete saveData.apiToken
+                                              saveData.apiToken = undefined
                                             }
                                             
                                             setSaving(true)
@@ -2604,7 +2606,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
             <button
               onClick={() => {
                 loadBillingStatus()
-                setMessage({ type: 'info', text: 'Refreshing billing status...' })
+                // setMessage({ type: 'info', text: 'Refreshing billing status...' })
               }}
               className="mt-4 text-sm text-primary-600 hover:text-primary-700 underline"
             >

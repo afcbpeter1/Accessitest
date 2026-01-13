@@ -345,8 +345,8 @@ export class IssuesDeduplicationService {
     // Simple Jaccard similarity for selectors
     const set1 = new Set(selectors1)
     const set2 = new Set(selectors2)
-    const intersection = new Set([...set1].filter(x => set2.has(x)))
-    const union = new Set([...set1, ...set2])
+    const intersection = new Set(Array.from(set1).filter(x => set2.has(x)))
+    const union = new Set(Array.from(set1).concat(Array.from(set2)))
     
     return intersection.size / union.size
   }
@@ -360,8 +360,8 @@ export class IssuesDeduplicationService {
     
     const set1 = new Set(words1)
     const set2 = new Set(words2)
-    const intersection = new Set([...set1].filter(x => set2.has(x)))
-    const union = new Set([...set1, ...set2])
+    const intersection = new Set(Array.from(set1).filter(x => set2.has(x)))
+    const union = new Set(Array.from(set1).concat(Array.from(set2)))
     
     return intersection.size / union.size
   }

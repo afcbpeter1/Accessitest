@@ -237,7 +237,7 @@ export class ScanHistoryService {
       [scanId, userId]
     )
 
-    return result.length > 0
+    return result.rows.length > 0
   }
 
   /**

@@ -15,7 +15,7 @@ import { useScan } from '@/contexts/ScanContext'
 interface ScanProgress {
   currentPage: number;
   totalPages: number;
-  currentUrl: string;
+  url?: string;
   status: 'crawling' | 'scanning' | 'analyzing' | 'complete' | 'error';
   message: string;
 }
@@ -36,6 +36,7 @@ interface ScanResult {
     levelAA: boolean;
     levelAAA: boolean;
   };
+  screenshots?: any;
 }
 
 interface DiscoveredPage {
@@ -373,7 +374,7 @@ export default function NewScan() {
         updateProgress({
           currentPage: pageCount,
           totalPages: 200,
-          currentUrl: normalizedUrl,
+          url: normalizedUrl,
           status: 'crawling',
           message: `${tip} Found ${pageCount} pages so far. Est. ${Math.max(0, 30 - Math.floor(pageCount / 10))}s remaining.`
         })
@@ -1366,9 +1367,9 @@ export default function NewScan() {
                           <div className="text-sm text-green-700 leading-relaxed">
                             {scanProgress.message}
                           </div>
-                          {scanProgress.currentUrl && (
+                          {scanProgress.url && (
                             <div className="text-xs text-green-600 mt-2">
-                              📄 Scanning: {scanProgress.currentUrl}
+                              📄 Scanning: {scanProgress.url}
                             </div>
                           )}
                         </div>
@@ -1382,11 +1383,11 @@ export default function NewScan() {
                     {scanProgress && (
                       <div className="space-y-2">
                         <p className="text-sm font-medium text-gray-700">{scanProgress.message}</p>
-                        {scanProgress.currentUrl && (
+                        {scanProgress.url && (
                           <div className="flex items-center space-x-2 text-sm text-gray-600">
                             <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
                             <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                              {scanProgress.currentUrl}
+                              {scanProgress.url}
                             </span>
                           </div>
                         )}
@@ -1561,7 +1562,6 @@ export default function NewScan() {
         </div>
 
         {/* Detailed Scan Results */}
-        {console.log('🔍 Scan results state:', { length: scanResults.length, results: scanResults })}
         {scanResults.length > 0 && (
           <div className="mt-8">
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
@@ -1695,7 +1695,7 @@ export default function NewScan() {
                     key={index}
                     {...report}
                     scanId={currentScanId}
-                    onStatusChange={(issueId, status) => {
+                    onStatusChange={(issueId: string, status: string) => {
                       // Handle status changes - could save to database
                       console.log('Issue status changed:', issueId, status)
                     }}
@@ -1760,11 +1760,7 @@ export default function NewScan() {
                               key={`${resultIndex}-${issueIndex}`}
                               {...collapsibleIssue}
                               screenshots={result.screenshots}
-                              scanId={currentScanId}
-                              onStatusChange={(issueId, status) => {
-                                // Handle status changes - could save to database
-                                console.log('Issue status changed:', issueId, status)
-                              }}
+                              scanId={currentScanId || ''}
                             />
                           );
                         })}

@@ -48,7 +48,7 @@ export default function LogoContrastChecker() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   // Screen reader announcements
-  useScreenReaderAnnounce(error, 'assertive')
+  useScreenReaderAnnounce(error || '', 'assertive')
   useScreenReaderAnnounce(isAnalyzing ? 'Analyzing logo contrast...' : '', 'polite')
 
   // Helper functions for contrast calculation

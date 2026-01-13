@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer'
+import puppeteer, { Browser } from 'puppeteer'
 
 export interface ScreenshotResult {
   fullPage: string // base64 encoded screenshot
@@ -16,7 +16,7 @@ export interface ScreenshotResult {
 }
 
 export class ScreenshotService {
-  private browser: puppeteer.Browser | null = null
+  private browser: Browser | null = null
 
   async initialize() {
     if (!this.browser) {

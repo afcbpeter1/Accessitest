@@ -182,9 +182,9 @@ async function getDominantColors(imageBuffer: Buffer): Promise<[number, number, 
     
     return dominantColors
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error processing image:', error)
-    if (error.message.includes('Unsupported image format')) {
+    if (error?.message?.includes('Unsupported image format')) {
       throw error
     }
     throw new Error('Failed to process image. Please ensure you\'re uploading a valid image file.')
@@ -293,7 +293,7 @@ export async function POST(request: NextRequest) {
       console.error('Color extraction error:', error)
       return NextResponse.json({ 
         success: false, 
-        error: error.message || 'Failed to process image. Please try a different image file.' 
+        error: (error as any)?.message || 'Failed to process image. Please try a different image file.' 
       }, { status: 400 })
     }
     
@@ -370,7 +370,7 @@ export async function POST(request: NextRequest) {
       colorsFound: dominantColors.map(color => rgbToHex(color[0], color[1], color[2])),
       colorGroups: Object.keys(colorGroups).length,
       totalPixels: allColors.length,
-      colorFrequencies: Object.values(colorGroups)
+      colorFrequencies: (Object.values(colorGroups) as Array<{ count: number; color: [number, number, number]; hsv: [number, number, number] }>)
         .sort((a, b) => b.count - a.count)
         .slice(0, 10)
         .map(group => ({

@@ -187,8 +187,8 @@ function buildDescription(issue: LocalIssue): any {
       if (isDocumentScan) {
         // Document scan format
         // Page Number
-        if (element.pageNumber) {
-          addParagraph(`Page Number: ${element.pageNumber}`)
+        if ((element as any).pageNumber) {
+          addParagraph(`Page Number: ${(element as any).pageNumber}`)
         }
         
         // Document Location
@@ -239,7 +239,7 @@ function buildDescription(issue: LocalIssue): any {
       }
       
       // Add spacing between elements
-      if (index < issue.offendingElements.length - 1) {
+      if (issue.offendingElements && index < issue.offendingElements.length - 1) {
         content.push({ type: 'rule' })
       }
     })
@@ -299,7 +299,7 @@ function buildDescription(issue: LocalIssue): any {
         }
       }
       
-      if (index < issue.suggestions.length - 1) {
+      if (issue.suggestions && index < issue.suggestions.length - 1) {
         content.push({ type: 'rule' })
       }
     })
@@ -464,7 +464,7 @@ function generateLabels(issue: LocalIssue): string[] {
   }
 
   // Remove duplicates and empty labels
-  return [...new Set(labels.filter(label => label && label.length > 0))]
+  return Array.from(new Set(labels.filter(label => label && label.length > 0)))
 }
 
 /**

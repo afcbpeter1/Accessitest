@@ -19,8 +19,7 @@ export async function POST(request: NextRequest) {
       includeSubdomains: includeSubdomains ?? true,
       deepCrawl: deepCrawl ?? true,  // Default to true for page discovery
       maxPages: enforcedMaxPages,
-      scanType: 'discover',
-      wcagLevel: 'AA',
+      scanType: 'full',
       selectedTags: ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']
     }
 

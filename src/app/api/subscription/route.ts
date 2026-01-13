@@ -161,7 +161,7 @@ async function handleGetSubscription(request: NextRequest, user: any) {
       let invoiceToUse: Stripe.Invoice | null = null
       
       try {
-        const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+        const upcomingInvoice = await (stripe.invoices as any).retrieveUpcoming({
           subscription: subscription.id
         })
         invoiceToUse = upcomingInvoice
@@ -172,7 +172,7 @@ async function handleGetSubscription(request: NextRequest, user: any) {
         const billingIntervalCount = subscription.items.data[0]?.price?.recurring?.interval_count || 1
         
         // Use subscription created date or current period start if available
-        const periodStart = subscription.current_period_start || subscription.created
+        const periodStart = (subscription as any).current_period_start || subscription.created
         
         if (periodStart && billingInterval === 'month') {
           const startDate = new Date(periodStart * 1000)
@@ -223,16 +223,16 @@ async function handleGetSubscription(request: NextRequest, user: any) {
       currentPeriodEnd = new Date(invoicePeriodEnd * 1000).toISOString()
     } else {
       // Fallback to subscription dates if invoice dates not available
-      if (subscription.current_period_start && typeof subscription.current_period_start === 'number') {
-        currentPeriodStart = new Date(subscription.current_period_start * 1000).toISOString()
-      } else if (subscription.current_period_start) {
-        currentPeriodStart = new Date(subscription.current_period_start as any).toISOString()
+      if ((subscription as any).current_period_start && typeof (subscription as any).current_period_start === 'number') {
+        currentPeriodStart = new Date((subscription as any).current_period_start * 1000).toISOString()
+      } else if ((subscription as any).current_period_start) {
+        currentPeriodStart = new Date((subscription as any).current_period_start as any).toISOString()
       }
       
-      if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
-        currentPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString()
-      } else if (subscription.current_period_end) {
-        currentPeriodEnd = new Date(subscription.current_period_end as any).toISOString()
+      if ((subscription as any).current_period_end && typeof (subscription as any).current_period_end === 'number') {
+        currentPeriodEnd = new Date((subscription as any).current_period_end * 1000).toISOString()
+      } else if ((subscription as any).current_period_end) {
+        currentPeriodEnd = new Date((subscription as any).current_period_end as any).toISOString()
       }
     }
 
@@ -307,8 +307,8 @@ async function handleCancelSubscription(request: NextRequest, user: any) {
     )
 
     // Calculate access end date
-    const accessEndDate = subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000)
+    const accessEndDate = (subscription as any).current_period_end
+      ? new Date((subscription as any).current_period_end * 1000)
       : null
 
     return NextResponse.json({
@@ -363,8 +363,8 @@ async function handleReactivateSubscription(request: NextRequest, user: any) {
     let nextBillingDate: string | null = null
     
     // First, try to get from current_period_end
-    if (subscription.current_period_end) {
-      nextBillingDate = new Date(subscription.current_period_end * 1000).toLocaleDateString('en-US', {
+    if ((subscription as any).current_period_end) {
+      nextBillingDate = new Date((subscription as any).current_period_end * 1000).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
@@ -372,7 +372,7 @@ async function handleReactivateSubscription(request: NextRequest, user: any) {
     } else {
       // Try to get from upcoming invoice
       try {
-        const upcomingInvoice = await stripe.invoices.retrieveUpcoming({
+        const upcomingInvoice = await (stripe.invoices as any).retrieveUpcoming({
           subscription: subscription.id
         })
         if (upcomingInvoice.period_end) {
@@ -387,10 +387,10 @@ async function handleReactivateSubscription(request: NextRequest, user: any) {
       }
       
       // If still no date, calculate from billing interval
-      if (!nextBillingDate && subscription.current_period_start) {
+      if (!nextBillingDate && (subscription as any).current_period_start) {
         const billingInterval = price?.recurring?.interval || 'month'
         const intervalCount = price?.recurring?.interval_count || 1
-        const periodStart = new Date(subscription.current_period_start * 1000)
+        const periodStart = new Date((subscription as any).current_period_start * 1000)
         const periodEnd = new Date(periodStart)
         
         if (billingInterval === 'month') {
@@ -526,11 +526,11 @@ async function handleSyncSubscription(request: NextRequest, user: any) {
       subscription: {
         id: subscription.id,
         status: subscription.status,
-        currentPeriodStart: subscription.current_period_start
-          ? new Date(subscription.current_period_start * 1000).toISOString()
+        currentPeriodStart: (subscription as any).current_period_start
+          ? new Date((subscription as any).current_period_start * 1000).toISOString()
           : null,
-        currentPeriodEnd: subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toISOString()
+        currentPeriodEnd: (subscription as any).current_period_end
+          ? new Date((subscription as any).current_period_end * 1000).toISOString()
           : null,
       }
     })

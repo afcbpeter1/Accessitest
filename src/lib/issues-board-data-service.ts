@@ -1,4 +1,4 @@
-import pool from './database'
+import { pool } from './database'
 
 interface IssueData {
   id: string

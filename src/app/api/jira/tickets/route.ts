@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
 
         // Strategy 3: Partial description match
         if (!remediationItem && issue.description) {
-          const descWords = issue.description.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+          const descWords = issue.description.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3)
           remediationItem = issue.scan_results.remediationReport.find((r: any) => 
             r.description && descWords.some((word: string) => r.description.toLowerCase().includes(word))
           )
@@ -306,8 +306,8 @@ export async function POST(request: NextRequest) {
         suggestions,
         screenshots // Pass Cloudinary URLs directly
       },
-      projectKeyToUse,
-      issueTypeToUse
+      integration.project_key || 'PROJ',
+      integration.issue_type || 'Bug'
     )
 
     // Double-check for existing mapping right before creating (prevent race condition)

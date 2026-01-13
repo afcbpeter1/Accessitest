@@ -195,7 +195,8 @@ export default function Sidebar({ children }: SidebarProps) {
     } catch (error) {
       console.error('Failed to load user data:', error)
       // If token is invalid, remove it and don't load user data
-      if (error.message.includes('Invalid or expired token')) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (errorMessage.includes('Invalid or expired token')) {
         localStorage.removeItem('accessToken')
       }
     } finally {

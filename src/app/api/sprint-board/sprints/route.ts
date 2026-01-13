@@ -94,10 +94,12 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Error creating sprint:', error)
-    console.error('❌ Error details:', error.message)
-    console.error('❌ Error stack:', error.stack)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+    console.error('❌ Error details:', errorMessage)
+    console.error('❌ Error stack:', errorStack)
     return NextResponse.json(
-      { error: 'Failed to create sprint', details: error.message },
+      { error: 'Failed to create sprint', details: errorMessage },
       { status: 500 }
     )
   }
@@ -146,9 +148,10 @@ export async function PUT(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Error updating sprint:', error)
-    console.error('❌ Error details:', error.message)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('❌ Error details:', errorMessage)
     return NextResponse.json(
-      { error: 'Failed to update sprint', details: error.message },
+      { error: 'Failed to update sprint', details: errorMessage },
       { status: 500 }
     )
   }

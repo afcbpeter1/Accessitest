@@ -349,7 +349,8 @@ export async function POST(request: NextRequest) {
       user = await getAuthenticatedUser(request)
     } catch (authError) {
       console.error('Authentication error:', authError)
-      return new Response(JSON.stringify({ error: authError.message }), {
+      const errorMessage = authError instanceof Error ? authError.message : 'Authentication required'
+      return new Response(JSON.stringify({ error: errorMessage }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
       })
@@ -417,7 +418,8 @@ export async function POST(request: NextRequest) {
         )
       } catch (error) {
         // If amount column doesn't exist, try with credits_amount column
-        if (error.message.includes('amount')) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        if (errorMessage.includes('amount')) {
           console.log('Amount column missing, trying with credits_amount...')
           await query(
             `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
@@ -541,10 +543,8 @@ export async function POST(request: NextRequest) {
                 console.log(`🔍 Starting scan for ${pageUrl}`)
                 
                 // Initialize browser if not already done
-                if (!scanService.browser) {
-                  console.log('🌐 Initializing browser...')
-                  await scanService.initializeBrowser()
-                }
+                console.log('🌐 Initializing browser...')
+                await scanService.initializeBrowser()
                 
                 // Scan the specific page directly
                 console.log(`🧪 Scanning page with tags: ${selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508']}`)
@@ -649,13 +649,7 @@ export async function POST(request: NextRequest) {
               results: finalResults
             })
 
-            // Clean up browser
-            if (scanService.browser) {
-              await scanService.browser.close()
-              scanService.browser = null
-            }
-
-             // Mark scan as completed in database (with error handling)
+            // Mark scan as completed in database (with error handling)
              try {
                await ScanStateService.markCompleted(scanId, finalResults)
              } catch (error) {
@@ -730,7 +724,8 @@ export async function POST(request: NextRequest) {
              
              // Mark scan as failed in database (with error handling)
              try {
-               await ScanStateService.markFailed(scanId, error.message || error.toString())
+               const errorMessage = error instanceof Error ? error.message : String(error)
+               await ScanStateService.markFailed(scanId, errorMessage)
              } catch (dbError) {
                console.error('Failed to mark scan as failed:', dbError)
              }

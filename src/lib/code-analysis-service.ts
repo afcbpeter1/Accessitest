@@ -517,4 +517,4 @@ export class CodeAnalysisService {
   }
 }
 
-export { CodeFix, CodeAnalysisResult }
+export type { CodeFix, CodeAnalysisResult }

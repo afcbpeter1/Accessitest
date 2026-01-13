@@ -81,8 +81,8 @@ export async function PUT(
       message: 'Issue updated successfully'
     })
 
-  } catch (error) {
-    console.error('❌ Error updating issue:', error)
+  } catch (error: any) {
+    console.error('Error updating issue:', error)
     return NextResponse.json(
       { error: 'Failed to update issue', details: error.message },
       { status: 500 }
@@ -136,7 +136,7 @@ export async function DELETE(
       message: 'Issue deleted successfully'
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error deleting issue:', error)
     return NextResponse.json(
       { error: 'Failed to delete issue', details: error.message },

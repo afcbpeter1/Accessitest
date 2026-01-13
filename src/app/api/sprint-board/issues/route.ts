@@ -92,8 +92,8 @@ export async function GET(request: NextRequest) {
         suggestions: [],
         // Add detailed scan data for the detailed view (same as backlog)
         scan_data: {
-          suggestions: issue.scan_results?.remediationReport?.find(r => r.ruleName === issue.rule_name)?.suggestions || [],
-          offending_elements: issue.scan_results?.remediationReport?.find(r => r.ruleName === issue.rule_name)?.offendingElements || [],
+          suggestions: issue.scan_results?.remediationReport?.find((r: any) => r.ruleName === issue.rule_name)?.suggestions || [],
+          offending_elements: issue.scan_results?.remediationReport?.find((r: any) => r.ruleName === issue.rule_name)?.offendingElements || [],
           total_occurrences: issue.total_occurrences,
           affected_pages: issue.affected_pages,
           help_url: issue.help_url,

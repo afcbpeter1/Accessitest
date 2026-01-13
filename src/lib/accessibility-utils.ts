@@ -89,8 +89,8 @@ export function resetAccessibilitySettings() {
  */
 export function setupAccessibilityListener() {
   // Listen for messages from Chrome extension
-  if (typeof window !== 'undefined' && window.chrome?.runtime) {
-    window.chrome.runtime.onMessage?.addListener((message: any, sender: any, sendResponse: any) => {
+  if (typeof window !== 'undefined' && (window as any).chrome?.runtime) {
+    (window as any).chrome.runtime.onMessage?.addListener((message: any, sender: any, sendResponse: any) => {
       if (message.type === 'accessibility-settings') {
         const settings = message.settings
         

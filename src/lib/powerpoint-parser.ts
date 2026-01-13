@@ -73,12 +73,8 @@ export class PowerPointParser {
       let metadata: any = {}
       
       try {
-        // Try using pptx library
-        const pptx = require('pptx')
-        // Note: pptx library may have different API, adjust as needed
-        // For now, we'll parse the ZIP structure directly
-        
         // PowerPoint files are ZIP archives - extract and parse XML
+        // Note: pptx library is not currently used, parsing ZIP structure directly
         const JSZip = require('jszip')
         const zip = await JSZip.loadAsync(buffer)
         
@@ -335,8 +331,9 @@ export class PowerPointParser {
       if (slide.images) {
         slide.images.forEach((img: any, imgIndex: number) => {
         // Extract dimensions from XML if available
-        const widthMatch = slideXML.match(/<a:ext[^>]*cx=["'](\d+)["']/i)
-        const heightMatch = slideXML.match(/<a:ext[^>]*cy=["'](\d+)["']/i)
+        const slideXML = (slide as any).xml || ''
+        const widthMatch = slideXML ? slideXML.match(/<a:ext[^>]*cx=["'](\d+)["']/i) : null
+        const heightMatch = slideXML ? slideXML.match(/<a:ext[^>]*cy=["'](\d+)["']/i) : null
         const width = widthMatch ? parseInt(widthMatch[1]) : 0 // 0 if unknown
         const height = heightMatch ? parseInt(heightMatch[1]) : 0 // 0 if unknown
         

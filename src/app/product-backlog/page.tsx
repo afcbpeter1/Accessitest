@@ -28,6 +28,7 @@ interface BacklogItem {
   updated_at: string
   comment_count: number
   total_occurrences?: number
+  last_scan_at?: string
 }
 
 interface Comment {
@@ -372,7 +373,7 @@ export default function ProductBacklog() {
       if (response.ok) {
         setBacklogItems(items => 
           items.map(item => 
-            item.id === itemId ? { ...item, status } : item
+            item.id === itemId ? { ...item, status: status as 'backlog' | 'in_progress' | 'done' | 'cancelled' } : item
           )
         )
       }

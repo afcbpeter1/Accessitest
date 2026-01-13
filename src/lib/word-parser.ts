@@ -309,7 +309,7 @@ export class WordParser {
     }
     
     // Extract lists from HTML
-    const listRegex = /<(ul|ol)>(.*?)<\/\1>/gs
+    const listRegex = /<(ul|ol)>([\s\S]*?)<\/\1>/g
     let listMatch
     let listIndex = 0
     
@@ -342,7 +342,7 @@ export class WordParser {
     }
     
     // Extract tables from HTML
-    const tableRegex = /<table>(.*?)<\/table>/gs
+    const tableRegex = /<table>([\s\S]*?)<\/table>/g
     let tableMatch
     let tableIndex = 0
     
