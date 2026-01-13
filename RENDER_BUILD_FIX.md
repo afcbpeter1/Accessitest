@@ -13,17 +13,25 @@ Build fails with `find: './node_modules/...': No such file or directory` errors 
 4. Scroll to **Build & Deploy** section
 5. Update **Build Command** to (try Option A first, if it still fails use Option B):
 
-   **Option A (Recommended - fastest, uses npm ci which is better for CI/CD):**
+   **Option A (Recommended - skips problematic scripts, only rebuilds critical native modules):**
+   ```bash
+   npm install --ignore-scripts && npm rebuild canvas puppeteer sharp && npm run build
+   ```
+
+   **Option B (If Option A still shows find errors - try with DISABLE_OPENCOLLECTIVE):**
    ```bash
    DISABLE_OPENCOLLECTIVE=1 npm ci && npm run build
    ```
 
-   **Option B (If Option A still shows find errors):**
+   **Option C (Fallback - normal install with env var):**
    ```bash
    DISABLE_OPENCOLLECTIVE=1 npm install && npm run build
    ```
 
-   **Note:** Avoid using `--ignore-scripts` followed by `npm rebuild` as it takes 30+ minutes to rebuild all native modules.
+   **Why Option A is better:**
+   - Skips ALL postinstall scripts (including opencollective)
+   - Only rebuilds the 3 critical native modules (canvas, puppeteer, sharp)
+   - Much faster than rebuilding everything (should take 5-10 minutes instead of 30+)
 
 6. Click **Save Changes**
 
