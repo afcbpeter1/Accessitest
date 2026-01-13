@@ -4,7 +4,7 @@ const { parse } = require('url')
 const next = require('next')
 
 const dev = process.env.NODE_ENV !== 'production'
-const hostname = process.env.HOSTNAME || 'localhost'
+const hostname = process.env.HOSTNAME || '0.0.0.0'  // Listen on all interfaces for Render
 const port = parseInt(process.env.PORT || '3000', 10)
 
 const app = next({ dev, hostname, port })
