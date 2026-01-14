@@ -50,9 +50,8 @@ export default function SprintBurndownChart({
       const data = await response.json()
 
       if (data.success) {
-        => ({ day: d.day, actual: d.actual, completed: d.completed, ideal: d.ideal }))
-        })
-        setBurndownData(data.data.burndownData)
+        const burndownData = data.data.burndownData.map((d: any) => ({ day: d.day, actual: d.actual, completed: d.completed, ideal: d.ideal }))
+        setBurndownData(burndownData)
       } else {
         setError(data.error || 'Failed to fetch burndown data')
       }

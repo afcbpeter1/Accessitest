@@ -69,11 +69,10 @@ export async function DELETE(request: NextRequest) {
         try {
           // Special handling for organization_members - also delete where user is the inviter
           if (tableName === 'organization_members') {
-            const result = await client.query(
+            await client.query(
               `DELETE FROM organization_members WHERE user_id = $1 OR invited_by = $1`,
               [user.userId]
             )
-            `)
           } else {
             const result = await client.query(
               `DELETE FROM ${tableName} WHERE user_id = $1`,

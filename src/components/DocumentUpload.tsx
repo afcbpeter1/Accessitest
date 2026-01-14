@@ -883,8 +883,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                   continue // Skip this file
                 }
                 
-                `)
-                addScanLog(`✅ PDF validated: ${pageCount} pages (${pdfType} PDF)`)
+                addScanLog(`PDF validated: ${pageCount} pages (${pdfType} PDF)`)
               } else {
                 // If check fails, log warning but continue (server will check again)
                 console.warn('⚠️ Could not check page count on server, will validate during scan')

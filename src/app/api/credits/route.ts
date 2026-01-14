@@ -162,8 +162,6 @@ export async function PUT(request: NextRequest) {
       stripePaymentIntentId
     )
     
-    `)
-    
     return NextResponse.json({
       success: true,
       credits: result.credits_remaining,

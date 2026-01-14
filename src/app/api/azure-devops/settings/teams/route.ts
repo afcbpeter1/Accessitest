@@ -60,9 +60,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Get teams for the project
-
     const teams = await client.getTeams(project, projectId || undefined)
-    .join(', '))
 
     return NextResponse.json({
       success: true,
