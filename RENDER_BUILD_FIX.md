@@ -13,9 +13,19 @@ Build fails with `find: './node_modules/...': No such file or directory` errors 
 4. Scroll to **Build & Deploy** section
 5. Update **Build Command** to (try Option A first, if it still fails use Option B):
 
-   **Option A (Recommended - skips problematic scripts, only rebuilds critical native modules):**
+   **Option A (Recommended - skips problematic scripts, try build first):**
    ```bash
-   npm install --ignore-scripts && npm rebuild canvas puppeteer sharp && npm run build
+   npm install --ignore-scripts && npm run build
+   ```
+
+   **Option B (If Option A fails with native module errors, rebuild critical modules):**
+   ```bash
+   npm install --ignore-scripts && npm rebuild canvas sharp && npm run build
+   ```
+
+   **Option C (If puppeteer is needed, handle it separately):**
+   ```bash
+   npm install --ignore-scripts && npm rebuild canvas sharp && (cd node_modules/puppeteer && npm install --ignore-scripts=false) && npm run build
    ```
 
    **Option B (If Option A still shows find errors - try with DISABLE_OPENCOLLECTIVE):**
