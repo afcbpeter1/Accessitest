@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         // Ticket doesn't exist in Jira anymore (deleted or not found)
         // Delete the stale mapping and continue to create a new one
         const errorMsg = verifyError instanceof Error ? verifyError.message : 'Unknown error'
-        , deleting stale mapping and creating new ticket`)
+        console.log(`Ticket verification failed: ${errorMsg}, deleting stale mapping and creating new ticket`)
         
         try {
           await query(

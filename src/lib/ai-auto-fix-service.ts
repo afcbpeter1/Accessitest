@@ -698,9 +698,6 @@ Return ONLY the improved link text, nothing else.`
 
 
 
-
-      `)
-
       // Check if PyMuPDF is available
       const deps = await this.pymupdfWrapper.checkDependencies()
       if (!deps.python || !deps.pymupdf) {
@@ -752,8 +749,6 @@ Return ONLY the improved link text, nothing else.`
             altText: altText,
             elementLocation: issue.elementLocation
           })
-          
-          }..."`)
         } catch (error) {
           const errorMsg = `Failed to generate alt text for page ${issue.page || issue.pageNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
           console.error(`❌ ${errorMsg}`)
@@ -784,8 +779,6 @@ Return ONLY the improved link text, nothing else.`
             tableData: { summary: summary },
             elementLocation: issue.elementLocation
           })
-          
-          }..."`)
         } catch (error) {
           const errorMsg = `Failed to generate table summary for page ${issue.page || issue.pageNumber}: ${error instanceof Error ? error.message : 'Unknown error'}`
           console.error(`❌ ${errorMsg}`)
@@ -972,7 +965,6 @@ Return ONLY the improved link text, nothing else.`
                 })
                 
                 colorContrastFixes++
-                }:1) -> ${newColors.foreground}/${newColors.background || background} (${newColors.ratio.toFixed(2)}:1)`)
               }
             }
           }
@@ -1030,7 +1022,6 @@ Return ONLY the improved link text, nothing else.`
                 elementLocation: issue.elementLocation
               })
               linkTextFixes++
-              }..." -> "${improvedText.substring(0, 30)}..."`)
             }
           }
         } catch (error) {
@@ -1181,7 +1172,6 @@ Return ONLY the improved link text, nothing else.`
                 elementLocation: issue.elementLocation
               })
               linkValidationFixes++
-              }... on page ${page}`)
             }
           }
         } catch (error) {

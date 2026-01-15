@@ -167,7 +167,6 @@ export class PDFParser {
       // Extract images - skip pdfjs-dist (causes ES module errors), use fallback
       // Images will be detected from text analysis instead
       const images: Array<{ id: string; page: number; altText: string | null; width: number; height: number; type: string; isAnimated: boolean }> = []
-      - using text-based detection')
 
       // Extract links from text
       const links = this.extractLinks(pdfParseResult.text, pdfParseResult.numpages || pages.length)
@@ -302,10 +301,9 @@ export class PDFParser {
                       if (headerStr.startsWith('GIF89a') || headerStr.startsWith('GIF87a') ||
                           headerHex.toLowerCase().startsWith('474946383961') || // GIF89a in hex
                           headerHex.toLowerCase().startsWith('474946383761')) { // GIF87a in hex
-                        imageType = 'gif'
-                        isAnimated = true // GIFs are assumed animated unless proven otherwise
-                        `)
-                      } else if (headerHex.startsWith('ffd8')) {
+                            imageType = 'gif'
+                            isAnimated = true // GIFs are assumed animated unless proven otherwise
+                        } else if (headerHex.startsWith('ffd8')) {
                         imageType = 'jpeg'
                       } else if (headerHex.startsWith('89504e47')) {
                         imageType = 'png'
@@ -316,9 +314,8 @@ export class PDFParser {
                           if (dataStr.includes('GIF89a') || dataStr.includes('GIF87a')) {
                             imageType = 'gif'
                             isAnimated = true
-                            `)
+                            }
                           }
-                        }
                       }
                       
                       // For GIFs, check for animation markers (NETSCAPE extension)
@@ -334,7 +331,7 @@ export class PDFParser {
                         }
                       }
                     } catch (error) {
-                      console.warn(`⚠️ Error determining image type/animation for image on page ${pageNum}:`, error)
+                      console.warn('Error determining image type/animation for image on page ' + pageNum + ':', error)
                       // If we can't determine, assume not animated
                       isAnimated = false
                     }
@@ -374,7 +371,6 @@ export class PDFParser {
       try {
         // This is a basic fallback - pdf-lib doesn't easily expose images
         // But we can at least return empty array rather than failing
-        ')
       } catch (fallbackError) {
         console.warn('⚠️ Fallback image extraction also failed:', fallbackError)
       }

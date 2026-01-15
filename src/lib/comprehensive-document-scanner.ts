@@ -268,7 +268,7 @@ export class ComprehensiveDocumentScanner {
       if (isCancelled && isCancelled()) {
         throw new Error('Scan was cancelled by user')
       }
-      `)
+      
       // Run comprehensive accessibility analysis with selected tags
       const allIssues = await this.analyzeComprehensive(documentContent, documentType, pagesAnalyzed, imageAnalysis, pageAnalysis, selectedTags, isCancelled, parsedStructure)
       
@@ -311,7 +311,7 @@ export class ComprehensiveDocumentScanner {
       }
 
     } catch (error) {
-      console.error('❌ Comprehensive scan failed:', error)
+      console.error(' Comprehensive scan failed:', error)
       throw new Error(`Failed to scan document: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
@@ -417,9 +417,9 @@ export class ComprehensiveDocumentScanner {
         parsedStructure // Return full structure for accessibility checks
       }
     } catch (error) {
-      console.error('❌ PDF parsing failed:', error)
-      console.error('❌ Error details:', error instanceof Error ? error.message : 'Unknown error')
-      console.error('❌ Buffer size:', buffer.length, 'bytes')
+      console.error(' PDF parsing failed:', error)
+      console.error(' Error details:', error instanceof Error ? error.message : 'Unknown error')
+      console.error(' Buffer size:', buffer.length, 'bytes')
       
       // Fallback to basic pdf-parse if new parser fails
       try {
@@ -448,7 +448,7 @@ export class ComprehensiveDocumentScanner {
           pageAnalysis: this.createDetailedPageAnalysis(data.text, data.numpages || 1)
         }
       } catch (fallbackError) {
-        console.error('❌ Fallback parsing also failed:', fallbackError)
+        console.error(' Fallback parsing also failed:', fallbackError)
       return { 
         text: buffer.toString('utf-8').substring(0, 1000) + '... [PDF content extraction failed]',
         pages: 1,
@@ -558,7 +558,7 @@ export class ComprehensiveDocumentScanner {
         parsedStructure // Return parsed structure for real checks
       }
     } catch (error) {
-      console.error('❌ Word document parsing failed:', error)
+      console.error(' Word document parsing failed:', error)
       // Fallback to basic text extraction
       const mammoth = require('mammoth')
       try {
@@ -661,7 +661,7 @@ export class ComprehensiveDocumentScanner {
         parsedStructure // Return parsed structure for real checks
       }
     } catch (error) {
-      console.error('❌ PowerPoint parsing failed:', error)
+      console.error(' PowerPoint parsing failed:', error)
       // Fallback to basic text extraction
       const text = buffer.toString('utf-8').substring(0, 2000) + '... [PowerPoint content extracted]'
       // Use actual slide count if available, otherwise estimate based on content
@@ -741,7 +741,7 @@ export class ComprehensiveDocumentScanner {
         parsedStructure // Return parsed structure for real checks
       }
     } catch (error) {
-      console.error('❌ HTML parsing failed:', error)
+      console.error(' HTML parsing failed:', error)
       // Fallback to basic text extraction
       const text = buffer.toString('utf-8').replace(/<[^>]*>/g, ' ')
       const pages = 1
@@ -777,21 +777,18 @@ export class ComprehensiveDocumentScanner {
     const extensionMatches = content.match(imageExtensions)
     if (extensionMatches) {
       imageCount += extensionMatches.length
-      .join(', ')}`)
     }
     
     // Count actual figure references (like "Figure 1", "Figure 2", etc.)
     const figureReferences = content.match(/figure\s+\d+/gi)
     if (figureReferences) {
       imageCount += figureReferences.length
-      .join(', ')}${figureReferences.length > 5 ? '...' : ''}`)
     }
     
     // Count actual image references (like "Image 1", "Photo 1", etc.)
     const imageReferences = content.match(/(image|photo|picture|graphic)\s+\d+/gi)
     if (imageReferences) {
       imageCount += imageReferences.length
-      .join(', ')}`)
     }
     
     // Count tables
@@ -968,10 +965,10 @@ export class ComprehensiveDocumentScanner {
     
     // Look for references like "Figure 1", "Image 2", "see image", etc.
     const referencePatterns = [
-      new RegExp(`figure\\s+${pageNum}`, 'i'),
-      new RegExp(`image\\s+${pageNum}`, 'i'),
-      new RegExp(`see\\s+.*image`, 'i'),
-      new RegExp(`refer.*to.*figure`, 'i'),
+      new RegExp('figure\\s+' + String(pageNum), 'i'),
+      new RegExp('image\\s+' + String(pageNum), 'i'),
+      new RegExp('see\\s+.*image', 'i'),
+      new RegExp('refer.*to.*figure', 'i'),
     ]
     
     return referencePatterns.some(pattern => pattern.test(documentText))
@@ -1063,8 +1060,6 @@ export class ComprehensiveDocumentScanner {
     // Only run general WCAG compliance checks if NO Section 508 tags are selected
     // This ensures that when user selects specific Section 508 tests, only those tests run
     if (!hasSection508Tags) {
-      `)
-    
       // Text analysis - now we know structure tree exists, so checks will use it
       const textIssues = this.analyzeTextAccessibility(documentContent, documentType, pagesAnalyzed, parsedStructure)
     issues.push(...textIssues)
@@ -1145,8 +1140,6 @@ export class ComprehensiveDocumentScanner {
 
     // Section 508 compliance testing (only if tags are selected)
     if (selectedTags && selectedTags.length > 0) {
-      }`)
-    } else {
     }
     
     const section508Issues = await this.testSection508Compliance(documentContent, documentType, pagesAnalyzed, selectedTags, isCancelled, parsedStructure)
@@ -1172,7 +1165,6 @@ export class ComprehensiveDocumentScanner {
     // We know structureTree exists because we checked at the start of analyzeComprehensive
     const structureTree = parsedStructure?.structureTree
     const actualLists = this.extractListsFromStructureTree(structureTree)
-    in structure tree`)
     // Lists found in structure tree are properly tagged - no issues
     // (We could add checks for list item count, etc. here if needed)
 
@@ -1572,7 +1564,7 @@ export class ComprehensiveDocumentScanner {
     
     // Safety check for documentContent
     if (!documentContent || typeof documentContent !== 'string') {
-      console.warn('⚠️ checkLanguageParts: documentContent is invalid, skipping language checks')
+      console.warn(' checkLanguageParts: documentContent is invalid, skipping language checks')
       return issues
     }
     
@@ -1586,7 +1578,7 @@ export class ComprehensiveDocumentScanner {
     const structureTree = parsedStructure?.structureTree
     if (structureTree && Array.isArray(structureTree)) {
     } else {
-      - using text-based language detection`)
+      // No structure tree available - using text-based language detection
     }
     
     // Find all foreign language text in the document
@@ -1614,7 +1606,6 @@ export class ComprehensiveDocumentScanner {
       // For Word documents without structure tree, we can't verify language tags, so report as issue
       
       if (!hasLanguage) {
-        }..." has NO language attribute - reporting issue`)
         issues.push({
           id: `issue_${Date.now()}_foreign_language_${foreignText.index}`,
           type: 'moderate',
@@ -1631,7 +1622,7 @@ export class ComprehensiveDocumentScanner {
           remediation: 'Select the foreign language text in Acrobat and set its language property: Right-click > Properties > Tag > Language.'
         })
       } else {
-        }..." has language attribute - NO issue`)
+        // Text has language attribute - NO issue
       }
     }
     
@@ -1683,11 +1674,10 @@ export class ComprehensiveDocumentScanner {
       
       if (containsForeignText || (depth === 0 && tagLang)) {
         const indent = '  '.repeat(depth)
-        }...", Tag language: "${tagLang || 'none'}", Parent language: "${parentLanguage || 'none'}", Effective: "${normalizedEffectiveLang}", Has language: ${hasLanguage}, Contains foreign: ${containsForeignText}`)
       }
       
       if (containsForeignText && hasLanguage) {
-        for text containing "${foreignKeywords[0] || 'foreign text'}..."`)
+        // Text has language attribute - return true
         return true
       }
       
@@ -1703,7 +1693,7 @@ export class ComprehensiveDocumentScanner {
       if (parentLanguage && containsForeignText) {
         const normalizedParentLang = normalizeLangCode(parentLanguage)
         if (normalizedParentLang !== '' && normalizedParentLang !== 'en') {
-          for text containing "${foreignKeywords[0] || 'foreign text'}..."`)
+          // Parent language is set and contains foreign text - return true
           return true
         }
       }
@@ -2079,7 +2069,6 @@ export class ComprehensiveDocumentScanner {
     
     // Use actual H1-H6 tags from PDF structure tree
     const actualHeadings = this.extractHeadingsFromStructureTree(structureTree)
-    in structure tree`)
     
     if (actualHeadings.length === 0) {
         const wordCount = documentContent.split(/\s+/).length
@@ -2179,7 +2168,7 @@ export class ComprehensiveDocumentScanner {
           remediation: `Add Alt text to the image in Adobe Acrobat: Right-click the image > Edit Image > Add Alternative Text.`
         })
       } else {
-        }..."`)
+        // Image has alt text - no issue
       }
     }
 
@@ -2395,21 +2384,15 @@ export class ComprehensiveDocumentScanner {
       : [] // Run NO tests if none selected
     
     if (testsToRun.length === 0) {
-      .join(', ')}`)
-      : 'none'}`)
       return issues
     }
-    
-    .join(', ')}`)
-    `).join(', ')}`)
     
     // Run selected tests
     for (const test of testsToRun) {
       const testIssues = test.test()
       issues.push(...testIssues)
-      : ${testIssues.length} issues found`)
       if (test.tag === '1194.22k' && parsedStructure?.images) {
-        => img.isAnimated).length} animated`)
+        // Check for animated images
       }
       
       // Check for cancellation after each test
@@ -3101,11 +3084,9 @@ export class ComprehensiveDocumentScanner {
    * 1194.22(k) - Flashing
    */
   private test1194_22k(documentContent: string, pagesAnalyzed: number, parsedStructure?: any): ComprehensiveDocumentIssue[] {
-    const issues: ComprehensiveDocumentIssue[] = []
-    
-    called`)
-    }`)
-    // Use REAL parsed images to check for animated/flashing content
+      const issues: ComprehensiveDocumentIssue[] = []
+      
+      // Use REAL parsed images to check for animated/flashing content
     if (parsedStructure && parsedStructure.images && parsedStructure.images.length > 0) {
       parsedStructure.images.forEach((image: any, index: number) => {
         if (image.isAnimated) {

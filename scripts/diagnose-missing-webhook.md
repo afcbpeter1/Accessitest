@@ -93,3 +93,7 @@ You should see:
 2. **If session is complete, manually resend the webhook event**
 3. **Or trigger a new test event**: `stripe trigger checkout.session.completed`
 
+
+
+
+

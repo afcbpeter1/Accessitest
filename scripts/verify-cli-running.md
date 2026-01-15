@@ -46,3 +46,7 @@ stripe trigger checkout.session.completed
 ❌ Events in CLI but not server → Check server is running on port 3000
 ❌ Events reach server but fail → Check webhook secret matches
 
+
+
+
+

@@ -28,7 +28,6 @@ export async function GET(request: NextRequest) {
     } else {
       // Get scan history list with pagination
       const { scans, total } = await ScanHistoryService.getScanHistoryPaginated(user.userId, limit, offset)
-      ')
       
       return NextResponse.json({
         success: true,

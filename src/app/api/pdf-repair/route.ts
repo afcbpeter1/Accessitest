@@ -70,8 +70,6 @@ export async function POST(request: NextRequest) {
       () => false
     )
 
-    `)
-
     // Convert repaired PDF to base64 for download
     const repairedPdfBase64 = repairResult.repairedDocument.toString('base64')
 
@@ -98,7 +96,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('❌ PDF repair error:', error)
+    console.error('PDF repair error:', error)
     return NextResponse.json(
       {
         error: error.message || 'Failed to repair PDF',

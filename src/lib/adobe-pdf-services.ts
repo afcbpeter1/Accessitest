@@ -151,10 +151,12 @@ export class AdobePDFServices {
 
       // Step 4: Download the tagged PDF
 
-      const resultAsset = pdfServicesResponse.result.taggedPDF
+      const resultAsset = pdfServicesResponse.result?.taggedPDF
+      if (!resultAsset) {
+        throw new Error('No tagged PDF result from Adobe PDF Services')
+      }
       const streamAsset = await this.pdfServices.getContent({ asset: resultAsset })
-      const taggedPdfBuffer = await this.streamToBuffer(streamAsset.readStream)
-      `)
+      const taggedPdfBuffer = await this.streamToBuffer(streamAsset.readStream as any)
 
       // Step 5: Download the report (optional)
       let reportBuffer: Buffer | undefined
@@ -162,8 +164,7 @@ export class AdobePDFServices {
 
         const resultAssetReport = pdfServicesResponse.result.report
         const streamAssetReport = await this.pdfServices.getContent({ asset: resultAssetReport })
-        reportBuffer = await this.streamToBuffer(streamAssetReport.readStream)
-        `)
+        reportBuffer = await this.streamToBuffer(streamAssetReport.readStream as any)
       }
 
       return {
@@ -227,7 +228,6 @@ export class AdobePDFServices {
       // - Page content (alt text, color contrast, fonts, text language)
       // - Form fields (labels, tab order, field properties)
       // - All WCAG 2.1 AA and PDF/UA compliance checks
-      ...`)
       
       const paramsOptions: any = {}
       // If page range is specified, use it; otherwise check all pages (default)
@@ -255,30 +255,17 @@ export class AdobePDFServices {
       let parsedReport: any
       
       // Log the FULL result structure for debugging - CRITICAL for troubleshooting
-      :')
-
-      )
-
-      :', JSON.stringify(pdfServicesResponse.result, null, 2))
-      
-      // Also log the full response object to see if report is elsewhere
-      :')
-      )
       
       // CRITICAL: The report is in result._report (with underscore), which is an asset reference
       // We MUST download it to get the actual JSON report
       // The structure is: result._report (not result.report)
-      const reportAsset = pdfServicesResponse.result?._report || pdfServicesResponse.result?.report
+      const reportAsset = (pdfServicesResponse.result as any)?._report || pdfServicesResponse.result?.report
       
       if (!reportAsset) {
         console.error('❌ NO REPORT ASSET FOUND!')
         console.error('   Result structure:', JSON.stringify(pdfServicesResponse.result, null, 2))
         throw new Error('No report asset found in PDF Services response - cannot generate accessibility report')
       }
-
-
-      : 'N/A')
-      )
       
       // ALWAYS download the report - it's never embedded
 
@@ -287,10 +274,8 @@ export class AdobePDFServices {
       try {
 
         const streamAsset = await this.pdfServices.getContent({ asset: reportAsset })
-        const reportBuffer = await this.streamToBuffer(streamAsset.readStream)
+        const reportBuffer = await this.streamToBuffer(streamAsset.readStream as any)
         const reportText = reportBuffer.toString('utf8')
-        `)
-        :`, reportText.substring(0, 1000))
         
         if (reportText.length < 100) {
           throw new Error(`Report too short (${reportText.length} bytes) - likely not the actual report`)
@@ -308,15 +293,12 @@ export class AdobePDFServices {
           if ('_downloadURI' in reportAsset && typeof reportAsset._downloadURI === 'string') {
             const downloadURI = reportAsset._downloadURI
 
-            : ${downloadURI.substring(0, 150)}...`)
             try {
               const response = await fetch(downloadURI)
               if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`)
               }
               const reportText = await response.text()
-              `)
-              :`, reportText.substring(0, 1000))
               
               if (reportText.length < 100) {
                 throw new Error(`Report too short (${reportText.length} bytes) - likely not the actual report`)
@@ -349,9 +331,6 @@ export class AdobePDFServices {
       }
 
       // Log the FULL parsed report for debugging
-
-      )
-      :', JSON.stringify(parsedReport, null, 2))
       
       // Validate we got actual report data
       if (!parsedReport || Object.keys(parsedReport).length === 0) {
@@ -378,7 +357,6 @@ export class AdobePDFServices {
 
 
       if (reportSummary) {
-        )
       }
       
       // Check if report has any actual content
@@ -413,7 +391,6 @@ export class AdobePDFServices {
       if (detailedReport && typeof detailedReport === 'object') {
         // Adobe uses category names as keys: "Document", "Page Content", "Forms", etc.
         categories = detailedReport
-        )
       } else if (parsedReport.categories) {
         categories = parsedReport.categories
       } else if (parsedReport.document || parsedReport.pageContent || parsedReport.forms) {
@@ -463,11 +440,10 @@ export class AdobePDFServices {
               })
             })
           }
-        })
-        .length} categories`)
-      }
-      
-      // Also try to extract from other report formats
+          })
+        }
+        
+        // Also try to extract from other report formats
       if (parsedReport.issues && Array.isArray(parsedReport.issues)) {
         allChecks.push(...parsedReport.issues)
       } else if (parsedReport.checks && Array.isArray(parsedReport.checks)) {
@@ -524,17 +500,14 @@ export class AdobePDFServices {
               })
             })
           }
-        })
-        .length} categories`)
-      }
-      
-      // Filter to only get issues (Failed, Needs manual check) - not Passed or Skipped
+          })
+          }
+          
+          // Filter to only get issues (Failed, Needs manual check) - not Passed or Skipped
       const issues = allChecks.filter((check: any) => {
         const status = check.status || check.Status || (check.passed === false ? 'Failed' : check.passed === true ? 'Passed' : 'Unknown')
         return status === 'Failed' || status === 'Needs manual check' || status === 'Failed manually'
       })
-      
-      from ${allChecks.length} total checks`)
       
       // Map issues to our format with status
       // Adobe uses "Status" (capital S) and "Rule" (capital R)
@@ -816,7 +789,6 @@ export class AdobePDFServices {
 
       } else if (Object.keys(mappedCategories).length > 0) {
         // Count from categories if available
-        .length} categories`)
         Object.values(mappedCategories).forEach((categoryChecks: any[]) => {
           categoryChecks.forEach((check: any) => {
             if (check.status === 'Failed') failedCount++
@@ -834,8 +806,6 @@ export class AdobePDFServices {
         skippedCount = mappedIssues.filter((i: any) => i.status === 'Skipped').length
 
       }
-      
-      `)
       
       return {
         success: true,
@@ -891,8 +861,6 @@ export function getAdobePDFServices(): AdobePDFServices | null {
   const organizationId = process.env.ADOBE_PDF_SERVICES_ORG_ID
   const accountId = process.env.ADOBE_PDF_SERVICES_ACCOUNT_ID
 
-  + '...' : 'NOT SET'}`)
-
 
 
   if (!clientId) {
@@ -904,10 +872,8 @@ export function getAdobePDFServices(): AdobePDFServices | null {
 
     return null
   }
-
-  }...`)
-
-  return new AdobePDFServices({
+  
+    return new AdobePDFServices({
     clientId,
     clientSecret,
     organizationId,

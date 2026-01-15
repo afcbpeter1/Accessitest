@@ -75,3 +75,7 @@ Get-Process | Where-Object { $_.ProcessName -like "*stripe*" }
 
 If no Stripe process found → **CLI is not running** → This is your problem!
 
+
+
+
+

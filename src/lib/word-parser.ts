@@ -268,11 +268,9 @@ export class WordParser {
       } else {
         break
       }
+        }
+      return images
     }
-    
-    `)
-    return images
-  }
   
   /**
    * Extract document structure from HTML representation
@@ -309,7 +307,7 @@ export class WordParser {
     }
     
     // Extract lists from HTML
-    const listRegex = /<(ul|ol)>([\s\S]*?)<\/\1>/g
+    const listRegex = /<(ul|ol)>([\s\S]*?)<\/(ul|ol)>/g
     let listMatch
     let listIndex = 0
     
@@ -422,11 +420,10 @@ export class WordParser {
           while ((docPrMatch = docPrRegex.exec(docXml)) !== null) {
             const altText = docPrMatch[1].trim()
             if (altText) {
-              xmlAltTexts.set(imageIndex, altText)
-              }..."`)
-            }
-            imageIndex++
-          }
+                xmlAltTexts.set(imageIndex, altText)
+                }
+                imageIndex++
+              }
           
           // Also try alternative pattern: <wp:docPr><wp:descr>alt text</wp:descr></wp:docPr>
           const docPrBlockRegex = /<wp:docPr[^>]*>[\s\S]*?<wp:descr[^>]*>([^<]*)<\/wp:descr>[\s\S]*?<\/wp:docPr>/gi
@@ -435,7 +432,6 @@ export class WordParser {
             const altText = docPrMatch[1].trim()
             if (altText && !xmlAltTexts.has(imageIndex)) {
               xmlAltTexts.set(imageIndex, altText)
-              for image ${imageIndex}: "${altText.substring(0, 50)}..."`)
             }
             imageIndex++
           }
@@ -479,21 +475,19 @@ export class WordParser {
       
       // Check if source URL indicates GIF
       if (src.toLowerCase().includes('.gif') || src.toLowerCase().includes('gif')) {
-        imageType = 'gif'
-        isAnimated = true // GIFs in Word are typically animated
-        `)
-      } else if (src.toLowerCase().includes('.jpg') || src.toLowerCase().includes('.jpeg')) {
+            imageType = 'gif'
+            isAnimated = true // GIFs in Word are typically animated
+        } else if (src.toLowerCase().includes('.jpg') || src.toLowerCase().includes('.jpeg')) {
         imageType = 'jpeg'
       } else if (src.toLowerCase().includes('.png')) {
         imageType = 'png'
       }
       
       // Also check for data URIs with GIF data
-      if (src.startsWith('data:image/gif')) {
-        imageType = 'gif'
-        isAnimated = true
-        `)
-      }
+        if (src.startsWith('data:image/gif')) {
+          imageType = 'gif'
+          isAnimated = true
+          }
       
       // Check if mammoth extracted actual image data
       if (imagesResult && imagesResult.images && imagesResult.images[imageIndex]) {
@@ -504,10 +498,9 @@ export class WordParser {
               imageData.data.toString('binary', 0, 6) === 'GIF89a' ||
               imageData.data.toString('binary', 0, 6) === 'GIF87a'
             ))) {
-          imageType = 'gif'
-          isAnimated = true
-          `)
-        }
+              imageType = 'gif'
+              isAnimated = true
+          }
       }
       
       // For Word documents, estimate page based on position in HTML
@@ -526,8 +519,9 @@ export class WordParser {
       })
       
       if (altText) {
-        }${altText.length > 50 ? '...' : ''}"`)
+        // Alt text found
       } else {
+        // No alt text
       }
       
       imageIndex++
@@ -549,17 +543,16 @@ export class WordParser {
                 width: 0,
                 height: 0,
                 type: 'gif',
-                isAnimated: true,
-              })
-              `)
+                  isAnimated: true,
+                })
+              }
             }
-          }
-        })
+          })
+        }
       }
+      
+      return images
     }
-    
-    return images
-  }
   
   /**
    * Extract links from HTML and text
@@ -674,11 +667,11 @@ export class WordParser {
         }
         
         // Only return title if it's not empty and not "No"
-        if (title && title.toLowerCase() !== 'no' && title.toLowerCase() !== 'none' && title.length > 0) {
-        } else {
-          `)
-          title = null
-        }
+          if (title && title.toLowerCase() !== 'no' && title.toLowerCase() !== 'none' && title.length > 0) {
+            // Title is valid
+          } else {
+              title = null
+            }
         
         const authorMatch = corePropsXml.match(/<dc:creator[^>]*>(.*?)<\/dc:creator>/i)
         const author = authorMatch && authorMatch[1] ? authorMatch[1].trim() : null

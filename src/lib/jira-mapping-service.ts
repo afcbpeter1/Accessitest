@@ -560,8 +560,6 @@ export function addMediaNodesToDescription(
   attachments: Array<{ id: string; filename: string }>,
   jiraBaseUrl?: string
 ): any {
-  `)
-  
   if (!description || !description.content || !Array.isArray(description.content)) {
 
     return description
@@ -618,7 +616,7 @@ export function addMediaNodesToDescription(
       type: 'paragraph',
       content: [{
         type: 'text',
-        text: `✅ ${attachments.length} screenshot(s) have been successfully attached to this issue.`
+        text: `${attachments.length} screenshot(s) have been successfully attached to this issue.`
       }]
     })
     

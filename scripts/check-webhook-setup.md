@@ -106,3 +106,7 @@ This will:
 2. Check CLI is forwarding: `stripe listen --forward-to localhost:3000/api/stripe-webhook`
 3. Test endpoint: `curl http://localhost:3000/api/stripe-webhook` (should return error, not connection refused)
 
+
+
+
+

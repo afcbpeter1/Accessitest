@@ -112,14 +112,6 @@ export async function autoAddDocumentIssuesToBacklog(
         const finalImpactSafe = finalImpact.length <= 50 ? finalImpact : finalImpact.substring(0, 50)
         const finalPrioritySafe = finalPriority.length <= 20 ? finalPriority : finalPriority.substring(0, 20)
         
-        // Log all values before insert to debug
-        `,
-          finalWcagLevel: `"${finalWcagLevelSafe}" (${finalWcagLevelSafe.length} chars)`,
-          finalImpact: `"${finalImpactSafe}" (${finalImpactSafe.length} chars)`,
-          finalPriority: `"${finalPrioritySafe}" (${finalPrioritySafe.length} chars)`,
-          safeIssueKey: `"${safeIssueKey.substring(0, 20)}..." (${safeIssueKey.length} chars)`,
-        })
-        
         // Final validation - ensure no field exceeds its database limit
         if (finalStatusSafe.length > 10) throw new Error(`Status too long: "${finalStatusSafe}" (${finalStatusSafe.length} chars, max 10)`)
         if (finalWcagLevelSafe.length > 50) throw new Error(`WCAG level too long: "${finalWcagLevelSafe}" (${finalWcagLevelSafe.length} chars, max 50)`)
@@ -180,9 +172,14 @@ export async function autoAddDocumentIssuesToBacklog(
       }
     }
 
-    ),
+    return {
+      success: true,
+      total: addedItems.length + skippedItems.length,
+      added: addedItems.length,
+      skipped: skippedItems.length,
+      addedItems: addedItems,
       skippedItems: skippedItems.map(item => ({ issueId: item.issueId, reason: item.reason }))
-    })
+    }
     
     // Return summary for API response
     return {

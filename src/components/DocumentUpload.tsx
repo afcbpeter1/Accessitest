@@ -490,7 +490,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                 
                 // Show toast notification only once
                 setTimeout(() => {
-                  showToast('Restored your most recent scan results.', 'info')
+                  showToast('Restored your most recent scan results.', 'success')
                 }, 100)
 
                 return [restoredDocument, ...prev]
@@ -970,8 +970,9 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         
         await page.render({
           canvasContext: context,
-          viewport: viewport
-        }).promise
+          viewport: viewport,
+          canvas: canvas
+        } as any).promise
         
         // Convert to base64 data URL with better quality
         const preview = canvas.toDataURL('image/jpeg', 0.85)
@@ -1065,7 +1066,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       const url = URL.createObjectURL(blob)
       const link = window.document.createElement('a')
       link.href = url
-      link.download = fileName
+      link.download = fileName || 'download.pdf'
       link.style.display = 'none'
       window.document.body.appendChild(link)
       link.click()
@@ -1198,7 +1199,6 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     // Get document preview if available - try multiple sources
     const docPreview = document.preview || documentPreview || null
     if (docPreview) {
-      + '...')
       setDocumentPreview(docPreview)
     } else {
 
@@ -1323,9 +1323,6 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       // Store tagged PDF if available (check both result.result and result root level)
       const taggedPdfBase64 = result.taggedPdfBase64 || scanResult?.taggedPdfBase64
       const taggedPdfFileName = result.taggedPdfFileName || scanResult?.taggedPdfFileName
-      
-      : []
-      })
       
       // Animate progress to 100% smoothly
       const completeProgress = setInterval(() => {

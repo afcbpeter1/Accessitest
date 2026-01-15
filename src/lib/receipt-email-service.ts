@@ -34,10 +34,6 @@ export interface ReceiptData {
 
 export async function sendReceiptEmail(receiptData: ReceiptData) {
   try {
-
-
-    || 'NOT SET')
-    
     if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === 'dummy-key-for-development') {
       console.warn('⚠️ RESEND_API_KEY not configured - skipping receipt email')
       return { success: false, error: 'Email service not configured' }
@@ -384,7 +380,6 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
     })
 
     // Log full response for debugging
-    )
     
     // Check for errors in the response
     if (result.error) {

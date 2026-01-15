@@ -332,7 +332,7 @@ export async function POST(request: NextRequest) {
         body.fileName,
         body.fileType,
         undefined,
-        () => activeScans.get(scanId)?.cancelled || false
+        () => activeScans.get(scanId as string)?.cancelled || false
       )
 
       if (!scanResult) {
@@ -353,7 +353,7 @@ export async function POST(request: NextRequest) {
         const textResult = await mammoth.extractRawText({ buffer: fileBuffer })
         documentText = textResult.value
       } catch (e) {
-        console.warn('⚠️ Could not extract Word document text:', e)
+        console.warn(' Could not extract Word document text:', e)
       }
       
       const autoFixResult = await wordAutoFixService.applyAutoFixes(
@@ -364,9 +364,8 @@ export async function POST(request: NextRequest) {
         undefined // parsedStructure - will be extracted from issues if needed
       )
 
-      }`)
       if (autoFixResult.errors && autoFixResult.errors.length > 0) {
-        console.error(`❌ Auto-fix errors:`, autoFixResult.errors)
+        console.error('Auto-fix errors:', autoFixResult.errors)
       }
 
       let fixedWordBuffer: Buffer | undefined = undefined
@@ -383,7 +382,7 @@ export async function POST(request: NextRequest) {
           body.fileName,
           body.fileType,
           undefined,
-          () => activeScans.get(scanId)?.cancelled || false
+          () => activeScans.get(scanId as string)?.cancelled || false
         )
 
         remainingIssues = fixedScanResult.issues || []
@@ -440,7 +439,7 @@ export async function POST(request: NextRequest) {
       const documentType = isWord ? 'Word document' : 'PDF document'
       const enhancedIssues = await Promise.all(
         remainingIssues.slice(0, 50).map(async (issue: any, index: number) => {
-          if (activeScans.get(scanId)?.cancelled) {
+          if (activeScans.get(scanId as string)?.cancelled) {
             throw new Error('Scan was cancelled by user')
           }
 
@@ -481,12 +480,12 @@ export async function POST(request: NextRequest) {
         metadata: {
           scanEngine: 'Comprehensive Document Scanner',
           standard: 'WCAG 2.1 AA, Section 508',
-          pagesAnalyzed: scanResult.metadata?.pagesAnalyzed || scanResult.pagesAnalyzed || 1,
+          pagesAnalyzed: scanResult.metadata?.pagesAnalyzed || 1,
           fileSize: fileBuffer.length
         },
         detailedReport: {
-          categories: scanResult.reportCategories || {},
-          summary: scanResult.reportSummary || scanResult.summary,
+          categories: (scanResult as any).reportCategories || {},
+          summary: (scanResult as any).reportSummary || scanResult.summary,
           issues: enhancedIssues
         },
         fixReport: {
@@ -635,10 +634,8 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
-      
-      )}MB, type: ${pdfType} (limit: ${pageLimit} pages)`)
     } catch (pageCountError: any) {
-      console.warn(`⚠️ Could not check page count: ${pageCountError.message}`)
+      console.warn('Could not check page count:', pageCountError.message)
       // Continue processing - we'll let Adobe API handle the error if it's too large
       // This prevents blocking valid PDFs if page count check fails
       // Default to standard PDF limits if we can't detect
@@ -774,11 +771,11 @@ export async function POST(request: NextRequest) {
     
     if (autoTagResult.success && autoTagResult.taggedPdfBuffer) {
 
-      taggedPdfBuffer = autoTagResult.taggedPdfBuffer
+      taggedPdfBuffer = Buffer.from(autoTagResult.taggedPdfBuffer)
       taggingSuccess = true
     } else {
       const errorMessage = autoTagResult.error || autoTagResult.message || ''
-      console.warn(`⚠️ Adobe auto-tag failed: ${errorMessage}`)
+      console.warn(` Adobe auto-tag failed: ${errorMessage}`)
       
       // Check if the error is due to page limit
       if (errorMessage.toLowerCase().includes('page limit') || 
@@ -825,7 +822,7 @@ export async function POST(request: NextRequest) {
       }
       
       // For other auto-tag failures, continue with original PDF
-      console.warn(`⚠️ Continuing with original PDF (auto-tag failed but not due to page limit)`)
+      console.warn(` Continuing with original PDF (auto-tag failed but not due to page limit)`)
     }
     
     // Check for cancellation
@@ -847,7 +844,6 @@ export async function POST(request: NextRequest) {
     // - Page Content: alt text, fonts, text language, structure
     // - Form Fields: labels, tab order, field properties
     // - All WCAG 2.1 AA and PDF/UA compliance checks
-    ...')
     
     // Initialize variables that will be used in both success and error paths
     let reportCategories: any = undefined
@@ -857,9 +853,6 @@ export async function POST(request: NextRequest) {
     const accessibilityResult = await adobePDFServices.checkAccessibility(taggedPdfBuffer)
     
     if (accessibilityResult.success && accessibilityResult.report) {
-
-      )
-
       // Get ALL checks from the report (Passed, Failed, Needs manual check, Skipped)
       // The report contains all checks organized by category (like Acrobat's report)
       let adobeIssues = accessibilityResult.report.issues || []
@@ -873,7 +866,7 @@ export async function POST(request: NextRequest) {
         
         // If Adobe reports "Tagged PDF" as Passed, it means the PDF now has tags (we added them)
         // Add an informational issue to let the user know the original PDF was missing tags
-        if (taggedPdfCheck && (taggedPdfCheck.Status || taggedPdfCheck.status) === 'Passed') {
+        if (taggedPdfCheck && ((taggedPdfCheck as any).Status || taggedPdfCheck.status) === 'Passed') {
 
           // Note: We don't add this as a "Failed" issue since we've already fixed it
           // But we'll include it in metadata so users know what was fixed
@@ -881,10 +874,6 @@ export async function POST(request: NextRequest) {
       }
       
       // Log full report structure for debugging
-      )
-      )
-
-      .length : 0)
       
       // Build categories from issues if not available in report
       // NOTE: This will be replaced with re-scan results if auto-fix succeeds
@@ -910,7 +899,6 @@ export async function POST(request: NextRequest) {
             elementTag: issue.elementTag
           })
         })
-        )
       }
       
       // Filter to get ONLY Failed issues (exclude "Needs manual check" - those are informational only)
@@ -961,7 +949,7 @@ export async function POST(request: NextRequest) {
           documentText = pdfParseResult.text
 
         } catch (textError) {
-          console.warn('⚠️ Could not extract document text for AI analysis:', textError)
+          console.warn(' Could not extract document text for AI analysis:', textError)
           // Continue without text - AI can still work with issue descriptions
         }
         
@@ -984,20 +972,16 @@ export async function POST(request: NextRequest) {
           // Verify fixes were actually applied (same as test scripts)
 
           try {
-            verificationResult = await verifyPDFFixes(autoFixedPdfBuffer)
+            verificationResult = autoFixedPdfBuffer ? await verifyPDFFixes(autoFixedPdfBuffer) : { success: false, message: 'No buffer available' }
             if (verificationResult.success) {
 
 
 
-
-
-
-              `)
             } else {
-              console.warn(`⚠️ Verification failed: ${verificationResult.error || 'Unknown error'}`)
+              console.warn('Verification failed:', verificationResult.error || 'Unknown error')
             }
           } catch (verifyError) {
-            console.warn(`⚠️ Could not verify fixes (non-critical): ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}`)
+            console.warn('Could not verify fixes (non-critical):', verifyError instanceof Error ? verifyError.message : 'Unknown error')
           }
           
           // Store verification result for response
@@ -1005,7 +989,7 @@ export async function POST(request: NextRequest) {
           
           // Re-scan the FIXED PDF to get only remaining issues (avoid duplicate work)
 
-          const fixedPdfAccessibilityResult = await adobePDFServices.checkAccessibility(autoFixedPdfBuffer)
+          const fixedPdfAccessibilityResult = autoFixedPdfBuffer ? await adobePDFServices.checkAccessibility(autoFixedPdfBuffer) : { success: false, report: null, error: 'No buffer available' }
           
           if (fixedPdfAccessibilityResult.success && fixedPdfAccessibilityResult.report) {
             // USE RE-SCAN RESULTS for detailed report (not original scan)
@@ -1073,9 +1057,6 @@ export async function POST(request: NextRequest) {
                   : 0
               }
             }
-
-            `)
-            )
             
             // Replace enhancedIssues with only remaining issues from fixed PDF
             if (remainingFailedIssues.length > 0) {
@@ -1085,7 +1066,7 @@ export async function POST(request: NextRequest) {
               const remainingEnhancedIssues = await Promise.all(
                 remainingFailedIssues.map(async (issue: any, index: number) => {
                   // Check for cancellation during AI enhancement
-                  if (activeScans.get(scanId)?.cancelled) {
+                  if (activeScans.get(scanId as string)?.cancelled) {
                     throw new Error('Scan was cancelled by user')
                   }
                   
@@ -1172,14 +1153,14 @@ export async function POST(request: NextRequest) {
             }
           }
         } else {
-          console.warn('⚠️ Auto-fix failed or no fixes applied:', autoFixResult.errors)
+          console.warn(' Auto-fix failed or no fixes applied:', autoFixResult.errors)
           // If auto-fix failed, generate AI suggestions for original issues
           if (issuesNeedingRemediation.length > 0) {
 
             const claudeAPI = new ClaudeAPI()
             enhancedIssues = await Promise.all(
               issuesNeedingRemediation.map(async (adobeIssue: any, index: number) => {
-                if (activeScans.get(scanId)?.cancelled) {
+                if (activeScans.get(scanId as string)?.cancelled) {
                   throw new Error('Scan was cancelled by user')
                 }
                 
@@ -1264,7 +1245,7 @@ export async function POST(request: NextRequest) {
           const claudeAPI = new ClaudeAPI()
           enhancedIssues = await Promise.all(
             issuesNeedingRemediation.map(async (adobeIssue: any, index: number) => {
-              if (activeScans.get(scanId)?.cancelled) {
+              if (activeScans.get(scanId as string)?.cancelled) {
                 throw new Error('Scan was cancelled by user')
               }
               
@@ -1374,7 +1355,7 @@ export async function POST(request: NextRequest) {
           reportCreatedBy: 'Adobe PDF Services API',
           organization: 'Accessitest',
           summary: {
-            needsManualCheck: accessibilityResult.report.summary.needsManualCheck || manualCheckCount,
+            needsManualCheck: accessibilityResult.report.summary.needsManualCheck || 0,
             passedManually: 0,
             failedManually: 0,
             skipped: accessibilityResult.report.summary.skipped || 0,
@@ -1413,9 +1394,6 @@ export async function POST(request: NextRequest) {
           ;(finalScanResult as any).autoFixed = true
           ;(finalScanResult as any).autoFixStats = autoFixResult?.fixesApplied
           ;(finalScanResult as any).verification = verificationResult // Include verification results (same as test scripts)
-
-
-          } KB`)
         } catch (error) {
           console.error('❌ Failed to convert auto-fixed PDF to base64:', error)
           // Fall through to tagged PDF
@@ -1428,15 +1406,12 @@ export async function POST(request: NextRequest) {
           const base64String = autoTagResult.taggedPdfBuffer.toString('base64')
           finalScanResult.taggedPdfBase64 = base64String
           finalScanResult.taggedPdfFileName = body.fileName.replace(/\.pdf$/i, '_tagged.pdf')
-
-          } KB`)
-          } KB`)
         } catch (error) {
           console.error('❌ Failed to convert tagged PDF to base64:', error)
-          console.warn('⚠️ Tagged PDF will not be available for download')
+          console.warn(' Tagged PDF will not be available for download')
         }
       } else if (!autoFixedPdfBuffer) {
-        console.warn('⚠️ No PDF available for download')
+        console.warn(' No PDF available for download')
         if (!autoTagResult.success) {
           console.warn(`   Auto-tag result: ${autoTagResult.error || autoTagResult.message}`)
         }
@@ -1445,7 +1420,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } else {
-      console.warn(`⚠️ Adobe Accessibility Check failed: ${accessibilityResult.error || 'Unknown error'}`)
+      console.warn(` Adobe Accessibility Check failed: ${accessibilityResult.error || 'Unknown error'}`)
       
       // Initialize finalScanResult even when Adobe fails
       const errorMessage = accessibilityResult.error || 'Adobe accessibility check failed'
@@ -1603,8 +1578,8 @@ export async function POST(request: NextRequest) {
         is508Compliant: scanResult.is508Compliant,
         scanDurationSeconds: Math.round(totalDuration / 1000),
         scanSettings: {
-          wcagLevel: body.wcagLevel || 'AA',
-          selectedTags: body.selectedTags || []
+          wcagLevel: (body as any).wcagLevel || 'AA',
+          selectedTags: (body as any).selectedTags || []
         }
       })
 
@@ -1615,7 +1590,6 @@ export async function POST(request: NextRequest) {
 
         try {
           backlogResult = await autoAddDocumentIssuesToBacklog(user.userId, scanResult.issues, scanHistoryResult, body.fileName)
-          )
           
           // Auto-sync to Jira if enabled (AFTER backlog items are created)
           try {
@@ -1654,7 +1628,7 @@ export async function POST(request: NextRequest) {
           backlogResult = { success: false, error: backlogError instanceof Error ? backlogError.message : 'Unknown error' }
         }
       } else {
-        console.warn('⚠️ Skipping backlog addition - no issues or missing scanHistoryResult:', {
+        console.warn(' Skipping backlog addition - no issues or missing scanHistoryResult:', {
           hasIssues: scanResult.issues && scanResult.issues.length > 0,
           issuesCount: scanResult.issues?.length || 0,
           hasScanHistoryResult: !!scanHistoryResult,
@@ -1679,7 +1653,7 @@ export async function POST(request: NextRequest) {
       responseData.taggedPdfFileName = scanResult.taggedPdfFileName
 
     } else {
-      console.warn('⚠️ No tagged PDF to include in response')
+      console.warn(' No tagged PDF to include in response')
     }
     
     return NextResponse.json(responseData)
@@ -1888,8 +1862,6 @@ async function enhanceWithAI(scanResult: any, request: DocumentScanRequest, scan
     
     // Enhance ALL issues with AI for comprehensive recommendations
     const issuesToEnhance = scanResult.issues
-    
-    `)
     
     // Process issues sequentially instead of concurrently to avoid rate limiting
     const enhancedIssues = []

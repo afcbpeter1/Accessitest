@@ -530,7 +530,6 @@ Return ONLY the language code, nothing else.`
                     newColor: suggestedColor,
                     elementLocation: issue.elementLocation
                   })
-                  }:1)`)
                 }
               }
             }
@@ -551,7 +550,6 @@ Return ONLY the language code, nothing else.`
                              linkText.toLowerCase().includes('here') ||
                              linkText.toLowerCase().includes('link'))) {
               // Use AI to generate better link text
-              }..."`)
               const betterText = await this.generateBetterLinkText(linkText, url, fileName)
               
               if (betterText && betterText !== linkText) {
@@ -606,8 +604,6 @@ Return ONLY the language code, nothing else.`
             altText: altText,
             elementLocation: issue.elementLocation
           })
-          
-          }..."`)
         } catch (error) {
           const errorMsg = `Failed to generate alt text for image ${idx}: ${error instanceof Error ? error.message : 'Unknown error'}`
           console.error(`❌ ${errorMsg}`)
@@ -675,8 +671,6 @@ Return ONLY the language code, nothing else.`
             hasHeaders: hasHeaders,
             elementLocation: issue.elementLocation
           })
-          
-          }..."`)
         } catch (error) {
           const errorMsg = `Failed to generate table summary for table ${idx}: ${error instanceof Error ? error.message : 'Unknown error'}`
           console.error(`❌ ${errorMsg}`)
@@ -728,7 +722,6 @@ Return ONLY the language code, nothing else.`
                   level: identifiedHeading.level || 1,
                   text: headingText
                 })
-                }..." (Level ${identifiedHeading.level})`)
               } else {
                 console.warn(`⚠️ Could not find paragraph for heading: "${headingText.substring(0, 50)}..."`)
               }
@@ -775,7 +768,6 @@ Return ONLY the language code, nothing else.`
           const elementLocation = issue.elementLocation || ''
           
           // Use AI to identify the language
-          }..."`)
           const langResult = await this.identifyLanguage(foreignText, fileName)
           
           if (langResult && langResult.language) {
@@ -796,8 +788,6 @@ Return ONLY the language code, nothing else.`
               language: langCode,
               elementLocation: elementLocation
             })
-            
-            }..."`)
           }
         } catch (error) {
           console.warn(`⚠️ Could not identify language for issue: ${error}`)

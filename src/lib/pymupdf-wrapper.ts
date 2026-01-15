@@ -83,8 +83,6 @@ export class PyMuPDFWrapper {
         ...(options.metadata?.author ? ['--author', options.metadata.author] : [])
       ].join(' ')
 
-      .substring(0, 500)}...`)
-
       // Execute Python script
       const { stdout, stderr } = await execAsync(cmd, {
         maxBuffer: 10 * 1024 * 1024 // 10MB buffer
@@ -135,14 +133,12 @@ export class PyMuPDFWrapper {
       try {
         const { stdout: pythonVersion } = await execAsync('python --version')
         hasPython = pythonVersion.includes('Python 3')
-        }`)
       } catch (error) {
 
         try {
           const { stdout: pythonVersion } = await execAsync('python3 --version')
           hasPython = pythonVersion.includes('Python 3')
           pythonCmd = 'python3'
-          }`)
         } catch (error2) {
 
           hasPython = false
@@ -156,9 +152,7 @@ export class PyMuPDFWrapper {
           const { stdout } = await execAsync(`${pythonCmd} -c "import fitz; print(fitz.version)"`)
           hasPyMuPDF = stdout.includes('1.') || stdout.includes('2.')
           if (hasPyMuPDF) {
-            }`)
           } else {
-            }`)
           }
         } catch (error) {
 

@@ -239,9 +239,7 @@ export default function LogoContrastChecker() {
         setLogoColors(data.logoColors || [])
         // Log debug info to console
         if (data.debug) {
-
-
-          )
+          console.log('Debug info:', data.debug)
         }
       } else {
         setError(data.error || 'Failed to analyze image')

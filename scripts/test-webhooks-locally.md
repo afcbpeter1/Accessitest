@@ -120,3 +120,7 @@ stripe trigger checkout.session.completed
 - Both must run: `stripe listen` + your Next.js server
 - Test with: `stripe trigger checkout.session.completed` while `stripe listen` is running
 
+
+
+
+

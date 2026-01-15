@@ -271,12 +271,10 @@ export async function POST(request: NextRequest) {
 
       // Auto-create backlog items for unique issues (for authenticated users)
       try {
-
         // Note: Free scans don't have authentication, so we skip auto-creation
         // This would need to be handled differently for authenticated users
-        ')
       } catch (error) {
-        console.error('❌ Error auto-creating backlog items for free scan:', error)
+        console.error('Error auto-creating backlog items for free scan:', error)
       }
 
     } finally {

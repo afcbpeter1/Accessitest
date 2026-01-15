@@ -220,7 +220,6 @@ export class JiraClient {
    */
   async createIssue(issueData: CreateIssueRequest): Promise<CreateIssueResponse> {
     // Log the request for debugging
-    )
     
     try {
       const result = await this.request<CreateIssueResponse>('/issue', {

@@ -108,10 +108,7 @@ function ScanDetailsContent() {
       
       const data = await response.json()
       
-        if (data.success) {
-          )
-          )
-        )
+      if (data.success) {
         setScan(data.scan)
       } else {
         setError(data.error || 'Scan not found')

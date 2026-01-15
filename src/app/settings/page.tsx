@@ -346,11 +346,12 @@ export default function SettingsPage() {
       const token = localStorage.getItem('accessToken')
       
       // If API token is empty but we have an existing integration, don't send it (keep existing encrypted one)
-      const saveData = { ...jiraForm }
+      let saveData: any = { ...jiraForm }
       if (!saveData.apiToken && jiraIntegration) {
         // Don't include apiToken in the request if it's empty and integration exists
         // The backend will keep the existing encrypted token
-        delete saveData.apiToken
+        const { apiToken, ...dataWithoutToken } = saveData
+        saveData = dataWithoutToken
       }
       
       const response = await fetch('/api/jira/settings', {
@@ -614,7 +615,6 @@ export default function SettingsPage() {
         
         // Only use the work item types returned from the API - don't add saved ones
         // The API should return exactly what's configured for the team's backlog
-        .join(', '))
         
         setAzureDevOpsWorkItemTypes(workItemTypes)
       } else {
@@ -665,9 +665,10 @@ export default function SettingsPage() {
       const token = localStorage.getItem('accessToken')
       
       // If PAT is empty but we have an existing integration, don't send it (keep existing encrypted one)
-      const saveData = { ...azureDevOpsForm }
+      let saveData: any = { ...azureDevOpsForm }
       if (!saveData.pat && azureDevOpsIntegration) {
-        delete saveData.pat
+        const { pat, ...dataWithoutPat } = saveData
+        saveData = dataWithoutPat
       }
       
       const response = await fetch('/api/azure-devops/settings', {
@@ -1774,9 +1775,10 @@ export default function SettingsPage() {
                             <button
                               onClick={async () => {
                                 // Save with default issue type, then reload to show credentials step
-                                const saveData = { ...jiraForm, issueType: jiraForm.issueType || 'Bug' }
+                                let saveData: any = { ...jiraForm, issueType: jiraForm.issueType || 'Bug' }
                                 if (!saveData.apiToken && jiraIntegration) {
-                                  delete saveData.apiToken
+                                  const { apiToken, ...dataWithoutToken } = saveData
+                                  saveData = dataWithoutToken
                                 }
                                 
                                 setSaving(true)

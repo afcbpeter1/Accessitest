@@ -44,14 +44,8 @@ export class ClaudeAPI {
     this.apiKey = process.env.ANTHROPIC_API_KEY || '';
     
     if (!this.apiKey) {
-      console.warn('⚠️ ANTHROPIC_API_KEY not found in environment variables');
+      console.warn('ANTHROPIC_API_KEY not found in environment variables');
     }
-    
-    : 'MISSING',
-      provider: 'Anthropic Official API',
-      rateLimit: `${this.minRequestInterval}ms between requests`,
-      maxConcurrent: this.maxConcurrentRequests
-    });
   }
 
   /**
@@ -442,16 +436,11 @@ Can this be automatically fixed? What will be changed?`;
       requestBody.system = systemPrompt;
     }
 
-    : 'MISSING');
-    .length);
-
     const maxRetries = 2; // Reduced retries to be more conservative
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        ...`)
-        
         // Create a timeout promise (60 seconds)
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('Request timeout after 60 seconds')), 60000)
@@ -474,7 +463,7 @@ Can this be automatically fixed? What will be changed?`;
         if (response.status === 529) {
           // Overloaded error - wait much longer and retry
           const waitTime = Math.pow(2, attempt) * 5000; // 10s, 20s backoff
-          , waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`);
+          console.log(`Claude API overloaded, waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           lastError = new Error(`Claude API overloaded (attempt ${attempt}/${maxRetries})`);
           continue;
@@ -487,7 +476,6 @@ Can this be automatically fixed? What will be changed?`;
         }
 
         const data: ClaudeResponse = await response.json();
-        );
 
         // Extract text content from the response
         const textContent = data.content

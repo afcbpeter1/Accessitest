@@ -112,8 +112,6 @@ export class AccessibilityScanner {
         'EN-301-549'          // European accessibility standard
       ];
       
-      }`)
-      
       // CRITICAL: Fix the fundamental WCAG tag mapping issue
       // The problem: wcag22aa/wcag22aaa tags don't include all the rules they should!
       // Solution: Include the actual WCAG 2.0/2.1 tags that have the complete rule sets
@@ -136,11 +134,11 @@ export class AccessibilityScanner {
       // Run axe-core analysis directly in the browser context
       const results = await page.evaluate(async (tags: string[]) => {
         // Check if axe is available in the browser context
-        if (typeof window.axe === 'undefined') {
+        if (typeof (window as any).axe === 'undefined') {
           throw new Error('axe-core is not loaded in the browser context');
         }
         
-        const axe = window.axe;
+        const axe = (window as any).axe;
         
         // Configure axe with basic settings
         axe.configure({
@@ -158,8 +156,8 @@ export class AccessibilityScanner {
 
       // Debug: Log available rules and their tags
       const allRules = axe.getRules();
-      const colorContrastRule = allRules.find(rule => rule.ruleId === 'color-contrast');
-      const colorContrastEnhancedRule = allRules.find(rule => rule.ruleId === 'color-contrast-enhanced');
+      const colorContrastRule = allRules.find((rule: any) => rule.ruleId === 'color-contrast');
+      const colorContrastEnhancedRule = allRules.find((rule: any) => rule.ruleId === 'color-contrast-enhanced');
       
       if (colorContrastRule) {
 
@@ -172,24 +170,19 @@ export class AccessibilityScanner {
       }
       
       // Debug: Show all disabled rules that might be relevant
-      const disabledRules = allRules.filter(rule => !rule.enabled);
-      ));
+      const disabledRules = allRules.filter((rule: any) => !rule.enabled);
       
       // Debug: Log best-practice rules
-      const bestPracticeRules = allRules.filter(rule => rule.tags.includes('best-practice'));
-      ));
+      const bestPracticeRules = allRules.filter((rule: any) => rule.tags.includes('best-practice'));
       
       // Debug: Log Section 508 rules
-      const section508Rules = allRules.filter(rule => rule.tags.includes('section508'));
-      ));
+      const section508Rules = allRules.filter((rule: any) => rule.tags.includes('section508'));
       
       // Debug: Log EN 301 549 rules
-      const en301549Rules = allRules.filter(rule => rule.tags.includes('EN-301-549'));
-      ));
+      const en301549Rules = allRules.filter((rule: any) => rule.tags.includes('EN-301-549'));
       
       // Run axe-core analysis with comprehensive rule set
       // CRITICAL: Enable all rules that should be active for comprehensive testing
-      }`)
       
       const results = await axe.run({
         runOnly: {
@@ -242,31 +235,22 @@ export class AccessibilityScanner {
       });
       
       // Debug: Log the results
-      ,
-        colorContrastViolations: results.violations.filter(v => v.id === 'color-contrast').length,
-        colorContrastEnhancedViolations: results.violations.filter(v => v.id === 'color-contrast-enhanced').length,
-        section508Violations: results.violations.filter(v => v.tags.includes('section508')).length,
-        en301549Violations: results.violations.filter(v => v.tags.includes('EN-301-549')).length,
-        bestPracticeViolations: results.violations.filter(v => v.tags.includes('best-practice')).length
-      });
       
       // Debug: Show which rules were actually executed
       const executedRules = [...results.violations, ...results.passes].map(r => r.id);
-
-      ));
       
       return results;
       }, tagsToCheck);
 
       // Process results
-      const issues: AccessibilityIssue[] = results.violations.map(violation => ({
+      const issues: AccessibilityIssue[] = results.violations.map((violation: any) => ({
         id: violation.id,
         impact: violation.impact as 'minor' | 'moderate' | 'serious' | 'critical',
         tags: violation.tags,
         description: violation.description,
         help: violation.help,
         helpUrl: violation.helpUrl,
-        nodes: violation.nodes.map(node => ({
+        nodes: violation.nodes.map((node: any) => ({
           html: node.html,
           target: node.target,
           failureSummary: node.failureSummary || this.generateFailureSummary(violation, node),
@@ -319,7 +303,6 @@ export class AccessibilityScanner {
 
         const elementScreenshots = [];
         for (const issue of issues.slice(0, 5)) { // Limit to first 5 issues
-          `);
           for (const node of issue.nodes || []) {
             const selector = node.target?.[0];
             if (selector) {
@@ -347,7 +330,7 @@ export class AccessibilityScanner {
 
                 }
               } catch (elementError) {
-                console.warn(`❌ Failed to screenshot element ${selector}:`, elementError);
+                console.warn(`Failed to screenshot element ${selector}:`, elementError);
               }
             }
           }
@@ -411,8 +394,8 @@ export class AccessibilityScanner {
       } catch (screenshotError) {
         console.error('❌ Screenshot capture failed:', screenshotError);
         console.error('Screenshot error details:', {
-          message: screenshotError.message,
-          stack: screenshotError.stack
+          message: (screenshotError as any).message,
+          stack: (screenshotError as any).stack
         });
         // Continue without screenshots
       }
@@ -457,10 +440,10 @@ export class AccessibilityScanner {
         screenshots
       };
 
-      return finalResult;
+      return finalResult as ScanResult;
     } catch (error) {
       console.error('Error scanning page for accessibility issues:', error);
-      throw new Error(`Failed to scan ${currentUrl}: ${error.message}`);
+      throw new Error(`Failed to scan ${currentUrl}: ${(error as any).message}`);
     }
   }
 
@@ -601,7 +584,7 @@ export class AccessibilityScanner {
       }
     };
 
-    return ruleInfo[ruleId] || {
+    return (ruleInfo as any)[ruleId] || {
       name: ruleId,
       description: 'WCAG 2.2 accessibility rule',
       wcag22Level: 'A',
@@ -658,9 +641,7 @@ export class AccessibilityScanner {
       
       // Check if we already have a cached response for this issue
       if (this.aiResponseCache.has(cacheKey)) {
-
         const aiSuggestion = this.aiResponseCache.get(cacheKey)!;
-        + '...');
         
         // Extract code example from AI response if it contains markdown code blocks
         const codeBlockMatch = aiSuggestion.match(/```(?:html|css|js|javascript)?\s*\n([\s\S]*?)```/);
@@ -686,8 +667,6 @@ export class AccessibilityScanner {
           priority: this.getPriorityForImpact(issue.impact)
         }];
       }
-
-      + '...');
       
       const aiSuggestion = await this.claudeAPI.generateAccessibilitySuggestion(
         html,
@@ -698,8 +677,6 @@ export class AccessibilityScanner {
 
       // Cache the response for future use
       this.aiResponseCache.set(cacheKey, aiSuggestion);
-
-      + '...');
 
       if (aiSuggestion && !aiSuggestion.includes('Unable to get AI suggestion')) {
         // Extract code example from AI response if it contains markdown code blocks
@@ -734,7 +711,7 @@ export class AccessibilityScanner {
     }
 
     // If no AI suggestion, get the best rule-based suggestion with code example
-    const ruleBasedSuggestion = this.getBestRuleBasedSuggestion(issue.id, html, target, failureSummary);
+    const ruleBasedSuggestion = this.getBestRuleBasedSuggestion(issue.id, html, target, failureSummary, issue.impact);
     if (ruleBasedSuggestion) {
       return [ruleBasedSuggestion];
     }
@@ -1241,7 +1218,7 @@ ${html}`,
   /**
    * Get the best rule-based suggestion with code example
    */
-  private getBestRuleBasedSuggestion(issueId: string, html: string, target: string, failureSummary: string): RemediationSuggestion | null {
+  private getBestRuleBasedSuggestion(issueId: string, html: string, target: string, failureSummary: string, impact: string): RemediationSuggestion | null {
     switch (issueId) {
       case 'heading-order':
         const headingSuggestions = this.generateHeadingOrderSuggestions(html, target, failureSummary);
@@ -1272,7 +1249,7 @@ ${html}`,
           type: 'fix',
           description: failureSummary || `Fix the ${issueId} issue`,
           codeExample: this.generateGenericCodeExample(html, issueId),
-          priority: this.getPriorityForImpact(issue.impact)
+          priority: this.getPriorityForImpact(impact)
         };
     }
   }

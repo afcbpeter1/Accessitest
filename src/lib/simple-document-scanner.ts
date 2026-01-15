@@ -29,7 +29,7 @@ export interface SimpleScanResult {
 
 export class SimpleDocumentScanner {
   async scanDocument(buffer: Buffer, fileName: string, fileType: string): Promise<SimpleScanResult> {
-    - ${buffer.length} bytes`)
+    console.log(`Scanning document: ${fileName} - ${buffer.length} bytes`)
     
     // Extract document content
     let documentContent = ''
