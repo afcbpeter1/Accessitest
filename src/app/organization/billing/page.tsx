@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 
-export default function BillingPage() {
+function BillingPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
@@ -68,6 +68,14 @@ export default function BillingPage() {
         </div>
       </div>
     </Sidebar>
+  )
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <BillingPageContent />
+    </Suspense>
   )
 }
 

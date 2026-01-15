@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { CheckCircle2, Mail, BadgeCheck, ArrowDown, Loader2, RefreshCw } from 'lucide-react'
 
-export default function ThankYouPage() {
+function ThankYouPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -251,6 +251,14 @@ export default function ThankYouPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function ThankYouPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <ThankYouPageContent />
+    </Suspense>
   )
 }
 

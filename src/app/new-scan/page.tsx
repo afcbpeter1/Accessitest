@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, Suspense } from 'react'
 import { Search, Globe, HelpCircle, Settings, AlertTriangle, CheckCircle, FileText, X, Repeat } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -46,7 +46,7 @@ interface DiscoveredPage {
   priority: 'high' | 'medium' | 'low';
 }
 
-export default function NewScan() {
+function NewScanContent() {
   const searchParams = useSearchParams()
   const [url, setUrl] = useState('')
   const [includeSubdomains, setIncludeSubdomains] = useState(true)
@@ -1797,5 +1797,13 @@ export default function NewScan() {
         isLoading={modalState.isLoading}
       />
     </Sidebar>
+  )
+}
+
+export default function NewScan() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <NewScanContent />
+    </Suspense>
   )
 }

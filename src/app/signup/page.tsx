@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Shield, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { validatePassword } from '@/lib/password-validation'
 
-export default function SignupPage() {
+function SignupPageContent() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -494,5 +494,13 @@ export default function SignupPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <SignupPageContent />
+    </Suspense>
   )
 }

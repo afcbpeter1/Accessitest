@@ -3,6 +3,8 @@ import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { queryOne } from '@/lib/database'
 import { JiraClient } from '@/lib/jira-client'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/jira/settings/issue-types?projectKey=XXX
  * Get available issue types for a project

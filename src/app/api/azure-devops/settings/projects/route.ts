@@ -3,6 +3,8 @@ import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { queryOne } from '@/lib/database'
 import { AzureDevOpsClient } from '@/lib/azure-devops-client'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/azure-devops/settings/projects
  * Get available projects for user's Azure DevOps integration

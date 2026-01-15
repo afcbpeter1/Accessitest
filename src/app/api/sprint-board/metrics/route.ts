@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import pool from '@/lib/database'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/sprint-board/metrics - Get metrics for a sprint
 export async function GET(request: NextRequest) {
   try {

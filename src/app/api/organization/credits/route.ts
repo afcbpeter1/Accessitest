@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { getOrganizationCredits } from '@/lib/organization-service'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/organization/credits
  * Get organization credits

@@ -3,6 +3,8 @@ import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { queryOne } from '@/lib/database'
 import { AzureDevOpsClient } from '@/lib/azure-devops-client'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /api/azure-devops/settings/teams?project=XXX&projectId=XXX
  * Get available teams for a project
