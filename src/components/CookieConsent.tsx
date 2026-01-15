@@ -56,14 +56,6 @@ export default function CookieConsent() {
 
   return (
     <>
-      {/* Backdrop - non-interactive, just for visual separation */}
-      <div 
-        className={`fixed inset-0 bg-black/30 z-[9998] transition-opacity duration-300 ${
-          isVisible ? 'opacity-100' : 'opacity-0'
-        }`}
-        aria-hidden="true"
-      />
-      
       {/* Cookie Banner */}
       <div
         role="dialog"
