@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "bash build.sh",
+    "build:next": "next build",
+    "build:strict": "next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit"

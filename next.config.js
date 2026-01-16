@@ -52,11 +52,6 @@ const nextConfig = {
     
     return config
   },
-  // Customize error handling during build
-  onDemandEntries: {
-    maxInactiveAge: 25 * 1000,
-    pagesBufferLength: 2,
-  },
 }
 
 module.exports = nextConfig
