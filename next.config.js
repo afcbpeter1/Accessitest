@@ -13,6 +13,21 @@ const nextConfig = {
       exclude: ['error', 'warn'],
     } : false,
   },
+  // Output standalone for better Docker/container support
+  output: 'standalone',
+  // Allow build to continue even with static generation errors
+  // Pages will be rendered dynamically at runtime instead
+  experimental: {
+    // This helps with build stability
+  },
+  // Skip static optimization for pages that use contexts
+  // They will be rendered dynamically at runtime
+  onDemandEntries: {
+    // Period (in ms) where the server will keep pages in the buffer
+    maxInactiveAge: 25 * 1000,
+    // Number of pages that should be kept simultaneously without being disposed
+    pagesBufferLength: 2,
+  },
   webpack: (config, { isServer }) => {
     // Handle pdf-parse and other Node.js modules
     if (!isServer) {

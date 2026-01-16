@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import puppeteer from 'puppeteer'
+import { getMinimalPuppeteerOptions } from '@/lib/puppeteer-config'
 
 export async function GET() {
   try {
-    const browser = await puppeteer.launch({
-      headless: 'new',
+    const browser = await puppeteer.launch(getMinimalPuppeteerOptions({
       args: [
-        '--no-sandbox', 
-        '--disable-setuid-sandbox',
         '--disable-web-security',
         '--disable-features=VizDisplayCompositor',
         '--disable-dev-shm-usage',
@@ -15,7 +13,7 @@ export async function GET() {
         '--no-zygote',
         '--single-process'
       ]
-    })
+    }))
 
     try {
       const page = await browser.newPage()

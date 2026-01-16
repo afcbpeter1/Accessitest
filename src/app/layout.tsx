@@ -7,6 +7,9 @@ import AccessibilitySettingsHandler from '@/components/AccessibilitySettingsHand
 import CookieConsent from '@/components/CookieConsent'
 import PageTracker from '@/components/PageTracker'
 
+// Force dynamic rendering to avoid static generation issues with React Context
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'AccessScan - Accessibility Testing Platform',
   description: 'Professional accessibility scanning and testing for your website',

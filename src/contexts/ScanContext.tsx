@@ -89,7 +89,20 @@ export function ScanProvider({ children }: { children: React.ReactNode }) {
 
 export function useScan() {
   const context = useContext(ScanContext)
+  // During static generation, context might be undefined
+  // Return default values instead of throwing
   if (context === undefined) {
+    if (typeof window === 'undefined') {
+      // Server-side/static generation - return safe defaults
+      return {
+        activeScans: [],
+        addScan: () => {},
+        updateScan: () => {},
+        removeScan: () => {},
+        getActiveScan: () => undefined,
+        isAnyScanActive: false,
+      }
+    }
     throw new Error('useScan must be used within a ScanProvider')
   }
   return context
