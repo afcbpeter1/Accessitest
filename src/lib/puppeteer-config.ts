@@ -3,7 +3,10 @@
  * Supports both bundled Chromium (development) and system Chromium (production)
  */
 
-import { LaunchOptions } from 'puppeteer'
+import puppeteer from 'puppeteer'
+
+// Use the actual parameter type from puppeteer.launch
+type PuppeteerLaunchOptions = Parameters<typeof puppeteer.launch>[0]
 
 /**
  * Get the Chromium executable path
@@ -45,11 +48,11 @@ function getChromiumPath(): string | undefined {
  * Automatically configures for production environments
  */
 export function getPuppeteerLaunchOptions(
-  customOptions: Partial<LaunchOptions> = {}
-): LaunchOptions {
+  customOptions: Partial<PuppeteerLaunchOptions> = {}
+): PuppeteerLaunchOptions {
   const executablePath = getChromiumPath()
   
-  const defaultOptions: LaunchOptions = {
+  const defaultOptions: PuppeteerLaunchOptions = {
     headless: true,
     args: [
       '--no-sandbox',
@@ -86,11 +89,11 @@ export function getPuppeteerLaunchOptions(
  * Get minimal Puppeteer launch options (for simple scans)
  */
 export function getMinimalPuppeteerOptions(
-  customOptions: Partial<LaunchOptions> = {}
-): LaunchOptions {
+  customOptions: Partial<PuppeteerLaunchOptions> = {}
+): PuppeteerLaunchOptions {
   const executablePath = getChromiumPath()
   
-  const minimalOptions: LaunchOptions = {
+  const minimalOptions: PuppeteerLaunchOptions = {
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   }
