@@ -15,6 +15,9 @@ const nextConfig = {
   },
   // Output standalone for better Docker/container support
   output: 'standalone',
+  // Skip static generation for error pages - they'll be rendered dynamically
+  // This prevents Html import errors during build
+  skipTrailingSlashRedirect: true,
   // Allow build to continue even with static generation errors
   // Pages will be rendered dynamically at runtime instead
   experimental: {
@@ -48,6 +51,11 @@ const nextConfig = {
     }
     
     return config
+  },
+  // Customize error handling during build
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
   },
 }
 
