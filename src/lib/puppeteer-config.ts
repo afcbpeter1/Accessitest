@@ -10,36 +10,18 @@ type PuppeteerLaunchOptions = Parameters<typeof puppeteer.launch>[0]
 
 /**
  * Get the Chromium executable path
- * Checks environment variable first, then common system paths
+ * Only uses environment variable - does not guess paths
+ * This prevents errors when paths don't exist
  */
 function getChromiumPath(): string | undefined {
-  // Check environment variable first
+  // Only use environment variable - don't guess paths
+  // This prevents ENOENT errors when paths don't exist
   if (process.env.PUPPETEER_EXECUTABLE_PATH) {
     return process.env.PUPPETEER_EXECUTABLE_PATH
   }
 
-  // Common system Chromium paths (for production environments)
-  const commonPaths = [
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/snap/bin/chromium',
-  ]
-
-  // Try to find Chromium in common paths
-  // Note: This is a simple check - in production, you should use the env var
-  for (const path of commonPaths) {
-    try {
-      // In a real scenario, you might want to check if file exists
-      // For now, we'll rely on Puppeteer to handle the error
-      return path
-    } catch {
-      // Continue to next path
-    }
-  }
-
   // Return undefined to use bundled Chromium (if available)
+  // or let Puppeteer handle the error gracefully
   return undefined
 }
 
