@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const user = await getAuthenticatedUser(request)
     const body = await request.json()
 
-    const { issueId } = body
+    const { issueId, teamId } = body
 
     if (!issueId) {
       return NextResponse.json(
@@ -27,7 +27,64 @@ export async function POST(request: NextRequest) {
     }
 
     // Get issue context (team/organization)
-    const issueContext = await getIssueContext(issueId)
+    let issueContext = await getIssueContext(issueId)
+    
+    // If teamId is provided, update the issue's team_id first
+    if (teamId) {
+      // Verify user has permission to assign issues to this team
+      const team = await queryOne(
+        `SELECT t.organization_id, om.role
+         FROM teams t
+         INNER JOIN organization_members om ON t.organization_id = om.organization_id
+         WHERE t.id = $1 AND om.user_id = $2 AND om.is_active = true`,
+        [teamId, user.userId]
+      )
+      
+      if (team) {
+        // Update issue with team_id and organization_id
+        await query(
+          `UPDATE issues 
+           SET team_id = $1, organization_id = $2 
+           WHERE id = $3`,
+          [teamId, team.organization_id, issueId]
+        )
+        // Update context for this request
+        issueContext = {
+          teamId: teamId,
+          organizationId: team.organization_id
+        }
+      }
+    } else if (!issueContext?.teamId) {
+      // If no teamId provided and issue doesn't have one, use user's team
+      // Prioritize teams that have a Jira project assigned (like Azure DevOps)
+      const userTeam = await queryOne(
+        `SELECT om.team_id, om.organization_id, t.jira_project_key
+         FROM organization_members om
+         INNER JOIN teams t ON om.team_id = t.id
+         WHERE om.user_id = $1 AND om.is_active = true AND om.team_id IS NOT NULL
+         ORDER BY 
+           CASE WHEN t.jira_project_key IS NOT NULL AND t.jira_project_key != '' THEN 0 ELSE 1 END,
+           om.joined_at DESC
+         LIMIT 1`,
+        [user.userId]
+      )
+      
+      if (userTeam?.team_id) {
+        // Update issue with user's team
+        await query(
+          `UPDATE issues 
+           SET team_id = $1, organization_id = $2 
+           WHERE id = $3`,
+          [userTeam.team_id, userTeam.organization_id, issueId]
+        )
+        // Update context for this request
+        issueContext = {
+          teamId: userTeam.team_id,
+          organizationId: userTeam.organization_id
+        }
+        console.log(`✅ Assigned issue ${issueId} to user's team ${userTeam.team_id} for Jira ticket creation`)
+      }
+    }
     
     // Get the appropriate Jira integration (team > org > personal)
     const integration = await getJiraIntegration(
@@ -286,6 +343,23 @@ export async function POST(request: NextRequest) {
       encryptedApiToken: integration.encrypted_api_token
     })
 
+    // Check if team has an assigned project and issue type (overrides integration settings)
+    let projectKeyToUse = integration.project_key
+    let issueTypeToUse = integration.issue_type
+    if (issueContext?.teamId) {
+      const team = await queryOne(
+        `SELECT jira_project_key, jira_issue_type FROM teams WHERE id = $1`,
+        [issueContext.teamId]
+      )
+      if (team?.jira_project_key) {
+        projectKeyToUse = team.jira_project_key
+        console.log(`✅ Using team's Jira project: ${team.jira_project_key} for team ${issueContext.teamId}`)
+      }
+      if (team?.jira_issue_type) {
+        issueTypeToUse = team.jira_issue_type
+      }
+    }
+
     // Map issue to Jira format with full remediation data
     // Pass screenshots directly so they can be linked in the description
     const jiraIssue = mapIssueToJiraSimple(
@@ -306,8 +380,8 @@ export async function POST(request: NextRequest) {
         suggestions,
         screenshots // Pass Cloudinary URLs directly
       },
-      integration.project_key || 'PROJ',
-      integration.issue_type || 'Bug'
+      projectKeyToUse || 'PROJ',
+      issueTypeToUse || 'Bug'
     )
 
     // Double-check for existing mapping right before creating (prevent race condition)

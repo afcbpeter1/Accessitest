@@ -22,6 +22,9 @@ export default function IssueDetailsModal({ isOpen, onClose, issue, onStatusChan
   const [jiraTicket, setJiraTicket] = useState<{ key: string; url: string } | null>(null)
   const [creatingJiraTicket, setCreatingJiraTicket] = useState(false)
   const [checkingJiraTicket, setCheckingJiraTicket] = useState(true)
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('')
+  const [teams, setTeams] = useState<any[]>([])
+  const [loadingTeams, setLoadingTeams] = useState(false)
 
   useEffect(() => {
     if (issue) {
@@ -30,9 +33,40 @@ export default function IssueDetailsModal({ isOpen, onClose, issue, onStatusChan
         notes: issue.notes || '',
         deferredReason: issue.deferredReason || ''
       })
+      setSelectedTeamId(issue.team_id || '')
       checkJiraTicket()
+      loadTeams()
     }
   }, [issue])
+
+  const loadTeams = async () => {
+    setLoadingTeams(true)
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch('/api/organization', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      const data = await response.json()
+      if (data.success && data.organizations.length > 0) {
+        const orgId = data.organizations[0].id
+        const teamsResponse = await fetch(`/api/organization/teams?organization_id=${orgId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        const teamsData = await teamsResponse.json()
+        if (teamsData.success) {
+          setTeams(teamsData.teams || [])
+        }
+      }
+    } catch (error) {
+      console.error('Error loading teams:', error)
+    } finally {
+      setLoadingTeams(false)
+    }
+  }
 
   const checkJiraTicket = async () => {
     if (!issue?.id) return
@@ -74,7 +108,10 @@ export default function IssueDetailsModal({ isOpen, onClose, issue, onStatusChan
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ issueId: issue.id })
+        body: JSON.stringify({ 
+          issueId: issue.id,
+          teamId: selectedTeamId || undefined // Only send if a team is selected
+        })
       })
       
       const data = await response.json()
@@ -230,14 +267,31 @@ ${issueStatus.status === 'deferred' ? `## ⏸️ Deferred Reason\n${issueStatus.
                     View in Jira ({jiraTicket.key})
                   </a>
                 ) : (
-                  <button
-                    onClick={createJiraTicket}
-                    disabled={creatingJiraTicket}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    {creatingJiraTicket ? 'Creating...' : 'Create Jira Ticket'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {teams.length > 0 && (
+                      <select
+                        value={selectedTeamId}
+                        onChange={(e) => setSelectedTeamId(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        title="Select team to assign ticket to"
+                      >
+                        <option value="">Personal Integration</option>
+                        {teams.map((team) => (
+                          <option key={team.id} value={team.id}>
+                            {team.name} {team.jira_project_key ? `(${team.jira_project_key})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    <button
+                      onClick={createJiraTicket}
+                      disabled={creatingJiraTicket}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      {creatingJiraTicket ? 'Creating...' : 'Create Jira Ticket'}
+                    </button>
+                  </div>
                 )}
                 <button
                   onClick={copyDefectTicket}

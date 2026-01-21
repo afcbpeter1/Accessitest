@@ -18,6 +18,20 @@ export async function autoAddDocumentIssuesToBacklog(
   skippedItems: any[]
 }> {
   try {
+    // Get user's team membership to assign issues to their team
+    // Prioritize teams that have a Jira project assigned (like Azure DevOps)
+    const userTeam = await queryOne(
+      `SELECT om.team_id, om.organization_id, t.jira_project_key
+       FROM organization_members om
+       INNER JOIN teams t ON om.team_id = t.id
+       WHERE om.user_id = $1 AND om.is_active = true AND om.team_id IS NOT NULL
+       ORDER BY 
+         CASE WHEN t.jira_project_key IS NOT NULL AND t.jira_project_key != '' THEN 0 ELSE 1 END,
+         om.joined_at DESC
+       LIMIT 1`,
+      [userId]
+    )
+
     const addedItems = []
     const skippedItems = []
 
@@ -129,8 +143,9 @@ export async function autoAddDocumentIssuesToBacklog(
             issue_key, rule_id, rule_name, description, impact, wcag_level,
             total_occurrences, affected_pages, notes,
             status, priority, rank, story_points, remaining_points,
+            team_id, organization_id,
             first_seen_scan_id, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
           RETURNING *
         `, [
           safeIssueKey, // issue_key (VARCHAR(50))
@@ -147,6 +162,8 @@ export async function autoAddDocumentIssuesToBacklog(
           nextRank, // rank (INTEGER)
           1, // story_points (INTEGER)
           1, // remaining_points (INTEGER)
+          userTeam?.team_id || null, // team_id - assign to user's team if available
+          userTeam?.organization_id || null, // organization_id
           scanHistoryId, // first_seen_scan_id (UUID)
           new Date().toISOString(), // created_at
           new Date().toISOString() // updated_at

@@ -13,11 +13,13 @@ export async function GET(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
 
-    // Get user's Jira integration
+    // Get user's personal Jira integration (not team-specific)
     const integration = await queryOne(
       `SELECT jira_url, jira_email, encrypted_api_token 
       FROM jira_integrations 
-      WHERE user_id = $1 AND is_active = true`,
+      WHERE user_id = $1 AND team_id IS NULL AND is_active = true
+      ORDER BY created_at DESC
+      LIMIT 1`,
       [user.userId]
     )
 
@@ -39,7 +41,16 @@ export async function GET(request: NextRequest) {
     })
 
     // Fetch projects
+    console.log('🔍 Fetching Jira projects for user:', user.userId)
+    console.log('🔍 Using Jira URL:', integration.jira_url)
+    
     const projects = await client.getProjects()
+    
+    console.log(`✅ Successfully fetched ${projects.length} projects from Jira`)
+    
+    if (projects.length === 0) {
+      console.warn('⚠️ No projects returned from Jira API - user may not have access to any projects')
+    }
 
     return NextResponse.json({
       success: true,
@@ -51,11 +62,15 @@ export async function GET(request: NextRequest) {
       }))
     })
   } catch (error) {
-    console.error('Error fetching Jira projects:', error)
+    console.error('❌ Error fetching Jira projects:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Failed to fetch projects'
+    const errorStack = error instanceof Error ? error.stack : undefined
+    console.error('❌ Error details:', { errorMessage, errorStack })
+    
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to fetch projects'
+        error: errorMessage
       },
       { status: 500 }
     )

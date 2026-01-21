@@ -46,14 +46,49 @@ export async function autoSyncIssuesToJira(
   let errors = 0
 
   try {
+    // Get user's team membership (for issues without team_id)
+    // Prioritize teams that have a Jira project assigned (like Azure DevOps)
+    const userTeam = await queryOne(
+      `SELECT om.team_id, om.organization_id, t.jira_project_key, t.name as team_name
+       FROM organization_members om
+       INNER JOIN teams t ON om.team_id = t.id
+       WHERE om.user_id = $1 AND om.is_active = true AND om.team_id IS NOT NULL
+       ORDER BY 
+         CASE WHEN t.jira_project_key IS NOT NULL AND t.jira_project_key != '' THEN 0 ELSE 1 END,
+         om.joined_at DESC
+       LIMIT 1`,
+      [userId]
+    )
+    
+    if (userTeam) {
+      console.log(`👤 User ${userId} is assigned to team: ${userTeam.team_name} (${userTeam.team_id}), Jira project: ${userTeam.jira_project_key || 'none'}`)
+    }
+
     // Process each issue to get team context
     for (const issueId of issueIds) {
       try {
         // Get issue context (team/organization) to find the right integration
-        const issueContext = await queryOne(
+        let issueContext = await queryOne(
           `SELECT team_id, organization_id FROM issues WHERE id = $1`,
           [issueId]
         )
+
+        // If issue doesn't have a team_id, assign it to user's team
+        if (!issueContext?.team_id && userTeam?.team_id) {
+          // Update issue with user's team
+          await query(
+            `UPDATE issues 
+             SET team_id = $1, organization_id = $2 
+             WHERE id = $3`,
+            [userTeam.team_id, userTeam.organization_id, issueId]
+          )
+          // Update context for this request
+          issueContext = {
+            team_id: userTeam.team_id,
+            organization_id: userTeam.organization_id
+          }
+          console.log(`✅ Assigned issue ${issueId} to user's team ${userTeam.team_id}`)
+        }
 
         // Get the appropriate Jira integration (team > org > personal)
         const integration = await getJiraIntegration(
@@ -83,6 +118,9 @@ export async function autoSyncIssuesToJira(
           )
           if (team?.jira_project_key) {
             projectKeyToUse = team.jira_project_key
+            console.log(`✅ Using team's Jira project: ${team.jira_project_key} for team ${issueContext.team_id}`)
+          } else {
+            console.log(`⚠️ Team ${issueContext.team_id} does not have a Jira project assigned, using integration project: ${projectKeyToUse}`)
           }
           if (team?.jira_issue_type) {
             issueTypeToUse = team.jira_issue_type

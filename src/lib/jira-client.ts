@@ -84,6 +84,8 @@ export class JiraClient {
   ): Promise<T> {
     const url = `${this.baseUrl}/rest/api/3${endpoint}`
     
+    console.log(`🌐 Jira API Request: ${url}`)
+    
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -93,6 +95,8 @@ export class JiraClient {
         ...options.headers,
       },
     })
+
+    console.log(`📡 Jira API Response Status: ${response.status} ${response.statusText}`)
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -133,7 +137,26 @@ export class JiraClient {
       return {} as T
     }
 
-    return response.json()
+    const data = await response.json()
+    
+    // Log response for debugging project endpoint
+    if (endpoint.includes('/project')) {
+      const dataStr = JSON.stringify(data)
+      console.log(`📦 Jira API Raw Response (first 2000 chars):`, dataStr.substring(0, 2000))
+      if (Array.isArray(data)) {
+        console.log(`📦 Response is array with ${data.length} items`)
+        if (data.length > 0) {
+          console.log(`📦 First item:`, JSON.stringify(data[0], null, 2))
+        }
+      } else if (data && typeof data === 'object') {
+        console.log(`📦 Response is object with keys:`, Object.keys(data))
+        if ('values' in data) {
+          console.log(`📦 Found 'values' key with ${Array.isArray(data.values) ? data.values.length : 'non-array'} items`)
+        }
+      }
+    }
+    
+    return data as T
   }
 
   /**
@@ -152,15 +175,124 @@ export class JiraClient {
   }
 
   /**
+   * Check if user has Browse Projects permission
+   */
+  async checkBrowseProjectsPermission(): Promise<{ hasPermission: boolean; error?: string }> {
+    try {
+      const permissions = await this.request<{
+        permissions: Record<string, { havePermission: boolean }>
+      }>('/mypermissions?permissions=BROWSE_PROJECTS')
+      
+      const hasPermission = permissions?.permissions?.BROWSE_PROJECTS?.havePermission ?? false
+      return { hasPermission }
+    } catch (error) {
+      console.warn('⚠️ Could not check Browse Projects permission:', error)
+      return { hasPermission: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    }
+  }
+
+  /**
    * Get all projects the user can access
+   * Jira API v3 /project endpoint returns all accessible projects in a single array
+   * We handle pagination for instances with many projects
    */
   async getProjects(): Promise<JiraProject[]> {
-    const response = await this.request<JiraProject[]>('/project')
-    return response.map(project => ({
-      id: project.id,
-      key: project.key,
-      name: project.name
-    }))
+    const allProjects: JiraProject[] = []
+    let startAt = 0
+    const maxResults = 50 // Fetch 50 at a time
+    
+    console.log(`🔍 Fetching Jira projects from: ${this.baseUrl}/rest/api/3/project`)
+    
+    while (true) {
+      try {
+        const endpoint = `/project?startAt=${startAt}&maxResults=${maxResults}`
+        console.log(`🔍 Requesting: ${endpoint}`)
+        
+        // Jira API v3 /project endpoint returns an array directly
+        const response = await this.request<JiraProject[]>(endpoint)
+        
+        console.log(`📥 Raw API response type:`, typeof response)
+        console.log(`📥 Raw API response is array:`, Array.isArray(response))
+        if (Array.isArray(response)) {
+          console.log(`📥 Response length:`, response.length)
+          if (response.length > 0) {
+            console.log(`📥 First project sample:`, JSON.stringify(response[0], null, 2))
+          }
+        } else {
+          console.log(`📥 Response structure:`, JSON.stringify(response, null, 2).substring(0, 500))
+        }
+        
+        if (!Array.isArray(response)) {
+          console.warn('⚠️ Unexpected Jira API response format:', typeof response, response)
+          // Try to extract projects from response if it's an object
+          if (response && typeof response === 'object') {
+            const responseObj = response as any
+            if (responseObj.values && Array.isArray(responseObj.values)) {
+              console.log('📋 Found projects in response.values')
+              const mappedProjects = responseObj.values.map((project: any) => ({
+                id: project.id,
+                key: project.key,
+                name: project.name
+              })).filter((p: any) => p.id && p.key && p.name)
+              allProjects.push(...mappedProjects)
+              break
+            }
+          }
+          break
+        }
+        
+        // Map projects to our format
+        const mappedProjects = response.map(project => ({
+          id: project.id,
+          key: project.key,
+          name: project.name
+        })).filter(p => p.id && p.key && p.name) // Filter out invalid projects
+        
+        allProjects.push(...mappedProjects)
+        
+        console.log(`📋 Fetched ${mappedProjects.length} projects (total so far: ${allProjects.length})`)
+        
+        // If we got fewer than maxResults, we've fetched all projects
+        if (response.length < maxResults) {
+          break
+        }
+        
+        // Continue to next page
+        startAt += maxResults
+      } catch (error) {
+        console.error('❌ Error fetching Jira projects:', error)
+        // If we have some projects, return them; otherwise throw
+        if (allProjects.length > 0) {
+          console.log(`⚠️ Returning ${allProjects.length} projects despite error`)
+          break
+        }
+        throw error
+      }
+    }
+    
+    // Remove duplicates by key (just in case)
+    const uniqueProjects = Array.from(
+      new Map(allProjects.map(p => [p.key, p])).values()
+    )
+    
+    console.log(`✅ Total unique projects fetched: ${uniqueProjects.length}`)
+    if (uniqueProjects.length === 0) {
+      console.warn('⚠️ WARNING: No projects found. Checking permissions...')
+      const permissionCheck = await this.checkBrowseProjectsPermission()
+      if (!permissionCheck.hasPermission) {
+        console.error('❌ User does not have BROWSE_PROJECTS permission!')
+        console.error('   This is required to list projects via the Jira API.')
+        console.error('   Please ensure the API user has "Browse Projects" permission.')
+        throw new Error('No projects found. The API user does not have "Browse Projects" permission. Please check your Jira user permissions or contact your Jira administrator.')
+      } else {
+        console.warn('⚠️ User has BROWSE_PROJECTS permission but no projects returned.')
+        console.warn('   This could mean:')
+        console.warn('   1. Jira instance has no projects')
+        console.warn('   2. User has permission but no project access')
+        console.warn('   3. API response format is different than expected')
+      }
+    }
+    return uniqueProjects
   }
 
   /**

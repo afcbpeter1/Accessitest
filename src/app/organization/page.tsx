@@ -126,6 +126,7 @@ export default function OrganizationPage() {
   const [loadingAzureDevOpsProjects, setLoadingAzureDevOpsProjects] = useState(false)
   const [loadingAzureDevOpsTeams, setLoadingAzureDevOpsTeams] = useState(false)
   const [loadingAzureDevOpsWorkItemTypes, setLoadingAzureDevOpsWorkItemTypes] = useState(false)
+  const [refreshingProjects, setRefreshingProjects] = useState(false)
 
   useEffect(() => {
     loadOrganizations()
@@ -906,8 +907,9 @@ export default function OrganizationPage() {
     }
   }
 
-  const loadAvailableProjects = async () => {
+  const loadAvailableProjects = async (showFeedback = false) => {
     try {
+      setRefreshingProjects(true)
       const token = localStorage.getItem('accessToken')
       if (!token) return
 
@@ -919,21 +921,78 @@ export default function OrganizationPage() {
               'Authorization': `Bearer ${token}`
             }
           })
+          
+          // Check HTTP status first
+          if (!jiraResponse.ok) {
+            const errorText = await jiraResponse.text()
+            let errorMessage = `HTTP ${jiraResponse.status}: ${jiraResponse.statusText}`
+            try {
+              const errorJson = JSON.parse(errorText)
+              errorMessage = errorJson.error || errorMessage
+            } catch {
+              errorMessage = errorText || errorMessage
+            }
+            console.error('❌ Jira API HTTP Error:', {
+              status: jiraResponse.status,
+              statusText: jiraResponse.statusText,
+              error: errorMessage
+            })
+            throw new Error(errorMessage)
+          }
+          
           const jiraData = await jiraResponse.json()
-          if (jiraData.success && jiraData.projects) {
+          console.log('📋 Jira API Response:', {
+            success: jiraData.success,
+            projectsCount: jiraData.projects?.length || 0,
+            error: jiraData.error,
+            hasProjects: !!jiraData.projects
+          })
+          
+          if (jiraData.success && jiraData.projects && jiraData.projects.length > 0) {
             // Use project key for Jira
             setAvailableJiraProjects(jiraData.projects.map((p: any) => p.key))
+            console.log(`✅ Loaded ${jiraData.projects.length} Jira projects:`, jiraData.projects.map((p: any) => p.key))
+            if (showFeedback) {
+              setMessage({ type: 'success', text: `Loaded ${jiraData.projects.length} Jira project(s) successfully` })
+            }
           } else {
+            const errorMsg = jiraData.error || (jiraData.projects?.length === 0 ? 'No projects found in your Jira instance' : 'Unknown error')
+            console.warn('⚠️ No Jira projects returned from API:', errorMsg, jiraData)
             // Fallback to saved project if API fails
-            setAvailableJiraProjects(jiraIntegration.projectKey ? [jiraIntegration.projectKey] : [])
+            if (jiraIntegration.projectKey) {
+              setAvailableJiraProjects([jiraIntegration.projectKey])
+              console.log(`⚠️ Using saved project key: ${jiraIntegration.projectKey}`)
+              if (showFeedback) {
+                setMessage({ type: 'info', text: `Using saved project: ${jiraIntegration.projectKey}. API returned: ${errorMsg}` })
+              }
+            } else {
+              setAvailableJiraProjects([])
+              if (showFeedback) {
+                setMessage({ type: 'error', text: errorMsg || 'No Jira projects found. Please check your Jira integration.' })
+              }
+            }
           }
         } catch (error) {
-          console.error('Error loading Jira projects:', error)
+          console.error('❌ Error loading Jira projects:', error)
           // Fallback to saved project
-          setAvailableJiraProjects(jiraIntegration.projectKey ? [jiraIntegration.projectKey] : [])
+          if (jiraIntegration.projectKey) {
+            setAvailableJiraProjects([jiraIntegration.projectKey])
+            console.log(`⚠️ Using saved project key as fallback: ${jiraIntegration.projectKey}`)
+            if (showFeedback) {
+              setMessage({ type: 'info', text: `Using saved project: ${jiraIntegration.projectKey}. Error: ${error instanceof Error ? error.message : 'Unknown error'}` })
+            }
+          } else {
+            setAvailableJiraProjects([])
+            if (showFeedback) {
+              setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Failed to load Jira projects' })
+            }
+          }
         }
       } else {
         setAvailableJiraProjects([])
+        if (showFeedback) {
+          setMessage({ type: 'info', text: 'No Jira integration configured' })
+        }
       }
 
       // Load all Azure DevOps projects
@@ -962,6 +1021,11 @@ export default function OrganizationPage() {
       }
     } catch (error) {
       console.error('Error loading available projects:', error)
+      if (showFeedback) {
+        setMessage({ type: 'error', text: 'Failed to load projects' })
+      }
+    } finally {
+      setRefreshingProjects(false)
     }
   }
 
@@ -1394,12 +1458,13 @@ export default function OrganizationPage() {
                                         <div className="flex items-center space-x-2">
                                           {(jiraIntegration || azureDevOpsIntegration) && (
                                             <button
-                                              onClick={loadAvailableProjects}
-                                              className="text-xs text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                                              onClick={() => loadAvailableProjects(true)}
+                                              disabled={refreshingProjects}
+                                              className="text-xs text-blue-600 hover:text-blue-800 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                               title="Refresh projects from integrations"
                                             >
-                                              <RefreshCw className="h-3 w-3" />
-                                              <span>Refresh</span>
+                                              <RefreshCw className={`h-3 w-3 ${refreshingProjects ? 'animate-spin' : ''}`} />
+                                              <span>{refreshingProjects ? 'Refreshing...' : 'Refresh'}</span>
                                             </button>
                                           )}
                                           {pendingTeamChanges[team.id] && Object.keys(pendingTeamChanges[team.id]).length > 0 && (
