@@ -1514,14 +1514,14 @@ async function sendReceiptEmailFromPaymentIntent(paymentIntent: Stripe.PaymentIn
 }
 
 function getPlanNameFromPriceId(priceId: string): string {
-  // Map price IDs to plan names
+  // Map price IDs to plan names (TEST MODE)
   const planNames: Record<string, string> = {
-    'price_1St8nsRYsgNlHbsUScMIfGLU': 'Unlimited Access Monthly',
-    'price_1St8sYRYsgNlHbsUleGDBwAO': 'Unlimited Access Yearly',
-    'price_1St8uARYsgNlHbsUusfjINkC': 'Starter Pack',
-    'price_1St95GRYsgNlHbsUWvQbvhhJ': 'Professional Pack',
-    'price_1St96IRYsgNlHbsUSh1gdwI0': 'Business Pack',
-    'price_1St9A3RYsgNlHbsU6Ukd0igt': 'Enterprise Pack',
+    'price_1StEUBRYsgNlHbsUvQSjyHmc': 'Unlimited Access Monthly',
+    'price_1StEV9RYsgNlHbsUKYgQYc9Y': 'Unlimited Access Yearly',
+    'price_1StELRRYsgNlHbsUNKrVhV17': 'Starter Pack',
+    'price_1StEMlRYsgNlHbsUuG03eTvT': 'Professional Pack',
+    'price_1StENrRYsgNlHbsUhxHMd8pf': 'Business Pack',
+    'price_1StEOSRYsgNlHbsU5jXg5PWx': 'Enterprise Pack',
   }
   
   // Add per-user pricing (organization seats) - check environment variables

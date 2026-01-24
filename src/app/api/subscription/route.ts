@@ -451,8 +451,8 @@ async function handleReactivateSubscription(request: NextRequest, user: any) {
 
 function getPlanNameFromPriceId(priceId: string): string {
   const planNames: Record<string, string> = {
-    'price_1St8nsRYsgNlHbsUScMIfGLU': 'Unlimited Access Monthly',
-    'price_1St8sYRYsgNlHbsUleGDBwAO': 'Unlimited Access Yearly',
+    'price_1StEUBRYsgNlHbsUvQSjyHmc': 'Unlimited Access Monthly',
+    'price_1StEV9RYsgNlHbsUKYgQYc9Y': 'Unlimited Access Yearly',
   }
   return planNames[priceId] || 'Unknown Plan'
 }
