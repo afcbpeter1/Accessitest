@@ -309,13 +309,29 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
           [planType, subscriptionId || '', userId]
         )
         
-        // Set unlimited credits immediately
-        await query(
-          `UPDATE user_credits 
-           SET unlimited_credits = true, updated_at = NOW() 
-           WHERE user_id = $1`,
+        // First, ensure user_credits row exists
+        const existingCredits = await queryOne(
+          `SELECT user_id FROM user_credits WHERE user_id = $1`,
           [userId]
         )
+        
+        if (!existingCredits) {
+          console.log(`⚠️ No user_credits row found for user ${userId}, creating one`)
+          await query(
+            `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
+             VALUES ($1, $2, $3, $4)`,
+            [userId, 0, 0, true]
+          )
+          console.log(`✅ Created user_credits row for user ${userId} with unlimited_credits=true`)
+        } else {
+          // Set unlimited credits for subscription users
+          await query(
+            `UPDATE user_credits 
+             SET unlimited_credits = true, updated_at = NOW() 
+             WHERE user_id = $1`,
+            [userId]
+          )
+        }
         
         await query('COMMIT')
         console.log(`✅ User ${userId} upgraded to ${planType} with unlimited credits IMMEDIATELY`)
@@ -407,13 +423,29 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
           [planType, subscription.id, userId]
         )
 
-        // Set unlimited credits for subscription users
-        await query(
-          `UPDATE user_credits 
-           SET unlimited_credits = true, updated_at = NOW() 
-           WHERE user_id = $1`,
+        // First, ensure user_credits row exists
+        const existingCredits = await queryOne(
+          `SELECT user_id FROM user_credits WHERE user_id = $1`,
           [userId]
         )
+        
+        if (!existingCredits) {
+          console.log(`⚠️ No user_credits row found for user ${userId}, creating one`)
+          await query(
+            `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
+             VALUES ($1, $2, $3, $4)`,
+            [userId, 0, 0, true]
+          )
+          console.log(`✅ Created user_credits row for user ${userId} with unlimited_credits=true`)
+        } else {
+          // Set unlimited credits for subscription users
+          await query(
+            `UPDATE user_credits 
+             SET unlimited_credits = true, updated_at = NOW() 
+             WHERE user_id = $1`,
+            [userId]
+          )
+        }
 
         await query('COMMIT')
         console.log(`✅ Updated user ${userId} to plan ${planType} with unlimited credits (from subscription.created)`)
