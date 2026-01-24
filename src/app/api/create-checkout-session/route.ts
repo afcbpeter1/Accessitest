@@ -131,9 +131,14 @@ export async function POST(request: NextRequest) {
         priceId,
         type: isSubscription ? 'subscription' : isCredit ? 'credits' : 'one-time',
       },
+      // Enable automatic receipt emails from Stripe
+      // Note: Receipt emails must also be enabled in Stripe Dashboard → Settings → Emails → Receipts
+      payment_intent_data: isSubscription ? undefined : {
+        receipt_email: userEmail || undefined,
+      },
     }
 
-    // Add customer email if provided
+    // Add customer email if provided (required for Stripe receipt emails)
     if (userEmail) {
       sessionParams.customer_email = userEmail
     }

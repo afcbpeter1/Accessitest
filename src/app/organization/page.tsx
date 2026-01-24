@@ -2415,6 +2415,15 @@ function BillingTab({ organization }: { organization: Organization | null }) {
   const [addingUsers, setAddingUsers] = useState(false)
   const [usersToAdd, setUsersToAdd] = useState(1)
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly')
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null)
+
+  // Auto-dismiss messages after 5 seconds
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => setMessage(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [message])
 
   useEffect(() => {
     if (organization) {
@@ -2478,7 +2487,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
         // If sessionId is 'immediate', seats were added directly - just reload
         if (data.sessionId === 'immediate') {
           loadBillingStatus()
-          alert('Users added successfully!')
+          setMessage({ type: 'success', text: 'Users added successfully! Your billing has been updated.' })
         } else {
           window.location.href = data.url
         }
@@ -2486,13 +2495,16 @@ function BillingTab({ organization }: { organization: Organization | null }) {
         // Show user-friendly error message
         const errorMsg = data.error || 'Failed to create checkout session'
         if (errorMsg.includes('must have an active') || errorMsg.includes('Please subscribe first')) {
-          alert('You need to have an active monthly or yearly subscription before you can add users to your organization. Please subscribe first.')
+          setMessage({ 
+            type: 'error', 
+            text: 'An active Unlimited Access subscription is required to add users to your organization. Please subscribe to a monthly or yearly plan first.' 
+          })
         } else {
-          alert(errorMsg)
+          setMessage({ type: 'error', text: errorMsg })
         }
       }
     } catch (error) {
-      alert('An error occurred')
+      setMessage({ type: 'error', text: 'An error occurred while processing your request. Please try again.' })
     } finally {
       setAddingUsers(false)
     }
@@ -2508,6 +2520,27 @@ function BillingTab({ organization }: { organization: Organization | null }) {
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Billing & Users</h3>
         <p className="text-gray-600">Manage your organization's user limits and billing</p>
       </div>
+
+      {/* Message */}
+      {message && (
+        <div className={`p-4 rounded-lg flex items-center ${
+          message.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 
+          message.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
+          'bg-blue-50 text-blue-800 border border-blue-200'
+        }`}>
+          {message.type === 'success' ? (
+            <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+          ) : message.type === 'error' ? (
+            <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+          ) : (
+            <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+          )}
+          <span className="flex-1">{message.text}</span>
+          <button onClick={() => setMessage(null)} className="ml-2 text-gray-400 hover:text-gray-600">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
 
       {billingStatus && (
         <div className="bg-gray-50 rounded-lg p-6">

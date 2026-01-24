@@ -208,18 +208,18 @@ export default function Pricing() {
         </div>
 
         {/* Subscription Plans */}
-        <div>
-          <div className="grid grid-cols-1 md:grid-cols-1 gap-6 items-stretch max-w-md mx-auto">
+        <div className="overflow-visible">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-6 items-stretch max-w-md mx-auto overflow-visible">
             {subscriptionPlans.map((plan) => (
               <div
                 key={plan.name}
-                className={`relative bg-white rounded-lg shadow-lg border-2 p-6 flex flex-col h-full ${
-                  plan.popular ? 'border-primary-500' : 'border-gray-200'
+                className={`relative bg-white rounded-lg shadow-lg border-2 p-6 flex flex-col h-full overflow-visible ${
+                  plan.popular ? 'border-primary-500 pt-8' : 'border-gray-200'
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-primary-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
+                    <span className="bg-primary-500 text-white px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap">
                       Most Popular
                     </span>
                   </div>
@@ -230,7 +230,7 @@ export default function Pricing() {
                   <p className="text-gray-700 mb-4">{plan.description}</p>
                   <div className="mb-2">
                     <span className="text-4xl font-bold text-gray-900">
-                      £{billingCycle === 'monthly' ? plan.price : plan.yearlyPrice}
+                      £{(billingCycle === 'monthly' ? plan.price : plan.yearlyPrice).toFixed(2)}
                     </span>
                     <span className="text-gray-700">
                       /{billingCycle === 'monthly' ? 'month' : 'year'}
@@ -287,10 +287,10 @@ export default function Pricing() {
                 </div>
                 <div className="mb-4">
                   <div className="text-2xl font-bold text-primary-600">
-                    £{creditPackage.price}
+                    £{creditPackage.price.toFixed(2)}
                   </div>
                   <div className="text-sm text-gray-700">
-                    £{creditPackage.pricePerCredit} per credit
+                    £{creditPackage.pricePerCredit.toFixed(2)} per credit
                   </div>
                 </div>
                 <button

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-middleware'
-import { queryOne } from '@/lib/database'
+import { queryOne, query } from '@/lib/database'
 import Stripe from 'stripe'
 import { sendSubscriptionReactivationEmail } from '@/lib/subscription-email-service'
+import { getPlanTypeFromPriceId } from '@/lib/stripe-config'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -509,20 +510,57 @@ async function handleSyncSubscription(request: NextRequest, user: any) {
       })
     }
 
-    // Update database with correct subscription ID
-    await queryOne(
-      `UPDATE users SET stripe_subscription_id = $1, updated_at = NOW() WHERE id = $2`,
-      [activeSubscription.id, user.userId]
-    )
-
     // Get full subscription details
     const subscription = await stripe.subscriptions.retrieve(activeSubscription.id, {
       expand: ['latest_invoice', 'customer']
     })
 
+    // Determine plan type from subscription price
+    const priceId = subscription.items.data[0]?.price?.id
+    const planType = priceId ? getPlanTypeFromPriceId(priceId) : 'complete_access'
+
+    // Update database with subscription ID AND activate the plan
+    await query('BEGIN')
+    try {
+      // Update user's plan and subscription ID
+      await query(
+        `UPDATE users SET plan_type = $1, stripe_subscription_id = $2, updated_at = NOW() 
+         WHERE id = $3`,
+        [planType, subscription.id, user.userId]
+      )
+
+      // Set unlimited credits for subscription users
+      // First ensure user_credits row exists
+      const existingCredits = await queryOne(
+        `SELECT user_id FROM user_credits WHERE user_id = $1`,
+        [user.userId]
+      )
+
+      if (!existingCredits) {
+        await query(
+          `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
+           VALUES ($1, $2, $3, $4)`,
+          [user.userId, 0, 0, true]
+        )
+      } else {
+        await query(
+          `UPDATE user_credits 
+           SET unlimited_credits = true, updated_at = NOW() 
+           WHERE user_id = $1`,
+          [user.userId]
+        )
+      }
+
+      await query('COMMIT')
+      console.log(`✅ Synced and activated subscription for user ${user.userId}: plan_type=${planType}, subscription_id=${subscription.id}`)
+    } catch (error) {
+      await query('ROLLBACK')
+      throw error
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'Subscription synced successfully',
+      message: 'Subscription synced and activated successfully',
       subscription: {
         id: subscription.id,
         status: subscription.status,
