@@ -6,12 +6,12 @@ import { query } from '@/lib/database'
 function getPlanNameFromPriceId(priceId: string): string {
   // Map price IDs to plan names
   const planNames: Record<string, string> = {
-    'price_1SWNfpDlESHKijI261EHN47W': 'Unlimited Monthly',
-    'price_1SWNgrDlESHKijI27OB0Qyg5': 'Unlimited Yearly',
-    'price_1S69FNDlESHKijI2GkCApIWQ': 'Starter Pack',
-    'price_1S69G7DlESHKijI2Eb3uIxHZ': 'Professional Pack',
-    'price_1S69GqDlESHKijI2PsvK4k4o': 'Business Pack',
-    'price_1S69HzDlESHKijI2K9H4o4FV': 'Enterprise Pack',
+    'price_1St8nsRYsgNlHbsUScMIfGLU': 'Unlimited Access Monthly',
+    'price_1St8sYRYsgNlHbsUleGDBwAO': 'Unlimited Access Yearly',
+    'price_1St8uARYsgNlHbsUusfjINkC': 'Starter Pack',
+    'price_1St95GRYsgNlHbsUWvQbvhhJ': 'Professional Pack',
+    'price_1St96IRYsgNlHbsUSh1gdwI0': 'Business Pack',
+    'price_1St9A3RYsgNlHbsU6Ukd0igt': 'Enterprise Pack',
   }
   
   return planNames[priceId] || 'Unknown Plan'
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       const prices = await stripe.prices.list({ limit: 20 })
       console.log('📋 Available prices in account:')
       prices.data.forEach(p => {
-        console.log(`  - ${p.id} (${p.nickname || 'no nickname'}) - $${(p.unit_amount || 0) / 100}`)
+        console.log(`  - ${p.id} (${p.nickname || 'no nickname'}) - £${(p.unit_amount || 0) / 100}`)
       })
     } catch (listError: any) {
       console.log('❌ Could not list prices:', listError.message)
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
     // Get price details for success URL
     const price = await stripe.prices.retrieve(priceId)
     const planName = getPlanNameFromPriceId(priceId)
-    const amount = `$${(price.unit_amount || 0) / 100}`
+    const amount = `£${(price.unit_amount || 0) / 100}`
     const billingPeriod = price.recurring ? 
       (price.recurring.interval === 'month' ? 'Monthly' : 'Yearly') : 
       undefined

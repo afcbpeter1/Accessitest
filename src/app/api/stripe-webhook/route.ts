@@ -822,13 +822,13 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
         if (owner?.email) {
           // Get billing period and amount
           const price = subscription.items.data[0]?.price
-          let amount = '$0.00'
+          let amount = '£0.00'
           let billingPeriod: 'monthly' | 'yearly' = 'monthly'
           
           if (price?.unit_amount) {
-            const unitPriceDollars = price.unit_amount / 100
-            const totalAmount = unitPriceDollars * quantity
-            amount = `$${totalAmount.toFixed(2)}`
+            const unitPrice = price.unit_amount / 100
+            const totalAmount = unitPrice * quantity
+            amount = `£${totalAmount.toFixed(2)}`
             
             if (price.recurring?.interval === 'year') {
               billingPeriod = 'yearly'
@@ -1024,7 +1024,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
       const price = subscription.items.data[0]?.price
       if (price) {
         const planName = getPlanNameFromPriceId(price.id)
-        const amount = `$${(invoice.amount_paid || 0) / 100}`
+        const amount = `£${(invoice.amount_paid || 0) / 100}`
         const billingPeriod = price.recurring?.interval === 'month' ? 'Monthly' : 'Yearly'
         
         // Calculate next billing date
@@ -1226,7 +1226,7 @@ async function sendReceiptEmailFromSession(session: Stripe.Checkout.Session) {
     // Get plan name and amount from priceId
     const planName = getPlanNameFromPriceId(priceId)
     const creditAmount = getCreditAmountFromPriceId(priceId)
-    const amount = `$${(session.amount_total || 0) / 100}`
+    const amount = `£${(session.amount_total || 0) / 100}`
 
     // Get user name from database
     let customerName: string | undefined = undefined
@@ -1302,7 +1302,7 @@ async function sendReceiptEmailFromSubscription(subscription: Stripe.Subscriptio
 
     const { planType } = subscription.metadata || {}
     const planName = getPlanNameFromPriceId(price.id)
-    const amount = `$${(price.unit_amount || 0) / 100}`
+    const amount = `£${(price.unit_amount || 0) / 100}`
     const billingPeriod = price.recurring ? 
       (price.recurring.interval === 'month' ? 'Monthly' : 'Yearly') : 
       undefined
@@ -1395,7 +1395,7 @@ async function handleChargeSucceeded(charge: Stripe.Charge) {
         const receiptData: ReceiptData = {
           customerEmail: customerEmail,
           planName: `Credit Purchase (${credits} credits)`,
-          amount: `$${(charge.amount / 100).toFixed(2)}`,
+          amount: `£${(charge.amount / 100).toFixed(2)}`,
           type: 'credits',
           transactionId: charge.id,
           date: new Date().toLocaleDateString('en-US', {
@@ -1445,7 +1445,7 @@ async function sendReceiptEmailFromPaymentIntent(paymentIntent: Stripe.PaymentIn
     }
 
     const planName = getPlanNameFromPriceId(priceId)
-    const amount = `$${(paymentIntent.amount || 0) / 100}`
+    const amount = `£${(paymentIntent.amount || 0) / 100}`
     const credits = creditAmount ? parseInt(creditAmount) : undefined
 
     // Get user name from database (try userId first, then email)
@@ -1516,12 +1516,12 @@ async function sendReceiptEmailFromPaymentIntent(paymentIntent: Stripe.PaymentIn
 function getPlanNameFromPriceId(priceId: string): string {
   // Map price IDs to plan names
   const planNames: Record<string, string> = {
-    'price_1SWNfpDlESHKijI261EHN47W': 'Unlimited Monthly',
-    'price_1SWNgrDlESHKijI27OB0Qyg5': 'Unlimited Yearly',
-    'price_1S69FNDlESHKijI2GkCApIWQ': 'Starter Pack',
-    'price_1S69G7DlESHKijI2Eb3uIxHZ': 'Professional Pack',
-    'price_1S69GqDlESHKijI2PsvK4k4o': 'Business Pack',
-    'price_1S69HzDlESHKijI2K9H4o4FV': 'Enterprise Pack',
+    'price_1St8nsRYsgNlHbsUScMIfGLU': 'Unlimited Access Monthly',
+    'price_1St8sYRYsgNlHbsUleGDBwAO': 'Unlimited Access Yearly',
+    'price_1St8uARYsgNlHbsUusfjINkC': 'Starter Pack',
+    'price_1St95GRYsgNlHbsUWvQbvhhJ': 'Professional Pack',
+    'price_1St96IRYsgNlHbsUSh1gdwI0': 'Business Pack',
+    'price_1St9A3RYsgNlHbsU6Ukd0igt': 'Enterprise Pack',
   }
   
   // Add per-user pricing (organization seats) - check environment variables
@@ -1598,13 +1598,13 @@ async function handleOrganizationSubscriptionCreated(subscription: Stripe.Subscr
     if (owner?.email) {
       // Get billing period and amount
       const price = subscription.items.data[0]?.price
-      let amount = '$0.00'
+      let amount = '£0.00'
       let billingPeriod: 'monthly' | 'yearly' = 'monthly'
       
       if (price?.unit_amount) {
-        const unitPriceDollars = price.unit_amount / 100
-        const totalAmount = unitPriceDollars * quantity
-        amount = `$${totalAmount.toFixed(2)}`
+        const unitPrice = price.unit_amount / 100
+        const totalAmount = unitPrice * quantity
+        amount = `£${totalAmount.toFixed(2)}`
         
         if (price.recurring?.interval === 'year') {
           billingPeriod = 'yearly'
@@ -1699,13 +1699,13 @@ async function handleOrganizationSubscriptionUpdated(subscription: Stripe.Subscr
           }
         }
         
-        // Get amount from subscription
-        // For subscriptions with quantity, unit_amount is per unit, so multiply by number of new users
-        const price = subscription.items.data[0]?.price
-        const unitAmount = price?.unit_amount || 0 // Price per unit in cents (e.g., 700 = $7.00)
-        const unitPriceDollars = unitAmount / 100
-        const totalAmountForNewUsers = unitPriceDollars * numberOfNewUsers
-        const amount = `$${totalAmountForNewUsers.toFixed(2)}`
+      // Get amount from subscription
+      // For subscriptions with quantity, unit_amount is per unit, so multiply by number of new users
+      const price = subscription.items.data[0]?.price
+      const unitAmount = price?.unit_amount || 0 // Price per unit in minor units (e.g., 700 = £7.00)
+      const unitPrice = unitAmount / 100
+      const totalAmountForNewUsers = unitPrice * numberOfNewUsers
+      const amount = `£${totalAmountForNewUsers.toFixed(2)}`
         
         // Get billing period from the organization subscription price (not owner's subscription)
         const isYearly = price?.recurring?.interval === 'year'
@@ -1713,7 +1713,7 @@ async function handleOrganizationSubscriptionUpdated(subscription: Stripe.Subscr
           billingPeriod = 'yearly'
         }
         
-        console.log(`💰 Billing calculation: ${numberOfNewUsers} seats × $${unitPriceDollars.toFixed(2)} per seat = ${amount} ${billingPeriod}`)
+        console.log(`💰 Billing calculation: ${numberOfNewUsers} seats × £${unitPrice.toFixed(2)} per seat = ${amount} ${billingPeriod}`)
         
         // Send billing confirmation email
         const { EmailService } = await import('@/lib/email-service')
@@ -1791,7 +1791,7 @@ async function handleOrganizationCheckoutCompleted(session: Stripe.Checkout.Sess
     }
     
     // Get line items to calculate amount accurately
-    let amount = '$0.00'
+    let amount = '£0.00'
     let billingPeriod: 'monthly' | 'yearly' = 'monthly'
     
     try {
@@ -1802,16 +1802,16 @@ async function handleOrganizationCheckoutCompleted(session: Stripe.Checkout.Sess
         const quantity = lineItem.quantity || numberOfUsers
         
         if (price?.unit_amount) {
-          const unitPriceDollars = price.unit_amount / 100
-          const totalAmount = unitPriceDollars * quantity
-          amount = `$${totalAmount.toFixed(2)}`
+          const unitPrice = price.unit_amount / 100
+          const totalAmount = unitPrice * quantity
+          amount = `£${totalAmount.toFixed(2)}`
           
           // Get billing period from price
           if (price.recurring?.interval === 'year') {
             billingPeriod = 'yearly'
           }
           
-          console.log(`💰 Checkout calculation: ${quantity} seats × $${unitPriceDollars.toFixed(2)} per seat = ${amount} ${billingPeriod}`)
+          console.log(`💰 Checkout calculation: ${quantity} seats × £${unitPrice.toFixed(2)} per seat = ${amount} ${billingPeriod}`)
         }
       }
     } catch (error) {
@@ -1821,10 +1821,10 @@ async function handleOrganizationCheckoutCompleted(session: Stripe.Checkout.Sess
         try {
           const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
           const price = subscription.items.data[0]?.price
-          if (price?.unit_amount) {
-            const unitPriceDollars = price.unit_amount / 100
-            const totalAmount = unitPriceDollars * numberOfUsers
-            amount = `$${totalAmount.toFixed(2)}`
+        if (price?.unit_amount) {
+          const unitPrice = price.unit_amount / 100
+          const totalAmount = unitPrice * numberOfUsers
+          amount = `£${totalAmount.toFixed(2)}`
             
             if (price.recurring?.interval === 'year') {
               billingPeriod = 'yearly'
@@ -2019,13 +2019,13 @@ async function handleOwnerSubscriptionWithOrganizationSeats(subscription: Stripe
               item.price.id === monthlySeatPriceId || item.price.id === yearlySeatPriceId
             )?.price
             
-            let amount = '$0.00'
+            let amount = '£0.00'
             let billingPeriod: 'monthly' | 'yearly' = 'monthly'
             
             if (price?.unit_amount) {
-              const unitPriceDollars = price.unit_amount / 100
-              const totalAmount = unitPriceDollars * numberOfNewSeats
-              amount = `$${totalAmount.toFixed(2)}`
+              const unitPrice = price.unit_amount / 100
+              const totalAmount = unitPrice * numberOfNewSeats
+              amount = `£${totalAmount.toFixed(2)}`
               
               if (price.recurring?.interval === 'year') {
                 billingPeriod = 'yearly'

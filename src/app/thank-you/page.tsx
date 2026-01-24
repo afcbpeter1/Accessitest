@@ -13,7 +13,7 @@ function ThankYouPageContent() {
   const [refreshCount, setRefreshCount] = useState(0)
 
   const plan = searchParams.get('plan') || 'Your Purchase'
-  const amount = searchParams.get('amount') || '$0.00'
+  const amount = searchParams.get('amount') || '£0.00'
   const type = searchParams.get('type') || 'purchase'
   const billing = searchParams.get('billing')
   const success = searchParams.get('success')

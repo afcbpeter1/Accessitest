@@ -2584,7 +2584,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                   <div className="font-semibold">Monthly</div>
                   {billingStatus?.pricing?.monthly && (
                     <div className="text-xs mt-1">
-                      ${billingStatus.pricing.monthly.amount.toFixed(2)}/user/month
+                      £{billingStatus.pricing.monthly.amount.toFixed(2)}/user/month
                     </div>
                   )}
                 </button>
@@ -2600,7 +2600,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                   <div className="font-semibold">Yearly</div>
                   {billingStatus?.pricing?.yearly && (
                     <div className="text-xs mt-1">
-                      ${billingStatus.pricing.yearly.amount.toFixed(2)}/user/year
+                      £{billingStatus.pricing.yearly.amount.toFixed(2)}/user/year
                     </div>
                   )}
                 </button>
@@ -2631,16 +2631,16 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                   <span className="text-sm font-medium text-gray-700">Total Amount:</span>
                   <span className="text-2xl font-bold text-gray-900">
                     {billingPeriod === 'monthly' && billingStatus.pricing.monthly
-                      ? `$${(billingStatus.pricing.monthly.amount * usersToAdd).toFixed(2)}`
+                      ? `£${(billingStatus.pricing.monthly.amount * usersToAdd).toFixed(2)}`
                       : billingPeriod === 'yearly' && billingStatus.pricing.yearly
-                      ? `$${(billingStatus.pricing.yearly.amount * usersToAdd).toFixed(2)}`
-                      : '$0.00'}
+                      ? `£${(billingStatus.pricing.yearly.amount * usersToAdd).toFixed(2)}`
+                      : '£0.00'}
                   </span>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
                   {billingPeriod === 'monthly' 
-                    ? `Billed monthly: ${usersToAdd} × $${billingStatus.pricing.monthly?.amount.toFixed(2) || '0.00'} = $${((billingStatus.pricing.monthly?.amount || 0) * usersToAdd).toFixed(2)}`
-                    : `Billed yearly: ${usersToAdd} × $${billingStatus.pricing.yearly?.amount.toFixed(2) || '0.00'} = $${((billingStatus.pricing.yearly?.amount || 0) * usersToAdd).toFixed(2)}`}
+                    ? `Billed monthly: ${usersToAdd} × £${billingStatus.pricing.monthly?.amount.toFixed(2) || '0.00'} = £${((billingStatus.pricing.monthly?.amount || 0) * usersToAdd).toFixed(2)}`
+                    : `Billed yearly: ${usersToAdd} × £${billingStatus.pricing.yearly?.amount.toFixed(2) || '0.00'} = £${((billingStatus.pricing.yearly?.amount || 0) * usersToAdd).toFixed(2)}`}
                 </div>
               </div>
             )}

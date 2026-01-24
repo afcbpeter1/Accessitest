@@ -211,7 +211,7 @@ async function handleGetSubscription(request: NextRequest, user: any) {
     // Get price details
     const price = subscription.items.data[0]?.price
     const billingPeriod = price?.recurring?.interval === 'month' ? 'monthly' : 'yearly'
-    const amount = price ? `$${(price.unit_amount || 0) / 100}` : 'N/A'
+    const amount = price ? `£${(price.unit_amount || 0) / 100}` : 'N/A'
 
     // Get dates from Stripe - ALWAYS prioritize invoice dates as they're more reliable
     let currentPeriodStart: string | null = null
@@ -451,8 +451,8 @@ async function handleReactivateSubscription(request: NextRequest, user: any) {
 
 function getPlanNameFromPriceId(priceId: string): string {
   const planNames: Record<string, string> = {
-    'price_1SWNfpDlESHKijI261EHN47W': 'Unlimited Monthly',
-    'price_1SWNgrDlESHKijI27OB0Qyg5': 'Unlimited Yearly',
+    'price_1St8nsRYsgNlHbsUScMIfGLU': 'Unlimited Access Monthly',
+    'price_1St8sYRYsgNlHbsUleGDBwAO': 'Unlimited Access Yearly',
   }
   return planNames[priceId] || 'Unknown Plan'
 }

@@ -34,9 +34,9 @@ export default function Pricing() {
   const subscriptionPlans: PricingPlan[] = [
     {
       name: 'Unlimited Access',
-      description: 'Both web and document scanning',
-      price: 29.99,
-      yearlyPrice: 287.90, // $29.99 × 12 × 0.8 = $287.90/year
+      description: 'Both web and document scanning (prices in GBP, tax excluded)',
+      price: 19.99,
+      yearlyPrice: 191.90, // £19.99 × 12 × 0.8 ≈ £191.90/year (20% discount)
       features: [
         'Unlimited website scans',
         'Unlimited document scans',
@@ -230,7 +230,7 @@ export default function Pricing() {
                   <p className="text-gray-700 mb-4">{plan.description}</p>
                   <div className="mb-2">
                     <span className="text-4xl font-bold text-gray-900">
-                      ${billingCycle === 'monthly' ? plan.price : plan.yearlyPrice}
+                      £{billingCycle === 'monthly' ? plan.price : plan.yearlyPrice}
                     </span>
                     <span className="text-gray-700">
                       /{billingCycle === 'monthly' ? 'month' : 'year'}
@@ -238,8 +238,8 @@ export default function Pricing() {
                   </div>
                   {billingCycle === 'yearly' && (
                     <div className="text-sm text-green-600">
-                      <p>Save ${((plan.price * 12) - plan.yearlyPrice).toFixed(0)} per year</p>
-                      <p className="text-xs text-gray-600 mt-1">Billed annually</p>
+                      <p>Save £{((plan.price * 12) - plan.yearlyPrice).toFixed(2)} per year (20% off monthly price)</p>
+                      <p className="text-xs text-gray-600 mt-1">Billed annually. Prices exclude tax.</p>
                     </div>
                   )}
                 </div>
@@ -269,7 +269,7 @@ export default function Pricing() {
           <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Credit Packages</h2>
           <p className="text-center text-gray-700 mb-8 max-w-2xl mx-auto">
             Don't need unlimited access? Buy credits and scan only when you need to. 
-            Each scan costs $1.50 regardless of document size or complexity.
+            Each scan costs £1.50 regardless of document size or complexity (tax excluded).
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -287,10 +287,10 @@ export default function Pricing() {
                 </div>
                 <div className="mb-4">
                   <div className="text-2xl font-bold text-primary-600">
-                    ${creditPackage.price}
+                    £{creditPackage.price}
                   </div>
                   <div className="text-sm text-gray-700">
-                    ${creditPackage.pricePerCredit} per credit
+                    £{creditPackage.pricePerCredit} per credit
                   </div>
                 </div>
                 <button
