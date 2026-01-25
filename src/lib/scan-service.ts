@@ -1,5 +1,6 @@
 import { AccessibilityScanner, ScanResult } from './accessibility-scanner';
 import puppeteer from 'puppeteer';
+import { getPuppeteerLaunchOptions } from './puppeteer-config';
 
 export interface ScanOptions {
   url: string;
@@ -34,8 +35,8 @@ export class ScanService {
     onProgress?: (progress: ScanProgress) => void
   ): Promise<string[]> {
     try {
-      // Initialize browser
-      this.browser = await puppeteer.launch({
+      // Initialize browser (uses PUPPETEER_EXECUTABLE_PATH on Railway/server)
+      this.browser = await puppeteer.launch(getPuppeteerLaunchOptions({
         headless: 'new',
         args: [
           '--no-sandbox',
@@ -46,7 +47,7 @@ export class ScanService {
           '--no-zygote',
           '--disable-gpu'
         ]
-      });
+      }));
 
       // Crawl the website to get all URLs
       onProgress?.({
@@ -86,11 +87,11 @@ export class ScanService {
     onProgress?: (progress: ScanProgress) => void
   ): Promise<ScanResult[]> {
     try {
-      // Initialize browser
-      this.browser = await puppeteer.launch({
+      // Initialize browser (uses PUPPETEER_EXECUTABLE_PATH on Railway/server)
+      this.browser = await puppeteer.launch(getPuppeteerLaunchOptions({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
+      }));
 
       // Crawl the website to get all URLs
       onProgress?.({
@@ -294,10 +295,10 @@ export class ScanService {
    */
   async initializeBrowser(): Promise<void> {
     if (!this.browser) {
-      this.browser = await puppeteer.launch({
+      this.browser = await puppeteer.launch(getPuppeteerLaunchOptions({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
+      }));
     }
   }
 
