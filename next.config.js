@@ -22,6 +22,9 @@ const nextConfig = {
   // Pages will be rendered dynamically at runtime instead
   experimental: {
     // This helps with build stability
+    // Keep @sparticuz/chromium out of the server bundle so its __dirname stays correct
+    // (it looks for ../bin relative to __dirname; when bundled that became .next/server/bin)
+    serverComponentsExternalPackages: ['@sparticuz/chromium'],
   },
   // Skip static optimization for pages that use contexts
   // They will be rendered dynamically at runtime

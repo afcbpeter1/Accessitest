@@ -4,6 +4,7 @@
  * - Railway/server (Linux): @sparticuz/chromium so no system install is needed
  */
 
+import path from 'node:path'
 import puppeteer from 'puppeteer'
 
 // Use the actual parameter type from puppeteer.launch
@@ -29,7 +30,10 @@ export async function getLaunchOptionsForServerAsync(
   const isLinux = process.platform === 'linux'
   if (isLinux) {
     const chromium = (await import('@sparticuz/chromium')).default
-    const executablePath = await chromium.executablePath()
+    // Pass explicit bin path: package uses __dirname by default, which becomes
+    // .next/server (or similar) when bundled, so "/app/.next/server/bin" does not exist.
+    const binDir = path.join(path.dirname(require.resolve('@sparticuz/chromium/package.json')), 'bin')
+    const executablePath = await chromium.executablePath(binDir)
     const args = [
       ...chromium.args,
       '--no-sandbox',
