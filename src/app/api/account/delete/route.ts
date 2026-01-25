@@ -141,6 +141,12 @@ export async function DELETE(request: NextRequest) {
         }
       }
 
+      // Clear self-referential and optional FKs so the user row can be deleted
+      await client.query(
+        `UPDATE users SET default_organization_id = NULL, updated_at = NOW() WHERE id = $1`,
+        [user.userId]
+      )
+
       // Finally, delete the user record itself
       const deleteUserResult = await client.query('DELETE FROM users WHERE id = $1', [user.userId])
 

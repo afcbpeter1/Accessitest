@@ -1,3 +1,7 @@
+/**
+ * Email verification and resend.
+ * Test mode: set VERIFICATION_TEST_CODE (e.g. "123456") in env to accept that code for any unverified user.
+ */
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { queryOne, query } from '@/lib/database'
@@ -38,13 +42,28 @@ export async function POST(request: NextRequest) {
 
 async function handleEmailVerification(email: string, verificationCode: string) {
   try {
-    // Find user with matching email and verification code
-    const user = await queryOne(
+    const testCode = process.env.VERIFICATION_TEST_CODE?.trim()
+    const usingTestCode = !!testCode && verificationCode === testCode
+
+    let user = await queryOne(
       `SELECT id, email, first_name, last_name, company, plan_type, verification_code, verification_code_expires_at, email_verified
-       FROM users 
-       WHERE email = $1 AND verification_code = $2`,
+       FROM users WHERE email = $1 AND verification_code = $2`,
       [email, verificationCode]
     )
+
+    if (!user && usingTestCode) {
+      user = await queryOne(
+        `SELECT id, email, first_name, last_name, company, plan_type, verification_code, verification_code_expires_at, email_verified
+         FROM users WHERE email = $1`,
+        [email]
+      )
+      if (user?.email_verified) {
+        return NextResponse.json(
+          { success: false, error: 'Email is already verified' },
+          { status: 400 }
+        )
+      }
+    }
 
     if (!user) {
       return NextResponse.json(
@@ -53,11 +72,9 @@ async function handleEmailVerification(email: string, verificationCode: string) 
       )
     }
 
-    // Check if code has expired
     const now = new Date()
-    const expiresAt = new Date(user.verification_code_expires_at)
-    
-    if (now > expiresAt) {
+    const expiresAt = user.verification_code_expires_at ? new Date(user.verification_code_expires_at) : null
+    if (!usingTestCode && expiresAt && now > expiresAt) {
       return NextResponse.json(
         { success: false, error: 'Verification code has expired. Please request a new one.' },
         { status: 400 }

@@ -14,12 +14,25 @@ export default function LoginPage() {
   const [logoutMessage, setLogoutMessage] = useState('')
   const router = useRouter()
 
-  // Check for logout message from sessionStorage
+  // Check for logout message and clear any stale/expired token so "session expired" doesn’t show again
   useEffect(() => {
     const message = sessionStorage.getItem('loginMessage')
     if (message) {
       setLogoutMessage(message)
       sessionStorage.removeItem('loginMessage')
+    }
+    const token = localStorage.getItem('accessToken')
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('user')
+        }
+      } catch {
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('user')
+      }
     }
   }, [])
 

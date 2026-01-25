@@ -31,9 +31,10 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
 
           localStorage.removeItem('accessToken')
           localStorage.removeItem('user')
+          sessionStorage.setItem('loginMessage', 'Your session has expired. Please log in again.')
           showLogoutNotification('Your session has expired. Please log in again.')
           setTimeout(() => {
-            window.location.href = '/home'
+            window.location.href = '/login'
           }, 1000)
           throw new AuthError('Your session has expired. Please log in again.', 'TOKEN_EXPIRED')
         }
@@ -42,9 +43,10 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
 
       localStorage.removeItem('accessToken')
       localStorage.removeItem('user')
+      sessionStorage.setItem('loginMessage', 'Invalid session. Please log in again.')
       showLogoutNotification('Invalid session. Please log in again.')
       setTimeout(() => {
-        window.location.href = '/home'
+        window.location.href = '/login'
       }, 1000)
       throw new AuthError('Invalid session. Please log in again.', 'TOKEN_INVALID')
     }

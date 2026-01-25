@@ -1,6 +1,12 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Avoid crashing when key is missing (e.g. test mode); other services use same pattern
+const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-development')
+
+/** In test mode, send all verification emails to this address (e.g. your Resend account email). */
+const VERIFICATION_REDIRECT = process.env.RESEND_VERIFICATION_REDIRECT_EMAIL?.trim()
+/** Sender address; use a verified domain in production. onboarding@resend.dev can only send to your Resend account email. */
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL?.trim() || 'A11ytest.ai <onboarding@resend.dev>'
 
 export interface EmailVerificationData {
   email: string
@@ -30,10 +36,26 @@ export class EmailService {
     try {
       const { email, verificationCode, firstName = 'User' } = data
 
-      // Use same hardcoded address as receipt emails for consistency
+      const apiKey = process.env.RESEND_API_KEY?.trim()
+      const hasValidKey = !!apiKey && apiKey !== 'dummy-key-for-development'
+
+      if (!hasValidKey) {
+        console.warn('⚠️ RESEND_API_KEY not set or dummy – verification email skipped.')
+        console.warn(`   TEST MODE: Verification code for ${email} is: ${verificationCode}`)
+        console.warn('   Set RESEND_API_KEY and (optionally) RESEND_VERIFICATION_REDIRECT_EMAIL for real emails.')
+        return true
+      }
+
+      // In test mode, onboarding@resend.dev can only send to your Resend account email.
+      // Redirect all verification emails to one inbox so you actually receive them.
+      const toAddress = VERIFICATION_REDIRECT || email
+      if (VERIFICATION_REDIRECT && VERIFICATION_REDIRECT !== email) {
+        console.log(`📧 Verification redirected to ${VERIFICATION_REDIRECT} (signup email was ${email})`)
+      }
+
       const result = await resend.emails.send({
-        from: 'A11ytest.ai <onboarding@resend.dev>',
-        to: [email],
+        from: FROM_EMAIL,
+        to: [toAddress],
         subject: 'Verify your A11ytest.ai account',
         html: `
           <!DOCTYPE html>
@@ -72,7 +94,7 @@ export class EmailService {
             </div>
             <div class="footer">
               <p>A11ytest.ai - Professional Accessibility Testing</p>
-              <p>This email was sent to ${email}</p>
+              <p>This verification is for ${email}</p>
             </div>
           </body>
           </html>
@@ -96,7 +118,7 @@ export class EmailService {
           The A11ytest.ai Team
           
           A11ytest.ai - Professional Accessibility Testing
-          This email was sent to ${email}
+          This verification is for ${email}
         `
       })
 
