@@ -10,7 +10,8 @@
     "build:strict": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test:puppeteer": "tsx scripts/verify-puppeteer.ts"
   },
   "dependencies": {
     "@adobe/pdfservices-node-sdk": "^4.1.0",
@@ -75,6 +76,7 @@
     "zod": "^3.22.0"
   },
   "devDependencies": {
+    "tsx": "^4.19.0",
     "@types/react": "18.3.23",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
