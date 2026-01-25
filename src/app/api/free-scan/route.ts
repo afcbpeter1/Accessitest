@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import puppeteer from 'puppeteer'
+import { getLaunchOptionsForServerAsync } from '@/lib/puppeteer-config'
 import { query } from '@/lib/database'
 import { VPNDetector } from '@/lib/vpn-detector'
+
+const puppeteer = process.platform === 'linux' ? require('puppeteer-core') : require('puppeteer')
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,11 +65,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Launch browser and scan the homepage directly
-    const browser = await puppeteer.launch({
+    // Launch browser and scan the homepage directly (uses @sparticuz/chromium on Railway/Linux)
+    const browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
       headless: 'new',
       args: [
-        '--no-sandbox', 
+        '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-web-security',
         '--disable-features=VizDisplayCompositor',
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
         '--no-zygote',
         '--single-process'
       ]
-    })
+    }))
 
     try {
       const page = await browser.newPage()

@@ -1,4 +1,7 @@
-import puppeteer, { Browser } from 'puppeteer'
+import type { Browser } from 'puppeteer'
+import { getLaunchOptionsForServerAsync } from './puppeteer-config'
+
+const puppeteer = process.platform === 'linux' ? require('puppeteer-core') : require('puppeteer')
 
 export interface ScreenshotResult {
   fullPage: string // base64 encoded screenshot
@@ -20,7 +23,7 @@ export class ScreenshotService {
 
   async initialize() {
     if (!this.browser) {
-      this.browser = await puppeteer.launch({
+      this.browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
         headless: true,
         args: [
           '--no-sandbox',
@@ -33,7 +36,7 @@ export class ScreenshotService {
           '--no-zygote',
           '--single-process'
         ]
-      })
+      })) as Browser
     }
   }
 

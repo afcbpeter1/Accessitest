@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import puppeteer from 'puppeteer'
-import { getMinimalPuppeteerOptions } from '@/lib/puppeteer-config'
+import { getLaunchOptionsForServerAsync } from '@/lib/puppeteer-config'
+
+const puppeteer = process.platform === 'linux' ? require('puppeteer-core') : require('puppeteer')
 
 export async function GET() {
   try {
-    const browser = await puppeteer.launch(getMinimalPuppeteerOptions({
+    const browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
       args: [
         '--disable-web-security',
         '--disable-features=VizDisplayCompositor',

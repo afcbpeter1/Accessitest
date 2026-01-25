@@ -1,6 +1,10 @@
 import { AccessibilityScanner, ScanResult } from './accessibility-scanner';
-import puppeteer from 'puppeteer';
-import { getPuppeteerLaunchOptions } from './puppeteer-config';
+import { getLaunchOptionsForServerAsync } from './puppeteer-config';
+
+// On Linux (Railway/server) use puppeteer-core + @sparticuz/chromium; locally use full puppeteer
+const puppeteer = process.platform === 'linux'
+  ? require('puppeteer-core')
+  : require('puppeteer');
 
 export interface ScanOptions {
   url: string;
@@ -35,8 +39,8 @@ export class ScanService {
     onProgress?: (progress: ScanProgress) => void
   ): Promise<string[]> {
     try {
-      // Initialize browser (uses PUPPETEER_EXECUTABLE_PATH on Railway/server)
-      this.browser = await puppeteer.launch(getPuppeteerLaunchOptions({
+      // Use @sparticuz/chromium on Railway/Linux so we don't depend on /usr/bin/chromium
+      this.browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
         headless: 'new',
         args: [
           '--no-sandbox',
@@ -87,8 +91,8 @@ export class ScanService {
     onProgress?: (progress: ScanProgress) => void
   ): Promise<ScanResult[]> {
     try {
-      // Initialize browser (uses PUPPETEER_EXECUTABLE_PATH on Railway/server)
-      this.browser = await puppeteer.launch(getPuppeteerLaunchOptions({
+      // Use @sparticuz/chromium on Railway/Linux
+      this.browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       }));
@@ -295,7 +299,7 @@ export class ScanService {
    */
   async initializeBrowser(): Promise<void> {
     if (!this.browser) {
-      this.browser = await puppeteer.launch(getPuppeteerLaunchOptions({
+      this.browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       }));

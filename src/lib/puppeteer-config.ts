@@ -1,6 +1,7 @@
 /**
  * Puppeteer configuration utility
- * Supports both bundled Chromium (development) and system Chromium (production)
+ * - Local: bundled Chromium or PUPPETEER_EXECUTABLE_PATH
+ * - Railway/server (Linux): @sparticuz/chromium so no system install is needed
  */
 
 import puppeteer from 'puppeteer'
@@ -9,20 +10,42 @@ import puppeteer from 'puppeteer'
 type PuppeteerLaunchOptions = Parameters<typeof puppeteer.launch>[0]
 
 /**
- * Get the Chromium executable path
+ * Get the Chromium executable path (sync)
  * Only uses environment variable - does not guess paths
- * This prevents errors when paths don't exist
  */
 function getChromiumPath(): string | undefined {
-  // Only use environment variable - don't guess paths
-  // This prevents ENOENT errors when paths don't exist
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    return process.env.PUPPETEER_EXECUTABLE_PATH
-  }
-
-  // Return undefined to use bundled Chromium (if available)
-  // or let Puppeteer handle the error gracefully
+  const path = process.env.PUPPETEER_EXECUTABLE_PATH?.trim()
+  if (path) return path
   return undefined
+}
+
+/**
+ * Launch options for server/Railway: use @sparticuz/chromium on Linux so
+ * we don't depend on /usr/bin/chromium existing. Call this with puppeteer-core.
+ */
+export async function getLaunchOptionsForServerAsync(
+  customOptions: Partial<PuppeteerLaunchOptions> = {}
+): Promise<PuppeteerLaunchOptions> {
+  const isLinux = process.platform === 'linux'
+  if (isLinux) {
+    const chromium = (await import('@sparticuz/chromium')).default
+    const executablePath = await chromium.executablePath()
+    const args = [
+      ...chromium.args,
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      ...(Array.isArray(customOptions.args) ? customOptions.args : []),
+    ]
+    return {
+      ...customOptions,
+      headless: (customOptions.headless as 'new') ?? 'new',
+      executablePath,
+      args,
+    }
+  }
+  return getPuppeteerLaunchOptions(customOptions)
 }
 
 /**
