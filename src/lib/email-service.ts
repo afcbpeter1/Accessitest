@@ -5,7 +5,7 @@ const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-developme
 
 /** In test mode, send all verification emails to this address (e.g. your Resend account email). */
 const VERIFICATION_REDIRECT = process.env.RESEND_VERIFICATION_REDIRECT_EMAIL?.trim()
-/** Sender address; use a verified domain in production. onboarding@resend.dev can only send to your Resend account email. */
+/** Sender address. Must be a verified domain in production (e.g. onboarding@a11ytest.ai). onboarding@resend.dev only delivers to the Resend account owner. */
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL?.trim() || 'A11ytest.ai <onboarding@resend.dev>'
 
 export interface EmailVerificationData {
@@ -46,11 +46,13 @@ export class EmailService {
         return true
       }
 
-      // In test mode, onboarding@resend.dev can only send to your Resend account email.
-      // Redirect all verification emails to one inbox so you actually receive them.
+      // onboarding@resend.dev only delivers to the Resend account owner. For real users, use a verified domain and RESEND_FROM_EMAIL.
       const toAddress = VERIFICATION_REDIRECT || email
       if (VERIFICATION_REDIRECT && VERIFICATION_REDIRECT !== email) {
         console.log(`📧 Verification redirected to ${VERIFICATION_REDIRECT} (signup email was ${email})`)
+      }
+      if (FROM_EMAIL.includes('onboarding@resend.dev')) {
+        console.warn('⚠️ Using onboarding@resend.dev – only the Resend account owner receives mail. Set RESEND_FROM_EMAIL to a verified address (e.g. onboarding@a11ytest.ai) for production.')
       }
 
       const result = await resend.emails.send({
@@ -123,8 +125,9 @@ export class EmailService {
       })
 
       if (result.error) {
-        console.error('❌ Failed to send verification email. Error:', JSON.stringify(result.error, null, 2))
-        console.error('📧 Attempted to send to:', email)
+        console.error('❌ Resend verification email failed:', JSON.stringify(result.error, null, 2))
+        console.error('   From:', FROM_EMAIL, '| To:', toAddress, '| Signup email:', email)
+        console.error('   Tip: Use RESEND_FROM_EMAIL with a verified domain (e.g. A11ytest.ai <onboarding@a11ytest.ai>) and ensure a11ytest.ai is verified in Resend.')
         return false
       }
       return true

@@ -68,15 +68,14 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
       headers,
     })
     
-    // Handle authentication and server errors
-    if (response.status === 401 || response.status === 500) {
+    // Only treat 401 (and 403) as session/auth issues. Do NOT treat 500 as "session expired".
+    if (response.status === 401 || response.status === 403) {
       const errorData = await response.json().catch(() => ({}))
       
       // Clear stored auth data
       localStorage.removeItem('accessToken')
       localStorage.removeItem('user')
       
-      // Determine error type and message
       let errorCode: AuthError['code'] = 'TOKEN_EXPIRED'
       let errorMessage = 'Your session has expired. Please log in again.'
       
@@ -91,19 +90,16 @@ export async function authenticatedFetch(url: string, options: RequestInit = {})
           errorCode = 'UNAUTHORIZED'
           errorMessage = 'Authentication required. Please log in.'
         }
-      } else if (response.status === 500) {
+      } else {
         errorCode = 'UNAUTHORIZED'
-        errorMessage = 'Server error detected. Please log in again to refresh your session.'
+        errorMessage = 'You don’t have permission to do that. Please log in again.'
       }
       
-      // Show user-friendly notification
       showLogoutNotification(errorMessage)
-      
-      // Redirect to home page after a short delay
+      sessionStorage.setItem('loginMessage', errorMessage)
       setTimeout(() => {
-        window.location.href = '/home'
+        window.location.href = '/login'
       }, 1500)
-      
       throw new AuthError(errorMessage, errorCode)
     }
     
