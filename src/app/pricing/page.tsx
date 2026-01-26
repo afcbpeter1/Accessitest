@@ -78,6 +78,11 @@ export default function Pricing() {
   ]
 
   const handleSubscribe = async (plan: PricingPlan) => {
+    if (!user) {
+      alert('Please sign in to subscribe. Credits and subscriptions are applied to your account.')
+      window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+      return
+    }
     setSelectedPlan(plan.name)
     
     try {
@@ -121,6 +126,11 @@ export default function Pricing() {
   }
 
   const handleBuyCredits = async (creditPackage: CreditPackage) => {
+    if (!user) {
+      alert('Please sign in to buy credits. Purchased credits are added to your account.')
+      window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+      return
+    }
     setSelectedCredits(creditPackage.name)
     
     try {

@@ -35,3 +35,10 @@ FROM information_schema.columns
 WHERE table_name = 'issues' 
   AND column_name = 'priority';
 
+-- Fix issues_status_check: app inserts status = 'backlog' but the constraint may not allow it.
+-- Drop the existing check and add one that includes 'backlog' so scan issues show in the backlog.
+ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_status_check;
+ALTER TABLE issues ADD CONSTRAINT issues_status_check CHECK (
+  status IN ('open', 'in_progress', 'resolved', 'closed', 'backlog')
+);
+

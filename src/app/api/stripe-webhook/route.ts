@@ -195,10 +195,14 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   
   // If userId is missing or empty, try to look up user by email
   if (!userId || userId.trim() === '') {
-    const customerEmail = session.customer_email || (session.customer ? 
-      (await stripe.customers.retrieve(session.customer as string).then(c => 
-        !c.deleted && 'email' in c ? c.email : null
-      ).catch(() => null)) : null)
+    const sessionWithDetails = session as Stripe.Checkout.Session & { customer_details?: { email?: string | null } }
+    const customerEmail = session.customer_email
+      ?? sessionWithDetails.customer_details?.email
+      ?? (session.customer
+        ? (await stripe.customers.retrieve(session.customer as string).then(c =>
+            !c.deleted && 'email' in c ? c.email : null
+          ).catch(() => null))
+        : null)
     
     if (customerEmail) {
       console.log(`🔍 userId missing, looking up user by email: ${customerEmail}`)

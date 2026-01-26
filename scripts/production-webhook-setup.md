@@ -16,13 +16,13 @@
    https://yourdomain.com/api/stripe-webhook
    ```
 4. Select events to listen for:
-   - `checkout.session.completed`
+   - `checkout.session.completed` (main one for credits & subscriptions)
    - `customer.subscription.created`
    - `customer.subscription.updated`
    - `customer.subscription.deleted`
    - `invoice.payment_succeeded`
-   - `invoice.payment.paid` (if needed)
-   - `payment_intent.succeeded` (for credit purchases)
+   - `payment_intent.succeeded` (fallback for credit purchases)
+   - `charge.succeeded` (fallback if checkout.session.completed didn’t run)
 
 5. Click **"Add endpoint"**
 
@@ -82,12 +82,69 @@ If webhooks don't work in production:
 4. **Check Stripe Dashboard** - Go to webhook events, see if they're being sent
 5. **Check firewall/security** - Make sure Stripe can reach your server
 
+## Receiving Receipt and Payment Emails
+
+Receipt emails (and subscription payment emails) are sent by **your app** using **Resend**, not by Stripe.
+
+### What you need
+
+1. **Resend API key**
+   - Sign up at [resend.com](https://resend.com) and create an API key.
+   - In production, set: `RESEND_API_KEY=re_...` (your real key).
+   - If this is missing or set to `dummy-key-for-development`, the app will skip sending and you won’t get receipts.
+
+2. **Verified sending domain (recommended)**
+   - In Resend, add and verify the domain you send from (e.g. `noreply@yourdomain.com`).
+   - The app uses whatever “From” address is configured in the receipt/subscription email services.
+
+3. **Stripe’s own receipts (optional)**
+   - Stripe can also send receipts. In Dashboard → Settings → Emails → Customer emails, you can turn on “Payment receipts”. Those are separate from the app’s Resend emails.
+
+### Why you might get no email
+
+- `RESEND_API_KEY` not set or still the dummy value in production.
+- Webhook never runs (see below) → `checkout.session.completed` isn’t handled → receipt is never sent.
+- Customer email missing on the Stripe session (e.g. checkout created without `customer_email` or customer record).
+
+---
+
+## Why Tokens Didn’t Increase After a Purchase
+
+Tokens (credits) are added only when the **webhook** runs successfully. The flow is:
+
+1. Customer pays → Stripe sends `checkout.session.completed` to your webhook URL.
+2. Your app receives it at `/api/stripe-webhook`, verifies the signature, then calls `handleCheckoutSessionCompleted` → `handleCreditPurchase` → `addCredits(...)`.
+
+If tokens didn’t increase:
+
+1. **Webhook not configured for the environment you used**
+   - **Live mode**: You need an endpoint in Stripe Dashboard → [Webhooks](https://dashboard.stripe.com/webhooks) (live mode) pointing to `https://yourdomain.com/api/stripe-webhook`, and `STRIPE_WEBHOOK_SECRET` in production must be that endpoint’s “Signing secret”.
+   - **Test mode**: Same idea: add an endpoint in test mode, use its signing secret (often via Stripe CLI locally, or a test-mode endpoint in the Dashboard for production).
+
+2. **Wrong or missing secret**
+   - If `STRIPE_WEBHOOK_SECRET` doesn’t match the endpoint Stripe uses, verification fails and the handler returns 400 without adding credits.
+
+3. **Missing metadata on the session**
+   - The handler needs `userId`, `priceId`, and (for credits) `type: 'credits'` in `session.metadata`. These are set when creating the checkout session (e.g. from your Pricing/checkout flow). If the front end doesn’t send `userId` when calling `/api/create-checkout-session`, metadata will be empty and the webhook will log “Missing required metadata” and not add credits.
+
+4. **User not found by email**
+   - If `userId` is missing, the webhook looks up the user by `session.customer_email`. If that email doesn’t exist in your `users` table, it won’t add credits.
+
+### Quick checks
+
+- In Stripe Dashboard → Developers → Webhooks → your endpoint → “Recent events”: see if requests were sent and whether they succeeded or failed.
+- In your production logs, look for `🔔 WEBHOOK ENDPOINT HIT!` and then either `✅ Webhook signature verified` or `❌ Webhook signature verification failed`, and any “Missing required metadata” or “User not found” messages.
+
+---
+
 ## Summary
 
 - **Local**: Stripe CLI forwards → `localhost:3000`
 - **Production**: Stripe sends directly → `https://yourdomain.com/api/stripe-webhook`
 - **Code**: Same webhook handler works for both
 - **Secrets**: Different secrets for local vs production
+- **Emails**: Require `RESEND_API_KEY` in production; receipts are sent by your app, not Stripe
+- **Tokens**: Only increase when the webhook runs and metadata (e.g. `userId`, `priceId`, `type`) is present and valid
 
 
 
