@@ -93,9 +93,9 @@ Receipt emails (and subscription payment emails) are sent by **your app** using 
    - In production, set: `RESEND_API_KEY=re_...` (your real key).
    - If this is missing or set to `dummy-key-for-development`, the app will skip sending and you won’t get receipts.
 
-2. **Verified sending domain (recommended)**
-   - In Resend, add and verify the domain you send from (e.g. `noreply@yourdomain.com`).
-   - The app uses whatever “From” address is configured in the receipt/subscription email services.
+2. **Verified sending domain (required for receipts to customers)**
+   - Without a verified domain, Resend only allows sending to the email address of the Resend account owner. Other recipient addresses get a 403 “You can only send testing emails to your own email address”.
+   - In Resend, go to [resend.com/domains](https://resend.com/domains), add your domain (e.g. `a11ytest.ai`), follow the DNS verification steps, and set your “From” address to use that domain (e.g. `noreply@a11ytest.ai`).
 
 3. **Stripe’s own receipts (optional)**
    - Stripe can also send receipts. In Dashboard → Settings → Emails → Customer emails, you can turn on “Payment receipts”. Those are separate from the app’s Resend emails.
@@ -103,6 +103,7 @@ Receipt emails (and subscription payment emails) are sent by **your app** using 
 ### Why you might get no email
 
 - `RESEND_API_KEY` not set or still the dummy value in production.
+- **No verified domain in Resend** → Resend returns 403 and only allows sending to your own email; verify a domain at [resend.com/domains](https://resend.com/domains) to send to customers.
 - Webhook never runs (see below) → `checkout.session.completed` isn’t handled → receipt is never sent.
 - Customer email missing on the Stripe session (e.g. checkout created without `customer_email` or customer record).
 

@@ -189,11 +189,11 @@ export async function addCredits(
         [amount, creditInfo.organization_id]
       )
       
-      // Log transaction
+      // Log transaction (stripe_payment_intent_id optional - add column via fix_database_schema.sql if you want it)
       await query(
-        `INSERT INTO credit_transactions (user_id, organization_id, transaction_type, credits_amount, description, stripe_payment_intent_id)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [userId, creditInfo.organization_id, 'purchase', amount, description, stripePaymentIntentId || null]
+        `INSERT INTO credit_transactions (user_id, organization_id, transaction_type, credits_amount, description)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [userId, creditInfo.organization_id, 'purchase', amount, description]
       )
     } else {
       // Add to personal credits
@@ -205,11 +205,11 @@ export async function addCredits(
         [amount, userId]
       )
       
-      // Log transaction
+      // Log transaction (stripe_payment_intent_id optional - add column via fix_database_schema.sql if you want it)
       await query(
-        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description, stripe_payment_intent_id)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [userId, 'purchase', amount, description, stripePaymentIntentId || null]
+        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, 'purchase', amount, description]
       )
     }
     

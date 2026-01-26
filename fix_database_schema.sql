@@ -42,3 +42,7 @@ ALTER TABLE issues ADD CONSTRAINT issues_status_check CHECK (
   status IN ('open', 'in_progress', 'resolved', 'closed', 'backlog')
 );
 
+-- Optional: add stripe_payment_intent_id to credit_transactions for purchase audit trail.
+-- Code works without it; add this if you want to store the Stripe payment intent ID on purchase.
+-- ALTER TABLE credit_transactions ADD COLUMN IF NOT EXISTS stripe_payment_intent_id VARCHAR(255);
+
