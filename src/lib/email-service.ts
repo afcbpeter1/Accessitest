@@ -5,8 +5,8 @@ const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-developme
 
 /** In test mode, send all verification emails to this address (e.g. your Resend account email). */
 const VERIFICATION_REDIRECT = process.env.RESEND_VERIFICATION_REDIRECT_EMAIL?.trim()
-/** Sender address. Must be a verified domain in production (e.g. onboarding@a11ytest.ai). onboarding@resend.dev only delivers to the Resend account owner. */
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL?.trim() || 'A11ytest.ai <onboarding@resend.dev>'
+/** Sender address. Must be a verified domain in production (e.g. hello@a11ytest.ai). onboarding@resend.dev only delivers to the Resend account owner. */
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL?.trim() || 'A11ytest.ai <hello@a11ytest.ai>'
 
 export interface EmailVerificationData {
   email: string
@@ -155,7 +155,7 @@ export class EmailService {
         : `${baseUrl}/organization`
 
       const result = await resend.emails.send({
-        from: 'A11ytest.ai <onboarding@resend.dev>',
+        from: FROM_EMAIL,
         to: [email],
         subject: `You've been invited to join ${organizationName} on A11ytest.ai`,
         html: `
@@ -254,7 +254,7 @@ export class EmailService {
       const billingFrequency = billingPeriod === 'yearly' ? 'per year' : 'per month'
       
       const result = await resend.emails.send({
-        from: 'A11ytest.ai <onboarding@resend.dev>',
+        from: FROM_EMAIL,
         to: [email],
         subject: `Billing Confirmation - ${numberOfUsers} Additional User Seat${numberOfUsers > 1 ? 's' : ''} Added`,
         html: `

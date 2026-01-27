@@ -371,8 +371,11 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
       This is an automated receipt. Please keep this email for your records.
     `
 
+    // Use verified domain email address (a11ytest.ai is verified in Resend)
+    const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() || 'A11ytest.ai <hello@a11ytest.ai>'
+    
     const result = await resend.emails.send({
-      from: 'A11ytest.ai <onboarding@resend.dev>',
+      from: fromEmail,
       to: [customerEmail],
       subject,
       html: htmlContent,

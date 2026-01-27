@@ -4,6 +4,9 @@ import { join } from 'path'
 
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-development')
 
+// Use verified domain email address (a11ytest.ai is verified in Resend)
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL?.trim() || 'A11ytest.ai <hello@a11ytest.ai>'
+
 // Get logo as base64 for email embedding (most reliable for email clients)
 function getLogoUrl(): string {
   try {
@@ -368,7 +371,7 @@ export async function sendSubscriptionPaymentEmail(data: SubscriptionPaymentData
     `
 
     const result = await resend.emails.send({
-      from: 'A11ytest.ai <onboarding@resend.dev>',
+      from: FROM_EMAIL,
       to: [customerEmail],
       subject,
       html: htmlContent,
@@ -718,7 +721,7 @@ export async function sendSubscriptionCancellationEmail(data: SubscriptionCancel
     `
 
     const result = await resend.emails.send({
-      from: 'A11ytest.ai <onboarding@resend.dev>',
+      from: FROM_EMAIL,
       to: [customerEmail],
       subject,
       html: htmlContent,
@@ -1043,7 +1046,7 @@ export async function sendSubscriptionReactivationEmail(data: SubscriptionReacti
     `
 
     const result = await resend.emails.send({
-      from: 'A11ytest.ai <onboarding@resend.dev>',
+      from: FROM_EMAIL,
       to: [customerEmail],
       subject,
       html: htmlContent,
