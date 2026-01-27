@@ -135,6 +135,8 @@ export async function POST(request: NextRequest) {
         break
 
       case 'payment_intent.succeeded':
+        // Only process for direct API payments (not checkout sessions)
+        // checkout.session.completed handles all checkout payments
         await handlePaymentSucceeded(event.data.object as Stripe.PaymentIntent)
         break
 
@@ -143,8 +145,9 @@ export async function POST(request: NextRequest) {
         break
 
       case 'charge.succeeded':
-        // Fallback handler for charge.succeeded - process if checkout.session.completed didn't fire
-        await handleChargeSucceeded(event.data.object as Stripe.Charge)
+        // Log but don't process - checkout.session.completed handles all checkout payments
+        // and payment_intent.succeeded handles direct API payments
+        console.log('📋 Charge succeeded:', (event.data.object as Stripe.Charge).id, '- already handled by checkout.session.completed or payment_intent.succeeded')
         break
 
       case 'charge.updated':
@@ -265,7 +268,12 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   console.log(`🔍 Processing ${type} purchase for user ${userId}, priceId: ${priceId}`)
 
   if (type === 'credits') {
-    await handleCreditPurchase(userId, priceId)
+    // Get payment intent ID from session for idempotency
+    let paymentIntentId: string | undefined = undefined
+    if (session.payment_intent) {
+      paymentIntentId = session.payment_intent as string
+    }
+    await handleCreditPurchase(userId, priceId, undefined, session.id, paymentIntentId)
   } else if (type === 'subscription') {
     // Handle subscription purchase - activate immediately just like credits
     console.log(`📋 Subscription purchase detected for user ${userId}, priceId: ${priceId}`)
@@ -1108,22 +1116,9 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 
 async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   console.log('💳 Processing payment_intent.succeeded:', paymentIntent.id)
-  console.log('📋 Payment intent metadata:', paymentIntent.metadata)
   
-  const { userId, creditAmount, priceId, type } = paymentIntent.metadata || {}
-  
-  if (!userId) {
-    console.error('❌ Missing userId in payment intent metadata')
-    return
-  }
-
-  // IMPORTANT: Skip credit processing here if this payment_intent was created via checkout.session
-  // The checkout.session.completed event will handle credits to avoid double-processing
-  // Only process credits here if this payment_intent was NOT part of a checkout session
-  // (e.g., direct API payments that don't go through checkout)
-  
-  // For checkout sessions, we check if a checkout session exists for this payment intent
-  // If it does, skip processing here to avoid duplicates
+  // Skip if this payment intent is part of a checkout session
+  // checkout.session.completed will handle those payments
   try {
     const sessions = await stripe.checkout.sessions.list({
       payment_intent: paymentIntent.id,
@@ -1131,32 +1126,31 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
     })
     
     if (sessions.data.length > 0) {
-      console.log('⚠️ Payment intent is part of a checkout session - skipping credit processing here to avoid duplicate')
-      console.log('ℹ️ Credits will be processed by checkout.session.completed handler')
+      console.log('ℹ️ Payment intent is part of a checkout session - skipping (checkout.session.completed will handle it)')
       return
     }
   } catch (error) {
     console.log('Could not check for checkout session, proceeding with payment intent processing')
   }
 
-  // Only process credits if this payment intent is NOT part of a checkout session
-  if (type === 'credits' && creditAmount) {
-    const credits = parseInt(creditAmount)
-    await handleCreditPurchase(userId, priceId || '', credits)
-    
-    // Send receipt email for credit purchase
-    await sendReceiptEmailFromPaymentIntent(paymentIntent)
-  } else if (creditAmount) {
-    // Fallback: if creditAmount exists but no type, assume it's a credit purchase
-    const credits = parseInt(creditAmount)
-    await handleCreditPurchase(userId, priceId || '', credits)
-    
-    // Send receipt email for credit purchase
-    await sendReceiptEmailFromPaymentIntent(paymentIntent)
+  // Only process direct API payments (not checkout sessions)
+  const { userId, creditAmount, priceId, type } = paymentIntent.metadata || {}
+  
+  if (!userId || !priceId) {
+    console.log('ℹ️ Missing userId or priceId in payment intent metadata - skipping (likely not a credit purchase)')
+    return
+  }
+
+  if (type === 'credits' || creditAmount) {
+    const credits = creditAmount ? parseInt(creditAmount) : getCreditAmountFromPriceId(priceId)
+    if (credits > 0) {
+      await handleCreditPurchase(userId, priceId, credits, undefined, paymentIntent.id)
+      await sendReceiptEmailFromPaymentIntent(paymentIntent)
+    }
   }
 }
 
-async function handleCreditPurchase(userId: string, priceId: string, creditAmount?: number) {
+async function handleCreditPurchase(userId: string, priceId: string, creditAmount?: number, sessionId?: string, paymentIntentId?: string) {
   try {
     console.log(`🎫 Processing credit purchase for user ${userId}, priceId: ${priceId}`)
     const credits = creditAmount || getCreditAmountFromPriceId(priceId)
@@ -1178,19 +1172,58 @@ async function handleCreditPurchase(userId: string, priceId: string, creditAmoun
       packageName = getPackageNameFromCreditAmount(credits)
     }
 
+    // Simple idempotency: Check if we already processed this exact session or payment intent
+    if (sessionId) {
+      const existingSession = await queryOne(
+        `SELECT id FROM credit_transactions 
+         WHERE description LIKE $1 
+         AND created_at > NOW() - INTERVAL '1 hour'
+         LIMIT 1`,
+        [`%session:${sessionId}%`]
+      )
+      if (existingSession) {
+        console.log(`⚠️ Session ${sessionId} already processed - skipping duplicate`)
+        return
+      }
+    }
+
+    if (paymentIntentId) {
+      const existingPayment = await queryOne(
+        `SELECT id FROM credit_transactions 
+         WHERE description LIKE $1 
+         AND created_at > NOW() - INTERVAL '1 hour'
+         LIMIT 1`,
+        [`%payment_intent:${paymentIntentId}%`]
+      )
+      if (existingPayment) {
+        console.log(`⚠️ Payment intent ${paymentIntentId} already processed - skipping duplicate`)
+        return
+      }
+    }
+
+    // Add session/payment intent to description for idempotency tracking
+    let description = `Credit purchase: ${packageName}`
+    if (sessionId) {
+      description += ` (session:${sessionId})`
+    }
+    if (paymentIntentId) {
+      description += ` (payment_intent:${paymentIntentId})`
+    }
+
     // Add credits using the credit service (handles organization vs personal)
     const result = await addCredits(
       userId,
       credits,
-      `Credit purchase: ${packageName}`
+      description,
+      paymentIntentId
     )
 
-    console.log(`Added ${credits} credits to user ${userId}`)
+    console.log(`✅ Added ${credits} credits to user ${userId}`)
 
     // Create notification for credit purchase
     await NotificationService.notifyCreditPurchase(userId, credits, packageName)
   } catch (error) {
-    console.error('Error adding credits to user:', error)
+    console.error('❌ Error adding credits to user:', error)
   }
 }
 
@@ -1386,73 +1419,9 @@ async function sendReceiptEmailFromSubscription(subscription: Stripe.Subscriptio
   }
 }
 
-async function handleChargeSucceeded(charge: Stripe.Charge) {
-  try {
-    console.log('💳 Processing charge.succeeded (fallback):', charge.id)
-    console.log('📋 Charge metadata:', charge.metadata)
-    
-    const { userId, creditAmount, priceId, type } = charge.metadata || {}
-    
-    // Only process if this is a credit purchase and we have the required data
-    if (type === 'credits' && userId && creditAmount) {
-      console.log('⚠️ Processing credits from charge.succeeded (checkout.session.completed may have failed)')
-      
-      // Check if this charge is part of a checkout session
-      try {
-        if (charge.payment_intent) {
-          const sessions = await stripe.checkout.sessions.list({
-            payment_intent: charge.payment_intent as string,
-            limit: 1
-          })
-          
-          if (sessions.data.length > 0) {
-            const session = sessions.data[0]
-            console.log('⚠️ Charge is part of checkout session - checking if session was already processed')
-            
-            // If session is complete and paid, the checkout.session.completed should have handled it
-            // Only process here if session wasn't processed
-            if (session.status === 'complete' && session.payment_status === 'paid') {
-              console.log('⚠️ Checkout session was completed - credits should have been processed already')
-              console.log('⚠️ This might indicate checkout.session.completed event didn\'t reach the server')
-              // Still process credits as fallback
-            }
-          }
-        }
-      } catch (error) {
-        console.log('Could not check for checkout session, proceeding with charge processing')
-      }
-      
-      const credits = parseInt(creditAmount)
-      await handleCreditPurchase(userId, priceId || '', credits)
-      
-      // Send receipt email
-      const customerEmail = charge.billing_details?.email || charge.receipt_email
-      if (customerEmail) {
-        const receiptData: ReceiptData = {
-          customerEmail: customerEmail,
-          planName: `Credit Purchase (${credits} credits)`,
-          amount: `£${(charge.amount / 100).toFixed(2)}`,
-          type: 'credits',
-          transactionId: charge.id,
-          date: new Date().toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
-          creditAmount: credits
-        }
-        await sendReceiptEmail(receiptData)
-        console.log('✅ Receipt email sent from charge.succeeded handler')
-      }
-    } else {
-      console.log('⚠️ Charge.succeeded not a credit purchase or missing metadata - skipping')
-    }
-  } catch (error) {
-    console.error('❌ Error handling charge.succeeded:', error)
-  }
-}
+// Removed handleChargeSucceeded - no longer needed
+// checkout.session.completed handles all checkout payments
+// payment_intent.succeeded handles direct API payments
 
 async function sendReceiptEmailFromPaymentIntent(paymentIntent: Stripe.PaymentIntent) {
   try {

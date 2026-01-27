@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-middleware'
 import { queryOne } from '@/lib/database'
+import { getUserCredits } from '@/lib/credit-service'
 import Stripe from 'stripe'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -11,9 +12,8 @@ async function handleGetUser(request: NextRequest, user: any) {
   try {
     // Get full user data from database
     const userData = await queryOne(
-      `SELECT u.*, uc.credits_remaining, uc.credits_used, uc.unlimited_credits
+      `SELECT u.*
        FROM users u
-       LEFT JOIN user_credits uc ON u.id = uc.user_id
        WHERE u.id = $1`,
       [user.userId]
     )
@@ -24,6 +24,9 @@ async function handleGetUser(request: NextRequest, user: any) {
         { status: 404 }
       )
     }
+
+    // Get credit information using getUserCredits (handles organization vs personal credits)
+    const creditInfo = await getUserCredits(user.userId)
 
     // Get subscription details if user has one
     let subscriptionDetails = null
@@ -60,9 +63,9 @@ async function handleGetUser(request: NextRequest, user: any) {
         plan: userData.plan_type,
         isActive: userData.is_active,
         emailVerified: userData.email_verified,
-        creditsRemaining: userData.credits_remaining || 0,
-        creditsUsed: userData.credits_used || 0,
-        unlimitedCredits: userData.unlimited_credits || false,
+        creditsRemaining: creditInfo.credits_remaining || 0,
+        creditsUsed: creditInfo.credits_used || 0,
+        unlimitedCredits: creditInfo.unlimited_credits || false,
         createdAt: userData.created_at,
         lastLogin: userData.last_login,
         subscription: subscriptionDetails
