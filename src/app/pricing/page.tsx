@@ -26,7 +26,7 @@ interface CreditPackage {
 }
 
 export default function Pricing() {
-  const { user } = useAuth()
+  const { user, isLoading } = useAuth()
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [selectedCredits, setSelectedCredits] = useState<string | null>(null)
@@ -78,11 +78,41 @@ export default function Pricing() {
   ]
 
   const handleSubscribe = async (plan: PricingPlan) => {
-    if (!user) {
+    // Wait for auth to finish loading
+    if (isLoading) {
+      return // Don't do anything while loading
+    }
+    
+    // Check if user is authenticated (check localStorage directly as fallback)
+    const token = localStorage.getItem('accessToken')
+    const userData = localStorage.getItem('user')
+    
+    if (!user && (!token || !userData)) {
       alert('Please sign in to subscribe. Credits and subscriptions are applied to your account.')
       window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
       return
     }
+    
+    // Get user info from localStorage if useAuth hasn't loaded yet
+    let userId: string | undefined = user?.id
+    let userEmail: string | undefined = user?.email
+    
+    if (!userId || !userEmail) {
+      try {
+        const parsedUser = userData ? JSON.parse(userData) : null
+        userId = userId || parsedUser?.id
+        userEmail = userEmail || parsedUser?.email
+      } catch (e) {
+        console.error('Failed to parse user data:', e)
+      }
+    }
+    
+    if (!userId || !userEmail) {
+      alert('Please sign in to subscribe. Credits and subscriptions are applied to your account.')
+      window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+      return
+    }
+    
     setSelectedPlan(plan.name)
     
     try {
@@ -101,11 +131,13 @@ export default function Pricing() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // Include auth token if available
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           priceId,
-          userId: user?.id,
-          userEmail: user?.email,
+          userId,
+          userEmail,
           cancelUrl: `${window.location.origin}/pricing?canceled=true`,
         }),
       })
@@ -116,6 +148,12 @@ export default function Pricing() {
         // Redirect to Stripe checkout
         window.location.href = data.url
       } else {
+        // Check if it's an auth error
+        if (data.error?.includes('Authentication') || data.error?.includes('login')) {
+          alert('Please sign in to subscribe. Credits and subscriptions are applied to your account.')
+          window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+          return
+        }
         console.error('Failed to create checkout session:', data.error)
         alert('Failed to start checkout process. Please try again.')
       }
@@ -126,11 +164,41 @@ export default function Pricing() {
   }
 
   const handleBuyCredits = async (creditPackage: CreditPackage) => {
-    if (!user) {
+    // Wait for auth to finish loading
+    if (isLoading) {
+      return // Don't do anything while loading
+    }
+    
+    // Check if user is authenticated (check localStorage directly as fallback)
+    const token = localStorage.getItem('accessToken')
+    const userData = localStorage.getItem('user')
+    
+    if (!user && (!token || !userData)) {
       alert('Please sign in to buy credits. Purchased credits are added to your account.')
       window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
       return
     }
+    
+    // Get user info from localStorage if useAuth hasn't loaded yet
+    let userId: string | undefined = user?.id
+    let userEmail: string | undefined = user?.email
+    
+    if (!userId || !userEmail) {
+      try {
+        const parsedUser = userData ? JSON.parse(userData) : null
+        userId = userId || parsedUser?.id
+        userEmail = userEmail || parsedUser?.email
+      } catch (e) {
+        console.error('Failed to parse user data:', e)
+      }
+    }
+    
+    if (!userId || !userEmail) {
+      alert('Please sign in to buy credits. Purchased credits are added to your account.')
+      window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+      return
+    }
+    
     setSelectedCredits(creditPackage.name)
     
     try {
@@ -153,11 +221,13 @@ export default function Pricing() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          // Include auth token if available
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           priceId,
-          userId: user?.id,
-          userEmail: user?.email,
+          userId,
+          userEmail,
           cancelUrl: `${window.location.origin}/pricing?canceled=true`,
         }),
       })
@@ -168,6 +238,12 @@ export default function Pricing() {
         // Redirect to Stripe checkout
         window.location.href = data.url
       } else {
+        // Check if it's an auth error
+        if (data.error?.includes('Authentication') || data.error?.includes('login')) {
+          alert('Please sign in to buy credits. Purchased credits are added to your account.')
+          window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`
+          return
+        }
         console.error('Failed to create checkout session:', data.error)
         alert('Failed to start checkout process. Please try again.')
       }

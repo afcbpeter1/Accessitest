@@ -246,14 +246,8 @@ async function handleRegister(email: string, password: string, name: string, com
         [userResult.id, hashedPassword, salt]
       )
 
-      // Initialize user credits (3 free credits for trial)
-      await query(
-        `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
-         VALUES ($1, $2, $3, $4)`,
-        [userResult.id, 3, 0, false]
-      )
-
-      // Auto-create organization for the user (simplified model - one org per user)
+      // Auto-create organization for the user (organization-primary model)
+      // Every user gets their own organization, which holds their credits
       const orgName = company || `${firstName} ${lastName}'s Organization`
       const org = await queryOne(
         `INSERT INTO organizations (name, subscription_status, max_teams)
@@ -269,7 +263,7 @@ async function handleRegister(email: string, password: string, name: string, com
         [userResult.id, org.id, 'owner']
       )
       
-      // Create organization credits (migrate from user credits)
+      // Create organization credits (organization-primary model - credits live at org level)
       await query(
         `INSERT INTO organization_credits (organization_id, credits_remaining, credits_used, unlimited_credits)
          VALUES ($1, $2, $3, $4)`,
