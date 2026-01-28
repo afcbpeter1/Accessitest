@@ -392,6 +392,12 @@ export async function acceptInvitation(
       [userId, member.id]
     )
     
+    // Update user's default_organization_id to the organization they're joining
+    await query(
+      `UPDATE users SET default_organization_id = $1 WHERE id = $2`,
+      [organizationId, userId]
+    )
+    
     await query('COMMIT')
     return { success: true, message: 'Successfully joined organization' }
   } catch (error) {

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import { queryOne, query } from '@/lib/database'
 import { VPNDetector } from '@/lib/vpn-detector'
 import { EmailService } from '@/lib/email-service'
+import { acceptInvitation } from '@/lib/organization-service'
 
 // Database user interface
 interface User {
@@ -30,7 +31,8 @@ export async function POST(request: NextRequest) {
     if (action === 'login') {
       return await handleLogin(email, password)
     } else if (action === 'register') {
-      return await handleRegister(email, password, name, company, request)
+      const invitationToken = body.invitationToken
+      return await handleRegister(email, password, name, company, request, invitationToken)
     } else {
       return NextResponse.json(
         { success: false, error: 'Invalid action' },
@@ -151,7 +153,7 @@ async function handleLogin(email: string, password: string) {
   }
 }
 
-async function handleRegister(email: string, password: string, name: string, company?: string, request?: NextRequest) {
+async function handleRegister(email: string, password: string, name: string, company?: string, request?: NextRequest, invitationToken?: string) {
   if (!email || !password || !name) {
     return NextResponse.json(
       { success: false, error: 'Email, password, and name are required' },
@@ -246,35 +248,71 @@ async function handleRegister(email: string, password: string, name: string, com
         [userResult.id, hashedPassword, salt]
       )
 
-      // Auto-create organization for the user (organization-primary model)
-      // Every user gets their own organization, which holds their credits
-      const orgName = company || `${firstName} ${lastName}'s Organization`
-      const org = await queryOne(
-        `INSERT INTO organizations (name, subscription_status, max_teams)
-         VALUES ($1, $2, $3)
-         RETURNING *`,
-        [orgName, 'active', 0] // Start with 0 teams (free tier)
-      )
+      // Check if user is signing up via invitation
+      let invitedOrganizationId: string | null = null
+      if (invitationToken) {
+        // Find the invitation
+        const invitation = await queryOne(
+          `SELECT organization_id, role, invited_email
+           FROM organization_members
+           WHERE invitation_token = $1 AND invited_email = $2 AND is_active = false`,
+          [invitationToken, email]
+        )
+        
+        if (invitation) {
+          invitedOrganizationId = invitation.organization_id
+          // Update the invitation to link this user (but don't activate yet - wait for email verification)
+          await query(
+            `UPDATE organization_members
+             SET user_id = $1, updated_at = NOW()
+             WHERE invitation_token = $2 AND invited_email = $3`,
+            [userResult.id, invitationToken, email]
+          )
+          
+          // Set user's default organization to the invited one
+          await query(
+            `UPDATE users SET default_organization_id = $1 WHERE id = $2`,
+            [invitedOrganizationId, userResult.id]
+          )
+          
+          console.log(`✅ User ${userResult.id} linked to organization ${invitedOrganizationId} via invitation (pending verification)`)
+        } else {
+          console.warn(`⚠️ Invitation token ${invitationToken} not found for email ${email}`)
+        }
+      }
       
-      // Set user as owner of their organization
-      await query(
-        `INSERT INTO organization_members (user_id, organization_id, role, joined_at, is_active)
-         VALUES ($1, $2, $3, NOW(), true)`,
-        [userResult.id, org.id, 'owner']
-      )
-      
-      // Create organization credits (organization-primary model - credits live at org level)
-      await query(
-        `INSERT INTO organization_credits (organization_id, credits_remaining, credits_used, unlimited_credits)
-         VALUES ($1, $2, $3, $4)`,
-        [org.id, 3, 0, false]
-      )
-      
-      // Set as user's default organization
-      await query(
-        `UPDATE users SET default_organization_id = $1 WHERE id = $2`,
-        [org.id, userResult.id]
-      )
+      // Only create new organization if NOT signing up via invitation
+      if (!invitedOrganizationId) {
+        // Auto-create organization for the user (organization-primary model)
+        // Every user gets their own organization, which holds their credits
+        const orgName = company || `${firstName} ${lastName}'s Organization`
+        const org = await queryOne(
+          `INSERT INTO organizations (name, subscription_status, max_teams)
+           VALUES ($1, $2, $3)
+           RETURNING *`,
+          [orgName, 'active', 0] // Start with 0 teams (free tier)
+        )
+        
+        // Set user as owner of their organization
+        await query(
+          `INSERT INTO organization_members (user_id, organization_id, role, joined_at, is_active)
+           VALUES ($1, $2, $3, NOW(), true)`,
+          [userResult.id, org.id, 'owner']
+        )
+        
+        // Create organization credits (organization-primary model - credits live at org level)
+        await query(
+          `INSERT INTO organization_credits (organization_id, credits_remaining, credits_used, unlimited_credits)
+           VALUES ($1, $2, $3, $4)`,
+          [org.id, 3, 0, false]
+        )
+        
+        // Set as user's default organization
+        await query(
+          `UPDATE users SET default_organization_id = $1 WHERE id = $2`,
+          [org.id, userResult.id]
+        )
+      }
 
       // Commit transaction
       await query('COMMIT')

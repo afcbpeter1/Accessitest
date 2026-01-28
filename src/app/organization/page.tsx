@@ -58,6 +58,7 @@ export default function OrganizationPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'teams' | 'billing' | 'integrations'>('overview')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null)
+  const [userRole, setUserRole] = useState<'owner' | 'admin' | 'user' | null>(null)
   
   // Auto-dismiss messages after 5 seconds
   useEffect(() => {
@@ -184,6 +185,17 @@ export default function OrganizationPage() {
       if (!token) {
         router.push('/login')
         return
+      }
+
+      // Load user data to get role
+      const userResponse = await fetch('/api/user', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (userResponse.ok) {
+        const userData = await userResponse.json()
+        if (userData.success && userData.user.organizationRole) {
+          setUserRole(userData.user.organizationRole)
+        }
       }
 
       const response = await fetch('/api/organization', {
@@ -1232,12 +1244,18 @@ export default function OrganizationPage() {
                   <div className="border-b border-gray-200">
                       <nav className="flex space-x-8 px-6">
                         {[
-                          { id: 'overview', name: 'Overview', icon: Building2 },
-                          { id: 'members', name: 'Members', icon: Users },
-                          { id: 'teams', name: 'Teams', icon: Users },
-                          { id: 'integrations', name: 'Integrations', icon: Settings },
-                          { id: 'billing', name: 'Billing', icon: CreditCard }
-                        ].map((tab) => {
+                          { id: 'overview', name: 'Overview', icon: Building2, roles: ['owner', 'admin', 'user'] },
+                          { id: 'members', name: 'Members', icon: Users, roles: ['owner', 'admin', 'user'] },
+                          { id: 'teams', name: 'Teams', icon: Users, roles: ['owner', 'admin'] },
+                          { id: 'integrations', name: 'Integrations', icon: Settings, roles: ['owner', 'admin'] },
+                          { id: 'billing', name: 'Billing', icon: CreditCard, roles: ['owner', 'admin'] }
+                        ]
+                        .filter((tab) => {
+                          // Hide tabs that user doesn't have access to
+                          if (!userRole) return false
+                          return tab.roles.includes(userRole)
+                        })
+                        .map((tab) => {
                           const Icon = tab.icon
                           return (
                             <button

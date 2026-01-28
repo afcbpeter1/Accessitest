@@ -53,6 +53,8 @@ interface UserData {
   plan: string
   creditsRemaining: number
   unlimitedCredits: boolean
+  organizationRole?: 'owner' | 'admin' | 'user' | null
+  organizationId?: string | null
 }
 
 interface Notification {
@@ -333,7 +335,15 @@ export default function Sidebar({ children }: SidebarProps) {
         {/* Navigation */}
         <nav className="mt-6 px-3 flex-1">
           <div className="space-y-1">
-            {navigation.map((item) => {
+            {navigation
+              .filter((item) => {
+                // Hide Organizations tab for regular users (only show for owner/admin)
+                if (item.name === 'Organizations') {
+                  return user?.organizationRole === 'owner' || user?.organizationRole === 'admin'
+                }
+                return true
+              })
+              .map((item) => {
               const isActive = pathname === item.href
               
               return (

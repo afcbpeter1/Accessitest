@@ -28,6 +28,36 @@ async function handleGetUser(request: NextRequest, user: any) {
     // Get credit information using getUserCredits (handles organization vs personal credits)
     const creditInfo = await getUserCredits(user.userId)
 
+    // Get user's role in their organization (if they're a member)
+    let organizationRole: 'owner' | 'admin' | 'user' | null = null
+    let organizationId: string | null = null
+    if (userData.default_organization_id) {
+      const member = await queryOne(
+        `SELECT role FROM organization_members
+         WHERE organization_id = $1 AND user_id = $2 AND is_active = true`,
+        [userData.default_organization_id, user.userId]
+      )
+      if (member) {
+        organizationRole = member.role as 'owner' | 'admin' | 'user'
+        organizationId = userData.default_organization_id
+      }
+    }
+    
+    // If no default org, check if they're a member of any organization
+    if (!organizationRole) {
+      const member = await queryOne(
+        `SELECT organization_id, role FROM organization_members
+         WHERE user_id = $1 AND is_active = true
+         ORDER BY joined_at ASC
+         LIMIT 1`,
+        [user.userId]
+      )
+      if (member) {
+        organizationRole = member.role as 'owner' | 'admin' | 'user'
+        organizationId = member.organization_id
+      }
+    }
+
     // Get subscription details if user has one
     let subscriptionDetails = null
     if (userData.stripe_subscription_id) {
@@ -68,7 +98,9 @@ async function handleGetUser(request: NextRequest, user: any) {
         unlimitedCredits: creditInfo.unlimited_credits || false,
         createdAt: userData.created_at,
         lastLogin: userData.last_login,
-        subscription: subscriptionDetails
+        subscription: subscriptionDetails,
+        organizationRole: organizationRole,
+        organizationId: organizationId
       }
     })
   } catch (error) {

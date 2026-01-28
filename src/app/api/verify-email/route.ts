@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 import { queryOne, query } from '@/lib/database'
 import { EmailService } from '@/lib/email-service'
+import { acceptInvitation } from '@/lib/organization-service'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
 
@@ -96,6 +97,32 @@ async function handleEmailVerification(email: string, verificationCode: string) 
        WHERE id = $1`,
       [user.id]
     )
+
+    // Check if user has a pending invitation and auto-accept it
+    const pendingInvitation = await queryOne(
+      `SELECT organization_id, invitation_token, role
+       FROM organization_members
+       WHERE user_id = $1 AND is_active = false AND invitation_token IS NOT NULL`,
+      [user.id]
+    )
+    
+    if (pendingInvitation) {
+      try {
+        const acceptResult = await acceptInvitation(
+          user.id,
+          pendingInvitation.organization_id,
+          pendingInvitation.invitation_token
+        )
+        if (acceptResult.success) {
+          console.log(`✅ Auto-accepted invitation for user ${user.id} to organization ${pendingInvitation.organization_id}`)
+        } else {
+          console.warn(`⚠️ Failed to auto-accept invitation: ${acceptResult.message}`)
+        }
+      } catch (error) {
+        console.error('❌ Error auto-accepting invitation:', error)
+        // Don't fail verification if invitation acceptance fails
+      }
+    }
 
     // Generate JWT token for verified user
     const token = jwt.sign(

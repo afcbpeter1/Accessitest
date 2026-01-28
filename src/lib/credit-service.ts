@@ -16,22 +16,49 @@ export interface CreditInfo {
 
 /**
  * Get user's credit information (organization-primary model)
- * Every user has a primary organization (the one they own)
+ * Users can be owners of their own organization OR members of another organization
  * Credits are always stored at organization level
+ * Priority: 1) Organization they're a member of (if invited), 2) Organization they own
  */
 export async function getUserCredits(userId: string): Promise<CreditInfo> {
-  // Get user's primary organization (the one they own)
-  const primaryOrg = await queryOne(
-    `SELECT om.organization_id, o.id
-     FROM organization_members om
-     INNER JOIN organizations o ON om.organization_id = o.id
-     WHERE om.user_id = $1 
-     AND om.role = 'owner' 
-     AND om.is_active = true
-     ORDER BY om.joined_at ASC
-     LIMIT 1`,
+  // First, check if user has a default_organization_id set (from invitation)
+  const userData = await queryOne(
+    `SELECT default_organization_id FROM users WHERE id = $1`,
     [userId]
   )
+  
+  // Get user's organization (prioritize default_organization_id if set, otherwise find any active membership)
+  let primaryOrg = null
+  
+  if (userData?.default_organization_id) {
+    // Check if user is an active member of this organization
+    primaryOrg = await queryOne(
+      `SELECT om.organization_id, om.role, o.id
+       FROM organization_members om
+       INNER JOIN organizations o ON om.organization_id = o.id
+       WHERE om.user_id = $1 
+       AND om.organization_id = $2
+       AND om.is_active = true
+       LIMIT 1`,
+      [userId, userData.default_organization_id]
+    )
+  }
+  
+  // If no default org or not a member, find any organization they're a member of (member or owner)
+  if (!primaryOrg) {
+    primaryOrg = await queryOne(
+      `SELECT om.organization_id, om.role, o.id
+       FROM organization_members om
+       INNER JOIN organizations o ON om.organization_id = o.id
+       WHERE om.user_id = $1 
+       AND om.is_active = true
+       ORDER BY 
+         CASE WHEN om.role = 'owner' THEN 1 ELSE 2 END,
+         om.joined_at ASC
+       LIMIT 1`,
+      [userId]
+    )
+  }
   
   // Check if user has an active subscription (fallback for unlimited credits)
   const userData = await queryOne(

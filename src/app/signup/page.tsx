@@ -25,13 +25,14 @@ function SignupPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Pre-fill form data from URL parameters (from free scan or login redirect)
+  // Pre-fill form data from URL parameters (from free scan, login redirect, or invitation)
   useEffect(() => {
     const firstName = searchParams.get('firstName')
     const lastName = searchParams.get('lastName')
     const email = searchParams.get('email')
     const company = searchParams.get('company')
     const verification = searchParams.get('verification')
+    const invite = searchParams.get('invite') // Invitation token
 
     if (firstName || lastName || email || company) {
       setFormData(prev => ({
@@ -46,6 +47,12 @@ function SignupPageContent() {
     if (verification === 'true' && email) {
       setUserEmail(email)
       setStep('verification')
+    }
+    
+    // Store invitation token if present (will be sent to registration API)
+    if (invite) {
+      // Store in component state or pass to registration
+      (window as any).__invitationToken = invite
     }
   }, [searchParams])
 
@@ -90,6 +97,9 @@ function SignupPageContent() {
     }
 
     try {
+      // Get invitation token from URL if present
+      const invitationToken = searchParams.get('invite') || (window as any).__invitationToken
+      
       const response = await fetch('/api/auth', {
         method: 'POST',
         headers: {
@@ -100,7 +110,8 @@ function SignupPageContent() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          company: formData.company
+          company: formData.company,
+          invitationToken: invitationToken || undefined
         })
       })
 
