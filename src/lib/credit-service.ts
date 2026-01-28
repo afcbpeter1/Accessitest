@@ -1,5 +1,10 @@
 import { query, queryOne } from '@/lib/database'
 import { getUserOrganizations } from './organization-service'
+import Stripe from 'stripe'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-08-27.basil',
+})
 
 export interface CreditInfo {
   credits_remaining: number
@@ -28,6 +33,24 @@ export async function getUserCredits(userId: string): Promise<CreditInfo> {
     [userId]
   )
   
+  // Check if user has an active subscription (fallback for unlimited credits)
+  const userData = await queryOne(
+    `SELECT plan_type, stripe_subscription_id FROM users WHERE id = $1`,
+    [userId]
+  )
+  
+  // Verify subscription is actually active in Stripe
+  let hasActiveSubscription = false
+  if (userData?.plan_type === 'complete_access' && userData?.stripe_subscription_id) {
+    try {
+      const subscription = await stripe.subscriptions.retrieve(userData.stripe_subscription_id)
+      hasActiveSubscription = subscription.status === 'active' || subscription.status === 'trialing'
+    } catch (error) {
+      // Subscription not found or error - treat as inactive
+      console.warn(`Could not verify subscription for user ${userId}:`, error)
+    }
+  }
+  
   if (primaryOrg?.organization_id) {
     // Use organization credits (primary model - all credits are organization-level)
     const orgCredits = await queryOne(
@@ -38,6 +61,19 @@ export async function getUserCredits(userId: string): Promise<CreditInfo> {
     )
     
     if (orgCredits) {
+      // If user has active subscription but unlimited_credits is false, update it
+      // This handles cases where webhook didn't fire or migration wasn't run
+      if (hasActiveSubscription && !orgCredits.unlimited_credits) {
+        console.log(`⚠️ User ${userId} has active subscription but unlimited_credits is false - updating`)
+        await query(
+          `UPDATE organization_credits
+           SET unlimited_credits = true, updated_at = NOW()
+           WHERE organization_id = $1`,
+          [primaryOrg.organization_id]
+        )
+        orgCredits.unlimited_credits = true
+      }
+      
       return {
         ...orgCredits,
         is_organization: true,
@@ -46,11 +82,12 @@ export async function getUserCredits(userId: string): Promise<CreditInfo> {
     }
     
     // If organization exists but no credits record, create one
+    // Set unlimited_credits = true if user has active subscription
     await query(
       `INSERT INTO organization_credits (organization_id, credits_remaining, credits_used, unlimited_credits)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (organization_id) DO NOTHING`,
-      [primaryOrg.organization_id, 3, 0, false]
+      [primaryOrg.organization_id, 3, 0, hasActiveSubscription || false]
     )
     
     // Return the newly created credits
@@ -96,10 +133,11 @@ export async function getUserCredits(userId: string): Promise<CreditInfo> {
   )
   
   // Create organization credits
+  // Set unlimited_credits = true if user has active subscription
   await query(
     `INSERT INTO organization_credits (organization_id, credits_remaining, credits_used, unlimited_credits)
      VALUES ($1, $2, $3, $4)`,
-    [newOrg.id, 3, 0, false]
+    [newOrg.id, 3, 0, hasActiveSubscription || false]
   )
   
   // Update user's default_organization_id
@@ -111,7 +149,7 @@ export async function getUserCredits(userId: string): Promise<CreditInfo> {
   return {
     credits_remaining: 3,
     credits_used: 0,
-    unlimited_credits: false,
+    unlimited_credits: hasActiveSubscription || false,
     is_organization: true,
     organization_id: newOrg.id
   }
