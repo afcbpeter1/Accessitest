@@ -28,6 +28,14 @@ export interface BillingConfirmationData {
   amount: string
   billingPeriod: 'monthly' | 'yearly'
   subscriptionId?: string
+  billingDetails?: {
+    proratedAmount: number
+    nextPeriodAmount: number
+    totalUpcomingInvoice: number
+    currency: string
+    nextBillingDate: string | null
+    seatPrice: number
+  }
 }
 
 
@@ -284,10 +292,20 @@ export class EmailService {
               <div class="info-box">
                 <p><strong>Purchase Details:</strong></p>
                 <p>Number of Seats: <strong>${numberOfUsers}</strong></p>
-                <p>Amount: <span class="amount">${amount}</span> ${billingFrequency}</p>
                 <p>Billing: <strong>${billingText.charAt(0).toUpperCase() + billingText.slice(1)}</strong></p>
                 ${subscriptionId ? `<p>Subscription ID: ${subscriptionId}</p>` : ''}
               </div>
+              
+              ${data.billingDetails ? `
+              <div class="info-box" style="background: #f0f9ff; border-left-color: #06B6D4; margin-top: 20px;">
+                <h3 style="margin-top: 0;">Billing Breakdown</h3>
+                <p><strong>Prorated charge (current period):</strong> ${data.billingDetails.currency === 'GBP' ? '£' : data.billingDetails.currency}${data.billingDetails.proratedAmount.toFixed(2)}</p>
+                <p><strong>Next ${billingText} (${numberOfUsers} user${numberOfUsers > 1 ? 's' : ''} × ${data.billingDetails.currency === 'GBP' ? '£' : data.billingDetails.currency}${data.billingDetails.seatPrice.toFixed(2)}):</strong> ${data.billingDetails.currency === 'GBP' ? '£' : data.billingDetails.currency}${data.billingDetails.nextPeriodAmount.toFixed(2)}</p>
+                <p style="border-top: 1px solid #06B6D4; padding-top: 10px; margin-top: 10px;"><strong>Total on next invoice:</strong> <span class="amount">${data.billingDetails.currency === 'GBP' ? '£' : data.billingDetails.currency}${data.billingDetails.totalUpcomingInvoice.toFixed(2)}</span></p>
+                ${data.billingDetails.nextBillingDate ? `<p style="font-size: 14px; color: #666; margin-top: 10px;">Next billing date: ${new Date(data.billingDetails.nextBillingDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>` : ''}
+                <p style="font-size: 12px; color: #666; margin-top: 10px; font-style: italic;">Note: The prorated charge covers the remaining time until your next billing date. Your next invoice will include both the prorated amount and the full charge for the next billing period.</p>
+              </div>
+              ` : ''}
               
               <h3>How This Works:</h3>
               <ul>
@@ -324,9 +342,19 @@ export class EmailService {
           
           Purchase Details:
           - Number of Seats: ${numberOfUsers}
-          - Amount: ${amount} ${billingFrequency}
           - Billing: ${billingText.charAt(0).toUpperCase() + billingText.slice(1)}
           ${subscriptionId ? `- Subscription ID: ${subscriptionId}` : ''}
+          
+          ${data.billingDetails ? `
+          Billing Breakdown:
+          - Prorated charge (current period): ${data.billingDetails.currency === 'GBP' ? '£' : data.billingDetails.currency}${data.billingDetails.proratedAmount.toFixed(2)}
+          - Next ${billingText} (${numberOfUsers} user${numberOfUsers > 1 ? 's' : ''} × ${data.billingDetails.currency === 'GBP' ? '£' : data.billingDetails.currency}${data.billingDetails.seatPrice.toFixed(2)}): ${data.billingDetails.currency === 'GBP' ? '£' : data.billingDetails.currency}${data.billingDetails.nextPeriodAmount.toFixed(2)}
+          - Total on next invoice: ${data.billingDetails.currency === 'GBP' ? '£' : data.billingDetails.currency}${data.billingDetails.totalUpcomingInvoice.toFixed(2)}
+          ${data.billingDetails.nextBillingDate ? `- Next billing date: ${new Date(data.billingDetails.nextBillingDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}` : ''}
+          
+          Note: The prorated charge covers the remaining time until your next billing date. Your next invoice will include both the prorated amount and the full charge for the next billing period.
+          
+          ` : ''}
           
           How This Works:
           - Added to Your Current Bill: This charge is added to your existing subscription and will appear on your next invoice.

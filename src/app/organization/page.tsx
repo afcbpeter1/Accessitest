@@ -2487,7 +2487,16 @@ function BillingTab({ organization }: { organization: Organization | null }) {
         // If sessionId is 'immediate', seats were added directly - just reload
         if (data.sessionId === 'immediate') {
           loadBillingStatus()
-          setMessage({ type: 'success', text: 'Users added successfully! Your billing has been updated.' })
+          // Show billing details if available
+          if (data.billingDetails) {
+            setBillingDetails(data.billingDetails)
+            setMessage({ 
+              type: 'success', 
+              text: `Successfully added ${data.billingDetails.numberOfUsers} user(s)! Your billing has been updated.` 
+            })
+          } else {
+            setMessage({ type: 'success', text: 'Users added successfully! Your billing has been updated.' })
+          }
         } else {
           window.location.href = data.url
         }
@@ -2539,6 +2548,66 @@ function BillingTab({ organization }: { organization: Organization | null }) {
           <button onClick={() => setMessage(null)} className="ml-2 text-gray-400 hover:text-gray-600">
             <X className="h-5 w-5" />
           </button>
+        </div>
+      )}
+
+      {/* Billing Details */}
+      {billingDetails && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+          <div className="flex items-start justify-between mb-4">
+            <h4 className="text-lg font-semibold text-gray-900">Billing Summary</h4>
+            <button 
+              onClick={() => setBillingDetails(null)} 
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Prorated charge (current period):</span>
+              <span className="font-medium text-gray-900">
+                {billingDetails.currency === 'GBP' ? '£' : billingDetails.currency} 
+                {billingDetails.proratedAmount.toFixed(2)}
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">
+                Next {billingPeriod === 'yearly' ? 'year' : 'month'} ({billingDetails.numberOfUsers} user{billingDetails.numberOfUsers > 1 ? 's' : ''} × {billingDetails.currency === 'GBP' ? '£' : billingDetails.currency}{billingDetails.seatPrice.toFixed(2)}):
+              </span>
+              <span className="font-medium text-gray-900">
+                {billingDetails.currency === 'GBP' ? '£' : billingDetails.currency} 
+                {billingDetails.nextPeriodAmount.toFixed(2)}
+              </span>
+            </div>
+            
+            <div className="border-t border-blue-200 pt-3 mt-3">
+              <div className="flex justify-between items-center">
+                <span className="text-base font-semibold text-gray-900">Total on next invoice:</span>
+                <span className="text-lg font-bold text-blue-600">
+                  {billingDetails.currency === 'GBP' ? '£' : billingDetails.currency} 
+                  {billingDetails.totalUpcomingInvoice.toFixed(2)}
+                </span>
+              </div>
+            </div>
+            
+            {billingDetails.nextBillingDate && (
+              <div className="text-xs text-gray-500 mt-2">
+                Next billing date: {new Date(billingDetails.nextBillingDate).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </div>
+            )}
+            
+            <div className="text-xs text-gray-500 mt-2 bg-blue-100 p-2 rounded">
+              <strong>Note:</strong> The prorated charge covers the remaining time until your next billing date. 
+              Your next invoice will include both the prorated amount and the full charge for the next billing period.
+            </div>
+          </div>
         </div>
       )}
 
@@ -2697,7 +2766,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
               )}
             </button>
             <p className="text-sm text-gray-600 mt-2">
-              You'll be redirected to Stripe to complete the payment
+              Users will be added immediately to your subscription. Charges are prorated and will appear on your next invoice.
             </p>
             
             {/* Manual refresh button */}

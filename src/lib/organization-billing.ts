@@ -252,10 +252,101 @@ export async function addSeatsToOwnerSubscription(
   )
   console.log(`✅ Verified organization ${organizationId} update: max_users=${verifyOrg?.max_users}, status=${verifyOrg?.subscription_status}`)
   
+  // Get organization name for email
+  const orgInfo = await queryOne(
+    `SELECT name FROM organizations WHERE id = $1`,
+    [organizationId]
+  )
+  const organizationName = orgInfo?.name || 'Your Organization'
+  
+  // Get billing details from upcoming invoice
+  let billingDetails = null
+  try {
+    const upcomingInvoice = await (stripe.invoices as any).retrieveUpcoming({
+      subscription: updatedSubscription.id
+    })
+    
+    // Calculate totals
+    const totalAmount = (upcomingInvoice.amount_due || 0) / 100
+    const currency = (upcomingInvoice.currency || 'gbp').toUpperCase()
+    
+    // Find the user license line items
+    const userLicenseItems = upcomingInvoice.lines?.data?.filter((line: any) => 
+      line.price?.id === priceId
+    ) || []
+    
+    // Calculate prorated amount (for current period) and full amount (for next period)
+    let proratedAmount = 0
+    let nextPeriodAmount = 0
+    const seatPrice = (priceId === process.env.STRIPE_PER_USER_PRICE_ID || priceId === process.env.STRIPE_PER_USER_PRICE_ID_YEARLY)
+      ? (await getSeatPriceInfo(billingPeriod || 'monthly'))?.amount || 0
+      : 0
+    
+    userLicenseItems.forEach((line: any) => {
+      const lineAmount = (line.amount || 0) / 100
+      // If it's a proration, it's for the current period
+      if (line.proration || line.description?.includes('Remaining time')) {
+        proratedAmount += lineAmount
+      } else {
+        // Otherwise it's for the next period
+        nextPeriodAmount += lineAmount
+      }
+    })
+    
+    // Get next billing date
+    const nextBillingDate = upcomingInvoice.period_end
+      ? new Date(upcomingInvoice.period_end * 1000)
+      : updatedSubscription.current_period_end
+      ? new Date(updatedSubscription.current_period_end * 1000)
+      : null
+    
+    billingDetails = {
+      proratedAmount: Math.round(proratedAmount * 100) / 100, // Round to 2 decimals
+      nextPeriodAmount: Math.round(nextPeriodAmount * 100) / 100,
+      totalUpcomingInvoice: Math.round(totalAmount * 100) / 100,
+      currency,
+      nextBillingDate: nextBillingDate?.toISOString() || null,
+      numberOfUsers,
+      seatPrice: Math.round(seatPrice * 100) / 100
+    }
+    
+    console.log(`📊 Billing details:`, billingDetails)
+  } catch (error) {
+    console.warn('⚠️ Could not fetch upcoming invoice details:', error)
+  }
+  
+  // Send billing confirmation email with breakdown
+  try {
+    const { EmailService } = await import('@/lib/email-service')
+    
+    // Determine billing period from price
+    const billingPeriod = priceId === process.env.STRIPE_PER_USER_PRICE_ID_YEARLY ? 'yearly' : 'monthly'
+    
+    // Calculate amount for email (use next period amount as the recurring amount)
+    const seatPrice = billingDetails?.seatPrice || (await getSeatPriceInfo(billingPeriod))?.amount || 0
+    const amount = `£${(seatPrice * numberOfUsers).toFixed(2)}`
+    
+    await EmailService.sendBillingConfirmation({
+      email: owner.email,
+      organizationName,
+      numberOfUsers,
+      amount,
+      billingPeriod,
+      subscriptionId: updatedSubscription.id,
+      billingDetails: billingDetails || undefined
+    })
+    
+    console.log(`✅ Sent billing confirmation email to ${owner.email} with billing breakdown`)
+  } catch (emailError) {
+    console.error('⚠️ Failed to send billing confirmation email:', emailError)
+    // Don't fail the whole operation if email fails
+  }
+  
   return {
     success: true,
     subscriptionId: updatedSubscription.id,
-    message: `Successfully added ${numberOfUsers} seat(s) to your subscription. Charges are prorated and will appear on your next invoice.`
+    message: `Successfully added ${numberOfUsers} seat(s) to your subscription. Charges are prorated and will appear on your next invoice.`,
+    billingDetails
   }
 }
 
@@ -398,10 +489,11 @@ export async function createCheckoutSession(
     try {
       const result = await addSeatsToOwnerSubscription(organizationId, numberOfUsers, billingPeriod)
       if (result.success) {
-        // Return a success response that redirects immediately
+        // Return a success response that redirects immediately with billing details
         return {
           sessionId: 'immediate',
-          url: successUrl + '&added=true&method=subscription'
+          url: successUrl + '&added=true&method=subscription',
+          billingDetails: result.billingDetails || null
         }
       }
     } catch (error) {
