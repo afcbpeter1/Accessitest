@@ -2406,15 +2406,15 @@ function BillingTab({ organization }: { organization: Organization | null }) {
     canAdd: boolean; 
     currentUsers: number; 
     maxUsers: number;
+    ownerBillingPeriod?: 'monthly' | 'yearly' | null;
     pricing?: {
       monthly?: { priceId: string; amount: number; currency: string };
       yearly?: { priceId: string; amount: number; currency: string };
-    };
+    } | null;
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [addingUsers, setAddingUsers] = useState(false)
   const [usersToAdd, setUsersToAdd] = useState(1)
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'yearly'>('monthly')
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null)
 
   // Auto-dismiss messages after 5 seconds
@@ -2477,8 +2477,8 @@ function BillingTab({ organization }: { organization: Organization | null }) {
         },
         body: JSON.stringify({
           organizationId: organization.id,
-          numberOfUsers: usersToAdd,
-          billingPeriod: billingPeriod
+          numberOfUsers: usersToAdd
+          // billingPeriod removed - auto-detects from owner's subscription
         })
       })
 
@@ -2575,7 +2575,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
             
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">
-                Next {billingPeriod === 'yearly' ? 'year' : 'month'} ({billingDetails.numberOfUsers} user{billingDetails.numberOfUsers > 1 ? 's' : ''} × {billingDetails.currency === 'GBP' ? '£' : billingDetails.currency}{billingDetails.seatPrice.toFixed(2)}):
+                Next {billingStatus?.ownerBillingPeriod === 'yearly' ? 'year' : 'month'} ({billingDetails.numberOfUsers} user{billingDetails.numberOfUsers > 1 ? 's' : ''} × {billingDetails.currency === 'GBP' ? '£' : billingDetails.currency}{billingDetails.seatPrice.toFixed(2)}):
               </span>
               <span className="font-medium text-gray-900">
                 {billingDetails.currency === 'GBP' ? '£' : billingDetails.currency} 
@@ -2668,46 +2668,33 @@ function BillingTab({ organization }: { organization: Organization | null }) {
               </div>
             </div>
             
-            {/* Billing Period Selector */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Billing Period
-              </label>
-              <div className="flex space-x-4">
-                <button
-                  type="button"
-                  onClick={() => setBillingPeriod('monthly')}
-                  className={`flex-1 px-4 py-2 rounded-lg border-2 transition-colors ${
-                    billingPeriod === 'monthly'
-                      ? 'border-primary-600 bg-primary-50 text-primary-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                  }`}
-                >
-                  <div className="font-semibold">Monthly</div>
-                  {billingStatus?.pricing?.monthly && (
-                    <div className="text-xs mt-1">
-                      £{billingStatus.pricing.monthly.amount.toFixed(2)}/user/month
+            {/* Billing Period Display (Read-only, auto-detected from owner's subscription) */}
+            {billingStatus?.ownerBillingPeriod && billingStatus?.pricing && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Billing Period
+                </label>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold text-gray-900 capitalize">
+                        {billingStatus.ownerBillingPeriod}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Matches your subscription plan
+                      </div>
                     </div>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBillingPeriod('yearly')}
-                  className={`flex-1 px-4 py-2 rounded-lg border-2 transition-colors ${
-                    billingPeriod === 'yearly'
-                      ? 'border-primary-600 bg-primary-50 text-primary-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                  }`}
-                >
-                  <div className="font-semibold">Yearly</div>
-                  {billingStatus?.pricing?.yearly && (
-                    <div className="text-xs mt-1">
-                      £{billingStatus.pricing.yearly.amount.toFixed(2)}/user/year
-                    </div>
-                  )}
-                </button>
+                    {billingStatus.pricing[billingStatus.ownerBillingPeriod] && (
+                      <div className="text-right">
+                        <div className="font-semibold text-gray-900">
+                          £{billingStatus.pricing[billingStatus.ownerBillingPeriod]!.amount.toFixed(2)}/user/{billingStatus.ownerBillingPeriod === 'yearly' ? 'year' : 'month'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Number of Users Input */}
             <div className="mb-4">
@@ -2727,22 +2714,16 @@ function BillingTab({ organization }: { organization: Organization | null }) {
             </div>
 
             {/* Total Amount Display */}
-            {billingStatus?.pricing && (
+            {billingStatus?.pricing && billingStatus?.ownerBillingPeriod && billingStatus.pricing[billingStatus.ownerBillingPeriod] && (
               <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-gray-700">Total Amount:</span>
                   <span className="text-2xl font-bold text-gray-900">
-                    {billingPeriod === 'monthly' && billingStatus.pricing.monthly
-                      ? `£${(billingStatus.pricing.monthly.amount * usersToAdd).toFixed(2)}`
-                      : billingPeriod === 'yearly' && billingStatus.pricing.yearly
-                      ? `£${(billingStatus.pricing.yearly.amount * usersToAdd).toFixed(2)}`
-                      : '£0.00'}
+                    £{((billingStatus.pricing[billingStatus.ownerBillingPeriod]!.amount) * usersToAdd).toFixed(2)}
                   </span>
                 </div>
                 <div className="text-xs text-gray-500 mt-1">
-                  {billingPeriod === 'monthly' 
-                    ? `Billed monthly: ${usersToAdd} × £${billingStatus.pricing.monthly?.amount.toFixed(2) || '0.00'} = £${((billingStatus.pricing.monthly?.amount || 0) * usersToAdd).toFixed(2)}`
-                    : `Billed yearly: ${usersToAdd} × £${billingStatus.pricing.yearly?.amount.toFixed(2) || '0.00'} = £${((billingStatus.pricing.yearly?.amount || 0) * usersToAdd).toFixed(2)}`}
+                  Billed {billingStatus.ownerBillingPeriod}: {usersToAdd} × £{billingStatus.pricing[billingStatus.ownerBillingPeriod]!.amount.toFixed(2)} = £{((billingStatus.pricing[billingStatus.ownerBillingPeriod]!.amount) * usersToAdd).toFixed(2)}
                 </div>
               </div>
             )}

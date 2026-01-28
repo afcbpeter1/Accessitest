@@ -108,6 +108,37 @@ async function getSeatPriceId(organizationId: string, billingPeriod?: 'monthly' 
 }
 
 /**
+ * Get owner's subscription billing period
+ */
+export async function getOwnerBillingPeriod(organizationId: string): Promise<'monthly' | 'yearly' | null> {
+  const owner = await queryOne(
+    `SELECT u.stripe_subscription_id
+     FROM organization_members om
+     INNER JOIN users u ON om.user_id = u.id
+     WHERE om.organization_id = $1 AND om.role = 'owner' AND om.is_active = true
+     LIMIT 1`,
+    [organizationId]
+  )
+  
+  if (!owner?.stripe_subscription_id) {
+    return null
+  }
+  
+  try {
+    const subscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id)
+    const price = subscription.items.data[0]?.price
+    
+    if (price?.recurring?.interval === 'year') {
+      return 'yearly'
+    }
+    return 'monthly'
+  } catch (error) {
+    console.error('Error checking owner subscription:', error)
+    return null
+  }
+}
+
+/**
  * Get price information for display
  */
 export async function getSeatPriceInfo(billingPeriod: 'monthly' | 'yearly'): Promise<{ priceId: string; amount: number; currency: string }> {
@@ -139,7 +170,7 @@ export async function getSeatPriceInfo(billingPeriod: 'monthly' | 'yearly'): Pro
 export async function addSeatsToOwnerSubscription(
   organizationId: string,
   numberOfUsers: number,
-  billingPeriod?: 'monthly' | 'yearly'
+  billingPeriod?: 'monthly' | 'yearly' // Optional - if not provided, auto-detects from owner's subscription
 ): Promise<{ success: boolean; subscriptionId?: string; message: string }> {
   // Get organization owner
   const owner = await queryOne(
@@ -172,7 +203,8 @@ export async function addSeatsToOwnerSubscription(
   }
   
   // Get appropriate price ID (monthly or yearly based on owner's subscription)
-  const priceId = await getSeatPriceId(organizationId)
+  // If billingPeriod is provided, use it; otherwise auto-detect from owner's subscription
+  const priceId = await getSeatPriceId(organizationId, billingPeriod)
   
   if (!priceId) {
     throw new Error('Seat pricing not configured. Please set STRIPE_PER_USER_PRICE_ID and/or STRIPE_PER_USER_PRICE_ID_YEARLY')
@@ -319,7 +351,7 @@ export async function addSeatsToOwnerSubscription(
   try {
     const { EmailService } = await import('@/lib/email-service')
     
-    // Determine billing period from price
+    // Determine billing period from price ID
     const billingPeriod = priceId === process.env.STRIPE_PER_USER_PRICE_ID_YEARLY ? 'yearly' : 'monthly'
     
     // Calculate amount for email (use next period amount as the recurring amount)

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
-import { createCheckoutSession, canAddUser, addSeatsToOwnerSubscription, reduceSeatsFromOwnerSubscription, getSeatPriceInfo } from '@/lib/organization-billing'
+import { createCheckoutSession, canAddUser, addSeatsToOwnerSubscription, reduceSeatsFromOwnerSubscription, getSeatPriceInfo, getOwnerBillingPeriod } from '@/lib/organization-billing'
 import { checkPermission } from '@/lib/role-service'
 
 /**
@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
     
     // Check if owner has a subscription before allowing user additions
     // This is required - users can only be added if owner has an active subscription
+    // Don't pass billingPeriod - let it auto-detect from owner's subscription
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
     const session = await createCheckoutSession(
       organizationId,
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
       `${baseUrl}/organization?tab=billing&success=true`,
       `${baseUrl}/organization?tab=billing&canceled=true`,
       true, // useOwnerSubscription - this will throw if owner doesn't have subscription
-      validBillingPeriod
+      undefined // Let it auto-detect from owner's subscription
     )
     
     return NextResponse.json({
@@ -98,27 +99,26 @@ export async function GET(request: NextRequest) {
     
     const status = await canAddUser(organizationId)
     
-    // Get price information for both billing periods
-    let monthlyPrice, yearlyPrice
-    try {
-      monthlyPrice = await getSeatPriceInfo('monthly')
-    } catch (error) {
-      console.error('Error getting monthly price:', error)
-    }
+    // Get owner's billing period (auto-detect from subscription)
+    const ownerBillingPeriod = await getOwnerBillingPeriod(organizationId)
     
-    try {
-      yearlyPrice = await getSeatPriceInfo('yearly')
-    } catch (error) {
-      console.error('Error getting yearly price:', error)
+    // Get price information for the detected billing period
+    let pricing = null
+    if (ownerBillingPeriod) {
+      try {
+        pricing = await getSeatPriceInfo(ownerBillingPeriod)
+      } catch (error) {
+        console.error(`Error getting ${ownerBillingPeriod} price:`, error)
+      }
     }
     
     return NextResponse.json({
       success: true,
       ...status,
-      pricing: {
-        monthly: monthlyPrice,
-        yearly: yearlyPrice
-      }
+      ownerBillingPeriod, // The billing period from owner's subscription
+      pricing: pricing ? {
+        [ownerBillingPeriod]: pricing
+      } : null
     })
   } catch (error) {
     console.error('Error checking user limit:', error)
@@ -174,6 +174,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(result)
     } else {
       // Add seats - requires owner to have an active subscription
+      // Don't pass billingPeriod - let it auto-detect from owner's subscription
       try {
         const result = await addSeatsToOwnerSubscription(organizationId, numberOfUsers)
         return NextResponse.json(result)
