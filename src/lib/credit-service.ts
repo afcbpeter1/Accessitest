@@ -259,6 +259,88 @@ export async function addCredits(
 }
 
 /**
+ * Activate unlimited credits (for subscriptions) while preserving existing credits
+ * This allows credits to be "saved" for when subscription ends
+ */
+export async function activateUnlimitedCredits(userId: string): Promise<{ success: boolean; credits_remaining: number }> {
+  await query('BEGIN')
+  
+  try {
+    const creditInfo = await getUserCredits(userId)
+    
+    // Organization-primary model - all credits are organization-level
+    if (!creditInfo.organization_id) {
+      await query('ROLLBACK')
+      return {
+        success: false,
+        credits_remaining: 0
+      }
+    }
+    
+    // Set unlimited_credits = true but PRESERVE existing credits_remaining
+    // This way credits are "saved" for when subscription ends
+    await query(
+      `UPDATE organization_credits
+       SET unlimited_credits = true,
+           updated_at = NOW()
+       WHERE organization_id = $1`,
+      [creditInfo.organization_id]
+    )
+    
+    // Get updated credits (should still have the same credits_remaining)
+    const updatedCredits = await getUserCredits(userId)
+    
+    await query('COMMIT')
+    return {
+      success: true,
+      credits_remaining: updatedCredits.credits_remaining
+    }
+  } catch (error) {
+    await query('ROLLBACK')
+    throw error
+  }
+}
+
+/**
+ * Deactivate unlimited credits (when subscription ends) - credits are already preserved
+ */
+export async function deactivateUnlimitedCredits(userId: string): Promise<{ success: boolean; credits_remaining: number }> {
+  await query('BEGIN')
+  
+  try {
+    const creditInfo = await getUserCredits(userId)
+    
+    if (!creditInfo.organization_id) {
+      await query('ROLLBACK')
+      return {
+        success: false,
+        credits_remaining: 0
+      }
+    }
+    
+    // Set unlimited_credits = false - credits_remaining is already preserved
+    await query(
+      `UPDATE organization_credits
+       SET unlimited_credits = false,
+           updated_at = NOW()
+       WHERE organization_id = $1`,
+      [creditInfo.organization_id]
+    )
+    
+    const updatedCredits = await getUserCredits(userId)
+    
+    await query('COMMIT')
+    return {
+      success: true,
+      credits_remaining: updatedCredits.credits_remaining
+    }
+  } catch (error) {
+    await query('ROLLBACK')
+    throw error
+  }
+}
+
+/**
  * Get organization credits
  */
 export async function getOrganizationCredits(organizationId: string) {

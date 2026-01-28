@@ -5,7 +5,7 @@ import { getPlanTypeFromPriceId, getCreditAmountFromPriceId, CREDIT_AMOUNTS } fr
 import { sendReceiptEmail, ReceiptData } from '@/lib/receipt-email-service'
 import { sendSubscriptionPaymentEmail, sendSubscriptionCancellationEmail } from '@/lib/subscription-email-service'
 import { NotificationService } from '@/lib/notification-service'
-import { addCredits } from '@/lib/credit-service'
+import { addCredits, activateUnlimitedCredits, deactivateUnlimitedCredits, getUserCredits } from '@/lib/credit-service'
 import { updateOrganizationSubscription } from '@/lib/organization-billing'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -321,32 +321,16 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
           [planType, subscriptionId || '', userId]
         )
         
-        // First, ensure user_credits row exists
-        const existingCredits = await queryOne(
-          `SELECT user_id FROM user_credits WHERE user_id = $1`,
-          [userId]
-        )
-        
-        if (!existingCredits) {
-          console.log(`⚠️ No user_credits row found for user ${userId}, creating one`)
-          await query(
-            `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
-             VALUES ($1, $2, $3, $4)`,
-            [userId, 0, 0, true]
-          )
-          console.log(`✅ Created user_credits row for user ${userId} with unlimited_credits=true`)
+        // Activate unlimited credits while preserving existing credits (organization-primary model)
+        const creditResult = await activateUnlimitedCredits(userId)
+        if (creditResult.success) {
+          console.log(`✅ Activated unlimited credits for user ${userId}, preserved ${creditResult.credits_remaining} credits`)
         } else {
-          // Set unlimited credits for subscription users
-          await query(
-            `UPDATE user_credits 
-             SET unlimited_credits = true, updated_at = NOW() 
-             WHERE user_id = $1`,
-            [userId]
-          )
+          console.warn(`⚠️ Failed to activate unlimited credits for user ${userId}`)
         }
         
         await query('COMMIT')
-        console.log(`✅ User ${userId} upgraded to ${planType} with unlimited credits IMMEDIATELY`)
+        console.log(`✅ User ${userId} upgraded to ${planType} with unlimited credits IMMEDIATELY (${creditResult.credits_remaining} credits saved)`)
         
         // Create notification
         await NotificationService.notifySubscriptionActivated(userId, planType)
@@ -435,32 +419,16 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
           [planType, subscription.id, userId]
         )
 
-        // First, ensure user_credits row exists
-        const existingCredits = await queryOne(
-          `SELECT user_id FROM user_credits WHERE user_id = $1`,
-          [userId]
-        )
-        
-        if (!existingCredits) {
-          console.log(`⚠️ No user_credits row found for user ${userId}, creating one`)
-          await query(
-            `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
-             VALUES ($1, $2, $3, $4)`,
-            [userId, 0, 0, true]
-          )
-          console.log(`✅ Created user_credits row for user ${userId} with unlimited_credits=true`)
+        // Activate unlimited credits while preserving existing credits (organization-primary model)
+        const creditResult = await activateUnlimitedCredits(userId)
+        if (creditResult.success) {
+          console.log(`✅ Activated unlimited credits for user ${userId}, preserved ${creditResult.credits_remaining} credits`)
         } else {
-          // Set unlimited credits for subscription users
-          await query(
-            `UPDATE user_credits 
-             SET unlimited_credits = true, updated_at = NOW() 
-             WHERE user_id = $1`,
-            [userId]
-          )
+          console.warn(`⚠️ Failed to activate unlimited credits for user ${userId}`)
         }
 
         await query('COMMIT')
-        console.log(`✅ Updated user ${userId} to plan ${planType} with unlimited credits (from subscription.created)`)
+        console.log(`✅ Updated user ${userId} to plan ${planType} with unlimited credits (from subscription.created, ${creditResult.credits_remaining} credits saved)`)
       } catch (error) {
         await query('ROLLBACK')
         throw error
@@ -565,20 +533,21 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       let savedCredits = 0
       
       try {
-        const userData = await query(
-          `SELECT u.email, u.first_name, u.last_name, uc.credits_remaining
+        const userData = await queryOne(
+          `SELECT u.email, u.first_name, u.last_name
            FROM users u
-           LEFT JOIN user_credits uc ON u.id = uc.user_id
            WHERE u.id = $1`,
           [userId]
         )
         
-        if (userData.rows && userData.rows.length > 0) {
-          userEmail = userData.rows[0].email
-          savedCredits = userData.rows[0].credits_remaining || 0
+        if (userData) {
+          userEmail = userData.email
+          // Get credits using credit service (organization-primary model)
+          const creditInfo = await getUserCredits(userId)
+          savedCredits = creditInfo.credits_remaining || 0
           // Combine first and last name if available
-          const firstName = userData.rows[0].first_name || ''
-          const lastName = userData.rows[0].last_name || ''
+          const firstName = userData.first_name || ''
+          const lastName = userData.last_name || ''
           if (firstName || lastName) {
             userName = `${firstName} ${lastName}`.trim()
           }
@@ -723,6 +692,20 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     await query('BEGIN')
     
     try {
+      // Get userId before updating (needed for credit service)
+      const userResult = await queryOne(
+        `SELECT id FROM users WHERE stripe_subscription_id = $1`,
+        [subscription.id]
+      )
+      
+      if (!userResult) {
+        console.warn(`⚠️ No user found for subscription ${subscription.id}`)
+        await query('ROLLBACK')
+        return
+      }
+      
+      const cancelledUserId = userResult.id
+      
       // Set user back to free plan
       await query(
         `UPDATE users SET plan_type = 'free', stripe_subscription_id = NULL, updated_at = NOW() 
@@ -730,16 +713,16 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
         [subscription.id]
       )
 
-      // Remove unlimited credits but preserve existing saved credits exactly as they are
-      await query(
-        `UPDATE user_credits 
-         SET unlimited_credits = false, updated_at = NOW() 
-         WHERE user_id = (SELECT id FROM users WHERE stripe_subscription_id = $1)`,
-        [subscription.id]
-      )
+      // Deactivate unlimited credits while preserving existing saved credits (organization-primary model)
+      const creditResult = await deactivateUnlimitedCredits(cancelledUserId)
+      if (creditResult.success) {
+        console.log(`✅ Deactivated unlimited credits for user ${cancelledUserId}, preserved ${creditResult.credits_remaining} credits`)
+      } else {
+        console.warn(`⚠️ Failed to deactivate unlimited credits for user ${cancelledUserId}`)
+      }
 
       await query('COMMIT')
-      console.log(`Set user with subscription ${subscription.id} back to free plan (credits preserved)`)
+      console.log(`Set user ${cancelledUserId} with subscription ${subscription.id} back to free plan (${creditResult.credits_remaining} credits preserved)`)
 
       // Create notification for subscription cancellation
       if (userId) {
@@ -974,44 +957,26 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
           )
           console.log(`✅ Updated users table:`, userUpdateResult.rows[0])
 
-          // First, ensure user_credits row exists
-          const existingCredits = await queryOne(
-            `SELECT user_id FROM user_credits WHERE user_id = $1`,
-            [userId]
-          )
-          
-          if (!existingCredits) {
-            console.log(`⚠️ No user_credits row found for user ${userId}, creating one`)
-            await query(
-              `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
-               VALUES ($1, $2, $3, $4)`,
-              [userId, 0, 0, true]
-            )
-            console.log(`✅ Created user_credits row for user ${userId} with unlimited_credits=true`)
+          // Activate unlimited credits while preserving existing credits (organization-primary model)
+          const creditResult = await activateUnlimitedCredits(userId)
+          if (creditResult.success) {
+            console.log(`✅ Activated unlimited credits for user ${userId}, preserved ${creditResult.credits_remaining} credits`)
           } else {
-            // Set unlimited credits for subscription users
-            const creditsUpdateResult = await query(
-              `UPDATE user_credits 
-               SET unlimited_credits = true, updated_at = NOW() 
-               WHERE user_id = $1
-               RETURNING user_id, unlimited_credits`,
-              [userId]
-            )
-            console.log(`✅ Updated user_credits table:`, creditsUpdateResult.rows[0])
+            console.warn(`⚠️ Failed to activate unlimited credits for user ${userId}`)
           }
 
           await query('COMMIT')
-          console.log(`✅ User ${userId} upgraded to ${planType} with unlimited credits (from invoice.payment_succeeded)`)
+          console.log(`✅ User ${userId} upgraded to ${planType} with unlimited credits (from invoice.payment_succeeded, ${creditResult.credits_remaining} credits saved)`)
           
           // Verify the update worked
           const verifyUser = await queryOne(
-            `SELECT u.plan_type, uc.unlimited_credits 
+            `SELECT u.plan_type 
              FROM users u 
-             LEFT JOIN user_credits uc ON u.id = uc.user_id 
              WHERE u.id = $1`,
             [userId]
           )
-          console.log(`🔍 Verification - User plan: ${verifyUser.plan_type}, Unlimited: ${verifyUser.unlimited_credits}`)
+          const verifyCredits = await getUserCredits(userId)
+          console.log(`🔍 Verification - User plan: ${verifyUser.plan_type}, Unlimited: ${verifyCredits.unlimited_credits}, Credits saved: ${verifyCredits.credits_remaining}`)
           
           // Create notification
           await NotificationService.notifySubscriptionActivated(userId, planType)

@@ -4,6 +4,7 @@ import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { queryOne, query } from '@/lib/database'
 import { NotificationService } from '@/lib/notification-service'
 import { ScanStateService } from '@/lib/scan-state-service'
+import { getUserCredits, deductCredits } from '@/lib/credit-service'
 
 // Generate a unique issue ID based on rule, element, and URL
 function generateIssueId(ruleName: string, elementSelector: string, url: string): string {
@@ -385,51 +386,13 @@ export async function POST(request: NextRequest) {
       // Continue with scan even if registration fails
     }
     
-    // Get user's current credit information
-    let creditData = await queryOne(
-      'SELECT * FROM user_credits WHERE user_id = $1',
-      [user.userId]
-    )
-
-    // If user doesn't have credit data, create it with 3 free credits
-    if (!creditData) {
-      console.log('Creating credit record for user:', user.userId) // Debug log
-      await query(
-        `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
-         VALUES ($1, $2, $3, $4)`,
-        [user.userId, 3, 0, false]
-      )
-      
-      // Get the newly created credit data
-      creditData = await queryOne(
-        'SELECT * FROM user_credits WHERE user_id = $1',
-        [user.userId]
-      )
-    }
+    // Get user's current credit information using credit service (handles organization-primary model)
+    const creditData = await getUserCredits(user.userId)
     
     // Check if user has unlimited credits
     if (creditData.unlimited_credits) {
-      // Unlimited user, log the scan but don't deduct credits
-      try {
-        await query(
-          `INSERT INTO credit_transactions (user_id, transaction_type, amount, description)
-           VALUES ($1, $2, $3, $4)`,
-          [user.userId, 'usage', 0, `Web scan: ${url}`]
-        )
-      } catch (error) {
-        // If amount column doesn't exist, try with credits_amount column
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        if (errorMessage.includes('amount')) {
-          console.log('Amount column missing, trying with credits_amount...')
-          await query(
-            `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-             VALUES ($1, $2, $3, $4)`,
-            [user.userId, 'usage', 0, `Web scan: ${url}`]
-          )
-        } else {
-          throw error
-        }
-      }
+      // Unlimited user - deductCredits will log but not deduct
+      await deductCredits(user.userId, 0, `Web scan: ${url}`)
     } else {
       // Check if user has enough credits
       if (creditData.credits_remaining < 1) {
@@ -442,38 +405,19 @@ export async function POST(request: NextRequest) {
         })
       }
       
-      // Start transaction to deduct credit and log usage
-      await query('BEGIN')
+      // Deduct credits using credit service (handles organization-primary model and transactions)
+      const result = await deductCredits(user.userId, 1, `Web scan: ${url}`)
       
-      try {
-        // Deduct 1 credit for the scan
-        await query(
-          `UPDATE user_credits 
-           SET credits_remaining = credits_remaining - 1, 
-               credits_used = credits_used + 1,
-               updated_at = NOW()
-           WHERE user_id = $1`,
-          [user.userId]
-        )
-        
-        // Log the scan transaction
-        await query(
-          `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-           VALUES ($1, $2, $3, $4)`,
-          [user.userId, 'usage', -1, `Web scan: ${url}`]
-        )
-        
-        await query('COMMIT')
-        
-        const newCredits = creditData.credits_remaining - 1
-        
-        // Create notification for low credits if remaining credits are low
-        if (newCredits <= 1 && newCredits > 0) {
-          await NotificationService.notifyLowCredits(user.userId, newCredits)
-        }
-      } catch (error) {
-        await query('ROLLBACK')
-        throw error
+      if (!result.success) {
+        return new Response(JSON.stringify({ error: result.error || 'Failed to deduct credits', canScan: false }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      }
+      
+      // Create notification for low credits if remaining credits are low
+      if (result.credits_remaining <= 1 && result.credits_remaining > 0) {
+        await NotificationService.notifyLowCredits(user.userId, result.credits_remaining)
       }
     }
 
