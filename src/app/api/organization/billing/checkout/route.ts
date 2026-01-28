@@ -112,13 +112,21 @@ export async function GET(request: NextRequest) {
       }
     }
     
+    // Build pricing object with proper typing
+    let pricingObject: { monthly?: { priceId: string; amount: number; currency: string }; yearly?: { priceId: string; amount: number; currency: string } } | null = null
+    if (pricing && ownerBillingPeriod) {
+      if (ownerBillingPeriod === 'monthly') {
+        pricingObject = { monthly: pricing }
+      } else if (ownerBillingPeriod === 'yearly') {
+        pricingObject = { yearly: pricing }
+      }
+    }
+    
     return NextResponse.json({
       success: true,
       ...status,
       ownerBillingPeriod, // The billing period from owner's subscription
-      pricing: pricing ? {
-        [ownerBillingPeriod]: pricing
-      } : null
+      pricing: pricingObject
     })
   } catch (error) {
     console.error('Error checking user limit:', error)

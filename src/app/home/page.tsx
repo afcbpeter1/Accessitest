@@ -1190,10 +1190,10 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-                <div className="bg-white rounded-lg border-2 border-primary-500 p-6 text-center relative">
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-primary-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto py-4">
+                <div className="bg-white rounded-lg border-2 border-primary-500 p-6 text-center relative pt-10">
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
+                    <span className="bg-primary-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap shadow-md">
                       Most Popular
                     </span>
                   </div>

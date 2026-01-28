@@ -294,18 +294,18 @@ export default function Pricing() {
         </div>
 
         {/* Subscription Plans */}
-        <div className="overflow-visible">
+        <div className="overflow-visible py-4">
           <div className="grid grid-cols-1 md:grid-cols-1 gap-6 items-stretch max-w-md mx-auto overflow-visible">
             {subscriptionPlans.map((plan) => (
               <div
                 key={plan.name}
                 className={`relative bg-white rounded-lg shadow-lg border-2 p-6 flex flex-col h-full overflow-visible ${
-                  plan.popular ? 'border-primary-500 pt-8' : 'border-gray-200'
+                  plan.popular ? 'border-primary-500 pt-10' : 'border-gray-200'
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
-                    <span className="bg-primary-500 text-white px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap">
+                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
+                    <span className="bg-primary-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap shadow-md">
                       Most Popular
                     </span>
                   </div>
