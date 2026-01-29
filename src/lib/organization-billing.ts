@@ -183,7 +183,7 @@ export async function addSeatsToOwnerSubscription(
     nextBillingDate: string | null
     numberOfUsers: number
     seatPrice: number
-  }
+  } | null
 }> {
   // Get organization owner
   const owner = await queryOne(
@@ -389,9 +389,9 @@ export async function addSeatsToOwnerSubscription(
   
   return {
     success: true,
-    subscriptionId: updatedSubscription.id,
+    subscriptionId: updatedSubscription.id,    
     message: `Successfully added ${numberOfUsers} seat(s) to your subscription. Charges are prorated and will appear on your next invoice.`,
-    billingDetails
+    billingDetails: billingDetails || undefined
   }
 }
 
