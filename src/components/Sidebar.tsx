@@ -378,7 +378,7 @@ export default function Sidebar({ children }: SidebarProps) {
         `}
         role="navigation"
         aria-label="Main navigation"
-        aria-hidden={typeof window !== 'undefined' && window.innerWidth < 1024 && !mobileMenuOpen ? 'true' : undefined}
+        aria-hidden={!mobileMenuOpen ? 'true' : undefined}
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
