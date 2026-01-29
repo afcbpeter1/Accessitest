@@ -528,7 +528,19 @@ export async function createCheckoutSession(
   cancelUrl: string,
   useOwnerSubscription: boolean = true,
   billingPeriod?: 'monthly' | 'yearly'
-): Promise<{ sessionId: string; url: string }> {
+): Promise<{ 
+  sessionId: string
+  url: string
+  billingDetails?: {
+    proratedAmount: number
+    nextPeriodAmount: number
+    totalUpcomingInvoice: number
+    currency: string
+    nextBillingDate: string | null
+    numberOfUsers: number
+    seatPrice: number
+  } | null
+}> {
   // Require owner to have a subscription before adding users
   if (useOwnerSubscription) {
     try {
