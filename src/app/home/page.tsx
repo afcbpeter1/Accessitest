@@ -411,21 +411,22 @@ export default function HomePage() {
               <img 
                 src="/allytest.png" 
                 alt="Accessibility testing platform logo" 
-                className="h-8 w-auto object-contain" 
+                className="h-6 sm:h-8 w-auto object-contain" 
               />
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <Link 
                 href="/login" 
-                className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium min-h-[44px] flex items-center"
               >
                 Sign in
               </Link>
               <Link 
                 href="/signup" 
-                className="bg-[#0B1220] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800"
+                className="bg-[#0B1220] text-white px-3 sm:px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800 min-h-[44px] flex items-center"
               >
-                Get Started
+                <span className="hidden sm:inline">Get Started</span>
+                <span className="sm:hidden">Start</span>
               </Link>
             </div>
           </div>

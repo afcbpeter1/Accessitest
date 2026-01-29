@@ -23,6 +23,7 @@ import {
   Linkedin,
   Building2,
   Check,
+  Menu,
 } from 'lucide-react'
 import Link from 'next/link'
 import { socialLinks } from '@/lib/social-links'
@@ -83,6 +84,7 @@ export default function Sidebar({ children }: SidebarProps) {
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Load user data, notifications, and organizations
   useEffect(() => {
@@ -317,8 +319,21 @@ export default function Sidebar({ children }: SidebarProps) {
 
   return (
     <div className="flex h-screen bg-gray-100 overflow-hidden">
-      {/* Sidebar */}
-      <div className="w-64 bg-white shadow-sm flex flex-col border-r border-gray-200">
+      {/* Mobile menu overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Hidden on mobile, shown as drawer */}
+      <div className={`
+        fixed lg:static inset-y-0 left-0 z-50
+        w-64 bg-white shadow-sm flex flex-col border-r border-gray-200
+        transform transition-transform duration-300 ease-in-out
+        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         {/* Logo */}
         <div className="flex items-center px-6 py-4 border-b border-gray-200">
           <div className="flex items-center space-x-2">
@@ -350,18 +365,19 @@ export default function Sidebar({ children }: SidebarProps) {
                 <Link
                   key={item.name}
                   href={item.href}
-                  className={`group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`group flex items-center px-3 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${
                     isActive
                       ? 'bg-blue-600 text-white border-r-2 border-blue-400'
                       : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
                   <item.icon
-                    className={`mr-3 h-5 w-5 ${
+                    className={`mr-3 h-5 w-5 flex-shrink-0 ${
                       isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'
                     }`}
                   />
-                  {item.name}
+                  <span>{item.name}</span>
                 </Link>
               )
             })}
@@ -372,18 +388,27 @@ export default function Sidebar({ children }: SidebarProps) {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-          <div className="flex items-center justify-end">
-            <div className="flex items-center space-x-4">
-              {/* Credit Display */}
+        <header className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between lg:justify-end">
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="lg:hidden p-2 text-gray-500 hover:text-gray-700"
+              aria-label="Open menu"
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+            
+            <div className="flex items-center space-x-2 sm:space-x-4">
+              {/* Credit Display - Hide on very small screens */}
               {!loading && user && (
-                <div className="flex items-center space-x-2">
+                <div className="hidden sm:flex items-center space-x-2">
                   {getCreditDisplay()}
                 </div>
               )}
               
-              {/* Social Media Links */}
-              <div className="flex items-center space-x-2 border-r border-gray-200 pr-4 mr-2">
+              {/* Social Media Links - Hide on mobile */}
+              <div className="hidden md:flex items-center space-x-2 border-r border-gray-200 pr-4 mr-2">
                 <a 
                   href={socialLinks.twitter} 
                   target="_blank" 
@@ -423,7 +448,7 @@ export default function Sidebar({ children }: SidebarProps) {
                 
                 {/* Notifications Dropdown */}
                 {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                  <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                     <div className="p-4 border-b border-gray-200">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
@@ -495,7 +520,7 @@ export default function Sidebar({ children }: SidebarProps) {
                 
                 {/* User Menu Dropdown */}
                 {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                  <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                     <div className="p-4 border-b border-gray-200">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -544,7 +569,7 @@ export default function Sidebar({ children }: SidebarProps) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
           {children}
         </main>
       </div>

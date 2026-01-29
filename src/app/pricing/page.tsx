@@ -295,7 +295,7 @@ export default function Pricing() {
 
         {/* Subscription Plans */}
         <div className="overflow-visible py-4">
-          <div className="grid grid-cols-1 md:grid-cols-1 gap-6 items-stretch max-w-md mx-auto overflow-visible">
+          <div className="grid grid-cols-1 gap-6 items-stretch max-w-md mx-auto overflow-visible px-4 sm:px-0">
             {subscriptionPlans.map((plan) => (
               <div
                 key={plan.name}
