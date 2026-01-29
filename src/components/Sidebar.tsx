@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { 
   LayoutDashboard, 
   Plus, 
@@ -85,6 +85,8 @@ export default function Sidebar({ children }: SidebarProps) {
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
+  const firstMenuItemRef = useRef<HTMLAnchorElement>(null)
 
   // Load user data, notifications, and organizations
   useEffect(() => {
@@ -136,6 +138,39 @@ export default function Sidebar({ children }: SidebarProps) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Handle Escape key to close mobile menu
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileMenuOpen) {
+        setMobileMenuOpen(false)
+        menuButtonRef.current?.focus()
+      }
+    }
+
+    if (mobileMenuOpen) {
+      document.addEventListener('keydown', handleEscape)
+      // Prevent body scroll when menu is open
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+      document.body.style.overflow = 'unset'
+    }
+  }, [mobileMenuOpen])
+
+  // Focus management for mobile menu
+  useEffect(() => {
+    if (mobileMenuOpen && firstMenuItemRef.current) {
+      // Focus first menu item when menu opens
+      setTimeout(() => {
+        firstMenuItemRef.current?.focus()
+      }, 100)
+    }
+  }, [mobileMenuOpen])
 
   const loadOrganizations = async () => {
     try {
@@ -323,19 +358,30 @@ export default function Sidebar({ children }: SidebarProps) {
       {mobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
+          onClick={() => {
+            setMobileMenuOpen(false)
+            menuButtonRef.current?.focus()
+          }}
+          role="button"
+          aria-label="Close menu"
+          tabIndex={-1}
         />
       )}
 
       {/* Sidebar - Hidden on mobile, shown as drawer */}
-      <div className={`
-        fixed lg:static inset-y-0 left-0 z-50
-        w-64 bg-white shadow-sm flex flex-col border-r border-gray-200
-        transform transition-transform duration-300 ease-in-out
-        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
+      <aside 
+        className={`
+          fixed lg:static inset-y-0 left-0 z-50
+          w-64 bg-white shadow-sm flex flex-col border-r border-gray-200
+          transform transition-transform duration-300 ease-in-out
+          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}
+        role="navigation"
+        aria-label="Main navigation"
+        aria-hidden={typeof window !== 'undefined' && window.innerWidth < 1024 && !mobileMenuOpen ? 'true' : undefined}
+      >
         {/* Logo */}
-        <div className="flex items-center px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <div className="flex items-center space-x-2">
             <div className="bg-white p-2 rounded-lg">
               <img 
@@ -345,10 +391,21 @@ export default function Sidebar({ children }: SidebarProps) {
               />
             </div>
           </div>
+          {/* Close button for mobile */}
+          <button
+            onClick={() => {
+              setMobileMenuOpen(false)
+              menuButtonRef.current?.focus()
+            }}
+            className="lg:hidden p-2 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
+            aria-label="Close menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className="mt-6 px-3 flex-1">
+        <nav id="mobile-navigation" className="mt-6 px-3 flex-1" aria-label="Main navigation">
           <div className="space-y-1">
             {navigation
               .filter((item) => {
@@ -358,24 +415,31 @@ export default function Sidebar({ children }: SidebarProps) {
                 }
                 return true
               })
-              .map((item) => {
+              .map((item, index) => {
               const isActive = pathname === item.href
+              const isFirstItem = index === 0
               
               return (
                 <Link
                   key={item.name}
+                  ref={isFirstItem ? firstMenuItemRef : null}
                   href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`group flex items-center px-3 py-3 text-sm font-medium rounded-md transition-colors duration-200 ${
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    menuButtonRef.current?.focus()
+                  }}
+                  className={`group flex items-center px-3 py-3 text-sm font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                     isActive
                       ? 'bg-blue-600 text-white border-r-2 border-blue-400'
                       : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                   }`}
+                  aria-current={isActive ? 'page' : undefined}
                 >
                   <item.icon
                     className={`mr-3 h-5 w-5 flex-shrink-0 ${
                       isActive ? 'text-white' : 'text-gray-500 group-hover:text-gray-700'
                     }`}
+                    aria-hidden="true"
                   />
                   <span>{item.name}</span>
                 </Link>
@@ -383,7 +447,7 @@ export default function Sidebar({ children }: SidebarProps) {
             })}
           </div>
         </nav>
-      </div>
+      </aside>
 
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -392,9 +456,12 @@ export default function Sidebar({ children }: SidebarProps) {
           <div className="flex items-center justify-between lg:justify-end">
             {/* Mobile menu button */}
             <button
+              ref={menuButtonRef}
               onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 text-gray-500 hover:text-gray-700"
+              className="lg:hidden p-2 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
               aria-label="Open menu"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-navigation"
             >
               <Menu className="h-6 w-6" />
             </button>
