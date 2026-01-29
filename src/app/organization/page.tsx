@@ -2434,6 +2434,15 @@ function BillingTab({ organization }: { organization: Organization | null }) {
   const [addingUsers, setAddingUsers] = useState(false)
   const [usersToAdd, setUsersToAdd] = useState(1)
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null)
+  const [billingDetails, setBillingDetails] = useState<{
+    proratedAmount: number
+    nextPeriodAmount: number
+    totalUpcomingInvoice: number
+    currency: string
+    nextBillingDate: string | null
+    numberOfUsers: number
+    seatPrice: number
+  } | null>(null)
 
   // Auto-dismiss messages after 5 seconds
   useEffect(() => {
