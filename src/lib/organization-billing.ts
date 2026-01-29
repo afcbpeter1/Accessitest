@@ -328,8 +328,8 @@ export async function addSeatsToOwnerSubscription(
     // Get next billing date
     const nextBillingDate = upcomingInvoice.period_end
       ? new Date(upcomingInvoice.period_end * 1000)
-      : updatedSubscription.current_period_end
-      ? new Date(updatedSubscription.current_period_end * 1000)
+      : (updatedSubscription as any).current_period_end
+      ? new Date((updatedSubscription as any).current_period_end * 1000)
       : null
     
     billingDetails = {
