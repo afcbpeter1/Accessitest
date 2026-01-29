@@ -61,16 +61,16 @@ export async function getUserCredits(userId: string): Promise<CreditInfo> {
   }
   
   // Check if user has an active subscription (fallback for unlimited credits)
-  const userData = await queryOne(
+  const userSubscriptionData = await queryOne(
     `SELECT plan_type, stripe_subscription_id FROM users WHERE id = $1`,
     [userId]
   )
   
   // Verify subscription is actually active in Stripe
   let hasActiveSubscription = false
-  if (userData?.plan_type === 'complete_access' && userData?.stripe_subscription_id) {
+  if (userSubscriptionData?.plan_type === 'complete_access' && userSubscriptionData?.stripe_subscription_id) {
     try {
-      const subscription = await stripe.subscriptions.retrieve(userData.stripe_subscription_id)
+      const subscription = await stripe.subscriptions.retrieve(userSubscriptionData.stripe_subscription_id)
       hasActiveSubscription = subscription.status === 'active' || subscription.status === 'trialing'
     } catch (error) {
       // Subscription not found or error - treat as inactive
