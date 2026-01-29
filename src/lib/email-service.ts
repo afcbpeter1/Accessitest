@@ -34,6 +34,7 @@ export interface BillingConfirmationData {
     totalUpcomingInvoice: number
     currency: string
     nextBillingDate: string | null
+    numberOfUsers: number
     seatPrice: number
   }
 }

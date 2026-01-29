@@ -171,7 +171,20 @@ export async function addSeatsToOwnerSubscription(
   organizationId: string,
   numberOfUsers: number,
   billingPeriod?: 'monthly' | 'yearly' // Optional - if not provided, auto-detects from owner's subscription
-): Promise<{ success: boolean; subscriptionId?: string; message: string }> {
+): Promise<{ 
+  success: boolean
+  subscriptionId?: string
+  message: string
+  billingDetails?: {
+    proratedAmount: number
+    nextPeriodAmount: number
+    totalUpcomingInvoice: number
+    currency: string
+    nextBillingDate: string | null
+    numberOfUsers: number
+    seatPrice: number
+  }
+}> {
   // Get organization owner
   const owner = await queryOne(
     `SELECT u.id, u.stripe_subscription_id, u.email
