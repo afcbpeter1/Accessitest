@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ScanProvider } from '@/contexts/ScanContext'
@@ -10,10 +10,15 @@ import PageTracker from '@/components/PageTracker'
 // Force dynamic rendering to avoid static generation issues with React Context
 export const dynamic = 'force-dynamic'
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+}
+
 export const metadata: Metadata = {
   title: 'AccessScan - Accessibility Testing Platform',
   description: 'Professional accessibility scanning and testing for your website',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=5',
 }
 
 export default function RootLayout({

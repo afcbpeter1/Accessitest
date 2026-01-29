@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-middleware'
 import { query, queryOne } from '@/lib/database'
-import Stripe from 'stripe'
-import { getPlanTypeFromPriceId } from '@/lib/stripe-config'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
-})
+import { getStripe, getPlanTypeFromPriceId } from '@/lib/stripe-config'
 
 /**
  * Manually activate a subscription from Stripe
@@ -24,7 +19,7 @@ export const POST = requireAuth(async (request: NextRequest, user: any) => {
     }
 
     // Get subscription from Stripe
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+    const subscription = await getStripe().subscriptions.retrieve(subscriptionId, {
       expand: ['customer']
     })
 
@@ -42,7 +37,7 @@ export const POST = requireAuth(async (request: NextRequest, user: any) => {
     }
 
     // Check if customer email matches
-    const customer = await stripe.customers.retrieve(subscription.customer as string)
+    const customer = await getStripe().customers.retrieve(subscription.customer as string)
     if (!customer.deleted && 'email' in customer && customer.email !== userData.email) {
       return NextResponse.json(
         { success: false, error: 'Subscription does not belong to this user' },

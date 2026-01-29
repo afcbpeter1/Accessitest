@@ -1,3 +1,19 @@
+import Stripe from 'stripe'
+
+const STRIPE_API_VERSION = '2025-08-27.basil' as const
+
+let _stripe: Stripe | null = null
+
+/** Lazy Stripe client so build never runs new Stripe() when env vars are missing. */
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY
+    if (!key) throw new Error('STRIPE_SECRET_KEY is not set')
+    _stripe = new Stripe(key, { apiVersion: STRIPE_API_VERSION })
+  }
+  return _stripe
+}
+
 // Stripe configuration and price mappings (TEST MODE)
 export const STRIPE_PRICE_IDS = {
   // Subscription Plans

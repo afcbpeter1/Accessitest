@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-middleware'
 import { queryOne } from '@/lib/database'
 import { getUserCredits } from '@/lib/credit-service'
-import Stripe from 'stripe'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
-})
+import { getStripe } from '@/lib/stripe-config'
 
 async function handleGetUser(request: NextRequest, user: any) {
   try {
@@ -62,7 +58,7 @@ async function handleGetUser(request: NextRequest, user: any) {
     let subscriptionDetails = null
     if (userData.stripe_subscription_id) {
       try {
-        const subscription = await stripe.subscriptions.retrieve(userData.stripe_subscription_id)
+        const subscription = await getStripe().subscriptions.retrieve(userData.stripe_subscription_id)
         const price = subscription.items.data[0]?.price
         const billingPeriod = price?.recurring?.interval === 'month' ? 'monthly' : 'yearly'
         

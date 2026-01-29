@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { query, queryOne } from '@/lib/database'
-import { getPlanTypeFromPriceId, getCreditAmountFromPriceId, CREDIT_AMOUNTS } from '@/lib/stripe-config'
+import { getStripe, getPlanTypeFromPriceId, getCreditAmountFromPriceId, CREDIT_AMOUNTS } from '@/lib/stripe-config'
 import { sendReceiptEmail, ReceiptData } from '@/lib/receipt-email-service'
 import { sendSubscriptionPaymentEmail, sendSubscriptionCancellationEmail } from '@/lib/subscription-email-service'
 import { NotificationService } from '@/lib/notification-service'
 import { addCredits, activateUnlimitedCredits, deactivateUnlimitedCredits, getUserCredits } from '@/lib/credit-service'
 import { updateOrganizationSubscription } from '@/lib/organization-billing'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
-})
 
 // Trim whitespace to avoid issues with .env file formatting
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim() || ''
@@ -67,7 +63,7 @@ export async function POST(request: NextRequest) {
     let event: Stripe.Event
 
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
+      event = getStripe().webhooks.constructEvent(body, signature, webhookSecret)
       console.log('✅ Webhook signature verified successfully')
     } catch (err: any) {
       console.error('❌ Webhook signature verification failed')
@@ -202,7 +198,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     const customerEmail = session.customer_email
       ?? sessionWithDetails.customer_details?.email
       ?? (session.customer
-        ? (await stripe.customers.retrieve(session.customer as string).then(c =>
+        ? (await getStripe().customers.retrieve(session.customer as string).then(c =>
             !c.deleted && 'email' in c ? c.email : null
           ).catch(() => null))
         : null)
@@ -229,7 +225,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   if (!priceId) {
     console.log('⚠️ priceId missing in metadata, trying to get from line items')
     try {
-      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 })
+      const lineItems = await getStripe().checkout.sessions.listLineItems(session.id, { limit: 1 })
       if (lineItems.data.length > 0 && lineItems.data[0].price) {
         priceId = lineItems.data[0].price.id
         console.log(`✅ Found priceId from line items: ${priceId}`)
@@ -291,7 +287,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       try {
         const customerId = session.customer as string
         if (customerId) {
-          const subscriptions = await stripe.subscriptions.list({
+          const subscriptions = await getStripe().subscriptions.list({
             customer: customerId,
             limit: 1,
             status: 'all'
@@ -362,7 +358,7 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
     console.log('⚠️ userId missing in subscription metadata, attempting to look up by customer email')
     
     try {
-      const customer = await stripe.customers.retrieve(subscription.customer as string)
+      const customer = await getStripe().customers.retrieve(subscription.customer as string)
       if (!customer.deleted && 'email' in customer && customer.email) {
         console.log(`🔍 Looking up user by email: ${customer.email}`)
         const userResult = await query(
@@ -467,7 +463,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       } else {
         // Try to get user by customer email
         try {
-          const customer = await stripe.customers.retrieve(subscription.customer as string)
+          const customer = await getStripe().customers.retrieve(subscription.customer as string)
           if (!customer.deleted && 'email' in customer && customer.email) {
             console.log(`🔍 Looking up user by email: ${customer.email}`)
             const userResult = await query(
@@ -813,7 +809,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 
   try {
     // Get subscription details
-    const subscription = await stripe.subscriptions.retrieve(inv.subscription as string)
+    const subscription = await getStripe().subscriptions.retrieve(inv.subscription as string)
     
     // FIRST: Check if this is an organization subscription and handle it
     const customerId = subscription.customer as string
@@ -921,7 +917,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
     // If userId missing, try to look up by customer email
     if (!userId) {
       const customerEmail = invoice.customer_email || (subscription.customer ? 
-        (await stripe.customers.retrieve(subscription.customer as string).then(c => 
+        (await getStripe().customers.retrieve(subscription.customer as string).then(c => 
           !c.deleted && 'email' in c ? c.email : null
         ).catch(() => null)) : null)
       
@@ -1000,7 +996,7 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
       customerEmail = invoice.customer_email
     } else if (subscription.customer) {
       try {
-        const customer = await stripe.customers.retrieve(subscription.customer as string)
+        const customer = await getStripe().customers.retrieve(subscription.customer as string)
         if (!customer.deleted && 'email' in customer && customer.email) {
           customerEmail = customer.email
         }
@@ -1085,7 +1081,7 @@ async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   // Skip if this payment intent is part of a checkout session
   // checkout.session.completed will handle those payments
   try {
-    const sessions = await stripe.checkout.sessions.list({
+    const sessions = await getStripe().checkout.sessions.list({
       payment_intent: paymentIntent.id,
       limit: 1
     })
@@ -1209,7 +1205,7 @@ async function sendReceiptEmailFromSession(session: Stripe.Checkout.Session) {
     
     if (!customerEmail && session.customer) {
       try {
-        const customer = await stripe.customers.retrieve(session.customer as string)
+        const customer = await getStripe().customers.retrieve(session.customer as string)
         if (customer && !customer.deleted && 'email' in customer && customer.email) {
           customerEmail = customer.email
         }
@@ -1230,7 +1226,7 @@ async function sendReceiptEmailFromSession(session: Stripe.Checkout.Session) {
     // Try to derive priceId from line items if metadata is missing
     if (!priceId && session.line_items) {
       try {
-        const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 })
+        const lineItems = await getStripe().checkout.sessions.listLineItems(session.id, { limit: 1 })
         if (lineItems.data.length > 0 && lineItems.data[0].price) {
           priceId = lineItems.data[0].price.id
           console.log(`📋 Derived priceId from line items: ${priceId}`)
@@ -1321,7 +1317,7 @@ async function sendReceiptEmailFromSession(session: Stripe.Checkout.Session) {
 async function sendReceiptEmailFromSubscription(subscription: Stripe.Subscription) {
   try {
     // Get customer email from Stripe
-    const customer = await stripe.customers.retrieve(subscription.customer as string)
+    const customer = await getStripe().customers.retrieve(subscription.customer as string)
     if (!customer || customer.deleted || !('email' in customer) || !customer.email) {
       console.log('No customer email found for subscription, skipping receipt email')
       return
@@ -1402,7 +1398,7 @@ async function sendReceiptEmailFromPaymentIntent(paymentIntent: Stripe.PaymentIn
     
     if (paymentIntent.latest_charge) {
       try {
-        const charge = await stripe.charges.retrieve(paymentIntent.latest_charge as string)
+        const charge = await getStripe().charges.retrieve(paymentIntent.latest_charge as string)
         customerEmail = charge.billing_details?.email || null
       } catch (error) {
         console.log('Could not retrieve charge for email:', error)
@@ -1659,7 +1655,7 @@ async function handleOrganizationSubscriptionUpdated(subscription: Stripe.Subscr
         let billingPeriod: 'monthly' | 'yearly' = 'monthly'
         if (owner.stripe_subscription_id) {
           try {
-            const ownerSubscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id)
+            const ownerSubscription = await getStripe().subscriptions.retrieve(owner.stripe_subscription_id)
             const price = ownerSubscription.items.data[0]?.price
             if (price?.recurring?.interval === 'year') {
               billingPeriod = 'yearly'
@@ -1765,7 +1761,7 @@ async function handleOrganizationCheckoutCompleted(session: Stripe.Checkout.Sess
     let billingPeriod: 'monthly' | 'yearly' = 'monthly'
     
     try {
-      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { limit: 1 })
+      const lineItems = await getStripe().checkout.sessions.listLineItems(session.id, { limit: 1 })
       if (lineItems.data.length > 0) {
         const lineItem = lineItems.data[0]
         const price = lineItem.price
@@ -1789,7 +1785,7 @@ async function handleOrganizationCheckoutCompleted(session: Stripe.Checkout.Sess
       // Fallback: try to calculate from subscription if available
       if (session.subscription) {
         try {
-          const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
+          const subscription = await getStripe().subscriptions.retrieve(session.subscription as string)
           const price = subscription.items.data[0]?.price
         if (price?.unit_amount) {
           const unitPrice = price.unit_amount / 100
@@ -1809,7 +1805,7 @@ async function handleOrganizationCheckoutCompleted(session: Stripe.Checkout.Sess
     // Update organization subscription immediately if subscription is available
     if (session.subscription) {
       try {
-        const subscription = await stripe.subscriptions.retrieve(session.subscription as string)
+        const subscription = await getStripe().subscriptions.retrieve(session.subscription as string)
         console.log(`🔄 Updating organization ${org.id} subscription immediately from checkout`)
         await updateOrganizationSubscription(org.id, subscription)
         console.log(`✅ Updated organization ${org.id}: max_users=${subscription.items.data[0]?.quantity || numberOfUsers}, status=${subscription.status}`)

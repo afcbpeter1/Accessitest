@@ -1,10 +1,6 @@
 import { query, queryOne } from '@/lib/database'
 import { getUserOrganizations } from './organization-service'
-import Stripe from 'stripe'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
-})
+import { getStripe } from './stripe-config'
 
 export interface CreditInfo {
   credits_remaining: number
@@ -70,7 +66,7 @@ export async function getUserCredits(userId: string): Promise<CreditInfo> {
   let hasActiveSubscription = false
   if (userSubscriptionData?.plan_type === 'complete_access' && userSubscriptionData?.stripe_subscription_id) {
     try {
-      const subscription = await stripe.subscriptions.retrieve(userSubscriptionData.stripe_subscription_id)
+      const subscription = await getStripe().subscriptions.retrieve(userSubscriptionData.stripe_subscription_id)
       hasActiveSubscription = subscription.status === 'active' || subscription.status === 'trialing'
     } catch (error) {
       // Subscription not found or error - treat as inactive

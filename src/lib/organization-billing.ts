@@ -1,10 +1,7 @@
 import Stripe from 'stripe'
 import { query, queryOne } from '@/lib/database'
 import { updateOrganization } from './organization-service'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
-})
+import { getStripe } from './stripe-config'
 
 /**
  * Create or get Stripe customer for organization
@@ -21,7 +18,7 @@ export async function getOrCreateStripeCustomer(organizationId: string, organiza
   }
   
   // Create new Stripe customer
-  const customer = await stripe.customers.create({
+  const customer = await getStripe().customers.create({
     name: organizationName,
     email: email,
     metadata: {
@@ -82,7 +79,7 @@ async function getSeatPriceId(organizationId: string, billingPeriod?: 'monthly' 
   // Check if owner has a yearly subscription
   if (owner.stripe_subscription_id) {
     try {
-      const subscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id)
+      const subscription = await getStripe().subscriptions.retrieve(owner.stripe_subscription_id)
       const price = subscription.items.data[0]?.price
       
       // Check if subscription is yearly (interval === 'year')
@@ -125,7 +122,7 @@ export async function getOwnerBillingPeriod(organizationId: string): Promise<'mo
   }
   
   try {
-    const subscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id)
+    const subscription = await getStripe().subscriptions.retrieve(owner.stripe_subscription_id)
     const price = subscription.items.data[0]?.price
     
     if (price?.recurring?.interval === 'year') {
@@ -151,7 +148,7 @@ export async function getSeatPriceInfo(billingPeriod: 'monthly' | 'yearly'): Pro
   }
   
   try {
-    const price = await stripe.prices.retrieve(priceId)
+    const price = await getStripe().prices.retrieve(priceId)
     return {
       priceId,
       amount: (price.unit_amount || 0) / 100, // Convert cents to dollars
@@ -206,7 +203,7 @@ export async function addSeatsToOwnerSubscription(
   // Get owner's subscription
   let subscription: Stripe.Subscription
   try {
-    subscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id)
+    subscription = await getStripe().subscriptions.retrieve(owner.stripe_subscription_id)
   } catch (error) {
     throw new Error('Could not retrieve owner subscription. Please ensure the subscription is active.')
   }
@@ -232,7 +229,7 @@ export async function addSeatsToOwnerSubscription(
     // Update existing item quantity
     // Stripe automatically prorates when quantity changes mid-cycle
     const newQuantity = (existingItem.quantity || 0) + numberOfUsers
-    updatedSubscription = await stripe.subscriptions.update(subscription.id, {
+    updatedSubscription = await getStripe().subscriptions.update(subscription.id, {
       items: [{
         id: existingItem.id,
         quantity: newQuantity
@@ -247,7 +244,7 @@ export async function addSeatsToOwnerSubscription(
     console.log(`✅ Added ${numberOfUsers} seats to existing subscription item. New quantity: ${newQuantity} (prorated)`)
   } else {
     // Add new item to subscription
-    updatedSubscription = await stripe.subscriptions.update(subscription.id, {
+    updatedSubscription = await getStripe().subscriptions.update(subscription.id, {
       items: [
         ...subscription.items.data.map(item => ({ id: item.id })),
         {
@@ -307,7 +304,7 @@ export async function addSeatsToOwnerSubscription(
   // Get billing details from upcoming invoice
   let billingDetails = null
   try {
-    const upcomingInvoice = await (stripe.invoices as any).retrieveUpcoming({
+    const upcomingInvoice = await (getStripe().invoices as any).retrieveUpcoming({
       subscription: updatedSubscription.id
     })
     
@@ -424,7 +421,7 @@ export async function reduceSeatsFromOwnerSubscription(
   // Get owner's subscription
   let subscription: Stripe.Subscription
   try {
-    subscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id)
+    subscription = await getStripe().subscriptions.retrieve(owner.stripe_subscription_id)
   } catch (error) {
     throw new Error('Could not retrieve owner subscription. Please ensure the subscription is active.')
   }
@@ -464,7 +461,7 @@ export async function reduceSeatsFromOwnerSubscription(
   
   if (newQuantity === 0) {
     // Remove the item entirely
-    updatedSubscription = await stripe.subscriptions.update(subscription.id, {
+    updatedSubscription = await getStripe().subscriptions.update(subscription.id, {
       items: [
         ...subscription.items.data
           .filter(item => item.id !== existingItem.id)
@@ -479,7 +476,7 @@ export async function reduceSeatsFromOwnerSubscription(
     console.log(`✅ Removed all organization seats from subscription (prorated refund)`)
   } else {
     // Update quantity
-    updatedSubscription = await stripe.subscriptions.update(subscription.id, {
+    updatedSubscription = await getStripe().subscriptions.update(subscription.id, {
       items: [{
         id: existingItem.id,
         quantity: newQuantity
@@ -595,7 +592,7 @@ export async function createCheckoutSession(
   console.log(`   - Customer ID: ${customerId}`)
   console.log(`   - Billing period: ${billingPeriod || 'monthly'}`)
   
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
     line_items: [
@@ -746,7 +743,7 @@ export async function createTeamCheckoutSession(
   }
   
   // Create checkout session for one team
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     customer: customerId,
     mode: 'subscription',
     line_items: [

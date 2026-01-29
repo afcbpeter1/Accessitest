@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { queryOne } from '@/lib/database'
 import pool from '@/lib/database'
-import Stripe from 'stripe'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
-})
+import { getStripe } from '@/lib/stripe-config'
 
 // Delete user account and all associated data
 export async function DELETE(request: NextRequest) {
@@ -35,7 +31,7 @@ export async function DELETE(request: NextRequest) {
       // 1. Cancel Stripe subscription if exists
       if (userData.stripe_subscription_id) {
         try {
-          await stripe.subscriptions.cancel(userData.stripe_subscription_id)
+          await getStripe().subscriptions.cancel(userData.stripe_subscription_id)
 
         } catch (stripeError: any) {
           // Log but don't fail - subscription might already be cancelled

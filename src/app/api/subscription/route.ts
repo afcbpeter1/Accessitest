@@ -3,11 +3,7 @@ import { requireAuth } from '@/lib/auth-middleware'
 import { queryOne, query } from '@/lib/database'
 import Stripe from 'stripe'
 import { sendSubscriptionReactivationEmail } from '@/lib/subscription-email-service'
-import { getPlanTypeFromPriceId } from '@/lib/stripe-config'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
-})
+import { getStripe, getPlanTypeFromPriceId } from '@/lib/stripe-config'
 
 // Get subscription details
 async function handleGetSubscription(request: NextRequest, user: any) {
@@ -31,7 +27,7 @@ async function handleGetSubscription(request: NextRequest, user: any) {
     let subscriptionFound = false
     
     try {
-      subscription = await stripe.subscriptions.retrieve(userData.stripe_subscription_id, {
+      subscription = await getStripe().subscriptions.retrieve(userData.stripe_subscription_id, {
         expand: ['latest_invoice', 'customer']
       })
       
@@ -45,7 +41,7 @@ async function handleGetSubscription(request: NextRequest, user: any) {
       // If subscription not found, try to find it by customer email
       if (userData.email) {
         try {
-          const customers = await stripe.customers.list({
+          const customers = await getStripe().customers.list({
             email: userData.email,
             limit: 1
           })
@@ -54,7 +50,7 @@ async function handleGetSubscription(request: NextRequest, user: any) {
             const customer = customers.data[0]
             
             // Get active subscriptions for this customer
-            const subscriptions = await stripe.subscriptions.list({
+            const subscriptions = await getStripe().subscriptions.list({
               customer: customer.id,
               status: 'all',
               limit: 10
@@ -66,7 +62,7 @@ async function handleGetSubscription(request: NextRequest, user: any) {
             ) || subscriptions.data[0]
             
             if (activeSubscription) {
-              subscription = await stripe.subscriptions.retrieve(activeSubscription.id, {
+              subscription = await getStripe().subscriptions.retrieve(activeSubscription.id, {
                 expand: ['latest_invoice', 'customer']
               })
               
@@ -110,14 +106,14 @@ async function handleGetSubscription(request: NextRequest, user: any) {
     if (userData.email) {
       try {
         // Get customer by email to find the correct subscription
-        const customers = await stripe.customers.list({
+        const customers = await getStripe().customers.list({
           email: userData.email,
           limit: 1
         })
         
         if (customers.data.length > 0) {
           const customer = customers.data[0]
-          const allSubscriptions = await stripe.subscriptions.list({
+          const allSubscriptions = await getStripe().subscriptions.list({
             customer: customer.id,
             status: 'all',
             limit: 10
@@ -133,7 +129,7 @@ async function handleGetSubscription(request: NextRequest, user: any) {
             
             // If it's different from what we have, use the correct one
             if (mostRecentActive.id !== subscription.id) {
-              subscription = await stripe.subscriptions.retrieve(mostRecentActive.id, {
+              subscription = await getStripe().subscriptions.retrieve(mostRecentActive.id, {
                 expand: ['latest_invoice', 'customer']
               })
               
@@ -162,7 +158,7 @@ async function handleGetSubscription(request: NextRequest, user: any) {
       let invoiceToUse: Stripe.Invoice | null = null
       
       try {
-        const upcomingInvoice = await (stripe.invoices as any).retrieveUpcoming({
+        const upcomingInvoice = await (getStripe().invoices as any).retrieveUpcoming({
           subscription: subscription.id
         })
         invoiceToUse = upcomingInvoice
@@ -300,7 +296,7 @@ async function handleCancelSubscription(request: NextRequest, user: any) {
     }
 
     // Cancel subscription at period end (so user keeps access until period ends)
-    const subscription = await stripe.subscriptions.update(
+    const subscription = await getStripe().subscriptions.update(
       userData.stripe_subscription_id,
       {
         cancel_at_period_end: true
@@ -348,7 +344,7 @@ async function handleReactivateSubscription(request: NextRequest, user: any) {
     }
 
     // Reactivate subscription by removing cancel_at_period_end
-    const subscription = await stripe.subscriptions.update(
+    const subscription = await getStripe().subscriptions.update(
       userData.stripe_subscription_id,
       {
         cancel_at_period_end: false
@@ -373,7 +369,7 @@ async function handleReactivateSubscription(request: NextRequest, user: any) {
     } else {
       // Try to get from upcoming invoice
       try {
-        const upcomingInvoice = await (stripe.invoices as any).retrieveUpcoming({
+        const upcomingInvoice = await (getStripe().invoices as any).retrieveUpcoming({
           subscription: subscription.id
         })
         if (upcomingInvoice.period_end) {
@@ -475,7 +471,7 @@ async function handleSyncSubscription(request: NextRequest, user: any) {
     }
 
     // Find customer in Stripe by email
-    const customers = await stripe.customers.list({
+    const customers = await getStripe().customers.list({
       email: userData.email,
       limit: 1
     })
@@ -491,7 +487,7 @@ async function handleSyncSubscription(request: NextRequest, user: any) {
     const customer = customers.data[0]
 
     // Get all subscriptions for this customer
-    const subscriptions = await stripe.subscriptions.list({
+    const subscriptions = await getStripe().subscriptions.list({
       customer: customer.id,
       status: 'all',
       limit: 10
@@ -511,7 +507,7 @@ async function handleSyncSubscription(request: NextRequest, user: any) {
     }
 
     // Get full subscription details
-    const subscription = await stripe.subscriptions.retrieve(activeSubscription.id, {
+    const subscription = await getStripe().subscriptions.retrieve(activeSubscription.id, {
       expand: ['latest_invoice', 'customer']
     })
 

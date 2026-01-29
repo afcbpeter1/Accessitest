@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { STRIPE_PRICE_IDS, getPlanTypeFromPriceId, getCreditAmountFromPriceId, isSubscriptionPriceId, isCreditPriceId } from '@/lib/stripe-config'
+import { STRIPE_PRICE_IDS, getStripe, getPlanTypeFromPriceId, getCreditAmountFromPriceId, isSubscriptionPriceId, isCreditPriceId } from '@/lib/stripe-config'
 import { query } from '@/lib/database'
 
 function getPlanNameFromPriceId(priceId: string): string {
@@ -17,10 +17,6 @@ function getPlanNameFromPriceId(priceId: string): string {
   return planNames[priceId] || 'Unknown Plan'
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-08-27.basil',
-})
-
 export async function POST(request: NextRequest) {
   try {
     console.log('🔑 Stripe Secret Key exists:', !!process.env.STRIPE_SECRET_KEY)
@@ -28,7 +24,7 @@ export async function POST(request: NextRequest) {
     
     // Get account info to verify we're connected to the right account
     try {
-      const account = await stripe.accounts.retrieve()
+      const account = await getStripe().accounts.retrieve()
       console.log('🏢 Connected to Stripe Account ID:', account.id)
       console.log('🏢 Account Type:', account.type)
     } catch (accountError) {
@@ -40,7 +36,7 @@ export async function POST(request: NextRequest) {
     
     // Try to retrieve the specific price to see what error we get
     try {
-      const price = await stripe.prices.retrieve(priceId)
+      const price = await getStripe().prices.retrieve(priceId)
       console.log('✅ Price found:', price.id, price.nickname || price.product)
     } catch (priceError: any) {
       console.log('Price retrieval error:', priceError.message)
@@ -48,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     // List all prices to see what actually exists
     try {
-      const prices = await stripe.prices.list({ limit: 20 })
+      const prices = await getStripe().prices.list({ limit: 20 })
       console.log('📋 Available prices in account:')
       prices.data.forEach(p => {
         console.log(`  - ${p.id} (${p.nickname || 'no nickname'}) - £${(p.unit_amount || 0) / 100}`)
@@ -87,7 +83,7 @@ export async function POST(request: NextRequest) {
         
         try {
           // Check if the existing subscription is still active
-          const existingSubscription = await stripe.subscriptions.retrieve(existingSubscriptionId)
+          const existingSubscription = await getStripe().subscriptions.retrieve(existingSubscriptionId)
           
           if (existingSubscription.status === 'active' || existingSubscription.status === 'trialing') {
             return NextResponse.json({ 
@@ -103,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get price details for success URL
-    const price = await stripe.prices.retrieve(priceId)
+    const price = await getStripe().prices.retrieve(priceId)
     const planName = getPlanNameFromPriceId(priceId)
     const amount = `£${(price.unit_amount || 0) / 100}`
     const billingPeriod = price.recurring ? 
@@ -165,7 +161,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams)
+    const session = await getStripe().checkout.sessions.create(sessionParams)
 
     console.log('✅ Checkout session created:', session.id)
     console.log('📋 Session URL:', session.url)
