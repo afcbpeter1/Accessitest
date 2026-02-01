@@ -293,18 +293,18 @@ export default function Pricing() {
           </div>
         </div>
 
-        {/* Subscription Plans - pt-12 so "Most Popular" badge isn't clipped */}
-        <div className="overflow-visible pt-12 pb-4">
-          <div className="grid grid-cols-1 gap-6 items-stretch max-w-md mx-auto overflow-visible px-4 sm:px-0">
+        {/* Subscription Plans */}
+        <div className="pb-4">
+          <div className="grid grid-cols-1 gap-6 items-stretch max-w-md mx-auto px-4 sm:px-0">
             {subscriptionPlans.map((plan) => (
               <div
                 key={plan.name}
-                className={`relative bg-white rounded-lg shadow-lg border-2 p-6 flex flex-col h-full overflow-visible ${
-                  plan.popular ? 'border-primary-500 pt-10' : 'border-gray-200'
+                className={`bg-white rounded-lg shadow-lg border-2 p-6 flex flex-col h-full ${
+                  plan.popular ? 'border-primary-500' : 'border-gray-200'
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 w-max max-w-[calc(100%+2rem)]">
+                  <div className="flex justify-center mb-4">
                     <span className="bg-primary-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap shadow-md">
                       Most Popular
                     </span>
