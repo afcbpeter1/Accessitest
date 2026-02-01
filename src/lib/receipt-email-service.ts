@@ -1,6 +1,7 @@
 import { Resend } from 'resend'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { getEmailManageLinksFooterHtml, getEmailManageLinksFooterText } from './email-links'
 
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-development')
 
@@ -333,10 +334,8 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
           </div>
 
           <div class="footer">
-            <p class="footer-text">
-              Need help? <a href="${process.env.NEXT_PUBLIC_BASE_URL}/settings" class="footer-link">Contact Support</a>
-            </p>
-            <p class="footer-text" style="margin-bottom: 0;">
+            ${getEmailManageLinksFooterHtml(customerEmail)}
+            <p class="footer-text" style="margin-top: 12px; margin-bottom: 0;">
               This is an automated receipt. Please keep this email for your records.
             </p>
           </div>
@@ -366,7 +365,7 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
       - Check your dashboard for usage details
 
       Dashboard: ${process.env.NEXT_PUBLIC_BASE_URL}/dashboard
-      Support: ${process.env.NEXT_PUBLIC_BASE_URL}/settings
+      ${getEmailManageLinksFooterText(customerEmail)}
 
       This is an automated receipt. Please keep this email for your records.
     `

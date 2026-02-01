@@ -1,4 +1,5 @@
 import { Resend } from 'resend'
+import { getEmailManageLinksFooterHtml, getEmailManageLinksFooterText, getAppBaseUrl } from './email-links'
 
 // Avoid crashing when key is missing (e.g. test mode); other services use same pattern
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-development')
@@ -326,10 +327,10 @@ export class EmailService {
               <p>If you have any questions about your billing, please contact our support team.</p>
               
               <p>Best regards,<br>The A11ytest.ai Team</p>
+              ${getEmailManageLinksFooterHtml(email)}
             </div>
-            <div class="footer">
+            <div class="footer" style="text-align: center; margin-top: 16px; color: #999; font-size: 12px;">
               <p>A11ytest.ai - Professional Accessibility Testing</p>
-              <p>This email was sent to ${email}</p>
             </div>
           </body>
           </html>
@@ -364,7 +365,7 @@ export class EmailService {
           - Shared Credits: All users in your organization share the same credit pool.
           
           Next Steps:
-          1. Go to your Organization page: ${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/organization?tab=members
+          1. Go to your Organization page: ${getAppBaseUrl()}/organization?tab=members
           2. Click "Invite Member" to add users
           3. Users will receive an invitation email to join your organization
           
@@ -372,9 +373,9 @@ export class EmailService {
           
           Best regards,
           The A11ytest.ai Team
+          ${getEmailManageLinksFooterText(email)}
           
           A11ytest.ai - Professional Accessibility Testing
-          This email was sent to ${email}
         `
       })
 

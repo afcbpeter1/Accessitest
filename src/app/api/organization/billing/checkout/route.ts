@@ -31,9 +31,10 @@ export async function POST(request: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
     const successUrl = `${baseUrl}/organization?tab=billing&success=true`
+    const cancelUrl = `${baseUrl}/organization?tab=billing&canceled=true`
 
     if (payProratedNow === true) {
-      const { hostedInvoiceUrl } = await addSeatsAndPayProratedNow(organizationId, numberOfUsers, successUrl)
+      const { hostedInvoiceUrl } = await addSeatsAndPayProratedNow(organizationId, numberOfUsers, successUrl, cancelUrl)
       return NextResponse.json({
         success: true,
         url: hostedInvoiceUrl,

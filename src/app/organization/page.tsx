@@ -145,9 +145,7 @@ export default function OrganizationPage() {
       setActiveTab('billing')
     }
     
-    if (success === 'true') {
-      setMessage({ type: 'success', text: 'Additional user seats have been successfully added! You will receive a confirmation email shortly.' })
-    } else if (canceled === 'true') {
+    if (canceled === 'true') {
       setMessage({ type: 'error', text: 'Payment was canceled. No charges were made.' })
     }
     
@@ -2436,12 +2434,17 @@ function BillingTab({ organization }: { organization: Organization | null }) {
   const [showConfirmAdd, setShowConfirmAdd] = useState(false)
   const [addPreview, setAddPreview] = useState<{
     proratedAmount: number
+    prorationOnlyAmount?: number
     currency: string
     nextBillingDate: string | null
     seatPrice: number
     billingPeriod: 'monthly' | 'yearly'
     totalAtRenewal: number
     numberOfUsers: number
+    periodStart?: string | null
+    periodEnd?: string | null
+    daysInPeriod?: number | null
+    daysRemainingInPeriod?: number | null
   } | null>(null)
   const [agreeToCharges, setAgreeToCharges] = useState(false)
   const [reducingUsers, setReducingUsers] = useState(false)
@@ -2476,8 +2479,16 @@ function BillingTab({ organization }: { organization: Organization | null }) {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const success = urlParams.get('success')
+    const seats = urlParams.get('seats')
+    const amount = urlParams.get('amount')
+    const type = urlParams.get('type')
     if (success === 'true' && organization) {
-      setMessage({ type: 'success', text: 'Payment successful. Your seats are added and a receipt has been sent to your email.' })
+      const seatsNum = seats ? parseInt(seats, 10) : 0
+      const amountStr = amount != null && amount !== '' ? `£${Number(amount).toFixed(2)}` : ''
+      const text = type === 'proration' && seatsNum > 0
+        ? `Payment successful. You've added ${seatsNum} seat${seatsNum !== 1 ? 's' : ''}. Amount paid: ${amountStr}. A receipt has been sent to your email.`
+        : 'Payment successful. Your seats are added and a receipt has been sent to your email.'
+      setMessage({ type: 'success', text })
       setTimeout(() => {
         loadBillingStatus()
       }, 2000)
@@ -2485,6 +2496,9 @@ function BillingTab({ organization }: { organization: Organization | null }) {
       if (typeof window !== 'undefined' && window.history.replaceState) {
         const u = new URL(window.location.href)
         u.searchParams.delete('success')
+        u.searchParams.delete('seats')
+        u.searchParams.delete('amount')
+        u.searchParams.delete('type')
         window.history.replaceState({}, '', u.toString())
       }
     }
@@ -2538,6 +2552,38 @@ function BillingTab({ organization }: { organization: Organization | null }) {
         setShowConfirmAdd(true)
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to load preview' })
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: 'An error occurred. Please try again.' })
+    } finally {
+      setAddingUsers(false)
+    }
+  }
+
+  const handleAddSeatsAtRenewal = async () => {
+    if (!organization || !usersToAdd || usersToAdd < 1) return
+    setAddingUsers(true)
+    setMessage(null)
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await fetch('/api/organization/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          organizationId: organization.id,
+          numberOfUsers: usersToAdd,
+          payProratedNow: false
+        })
+      })
+      const data = await response.json()
+      if (data.success) {
+        setMessage({ type: 'success', text: `${usersToAdd} seat(s) added. Proration and new seats will appear on your next bill—no charge today.` })
+        setShowConfirmAdd(false)
+        setAddPreview(null)
+        setUsersToAdd(1)
+        loadBillingStatus()
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to add seats' })
       }
     } catch (e) {
       setMessage({ type: 'error', text: 'An error occurred. Please try again.' })
@@ -2815,18 +2861,29 @@ function BillingTab({ organization }: { organization: Organization | null }) {
               </div>
             )}
 
-            {/* Confirm step: prorated amount and agree before redirecting to Stripe */}
+            {/* Confirm step: pay proration today only */}
             {showConfirmAdd && addPreview && (
               <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <h5 className="font-semibold text-gray-900 mb-3">Review and confirm</h5>
                 <div className="space-y-2 text-sm">
                   <p>
-                    <strong>Prorated amount due now:</strong>{' '}
+                    <strong>Pay today (proration only):</strong>{' '}
                     {addPreview.currency === 'GBP' ? '£' : addPreview.currency}
-                    {addPreview.proratedAmount.toFixed(2)} (for the rest of your current {addPreview.billingPeriod} period)
+                    {(addPreview.prorationOnlyAmount ?? addPreview.proratedAmount).toFixed(2)}
                   </p>
+                  <p className="text-gray-600">
+                    You pay for seats immediately today. If you're midway through your {addPreview.billingPeriod} period, you pay less today (proration for the rest of the period). The full seat fee ({addPreview.currency === 'GBP' ? '£' : ''}{addPreview.seatPrice.toFixed(2)}/seat/{addPreview.billingPeriod === 'yearly' ? 'year' : 'month'}) is added to your next bill at renewal.
+                  </p>
+                  {addPreview.periodStart != null && addPreview.periodEnd != null && (addPreview.daysInPeriod != null || addPreview.daysRemainingInPeriod != null) && (
+                    <p className="text-gray-600 text-xs">
+                      Your current billing period: {new Date(addPreview.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – {new Date(addPreview.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.
+                      {addPreview.daysRemainingInPeriod != null && addPreview.daysRemainingInPeriod >= 0 && (
+                        <> Today's charge covers the remaining <strong>{addPreview.daysRemainingInPeriod} day{addPreview.daysRemainingInPeriod !== 1 ? 's' : ''}</strong> in this period—so the amount depends on when in the month you add seats (earlier = more, later = less).</>
+                      )}
+                    </p>
+                  )}
                   <p>
-                    <strong>At renewal:</strong> {addPreview.currency === 'GBP' ? '£' : addPreview.currency}
+                    <strong>At next renewal:</strong> {addPreview.currency === 'GBP' ? '£' : addPreview.currency}
                     {addPreview.totalAtRenewal.toFixed(2)}/{addPreview.billingPeriod} for {addPreview.numberOfUsers} user seat{addPreview.numberOfUsers > 1 ? 's' : ''}
                   </p>
                   {addPreview.nextBillingDate && (
@@ -2844,7 +2901,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                   />
                   <span className="text-sm font-medium text-gray-800">I agree to these charges and to add {addPreview.numberOfUsers} user seat{addPreview.numberOfUsers > 1 ? 's' : ''} to my subscription.</span>
                 </label>
-                <div className="flex gap-2 mt-4">
+                <div className="flex flex-wrap gap-2 mt-4">
                   <button
                     type="button"
                     onClick={() => { setShowConfirmAdd(false); setAddPreview(null); setAgreeToCharges(false) }}
@@ -2857,13 +2914,21 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                     disabled={addingUsers || !agreeToCharges}
                     className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {addingUsers ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Redirecting... </> : 'Confirm and pay (Stripe)'}
+                    {addingUsers ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Redirecting... </> : 'Pay proration now (Stripe)'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddSeatsAtRenewal}
+                    disabled={addingUsers}
+                    className="px-4 py-2 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 disabled:opacity-50"
+                  >
+                    Add seats at renewal instead (no charge today)
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Add Users: Review then pay (only show when not in confirm step) */}
+            {/* Add Users: pay proration today (primary) or bill at renewal */}
             {!showConfirmAdd && (
               <>
                 <button
@@ -2874,12 +2939,20 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                   {addingUsers ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading preview... </>
                   ) : (
-                    <><Plus className="h-4 w-4 mr-2" /> Review and continue </>
+                    <><Plus className="h-4 w-4 mr-2" /> Add {usersToAdd} seat{usersToAdd > 1 ? 's' : ''} and pay proration today </>
                   )}
                 </button>
                 <p className="text-sm text-gray-600 mt-2">
-                  You will see the prorated amount due now and confirm before being redirected to Stripe to pay. At renewal, the extra licence fee is added to your subscription.
+                  You pay only the proration today (rest of current period). The full seat fee is added to your next bill.
                 </p>
+                <button
+                  type="button"
+                  onClick={handleAddSeatsAtRenewal}
+                  disabled={addingUsers}
+                  className="mt-2 text-sm text-primary-600 hover:text-primary-800 underline disabled:opacity-50"
+                >
+                  Add seats at renewal instead (no charge today)
+                </button>
               </>
             )}
             

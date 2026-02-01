@@ -1,6 +1,7 @@
 import { Resend } from 'resend'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { getEmailManageLinksFooterHtml, getEmailManageLinksFooterText } from './email-links'
 
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-development')
 
@@ -686,12 +687,8 @@ export async function sendSubscriptionCancellationEmail(data: SubscriptionCancel
           </div>
 
           <div class="footer">
-            <p class="footer-text">
-              We'd love to have you back! <a href="${process.env.NEXT_PUBLIC_BASE_URL}/pricing" class="footer-link">View Plans</a>
-            </p>
-            <p class="footer-text" style="margin-bottom: 0;">
-              Need help? <a href="${process.env.NEXT_PUBLIC_BASE_URL}/settings" class="footer-link">Contact Support</a>
-            </p>
+            ${getEmailManageLinksFooterHtml(customerEmail)}
+            <p class="footer-text" style="margin-top: 12px;">We'd love to have you back! <a href="${process.env.NEXT_PUBLIC_BASE_URL}/pricing" class="footer-link">View Plans</a></p>
           </div>
         </div>
       </body>
@@ -714,8 +711,8 @@ export async function sendSubscriptionCancellationEmail(data: SubscriptionCancel
       ${savedCredits && savedCredits > 0 ? `- After that, you can use your ${savedCredits} saved credits` : ''}
       - You can resubscribe anytime from your dashboard
 
+      ${getEmailManageLinksFooterText(customerEmail)}
       View Plans: ${process.env.NEXT_PUBLIC_BASE_URL}/pricing
-      Support: ${process.env.NEXT_PUBLIC_BASE_URL}/settings
 
       We'd love to have you back!
     `
@@ -1112,10 +1109,8 @@ export async function sendSubscriptionReactivationEmail(data: SubscriptionReacti
           </div>
 
           <div class="footer">
-            <p class="footer-text">
-              Need help? <a href="${process.env.NEXT_PUBLIC_BASE_URL}/settings" class="footer-link">Contact Support</a>
-            </p>
-            <p class="footer-text" style="margin-bottom: 0;">
+            ${getEmailManageLinksFooterHtml(customerEmail)}
+            <p class="footer-text" style="margin-top: 12px; margin-bottom: 0;">
               This is an automated confirmation. Please keep this email for your records.
             </p>
           </div>
@@ -1138,7 +1133,7 @@ export async function sendSubscriptionReactivationEmail(data: SubscriptionReacti
       ${displayNextBillingDate ? `Your subscription will automatically renew on ${displayNextBillingDate}.` : 'Your subscription will continue to renew automatically according to your billing cycle.'}
 
       Dashboard: ${process.env.NEXT_PUBLIC_BASE_URL}/dashboard
-      Support: ${process.env.NEXT_PUBLIC_BASE_URL}/settings
+      ${getEmailManageLinksFooterText(customerEmail)}
 
       This is an automated confirmation. Please keep this email for your records.
     `

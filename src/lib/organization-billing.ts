@@ -160,21 +160,51 @@ export async function getSeatPriceInfo(billingPeriod: 'monthly' | 'yearly'): Pro
   }
 }
 
+/** Sum only proration line items from an invoice (for "pay proration only today" flow). */
+function sumProrationOnlyFromInvoice(invoice: Stripe.Invoice): number {
+  const lines = invoice.lines?.data ?? []
+  let sumCents = 0
+  for (const line of lines) {
+    const details = (line as any).subscription_item_details ?? (line as any)
+    if (details?.proration === true) {
+      sumCents += line.amount ?? 0
+    }
+  }
+  return sumCents / 100
+}
+
 /**
  * Preview prorated amount when adding seats (no subscription change).
  * Uses Stripe upcoming invoice with subscription_details to simulate the add.
  */
+/** Helper: days between two Unix timestamps (end of day logic: same day = 1 day remaining). */
+function daysBetween(startSec: number, endSec: number): number {
+  const start = new Date(startSec * 1000)
+  const end = new Date(endSec * 1000)
+  const ms = end.getTime() - start.getTime()
+  return Math.max(0, Math.ceil(ms / (24 * 60 * 60 * 1000)))
+}
+
 export async function previewAddSeats(
   organizationId: string,
   numberOfUsers: number
 ): Promise<{
   proratedAmount: number
+  prorationOnlyAmount: number
   currency: string
   nextBillingDate: string | null
   seatPrice: number
   billingPeriod: 'monthly' | 'yearly'
   totalAtRenewal: number
   numberOfUsers: number
+  /** When the current billing period started (ISO). */
+  periodStart: string | null
+  /** When the current billing period ends (ISO). Same as nextBillingDate. */
+  periodEnd: string | null
+  /** Total days in the current period. */
+  daysInPeriod: number | null
+  /** Days remaining in the current period (from today). Drives proration: less remaining = lower pay today. */
+  daysRemainingInPeriod: number | null
 }> {
   const owner = await queryOne(
     `SELECT u.stripe_subscription_id
@@ -194,6 +224,21 @@ export async function previewAddSeats(
   const billingPeriod = (subscription.items.data[0]?.price?.recurring?.interval === 'year') ? 'yearly' : 'monthly'
   const priceId = await getSeatPriceId(organizationId, billingPeriod)
   const existingItem = subscription.items.data.find(item => item.price.id === priceId)
+  const periodStartSec = (subscription as any).current_period_start as number | undefined
+  const periodEndSec = (subscription as any).current_period_end as number | undefined
+  const nowSec = Math.floor(Date.now() / 1000)
+  const periodStart = periodStartSec ? new Date(periodStartSec * 1000).toISOString() : null
+  const periodEnd = periodEndSec ? new Date(periodEndSec * 1000).toISOString() : null
+  const daysInPeriod = periodStartSec != null && periodEndSec != null ? daysBetween(periodStartSec, periodEndSec) : null
+  const daysRemainingInPeriod = periodEndSec != null ? daysBetween(nowSec, periodEndSec) : null
+
+  const baseReturn = {
+    periodStart,
+    periodEnd,
+    daysInPeriod,
+    daysRemainingInPeriod
+  }
+
   if (!existingItem) {
     const stripe = getStripe()
     const upcoming = await stripe.invoices.createPreview({
@@ -209,14 +254,17 @@ export async function previewAddSeats(
     })
     const proratedAmount = (upcoming.amount_due || 0) / 100
     const seatPrice = (await getSeatPriceInfo(billingPeriod)).amount
+    const prorationOnlyAmount = sumProrationOnlyFromInvoice(upcoming)
     return {
       proratedAmount: Math.round(proratedAmount * 100) / 100,
+      prorationOnlyAmount: Math.round(prorationOnlyAmount * 100) / 100,
       currency: (upcoming.currency || 'gbp').toUpperCase(),
       nextBillingDate: upcoming.period_end ? new Date(upcoming.period_end * 1000).toISOString() : null,
       seatPrice,
       billingPeriod,
       totalAtRenewal: Math.round(seatPrice * numberOfUsers * 100) / 100,
-      numberOfUsers
+      numberOfUsers,
+      ...baseReturn
     }
   }
   const subscriptionDetailsItems: { id: string; quantity: number }[] = subscription.items.data.map(item => ({
@@ -232,14 +280,17 @@ export async function previewAddSeats(
   })
   const proratedAmount = (upcoming.amount_due || 0) / 100
   const seatPrice = (await getSeatPriceInfo(billingPeriod)).amount
+  const prorationOnlyAmount = sumProrationOnlyFromInvoice(upcoming)
   return {
     proratedAmount: Math.round(proratedAmount * 100) / 100,
+    prorationOnlyAmount: Math.round(prorationOnlyAmount * 100) / 100,
     currency: (upcoming.currency || 'gbp').toUpperCase(),
     nextBillingDate: upcoming.period_end ? new Date(upcoming.period_end * 1000).toISOString() : null,
     seatPrice,
     billingPeriod,
     totalAtRenewal: Math.round(seatPrice * ((existingItem.quantity || 0) + numberOfUsers) * 100) / 100,
-    numberOfUsers
+    numberOfUsers,
+    ...baseReturn
   }
 }
 
@@ -442,31 +493,33 @@ export async function addSeatsToOwnerSubscription(
     console.warn('⚠️ Could not fetch upcoming invoice details:', error)
   }
   
-  // Send billing confirmation email with breakdown
-  try {
-    const { EmailService } = await import('@/lib/email-service')
-    
-    // Determine billing period from price ID
-    const billingPeriod = priceId === process.env.STRIPE_PER_USER_PRICE_ID_YEARLY ? 'yearly' : 'monthly'
-    
-    // Calculate amount for email (use next period amount as the recurring amount)
-    const seatPrice = billingDetails?.seatPrice || (await getSeatPriceInfo(billingPeriod))?.amount || 0
-    const amount = `£${(seatPrice * numberOfUsers).toFixed(2)}`
-    
-    await EmailService.sendBillingConfirmation({
-      email: owner.email,
-      organizationName,
-      numberOfUsers,
-      amount,
-      billingPeriod,
-      subscriptionId: updatedSubscription.id,
-      billingDetails: billingDetails || undefined
-    })
-    
-    console.log(`✅ Sent billing confirmation email to ${owner.email} with billing breakdown`)
-  } catch (emailError) {
-    console.error('⚠️ Failed to send billing confirmation email:', emailError)
-    // Don't fail the whole operation if email fails
+  // Send billing confirmation email with breakdown (skip when sendEmail is false, e.g. payment will be on Stripe and receipt sent after payment)
+  if (options?.sendEmail !== false) {
+    try {
+      const { EmailService } = await import('@/lib/email-service')
+      
+      // Determine billing period from price ID
+      const billingPeriod = priceId === process.env.STRIPE_PER_USER_PRICE_ID_YEARLY ? 'yearly' : 'monthly'
+      
+      // Calculate amount for email (use next period amount as the recurring amount)
+      const seatPrice = billingDetails?.seatPrice || (await getSeatPriceInfo(billingPeriod))?.amount || 0
+      const amount = `£${(seatPrice * numberOfUsers).toFixed(2)}`
+      
+      await EmailService.sendBillingConfirmation({
+        email: owner.email,
+        organizationName,
+        numberOfUsers,
+        amount,
+        billingPeriod,
+        subscriptionId: updatedSubscription.id,
+        billingDetails: billingDetails || undefined
+      })
+      
+      console.log(`✅ Sent billing confirmation email to ${owner.email} with billing breakdown`)
+    } catch (emailError) {
+      console.error('⚠️ Failed to send billing confirmation email:', emailError)
+      // Don't fail the whole operation if email fails
+    }
   }
 
   return {
@@ -478,40 +531,69 @@ export async function addSeatsToOwnerSubscription(
 }
 
 /**
- * Add seats and create an invoice for the prorated amount; return hosted invoice URL so customer pays immediately.
- * Billing confirmation email is sent on invoice.paid webhook (not here).
+ * Create a Stripe Checkout Session for the proration-only amount (rest of current period).
+ * Seats are NOT added until payment succeeds; the webhook adds seats and sends the receipt.
+ * Customer pays today; the full seat fee is added to their next renewal.
  */
 export async function addSeatsAndPayProratedNow(
   organizationId: string,
   numberOfUsers: number,
-  _successUrl: string
-): Promise<{ hostedInvoiceUrl: string; invoiceId: string }> {
-  const billingPeriod = await getOwnerBillingPeriod(organizationId)
-  const result = await addSeatsToOwnerSubscription(organizationId, numberOfUsers, undefined, { sendEmail: false })
-  if (!result.success || !result.subscriptionId) {
-    throw new Error(result.message || 'Failed to add seats')
-  }
+  successUrl: string,
+  cancelUrl: string
+): Promise<{ hostedInvoiceUrl: string }> {
   const stripe = getStripe()
-  const invoice = await stripe.invoices.create({
-    subscription: result.subscriptionId,
-    collection_method: 'charge_automatically',
+  const preview = await previewAddSeats(organizationId, numberOfUsers)
+  const prorationOnlyCents = Math.round(preview.prorationOnlyAmount * 100)
+  if (prorationOnlyCents <= 0) {
+    throw new Error('No proration amount for the rest of the period')
+  }
+  const owner = await queryOne(
+    `SELECT u.id, u.email, u.stripe_subscription_id
+     FROM organization_members om
+     INNER JOIN users u ON om.user_id = u.id
+     WHERE om.organization_id = $1 AND om.role = 'owner' AND om.is_active = true
+     LIMIT 1`,
+    [organizationId]
+  )
+  if (!owner?.stripe_subscription_id) {
+    throw new Error('Organization owner does not have an active subscription.')
+  }
+  const subscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id)
+  const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id
+  if (!customerId) {
+    throw new Error('Subscription has no customer ID')
+  }
+  const successUrlWithParams = `${successUrl}${successUrl.includes('?') ? '&' : '?'}seats=${numberOfUsers}&amount=${encodeURIComponent(preview.prorationOnlyAmount.toFixed(2))}&type=proration`
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    customer: customerId,
+    line_items: [
+      {
+        price_data: {
+          currency: (preview.currency || 'gbp').toLowerCase(),
+          unit_amount: prorationOnlyCents,
+          product_data: {
+            name: `Proration for ${numberOfUsers} seat(s) – rest of current ${preview.billingPeriod} period`,
+            description: 'The full seat fee will be added to your next bill at renewal.'
+          }
+        },
+        quantity: 1
+      }
+    ],
+    success_url: successUrlWithParams,
+    cancel_url: cancelUrl,
     metadata: {
       organization_id: organizationId,
-      source: 'add_seats_prorated',
       number_of_users: String(numberOfUsers),
-      billing_period: billingPeriod || 'yearly'
+      source: 'add_seats_proration_only',
+      proration_amount_cents: String(prorationOnlyCents)
     }
   })
-  const invoiceId = invoice.id
-  if (!invoiceId) {
-    throw new Error('Stripe did not return an invoice ID')
-  }
-  const finalized = await stripe.invoices.finalizeInvoice(invoiceId)
-  const url = finalized.hosted_invoice_url
+  const url = session.url
   if (!url) {
-    throw new Error('Stripe did not return a payment URL for the invoice')
+    throw new Error('Stripe did not return a checkout URL')
   }
-  return { hostedInvoiceUrl: url, invoiceId: finalized.id ?? invoiceId }
+  return { hostedInvoiceUrl: url }
 }
 
 /**

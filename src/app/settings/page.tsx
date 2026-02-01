@@ -1270,6 +1270,18 @@ export default function SettingsPage() {
                           </div>
 
                           <div className="flex flex-col space-y-3">
+                            <div className="flex flex-wrap items-center gap-3">
+                              <a
+                                href="/api/billing/portal"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 px-4 py-2 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 transition-colors"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                                <span>Manage subscription & billing</span>
+                              </a>
+                              <span className="text-sm text-gray-500">Update payment method, view invoices, or cancel in Stripe</span>
+                            </div>
                             <div className="flex space-x-3">
                               {subscription.cancelAtPeriodEnd ? (
                                 <button

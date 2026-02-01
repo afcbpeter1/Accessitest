@@ -815,15 +815,35 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   console.log('💳 Processing invoice.payment_succeeded:', invoice.id)
   
-  // Only process subscription invoices (skip one-time payments)
   const inv = invoice as any
+
+  // Proration-only invoice (add seats – pay proration today, seat on renewal): add customer credit so renewal doesn't double-charge proration
+  if (inv.metadata?.source === 'add_seats_proration_only' && inv.customer) {
+    const customerId = typeof inv.customer === 'string' ? inv.customer : inv.customer?.id
+    const prorationCents = parseInt(inv.metadata?.proration_amount_cents || '0', 10)
+    if (customerId && prorationCents > 0) {
+      try {
+        await getStripe().customers.createBalanceTransaction(customerId, {
+          amount: prorationCents,
+          currency: (invoice.currency || 'gbp').toLowerCase(),
+          description: 'Credit for seat proration paid in advance'
+        })
+        console.log(`✅ Added customer credit of ${prorationCents / 100} for proration-only invoice ${invoice.id}`)
+      } catch (err) {
+        console.error('Failed to add customer credit for proration-only invoice:', err)
+      }
+    }
+    return
+  }
+
+  // Only process subscription invoices (skip other one-time payments)
   if (!inv.subscription) {
     console.log('⚠️ Invoice is not for a subscription, skipping')
     return
   }
 
   try {
-    // If this invoice was for adding org seats (prorated pay now), send billing confirmation
+    // If this invoice was for adding org seats (full prorated pay – legacy), send billing confirmation
     const orgId = inv.metadata?.organization_id
     if (inv.metadata?.source === 'add_seats_prorated' && orgId) {
       const org = await queryOne(`SELECT id, name FROM organizations WHERE id = $1`, [orgId])
@@ -1761,15 +1781,12 @@ async function handleOrganizationCheckoutCompleted(session: Stripe.Checkout.Sess
     console.log('📋 Session ID:', session.id)
     console.log('📋 Session subscription:', session.subscription)
     
-    const { organization_id, number_of_users } = session.metadata || {}
+    const { organization_id, number_of_users, source } = session.metadata || {}
     
     if (!organization_id || !number_of_users) {
       console.log('⚠️ Not an organization checkout - missing metadata:', { organization_id, number_of_users })
-      // Not an organization checkout, skip
       return
     }
-    
-    console.log('✅ Organization checkout detected:', { organization_id, number_of_users })
     
     const numberOfUsers = parseInt(number_of_users, 10)
     if (isNaN(numberOfUsers) || numberOfUsers <= 0) {
@@ -1777,6 +1794,72 @@ async function handleOrganizationCheckoutCompleted(session: Stripe.Checkout.Sess
       return
     }
     
+    // Proration-only payment: add seats only after successful payment, then send receipt (no subscription on session)
+    if (source === 'add_seats_proration_only') {
+      console.log(`🛒 Processing proration-only checkout: org=${organization_id}, users=${numberOfUsers} – adding seats and sending receipt`)
+      const { addSeatsToOwnerSubscription } = await import('@/lib/organization-billing')
+      const result = await addSeatsToOwnerSubscription(organization_id, numberOfUsers, undefined, { sendEmail: false })
+      if (!result.success) {
+        console.error('❌ Failed to add seats after proration payment:', result.message)
+        return
+      }
+      // Add customer credit so next renewal doesn't double-charge the proration (Stripe will add proration for new seats; we already charged it here)
+      const prorationCents = parseInt(session.metadata?.proration_amount_cents || '0', 10)
+      if (prorationCents > 0 && session.customer) {
+        const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id
+        if (customerId) {
+          try {
+            await getStripe().customers.createBalanceTransaction(customerId, {
+              amount: prorationCents,
+              currency: (session.currency || 'gbp').toLowerCase(),
+              description: 'Credit for seat proration paid in advance'
+            })
+            console.log(`✅ Added customer credit of ${prorationCents / 100} for proration-only checkout ${session.id}`)
+          } catch (err) {
+            console.error('Failed to add customer credit for proration-only checkout:', err)
+          }
+        }
+      }
+      let amount = '£0.00'
+      try {
+        const lineItems = await getStripe().checkout.sessions.listLineItems(session.id, { limit: 1 })
+        if (lineItems.data.length > 0 && lineItems.data[0].amount_total != null) {
+          amount = `£${(lineItems.data[0].amount_total / 100).toFixed(2)}`
+        }
+      } catch (e) {
+        console.warn('Could not get line items for receipt amount:', e)
+      }
+      const org = await queryOne(`SELECT id, name FROM organizations WHERE id = $1`, [organization_id])
+      const owner = await queryOne(
+        `SELECT u.email FROM organization_members om INNER JOIN users u ON om.user_id = u.id
+         WHERE om.organization_id = $1 AND om.role = 'owner' AND om.is_active = true LIMIT 1`,
+        [organization_id]
+      )
+      if (org && owner?.email) {
+        const { EmailService } = await import('@/lib/email-service')
+        await EmailService.sendBillingConfirmation({
+          email: owner.email,
+          organizationName: org.name,
+          numberOfUsers,
+          amount,
+          billingPeriod: 'monthly',
+          subscriptionId: undefined,
+          billingDetails: {
+            proratedAmount: parseFloat(amount.replace(/[^0-9.]/g, '')) || 0,
+            nextPeriodAmount: 0,
+            totalUpcomingInvoice: parseFloat(amount.replace(/[^0-9.]/g, '')) || 0,
+            currency: 'GBP',
+            nextBillingDate: null,
+            numberOfUsers,
+            seatPrice: 0
+          }
+        })
+        console.log(`✅ Sent receipt to ${owner.email} for proration payment (${numberOfUsers} seat(s), ${amount})`)
+      }
+      return
+    }
+    
+    console.log('✅ Organization checkout detected:', { organization_id, number_of_users })
     console.log(`🛒 Processing organization checkout: org=${organization_id}, users=${numberOfUsers}`)
     
     // Get organization details
