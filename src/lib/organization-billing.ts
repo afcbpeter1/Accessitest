@@ -468,8 +468,7 @@ export async function addSeatsToOwnerSubscription(
     console.error('⚠️ Failed to send billing confirmation email:', emailError)
     // Don't fail the whole operation if email fails
   }
-  }
-  
+
   return {
     success: true,
     subscriptionId: updatedSubscription.id,    
