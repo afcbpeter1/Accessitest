@@ -502,12 +502,16 @@ export async function addSeatsAndPayProratedNow(
       billing_period: billingPeriod || 'yearly'
     }
   })
-  const finalized = await stripe.invoices.finalizeInvoice(invoice.id)
+  const invoiceId = invoice.id
+  if (!invoiceId) {
+    throw new Error('Stripe did not return an invoice ID')
+  }
+  const finalized = await stripe.invoices.finalizeInvoice(invoiceId)
   const url = finalized.hosted_invoice_url
   if (!url) {
     throw new Error('Stripe did not return a payment URL for the invoice')
   }
-  return { hostedInvoiceUrl: url, invoiceId: finalized.id }
+  return { hostedInvoiceUrl: url, invoiceId: finalized.id ?? invoiceId }
 }
 
 /**
