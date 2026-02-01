@@ -1,29 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
-import { createCheckoutSession, canAddUser, addSeatsToOwnerSubscription, reduceSeatsFromOwnerSubscription, getSeatPriceInfo, getOwnerBillingPeriod } from '@/lib/organization-billing'
+import { createCheckoutSession, canAddUser, addSeatsToOwnerSubscription, addSeatsAndPayProratedNow, reduceSeatsFromOwnerSubscription, getSeatPriceInfo, getOwnerBillingPeriod } from '@/lib/organization-billing'
 import { checkPermission } from '@/lib/role-service'
 
 /**
  * POST /api/organization/billing/checkout
- * Create Stripe checkout session for adding users
+ * Add users: when payProratedNow is true, add seats and return Stripe hosted invoice URL to pay prorated amount immediately.
+ * Otherwise (legacy), add seats and add proration to next invoice.
  */
 export async function POST(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
     const body = await request.json()
-    const { organizationId, numberOfUsers, billingPeriod } = body
-    
+    const { organizationId, numberOfUsers, billingPeriod, payProratedNow } = body
+
     if (!organizationId || !numberOfUsers) {
       return NextResponse.json(
         { success: false, error: 'Organization ID and number of users are required' },
         { status: 400 }
       )
     }
-    
-    // Validate billing period
-    const validBillingPeriod = billingPeriod === 'yearly' ? 'yearly' : 'monthly'
-    
-    // Check permission
+
     const hasPermission = await checkPermission(user.userId, organizationId, 'canManageBilling')
     if (!hasPermission) {
       return NextResponse.json(
@@ -31,20 +28,28 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       )
     }
-    
-    // Check if owner has a subscription before allowing user additions
-    // This is required - users can only be added if owner has an active subscription
-    // Don't pass billingPeriod - let it auto-detect from owner's subscription
+
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const successUrl = `${baseUrl}/organization?tab=billing&success=true`
+
+    if (payProratedNow === true) {
+      const { hostedInvoiceUrl } = await addSeatsAndPayProratedNow(organizationId, numberOfUsers, successUrl)
+      return NextResponse.json({
+        success: true,
+        url: hostedInvoiceUrl,
+        payProratedNow: true
+      })
+    }
+
     const session = await createCheckoutSession(
       organizationId,
       numberOfUsers,
-      `${baseUrl}/organization?tab=billing&success=true`,
+      successUrl,
       `${baseUrl}/organization?tab=billing&canceled=true`,
-      true, // useOwnerSubscription - this will throw if owner doesn't have subscription
-      undefined // Let it auto-detect from owner's subscription
+      true,
+      undefined
     )
-    
+
     return NextResponse.json({
       success: true,
       sessionId: session.sessionId,

@@ -161,13 +161,98 @@ export async function getSeatPriceInfo(billingPeriod: 'monthly' | 'yearly'): Pro
 }
 
 /**
+ * Preview prorated amount when adding seats (no subscription change).
+ * Uses Stripe upcoming invoice with subscription_details to simulate the add.
+ */
+export async function previewAddSeats(
+  organizationId: string,
+  numberOfUsers: number
+): Promise<{
+  proratedAmount: number
+  currency: string
+  nextBillingDate: string | null
+  seatPrice: number
+  billingPeriod: 'monthly' | 'yearly'
+  totalAtRenewal: number
+  numberOfUsers: number
+}> {
+  const owner = await queryOne(
+    `SELECT u.stripe_subscription_id
+     FROM organization_members om
+     INNER JOIN users u ON om.user_id = u.id
+     WHERE om.organization_id = $1 AND om.role = 'owner' AND om.is_active = true
+     LIMIT 1`,
+    [organizationId]
+  )
+  if (!owner?.stripe_subscription_id) {
+    throw new Error('Organization owner does not have an active subscription.')
+  }
+  const subscription = await getStripe().subscriptions.retrieve(owner.stripe_subscription_id)
+  if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+    throw new Error('Owner subscription is not active.')
+  }
+  const billingPeriod = (subscription.items.data[0]?.price?.recurring?.interval === 'year') ? 'yearly' : 'monthly'
+  const priceId = await getSeatPriceId(organizationId, billingPeriod)
+  const existingItem = subscription.items.data.find(item => item.price.id === priceId)
+  if (!existingItem) {
+    const stripe = getStripe()
+    const upcoming = await (stripe.invoices as any).retrieveUpcoming({
+      customer: subscription.customer as string,
+      subscription: subscription.id,
+      subscription_details: {
+        items: [
+          ...subscription.items.data.map(item => ({ id: item.id, quantity: item.quantity || 1 })),
+          { price: priceId, quantity: numberOfUsers }
+        ]
+      },
+      subscription_proration_behavior: 'create_prorations'
+    })
+    const proratedAmount = (upcoming.amount_due || 0) / 100
+    const seatPrice = (await getSeatPriceInfo(billingPeriod)).amount
+    return {
+      proratedAmount: Math.round(proratedAmount * 100) / 100,
+      currency: (upcoming.currency || 'gbp').toUpperCase(),
+      nextBillingDate: upcoming.period_end ? new Date(upcoming.period_end * 1000).toISOString() : null,
+      seatPrice,
+      billingPeriod,
+      totalAtRenewal: Math.round(seatPrice * numberOfUsers * 100) / 100,
+      numberOfUsers
+    }
+  }
+  const subscriptionDetailsItems: { id: string; quantity: number }[] = subscription.items.data.map(item => ({
+    id: item.id,
+    quantity: item.price.id === priceId ? (item.quantity || 0) + numberOfUsers : (item.quantity || 1)
+  }))
+  const upcoming = await (getStripe().invoices as any).retrieveUpcoming({
+    subscription: subscription.id,
+    subscription_details: {
+      items: subscriptionDetailsItems
+    },
+    subscription_proration_behavior: 'create_prorations'
+  })
+  const proratedAmount = (upcoming.amount_due || 0) / 100
+  const seatPrice = (await getSeatPriceInfo(billingPeriod)).amount
+  return {
+    proratedAmount: Math.round(proratedAmount * 100) / 100,
+    currency: (upcoming.currency || 'gbp').toUpperCase(),
+    nextBillingDate: upcoming.period_end ? new Date(upcoming.period_end * 1000).toISOString() : null,
+    seatPrice,
+    billingPeriod,
+    totalAtRenewal: Math.round(seatPrice * ((existingItem.quantity || 0) + numberOfUsers) * 100) / 100,
+    numberOfUsers
+  }
+}
+
+/**
  * Add seats to owner's existing subscription (preferred method)
  * This adds organization seats to the owner's personal subscription for unified billing
+ * @param options.sendEmail - If false, skip sending billing confirmation (e.g. when paying prorated now; email sent on invoice.paid)
  */
 export async function addSeatsToOwnerSubscription(
   organizationId: string,
   numberOfUsers: number,
-  billingPeriod?: 'monthly' | 'yearly' // Optional - if not provided, auto-detects from owner's subscription
+  billingPeriod?: 'monthly' | 'yearly', // Optional - if not provided, auto-detects from owner's subscription
+  options?: { sendEmail?: boolean }
 ): Promise<{ 
   success: boolean
   subscriptionId?: string
@@ -383,6 +468,7 @@ export async function addSeatsToOwnerSubscription(
     console.error('⚠️ Failed to send billing confirmation email:', emailError)
     // Don't fail the whole operation if email fails
   }
+  }
   
   return {
     success: true,
@@ -390,6 +476,39 @@ export async function addSeatsToOwnerSubscription(
     message: `Successfully added ${numberOfUsers} seat(s) to your subscription. Charges are prorated and will appear on your next invoice.`,
     billingDetails: billingDetails || undefined
   }
+}
+
+/**
+ * Add seats and create an invoice for the prorated amount; return hosted invoice URL so customer pays immediately.
+ * Billing confirmation email is sent on invoice.paid webhook (not here).
+ */
+export async function addSeatsAndPayProratedNow(
+  organizationId: string,
+  numberOfUsers: number,
+  _successUrl: string
+): Promise<{ hostedInvoiceUrl: string; invoiceId: string }> {
+  const billingPeriod = await getOwnerBillingPeriod(organizationId)
+  const result = await addSeatsToOwnerSubscription(organizationId, numberOfUsers, undefined, { sendEmail: false })
+  if (!result.success || !result.subscriptionId) {
+    throw new Error(result.message || 'Failed to add seats')
+  }
+  const stripe = getStripe()
+  const invoice = await stripe.invoices.create({
+    subscription: result.subscriptionId,
+    collection_method: 'charge_automatically',
+    metadata: {
+      organization_id: organizationId,
+      source: 'add_seats_prorated',
+      number_of_users: String(numberOfUsers),
+      billing_period: billingPeriod || 'yearly'
+    }
+  })
+  const finalized = await stripe.invoices.finalizeInvoice(invoice.id)
+  const url = finalized.hosted_invoice_url
+  if (!url) {
+    throw new Error('Stripe did not return a payment URL for the invoice')
+  }
+  return { hostedInvoiceUrl: url, invoiceId: finalized.id }
 }
 
 /**

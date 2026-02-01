@@ -2433,6 +2433,20 @@ function BillingTab({ organization }: { organization: Organization | null }) {
   const [loading, setLoading] = useState(true)
   const [addingUsers, setAddingUsers] = useState(false)
   const [usersToAdd, setUsersToAdd] = useState(1)
+  const [showConfirmAdd, setShowConfirmAdd] = useState(false)
+  const [addPreview, setAddPreview] = useState<{
+    proratedAmount: number
+    currency: string
+    nextBillingDate: string | null
+    seatPrice: number
+    billingPeriod: 'monthly' | 'yearly'
+    totalAtRenewal: number
+    numberOfUsers: number
+  } | null>(null)
+  const [agreeToCharges, setAgreeToCharges] = useState(false)
+  const [reducingUsers, setReducingUsers] = useState(false)
+  const [usersToReduceTo, setUsersToReduceTo] = useState(1)
+  const [showConfirmReduce, setShowConfirmReduce] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null)
   const [billingDetails, setBillingDetails] = useState<{
     proratedAmount: number
@@ -2458,17 +2472,34 @@ function BillingTab({ organization }: { organization: Organization | null }) {
     }
   }, [organization])
 
-  // Reload billing status when returning from checkout
+  // Reload billing status and show success when returning from Stripe (prorated pay)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const success = urlParams.get('success')
     if (success === 'true' && organization) {
-      // Reload billing status after a short delay to allow webhook to process
+      setMessage({ type: 'success', text: 'Payment successful. Your seats are added and a receipt has been sent to your email.' })
       setTimeout(() => {
         loadBillingStatus()
       }, 2000)
+      // Clean URL so refreshing doesn't re-show the message
+      if (typeof window !== 'undefined' && window.history.replaceState) {
+        const u = new URL(window.location.href)
+        u.searchParams.delete('success')
+        window.history.replaceState({}, '', u.toString())
+      }
     }
   }, [organization])
+
+  // Sync reduce-seats input with current max when billing loads
+  useEffect(() => {
+    if (billingStatus?.maxUsers != null) {
+      setUsersToReduceTo((prev) => {
+        if (prev > billingStatus.maxUsers) return billingStatus.maxUsers
+        if (prev < 1) return billingStatus.maxUsers
+        return prev
+      })
+    }
+  }, [billingStatus?.maxUsers])
 
   const loadBillingStatus = async () => {
     if (!organization) return
@@ -2490,59 +2521,88 @@ function BillingTab({ organization }: { organization: Organization | null }) {
     }
   }
 
-  const handleAddUsers = async () => {
+  const handleReviewAdd = async () => {
     if (!organization || !usersToAdd || usersToAdd < 1) return
-
     setAddingUsers(true)
+    setMessage(null)
+    try {
+      const token = localStorage.getItem('accessToken')
+      const res = await fetch('/api/organization/billing/preview-add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ organizationId: organization.id, numberOfUsers: usersToAdd })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setAddPreview(data)
+        setShowConfirmAdd(true)
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to load preview' })
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: 'An error occurred. Please try again.' })
+    } finally {
+      setAddingUsers(false)
+    }
+  }
+
+  const handleConfirmAndPay = async () => {
+    if (!organization || !usersToAdd || usersToAdd < 1 || !agreeToCharges) return
+    setAddingUsers(true)
+    setMessage(null)
     try {
       const token = localStorage.getItem('accessToken')
       const response = await fetch('/api/organization/billing/checkout', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
           organizationId: organization.id,
-          numberOfUsers: usersToAdd
-          // billingPeriod removed - auto-detects from owner's subscription
+          numberOfUsers: usersToAdd,
+          payProratedNow: true
         })
       })
-
       const data = await response.json()
       if (data.success && data.url) {
-        // If sessionId is 'immediate', seats were added directly - just reload
-        if (data.sessionId === 'immediate') {
-          loadBillingStatus()
-          // Show billing details if available
-          if (data.billingDetails) {
-            setBillingDetails(data.billingDetails)
-            setMessage({ 
-              type: 'success', 
-              text: `Successfully added ${data.billingDetails.numberOfUsers} user(s)! Your billing has been updated.` 
-            })
-          } else {
-            setMessage({ type: 'success', text: 'Users added successfully! Your billing has been updated.' })
-          }
-        } else {
-          window.location.href = data.url
-        }
-      } else {
-        // Show user-friendly error message
-        const errorMsg = data.error || 'Failed to create checkout session'
-        if (errorMsg.includes('must have an active') || errorMsg.includes('Please subscribe first')) {
-          setMessage({ 
-            type: 'error', 
-            text: 'An active Unlimited Access subscription is required to add users to your organization. Please subscribe to a monthly or yearly plan first.' 
-          })
-        } else {
-          setMessage({ type: 'error', text: errorMsg })
-        }
+        window.location.href = data.url
+        return
       }
-    } catch (error) {
-      setMessage({ type: 'error', text: 'An error occurred while processing your request. Please try again.' })
+      setMessage({ type: 'error', text: data.error || 'Failed to start payment' })
+    } catch (e) {
+      setMessage({ type: 'error', text: 'An error occurred. Please try again.' })
     } finally {
       setAddingUsers(false)
+    }
+  }
+
+  const handleReduceSeats = async () => {
+    if (!organization || !billingStatus?.maxUsers) return
+    const toRemove = billingStatus.maxUsers - usersToReduceTo
+    if (toRemove <= 0) return
+    setReducingUsers(true)
+    setMessage(null)
+    try {
+      const token = localStorage.getItem('accessToken')
+      const res = await fetch('/api/organization/billing/checkout', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          organizationId: organization.id,
+          numberOfUsers: toRemove,
+          action: 'reduce'
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setMessage({ type: 'success', text: data.message || 'Seats reduced successfully.' })
+        setShowConfirmReduce(false)
+        loadBillingStatus()
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to reduce seats' })
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: 'An error occurred. Please try again.' })
+    } finally {
+      setReducingUsers(false)
     }
   }
 
@@ -2741,10 +2801,10 @@ function BillingTab({ organization }: { organization: Organization | null }) {
             </div>
 
             {/* Total Amount Display */}
-            {billingStatus?.pricing && billingStatus?.ownerBillingPeriod && billingStatus.pricing[billingStatus.ownerBillingPeriod] && (
+            {billingStatus?.pricing && billingStatus?.ownerBillingPeriod && billingStatus.pricing[billingStatus.ownerBillingPeriod] && !showConfirmAdd && (
               <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-gray-700">Total Amount:</span>
+                  <span className="text-sm font-medium text-gray-700">Total at renewal:</span>
                   <span className="text-2xl font-bold text-gray-900">
                     £{((billingStatus.pricing[billingStatus.ownerBillingPeriod]!.amount) * usersToAdd).toFixed(2)}
                   </span>
@@ -2755,38 +2815,139 @@ function BillingTab({ organization }: { organization: Organization | null }) {
               </div>
             )}
 
-            {/* Add Users Button */}
-            <button
-              onClick={handleAddUsers}
-              disabled={addingUsers}
-              className="w-full flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {addingUsers ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Users
-                </>
-              )}
-            </button>
-            <p className="text-sm text-gray-600 mt-2">
-              Users will be added immediately to your subscription. Charges are prorated and will appear on your next invoice.
-            </p>
+            {/* Confirm step: prorated amount and agree before redirecting to Stripe */}
+            {showConfirmAdd && addPreview && (
+              <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <h5 className="font-semibold text-gray-900 mb-3">Review and confirm</h5>
+                <div className="space-y-2 text-sm">
+                  <p>
+                    <strong>Prorated amount due now:</strong>{' '}
+                    {addPreview.currency === 'GBP' ? '£' : addPreview.currency}
+                    {addPreview.proratedAmount.toFixed(2)} (for the rest of your current {addPreview.billingPeriod} period)
+                  </p>
+                  <p>
+                    <strong>At renewal:</strong> {addPreview.currency === 'GBP' ? '£' : addPreview.currency}
+                    {addPreview.totalAtRenewal.toFixed(2)}/{addPreview.billingPeriod} for {addPreview.numberOfUsers} user seat{addPreview.numberOfUsers > 1 ? 's' : ''}
+                  </p>
+                  {addPreview.nextBillingDate && (
+                    <p className="text-gray-600">
+                      Next billing date: {new Date(addPreview.nextBillingDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
+                  )}
+                </div>
+                <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agreeToCharges}
+                    onChange={(e) => setAgreeToCharges(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm font-medium text-gray-800">I agree to these charges and to add {addPreview.numberOfUsers} user seat{addPreview.numberOfUsers > 1 ? 's' : ''} to my subscription.</span>
+                </label>
+                <div className="flex gap-2 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => { setShowConfirmAdd(false); setAddPreview(null); setAgreeToCharges(false) }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleConfirmAndPay}
+                    disabled={addingUsers || !agreeToCharges}
+                    className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {addingUsers ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Redirecting... </> : 'Confirm and pay (Stripe)'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Add Users: Review then pay (only show when not in confirm step) */}
+            {!showConfirmAdd && (
+              <>
+                <button
+                  onClick={handleReviewAdd}
+                  disabled={addingUsers}
+                  className="w-full flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {addingUsers ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading preview... </>
+                  ) : (
+                    <><Plus className="h-4 w-4 mr-2" /> Review and continue </>
+                  )}
+                </button>
+                <p className="text-sm text-gray-600 mt-2">
+                  You will see the prorated amount due now and confirm before being redirected to Stripe to pay. At renewal, the extra licence fee is added to your subscription.
+                </p>
+              </>
+            )}
             
             {/* Manual refresh button */}
             <button
               onClick={() => {
                 loadBillingStatus()
-                // setMessage({ type: 'info', text: 'Refreshing billing status...' })
               }}
               className="mt-4 text-sm text-primary-600 hover:text-primary-700 underline"
             >
               Refresh Status
             </button>
+
+            {/* Reduce users */}
+            {billingStatus?.maxUsers != null && billingStatus.maxUsers > 1 && (
+              <div className="border-t border-gray-200 pt-6 mt-6">
+                <h4 className="font-semibold text-gray-900 mb-4">Reduce users</h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  Lower your seat count. You will receive a prorated credit on your next invoice. You cannot set seats below your current number of active members ({billingStatus.currentUsers}).
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex items-center gap-2">
+                    <span className="text-sm text-gray-700">Seats:</span>
+                    <input
+                      type="number"
+                      min={Math.max(1, billingStatus.currentUsers)}
+                      max={billingStatus.maxUsers}
+                      value={usersToReduceTo}
+                      onChange={(e) => setUsersToReduceTo(Math.max(Math.max(1, billingStatus.currentUsers), Math.min(billingStatus.maxUsers, parseInt(e.target.value) || 1)))}
+                      className="w-20 px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </label>
+                  <span className="text-sm text-gray-500">(current max: {billingStatus.maxUsers})</span>
+                </div>
+                {usersToReduceTo < billingStatus.maxUsers && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm">
+                    <p>From your next billing date you will be charged for <strong>{usersToReduceTo}</strong> user{usersToReduceTo !== 1 ? 's' : ''}. A prorated credit will appear on your next invoice.</p>
+                    {!showConfirmReduce ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmReduce(true)}
+                        className="mt-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
+                      >
+                        Reduce seats
+                      </button>
+                    ) : (
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleReduceSeats}
+                          disabled={reducingUsers}
+                          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                        >
+                          {reducingUsers ? <><Loader2 className="h-4 w-4 mr-2 animate-spin inline" /> Reducing... </> : 'Confirm reduce'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmReduce(false)}
+                          className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

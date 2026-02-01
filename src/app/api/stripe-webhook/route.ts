@@ -808,6 +808,40 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
   }
 
   try {
+    // If this invoice was for adding org seats (prorated pay now), send billing confirmation
+    const orgId = inv.metadata?.organization_id
+    if (inv.metadata?.source === 'add_seats_prorated' && orgId) {
+      const org = await queryOne(`SELECT id, name FROM organizations WHERE id = $1`, [orgId])
+      const owner = await queryOne(
+        `SELECT u.email FROM organization_members om INNER JOIN users u ON om.user_id = u.id
+         WHERE om.organization_id = $1 AND om.role = 'owner' AND om.is_active = true LIMIT 1`,
+        [orgId]
+      )
+      if (org && owner?.email) {
+        const amountPaid = (invoice.amount_paid || 0) / 100
+        const { EmailService } = await import('@/lib/email-service')
+        await EmailService.sendBillingConfirmation({
+          email: owner.email,
+          organizationName: org.name,
+          numberOfUsers: parseInt(inv.metadata?.number_of_users || '1', 10),
+          amount: `£${amountPaid.toFixed(2)}`,
+          billingPeriod: (inv.metadata?.billing_period as 'monthly' | 'yearly') || 'yearly',
+          subscriptionId: inv.subscription,
+          billingDetails: {
+            proratedAmount: amountPaid,
+            nextPeriodAmount: 0,
+            totalUpcomingInvoice: amountPaid,
+            currency: (invoice.currency || 'gbp').toUpperCase(),
+            nextBillingDate: null,
+            numberOfUsers: parseInt(inv.metadata?.number_of_users || '1', 10),
+            seatPrice: amountPaid / Math.max(1, parseInt(inv.metadata?.number_of_users || '1', 10))
+          }
+        })
+        console.log(`✅ Sent billing confirmation (prorated pay) to ${owner.email} for org ${orgId}`)
+      }
+      return
+    }
+
     // Get subscription details
     const subscription = await getStripe().subscriptions.retrieve(inv.subscription as string)
     
