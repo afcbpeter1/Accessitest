@@ -196,16 +196,16 @@ export async function previewAddSeats(
   const existingItem = subscription.items.data.find(item => item.price.id === priceId)
   if (!existingItem) {
     const stripe = getStripe()
-    const upcoming = await (stripe.invoices as any).retrieveUpcoming({
+    const upcoming = await stripe.invoices.createPreview({
       customer: subscription.customer as string,
       subscription: subscription.id,
       subscription_details: {
         items: [
           ...subscription.items.data.map(item => ({ id: item.id, quantity: item.quantity || 1 })),
           { price: priceId, quantity: numberOfUsers }
-        ]
-      },
-      subscription_proration_behavior: 'create_prorations'
+        ],
+        proration_behavior: 'create_prorations'
+      }
     })
     const proratedAmount = (upcoming.amount_due || 0) / 100
     const seatPrice = (await getSeatPriceInfo(billingPeriod)).amount
@@ -223,12 +223,12 @@ export async function previewAddSeats(
     id: item.id,
     quantity: item.price.id === priceId ? (item.quantity || 0) + numberOfUsers : (item.quantity || 1)
   }))
-  const upcoming = await (getStripe().invoices as any).retrieveUpcoming({
+  const upcoming = await getStripe().invoices.createPreview({
     subscription: subscription.id,
     subscription_details: {
-      items: subscriptionDetailsItems
-    },
-    subscription_proration_behavior: 'create_prorations'
+      items: subscriptionDetailsItems,
+      proration_behavior: 'create_prorations'
+    }
   })
   const proratedAmount = (upcoming.amount_due || 0) / 100
   const seatPrice = (await getSeatPriceInfo(billingPeriod)).amount
@@ -389,7 +389,7 @@ export async function addSeatsToOwnerSubscription(
   // Get billing details from upcoming invoice
   let billingDetails = null
   try {
-    const upcomingInvoice = await (getStripe().invoices as any).retrieveUpcoming({
+    const upcomingInvoice = await getStripe().invoices.createPreview({
       subscription: updatedSubscription.id
     })
     

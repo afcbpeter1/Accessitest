@@ -158,7 +158,7 @@ async function handleGetSubscription(request: NextRequest, user: any) {
       let invoiceToUse: Stripe.Invoice | null = null
       
       try {
-        const upcomingInvoice = await (getStripe().invoices as any).retrieveUpcoming({
+        const upcomingInvoice = await getStripe().invoices.createPreview({
           subscription: subscription.id
         })
         invoiceToUse = upcomingInvoice
@@ -369,7 +369,7 @@ async function handleReactivateSubscription(request: NextRequest, user: any) {
     } else {
       // Try to get from upcoming invoice
       try {
-        const upcomingInvoice = await (getStripe().invoices as any).retrieveUpcoming({
+        const upcomingInvoice = await getStripe().invoices.createPreview({
           subscription: subscription.id
         })
         if (upcomingInvoice.period_end) {
