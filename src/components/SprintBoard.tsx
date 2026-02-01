@@ -510,41 +510,41 @@ export default function SprintBoard() {
   return (
     <div className="bg-gray-100 min-h-screen">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Sprint Board</h1>
-            <p className="text-gray-600">Manage your accessibility sprints</p>
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Sprint Board</h1>
+            <p className="text-sm sm:text-base text-gray-600">Manage your accessibility sprints</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button 
               onClick={() => setShowTemplatesModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm min-h-[44px]"
             >
-              <Calendar className="h-4 w-4" />
-              Templates
+              <Calendar className="h-4 w-4 flex-shrink-0" />
+              <span className="whitespace-nowrap">Templates</span>
             </button>
             <button 
               onClick={() => setShowSettingsModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm min-h-[44px]"
             >
-              <Plus className="h-4 w-4" />
-              New Sprint
+              <Plus className="h-4 w-4 flex-shrink-0" />
+              <span className="whitespace-nowrap">New Sprint</span>
             </button>
             <button 
               onClick={() => setShowSettingsModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm min-h-[44px]"
             >
-              <Settings className="h-4 w-4" />
-              Settings
+              <Settings className="h-4 w-4 flex-shrink-0" />
+              <span className="whitespace-nowrap">Settings</span>
             </button>
             {selectedSprint && (
               <button 
                 onClick={() => setShowBurndownModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm min-h-[44px]"
               >
-                <BarChart3 className="h-4 w-4" />
-                Burndown Chart
+                <BarChart3 className="h-4 w-4 flex-shrink-0" />
+                <span className="whitespace-nowrap">Burndown</span>
               </button>
             )}
           </div>

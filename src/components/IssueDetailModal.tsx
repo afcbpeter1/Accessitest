@@ -107,33 +107,32 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-500">#{issue.issue_id}</span>
-              <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getImpactColor(issue.impact)}`}>
-                {issue.impact.toUpperCase()}
-              </span>
-            </div>
+        <div className="flex items-center justify-between gap-2 p-4 sm:p-6 border-b border-gray-200 flex-wrap">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 min-w-0">
+            <span className="text-sm font-medium text-gray-500 truncate">#{issue.issue_id}</span>
+            <span className={`px-2 py-1 text-xs font-medium rounded-full border flex-shrink-0 whitespace-nowrap ${getImpactColor(issue.impact)}`}>
+              {issue.impact.toUpperCase()}
+            </span>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-lg transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="flex h-[calc(90vh-80px)]">
+        <div className="flex flex-col sm:flex-row h-[calc(90vh-80px)] min-h-0">
           {/* Main Content */}
-          <div className="flex-1 p-6 overflow-y-auto">
+          <div className="flex-1 p-4 sm:p-6 overflow-y-auto min-w-0">
             {/* Title */}
-            <div className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{issue.rule_name}</h1>
-              <p className="text-gray-600">{issue.description}</p>
+            <div className="mb-4 sm:mb-6">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">{issue.rule_name}</h1>
+              <p className="text-gray-600 text-sm sm:text-base break-words">{issue.description}</p>
             </div>
 
             {/* Bug Ticket Details */}
@@ -142,12 +141,12 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                 <FileText className="h-5 w-5 text-blue-600" />
                 Bug Ticket Details
               </h3>
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                <div className="prose prose-sm max-w-none">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 sm:p-6">
+                <div className="prose prose-sm max-w-none break-words">
                   {/* Issue Summary */}
-                  <div className="mb-6 p-4 bg-white border border-gray-200 rounded-lg">
+                  <div className="mb-4 sm:mb-6 p-4 bg-white border border-gray-200 rounded-lg">
                     <h4 className="font-semibold text-gray-900 mb-2">📋 Issue Summary</h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                       <div>
                         <span className="font-medium text-gray-700">Impact:</span>
                         <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full border ${getImpactColor(issue.impact)}`}>

@@ -367,13 +367,15 @@ function DashboardContent() {
         </div>
 
         {/* Credit Status */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="min-w-0">
               <h2 className="text-lg font-semibold text-gray-900 mb-2">Your Credits</h2>
-              <p className="text-gray-600">Manage your scanning credits and subscription</p>
+              <p className="text-gray-600 text-sm sm:text-base">Manage your scanning credits and subscription</p>
             </div>
-            <CreditDisplay showBuyButton={true} />
+            <div className="flex-shrink-0 min-w-0">
+              <CreditDisplay showBuyButton={true} />
+            </div>
           </div>
         </div>
 
@@ -419,11 +421,11 @@ function DashboardContent() {
                         href={scanUrl}
                         className="block"
                       >
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-1">
-                      <div className="text-sm font-medium text-gray-900">{data.date}</div>
-                              <span className={`text-xs px-2 py-0.5 rounded ${
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <span className="text-sm font-medium text-gray-900 whitespace-nowrap">{data.date}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded flex-shrink-0 ${
                                 data.scanType === 'web' 
                                   ? 'bg-blue-100 text-blue-800' 
                                   : 'bg-purple-100 text-purple-800'
@@ -433,14 +435,14 @@ function DashboardContent() {
                             </div>
                             <div className="text-xs text-gray-600 truncate">
                               {data.scanType === 'web' ? (
-                                <span className="flex items-center">
-                                  <Globe className="h-3 w-3 mr-1" />
-                                  {data.url || 'N/A'}
+                                <span className="flex items-center min-w-0">
+                                  <Globe className="h-3 w-3 mr-1 flex-shrink-0" />
+                                  <span className="truncate">{data.url || 'N/A'}</span>
                                 </span>
                               ) : (
-                                <span className="flex items-center">
-                                  <Upload className="h-3 w-3 mr-1" />
-                                  {data.fileName || 'Document'} {data.fileType ? `(${data.fileType})` : ''}
+                                <span className="flex items-center min-w-0">
+                                  <Upload className="h-3 w-3 mr-1 flex-shrink-0" />
+                                  <span className="truncate">{data.fileName || 'Document'} {data.fileType ? `(${data.fileType})` : ''}</span>
                                 </span>
                               )}
                             </div>
@@ -449,23 +451,23 @@ function DashboardContent() {
                                 {data.pagesAnalyzed} page{data.pagesAnalyzed !== 1 ? 's' : ''} analyzed
                               </div>
                             )}
-                    </div>
-                          <div className="flex items-center space-x-4 ml-4">
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-gray-900">{data.total} total</div>
-                        <div className="text-xs text-gray-500">
-                          {data.critical}C {data.serious}S {data.moderate}M {data.minor}m
-                        </div>
-                      </div>
-                      <div className="w-20 bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-red-500 h-2 rounded-full" 
+                          </div>
+                          <div className="flex items-center gap-3 sm:gap-4 sm:ml-4 flex-shrink-0">
+                            <div className="text-left sm:text-right">
+                              <div className="text-sm font-medium text-gray-900">{data.total} total</div>
+                              <div className="text-xs text-gray-500">
+                                {data.critical}C {data.serious}S {data.moderate}M {data.minor}m
+                              </div>
+                            </div>
+                            <div className="w-16 sm:w-20 bg-gray-200 rounded-full h-2 min-w-[64px] flex-shrink-0">
+                              <div 
+                                className="bg-red-500 h-2 rounded-full max-w-full" 
                                 style={{ width: `${Math.min((data.total / maxTotal) * 100, 100)}%` }}
-                        ></div>
-                      </div>
-                            <Eye className="h-4 w-4 text-gray-400" />
-                    </div>
-                  </div>
+                              />
+                            </div>
+                            <Eye className="h-4 w-4 text-gray-400 flex-shrink-0" aria-hidden />
+                          </div>
+                        </div>
                       </Link>
                     )
                   })}

@@ -528,9 +528,9 @@ ${item.element_html || 'N/A'}
         <div className="min-h-screen bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900">Product Backlog</h1>
-              <p className="mt-2 text-gray-600">
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Product Backlog</h1>
+              <p className="mt-2 text-sm sm:text-base text-gray-600">
                 Manage accessibility issues from your scans and organize them into sprints.
               </p>
             </div>
@@ -539,8 +539,8 @@ ${item.element_html || 'N/A'}
               {/* Backlog Items */}
               <div className="lg:col-span-2">
                 <div className="bg-white rounded-lg shadow">
-                  <div className="px-6 py-4 border-b border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900">
+                  <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">
                       Backlog Items ({backlogItems.length})
                     </h2>
                   </div>
@@ -565,7 +565,7 @@ ${item.element_html || 'N/A'}
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
-                                  className={`p-6 hover:bg-gray-50 transition-colors cursor-pointer ${
+                                  className={`p-4 sm:p-6 hover:bg-gray-50 transition-colors cursor-pointer ${
                                     snapshot.isDragging ? 'bg-blue-50 shadow-lg' : ''
                                   }`}
                                   onClick={() => {
@@ -573,28 +573,28 @@ ${item.element_html || 'N/A'}
                                     setShowDetailModal(true)
                                   }}
                                 >
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-3 mb-2 flex-wrap">
-                                        <span className="text-sm font-medium text-gray-500">
+                                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                                        <span className="text-sm font-medium text-gray-500 flex-shrink-0">
                                           #{index + 1}
                                         </span>
-                                        <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getImpactColor(item.impact)}`}>
+                                        <span className={`px-2 py-1 text-xs font-medium rounded-full border flex-shrink-0 whitespace-nowrap ${getImpactColor(item.impact)}`}>
                                           {item.impact.toUpperCase()}
                                         </span>
-                                        <span className="text-xs text-gray-500">
+                                        <span className="text-xs text-gray-500 flex-shrink-0">
                                           {item.wcag_level}
                                         </span>
                                         {/* Show duplicate indicator if this issue appears multiple times */}
                                         {item.total_occurrences && item.total_occurrences > 1 && (
-                                          <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full border border-purple-200 flex items-center gap-1" title={`This issue appears ${item.total_occurrences} times`}>
+                                          <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full border border-purple-200 inline-flex items-center gap-1 whitespace-nowrap" title={`This issue appears ${item.total_occurrences} times`}>
                                             <span>🔄</span>
                                             <span>Duplicate ({item.total_occurrences}x)</span>
                                           </span>
                                         )}
                                       </div>
                                       
-                                      <h3 className="font-medium text-gray-900 mb-1">
+                                      <h3 className="font-medium text-gray-900 mb-1 break-words">
                                         {item.rule_name}
                                         {item.total_occurrences && item.total_occurrences > 1 && (
                                           <span className="ml-2 text-xs font-normal text-purple-600">
@@ -603,12 +603,12 @@ ${item.element_html || 'N/A'}
                                         )}
                                       </h3>
                                       
-                                      <p className="text-sm text-gray-600 mb-3">
+                                      <p className="text-sm text-gray-600 mb-3 break-words">
                                         {item.description}
                                       </p>
                                       
-                                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                                        <span>Domain: {item.domain}</span>
+                                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+                                        <span className="truncate max-w-full">Domain: {item.domain}</span>
                                         <span>•</span>
                                         <span>{new Date(item.created_at).toLocaleDateString()}</span>
                                         {item.last_scan_at && (
@@ -620,7 +620,7 @@ ${item.element_html || 'N/A'}
                                       </div>
                                     </div>
                                     
-                                    <div className="flex items-center gap-2 ml-4">
+                                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 flex-wrap">
                                       {/* Story Points Display */}
                                       <div className="flex items-center gap-1 text-xs text-gray-600">
                                         <span className="font-medium">Points:</span>
@@ -629,7 +629,7 @@ ${item.element_html || 'N/A'}
                                         </span>
                                       </div>
                                       
-                                      {/* Actions */}
+                                      {/* Actions - touch-friendly min size */}
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation()
@@ -637,8 +637,9 @@ ${item.element_html || 'N/A'}
                                           setShowComments(true)
                                           fetchComments(item.id)
                                         }}
-                                        className="p-1 text-gray-400 hover:text-blue-600"
+                                        className="p-2 sm:p-1 text-gray-400 hover:text-blue-600 rounded min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                                         title="Comments"
+                                        aria-label="Comments"
                                       >
                                         <MessageSquare className="h-4 w-4" />
                                       </button>
@@ -648,8 +649,9 @@ ${item.element_html || 'N/A'}
                                           e.stopPropagation()
                                           copyTicket(item)
                                         }}
-                                        className="p-1 text-gray-400 hover:text-green-600"
+                                        className="p-2 sm:p-1 text-gray-400 hover:text-green-600 rounded min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                                         title="Copy Ticket"
+                                        aria-label="Copy ticket"
                                       >
                                         <Copy className="h-4 w-4" />
                                       </button>
@@ -659,8 +661,9 @@ ${item.element_html || 'N/A'}
                                           e.stopPropagation()
                                           handleDeleteClick(item.id)
                                         }}
-                                        className="p-1 text-gray-400 hover:text-red-600"
+                                        className="p-2 sm:p-1 text-gray-400 hover:text-red-600 rounded min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                                         title="Delete"
+                                        aria-label="Delete"
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </button>
@@ -673,9 +676,10 @@ ${item.element_html || 'N/A'}
                                             setShowIntegrationMenu(showIntegrationMenu === item.id ? null : item.id)
                                             setShowSprintDropdown(null) // Close sprint dropdown if open
                                           }}
-                                          className="p-1 text-gray-400 hover:text-blue-600"
+                                          className="p-2 sm:p-1 text-gray-400 hover:text-blue-600 rounded min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center disabled:opacity-50"
                                           title="Add to Integration"
                                           disabled={syncingToJira === item.id || syncingToAzureDevOps === item.id}
+                                          aria-label="Add to Jira or Azure DevOps"
                                         >
                                           {(syncingToJira === item.id || syncingToAzureDevOps === item.id) ? (
                                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -740,8 +744,9 @@ ${item.element_html || 'N/A'}
                                               setShowSprintDropdown(showSprintDropdown === item.id ? null : item.id)
                                               setShowIntegrationMenu(null) // Close integration menu if open
                                             }}
-                                            className="p-1 text-gray-400 hover:text-purple-600"
+                                            className="p-2 sm:p-1 text-gray-400 hover:text-purple-600 rounded min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                                             title="Move to Sprint"
+                                            aria-label="Move to sprint"
                                           >
                                             <ChevronDown className="h-4 w-4" />
                                           </button>

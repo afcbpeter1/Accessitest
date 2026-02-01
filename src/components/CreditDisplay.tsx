@@ -81,15 +81,15 @@ export default function CreditDisplay({ className = '', showBuyButton = true }: 
   const getCreditDisplay = () => {
     if (creditData.unlimitedCredits) {
       return (
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-1 text-green-600">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2">
+          <div className="flex items-center gap-1 text-green-600 flex-shrink-0">
             <span className="text-xl font-bold">∞</span>
             {creditData.credits && creditData.credits > 0 && (
-              <span className="text-xs text-gray-500">({creditData.credits} saved)</span>
+              <span className="text-xs text-gray-500 whitespace-nowrap">({creditData.credits} saved)</span>
             )}
           </div>
-          <div className="h-4 w-px bg-gray-300"></div>
-          <span className="text-sm text-gray-600 font-medium">
+          <div className="h-4 w-px bg-gray-300 flex-shrink-0 hidden sm:block" aria-hidden />
+          <span className="text-sm text-gray-600 font-medium whitespace-nowrap">
             {getPlanDisplayName(creditData.planType)}
           </span>
         </div>
@@ -121,15 +121,15 @@ export default function CreditDisplay({ className = '', showBuyButton = true }: 
   }
 
   return (
-    <div className={`flex items-center space-x-3 ${className}`}>
+    <div className={`flex flex-wrap items-center gap-2 sm:gap-3 min-w-0 ${className}`}>
       {getCreditDisplay()}
       
       {showBuyButton && !creditData.unlimitedCredits && (
         <Link
           href="/pricing"
-          className="flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+          className="flex items-center justify-center gap-1 px-3 py-2 sm:py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors min-h-[44px] sm:min-h-0 whitespace-nowrap"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4 flex-shrink-0" />
           <span>Buy Credits</span>
         </Link>
       )}

@@ -323,15 +323,15 @@ export default function Sidebar({ children }: SidebarProps) {
     
     if (user.unlimitedCredits) {
       return (
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-1 text-green-600">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
+          <div className="flex items-center gap-1 text-green-600 flex-shrink-0">
             <span className="text-lg font-bold">∞</span>
             {user.creditsRemaining > 0 && (
-              <span className="text-xs text-gray-500">({user.creditsRemaining} saved)</span>
+              <span className="text-xs text-gray-500 whitespace-nowrap">({user.creditsRemaining} saved)</span>
             )}
           </div>
-          <div className="h-4 w-px bg-gray-300"></div>
-          <span className="text-sm text-gray-600 font-medium">
+          <div className="h-4 w-px bg-gray-300 flex-shrink-0 hidden sm:block" aria-hidden />
+          <span className="text-sm text-gray-600 font-medium whitespace-nowrap truncate">
             {getPlanDisplayName(user.plan)}
           </span>
         </div>
@@ -339,13 +339,13 @@ export default function Sidebar({ children }: SidebarProps) {
     }
     
     return (
-      <div className="flex items-center space-x-2">
-        <div className="flex items-center space-x-1 text-blue-600">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
+        <div className="flex items-center gap-1 text-blue-600 flex-shrink-0">
           <CreditCard className="h-4 w-4" />
           <span className="text-sm font-medium">{user.creditsRemaining}</span>
         </div>
-        <div className="h-4 w-px bg-gray-300"></div>
-        <span className="text-sm text-gray-600 font-medium">
+        <div className="h-4 w-px bg-gray-300 flex-shrink-0 hidden sm:block" aria-hidden />
+        <span className="text-sm text-gray-600 font-medium whitespace-nowrap truncate">
           {getPlanDisplayName(user.plan)}
         </span>
       </div>
@@ -452,13 +452,13 @@ export default function Sidebar({ children }: SidebarProps) {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between lg:justify-end">
+        <header className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 py-4 overflow-hidden">
+          <div className="flex items-center justify-between lg:justify-end gap-2 min-w-0">
             {/* Mobile menu button */}
             <button
               ref={menuButtonRef}
               onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md"
+              className="lg:hidden flex-shrink-0 p-2 text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md min-h-[44px] min-w-[44px] items-center justify-center"
               aria-label="Open menu"
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-navigation"
@@ -466,10 +466,10 @@ export default function Sidebar({ children }: SidebarProps) {
               <Menu className="h-6 w-6" />
             </button>
             
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              {/* Credit Display - Hide on very small screens */}
+            <div className="flex items-center flex-wrap justify-end gap-1 sm:gap-2 min-w-0 flex-1">
+              {/* Credit Display - Hide on very small screens; allow shrink so header doesn't overflow */}
               {!loading && user && (
-                <div className="hidden sm:flex items-center space-x-2">
+                <div className="hidden sm:flex items-center min-w-0 max-w-[160px] sm:max-w-none">
                   {getCreditDisplay()}
                 </div>
               )}
@@ -499,10 +499,10 @@ export default function Sidebar({ children }: SidebarProps) {
               </div>
 
               {/* Notifications */}
-              <div className="relative dropdown-container">
+              <div className="relative dropdown-container flex-shrink-0">
                 <button 
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors relative"
+                  className="flex items-center justify-center p-2 text-gray-400 hover:text-gray-600 transition-colors relative min-h-[44px] min-w-[44px] rounded-md"
                   aria-label="Notifications"
                 >
                   <Bell className="h-5 w-5" />
@@ -566,23 +566,23 @@ export default function Sidebar({ children }: SidebarProps) {
                 )}
               </div>
               
-              {/* Organization Name (simplified - single org per user) */}
+              {/* Organization Name (simplified - single org per user); narrow on mobile to prevent overflow */}
               {currentOrg && (
-                <div className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 mr-2">
-                  <Building2 className="h-4 w-4" />
-                  <span className="max-w-[120px] truncate">{currentOrg.name}</span>
+                <div className="flex items-center space-x-1 sm:space-x-2 px-1 sm:px-3 py-2 text-sm text-gray-700 flex-shrink min-w-0 max-w-[80px] sm:max-w-[140px]">
+                  <Building2 className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate" title={currentOrg.name}>{currentOrg.name}</span>
                 </div>
               )}
               
               {/* User Menu */}
-              <div className="relative dropdown-container">
+              <div className="relative dropdown-container flex-shrink-0">
                 <button 
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="flex items-center space-x-2 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className="flex items-center justify-center p-2 text-gray-400 hover:text-gray-600 transition-colors min-h-[44px] min-w-[44px] rounded-md"
                   aria-label="User menu"
                 >
                   <User className="h-5 w-5" />
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className="h-4 w-4 ml-0.5" />
                 </button>
                 
                 {/* User Menu Dropdown */}
