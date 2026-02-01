@@ -517,6 +517,19 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       [newPlanType, subscription.id]
     )
 
+    // When subscription is no longer active (e.g. past_due, unpaid, canceled), turn off unlimited credits
+    // so the user can only scan with saved credits until they pay
+    if (newPlanType === 'free') {
+      try {
+        const creditResult = await deactivateUnlimitedCredits(userId)
+        if (creditResult.success) {
+          console.log(`✅ Deactivated unlimited credits for user ${userId} (subscription ${subscription.status}); ${creditResult.credits_remaining} saved credits remain`)
+        }
+      } catch (creditError) {
+        console.warn('⚠️ Could not deactivate unlimited credits on subscription update:', creditError)
+      }
+    }
+
     console.log(`✅ Updated subscription ${subscription.id} status: ${subscription.status}, cancel_at_period_end: ${isCancelling}`)
     
     // If subscription is being cancelled, send cancellation email (unless account was deleted - they get a different email)
