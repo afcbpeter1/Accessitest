@@ -293,8 +293,8 @@ export default function Pricing() {
           </div>
         </div>
 
-        {/* Subscription Plans */}
-        <div className="overflow-visible py-4">
+        {/* Subscription Plans - pt-12 so "Most Popular" badge isn't clipped */}
+        <div className="overflow-visible pt-12 pb-4">
           <div className="grid grid-cols-1 gap-6 items-stretch max-w-md mx-auto overflow-visible px-4 sm:px-0">
             {subscriptionPlans.map((plan) => (
               <div
@@ -304,7 +304,7 @@ export default function Pricing() {
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10 w-max max-w-[calc(100%+2rem)]">
                     <span className="bg-primary-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap shadow-md">
                       Most Popular
                     </span>
