@@ -746,6 +746,104 @@ export async function sendSubscriptionCancellationEmail(data: SubscriptionCancel
   }
 }
 
+export interface AccountDeletedData {
+  customerEmail: string
+  customerName?: string
+}
+
+/**
+ * Send email when a user permanently deletes their account.
+ * Use this instead of the subscription cancellation email when the account was deleted
+ * (no "access until end of period" - account is gone).
+ */
+export async function sendAccountDeletedEmail(data: AccountDeletedData) {
+  try {
+    if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === 'dummy-key-for-development') {
+      console.warn('⚠️ RESEND_API_KEY not configured - skipping account deleted email')
+      return { success: false, error: 'Email service not configured' }
+    }
+
+    const { customerEmail, customerName } = data
+
+    const subject = `Sorry to see you go - A11ytest.ai`
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Account Deleted - A11ytest.ai</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; background-color: #f3f4f6; padding: 40px 20px; margin: 0; }
+          .email-wrapper { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+          .header { padding: 40px 30px; text-align: center; border-bottom: 2px solid #e5e7eb; }
+          .header-title { font-size: 28px; font-weight: 700; color: #0B1220; margin-bottom: 8px; }
+          .header-subtitle { color: #6b7280; font-size: 16px; }
+          .content { padding: 40px 30px; }
+          .greeting { font-size: 18px; color: #1f2937; margin-bottom: 20px; font-weight: 500; }
+          .message { font-size: 16px; color: #374151; line-height: 1.8; margin-bottom: 24px; }
+          .note { background: #fef2f2; border-left: 4px solid #dc2626; padding: 16px; border-radius: 4px; font-size: 14px; color: #991b1b; margin-bottom: 24px; }
+          .footer { padding: 24px 30px; text-align: center; background: #f9fafb; font-size: 14px; color: #6b7280; }
+          .footer a { color: #2563eb; text-decoration: none; }
+        </style>
+      </head>
+      <body>
+        <div class="email-wrapper">
+          <div class="header">
+            <div class="header-title">A11ytest.ai</div>
+            <div class="header-subtitle">Sorry to see you go</div>
+          </div>
+          <div class="content">
+            <div class="greeting">${customerName ? `Hello ${customerName},` : 'Hello,'}</div>
+            <p class="message">
+              Your account has been permanently deleted. We're sorry to see you go.
+            </p>
+            <div class="note">
+              You have forfeited the remainder of your subscription and any unused credits. This action cannot be undone.
+            </div>
+          </div>
+          <div class="footer">
+            <p>Thank you for using A11ytest.ai.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+
+    const textContent = `
+A11ytest.ai - Sorry to see you go
+
+${customerName ? `Hello ${customerName},` : 'Hello,'}
+
+Your account has been permanently deleted. We're sorry to see you go.
+
+You have forfeited the remainder of your subscription and any unused credits. This action cannot be undone.
+
+Thank you for using A11ytest.ai.
+    `.trim()
+
+    const result = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [customerEmail],
+      subject,
+      html: htmlContent,
+      text: textContent,
+    })
+
+    if (result.error) {
+      console.error('❌ Resend API returned an error (account deleted email):', result.error)
+      return { success: false, error: JSON.stringify(result.error) }
+    }
+
+    return { success: true, messageId: result.data?.id }
+
+  } catch (error) {
+    console.error('❌ Failed to send account deleted email:', error)
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+  }
+}
+
 /**
  * Send email when a subscription is reactivated
  */

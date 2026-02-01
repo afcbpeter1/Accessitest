@@ -60,6 +60,7 @@ export default function SettingsPage() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deletingAccount, setDeletingAccount] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
     scanCompletion: true,
     criticalIssues: true,
@@ -2238,6 +2239,9 @@ export default function SettingsPage() {
                     <p className="text-sm text-red-700 mt-1">
                       Permanently delete your account and all associated data. This action cannot be undone.
                     </p>
+                    <p className="text-sm text-red-800 mt-2 font-medium">
+                      By deleting your account you forfeit the rest of your subscription and any unused credits. You will not have access until the end of your billing period—your account is removed immediately.
+                    </p>
                   </div>
                   <div className="space-y-3">
                     <div className="bg-white p-4 rounded border border-red-200">
@@ -2253,7 +2257,7 @@ export default function SettingsPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setShowDeleteConfirm(true)}
+                      onClick={() => { setShowDeleteConfirm(true); setDeleteConfirmText('') }}
                       className="btn-danger flex items-center space-x-2"
                       disabled={deletingAccount}
                     >
@@ -2276,21 +2280,37 @@ export default function SettingsPage() {
               <AlertCircle className="h-6 w-6 text-red-600" />
               <h3 className="text-lg font-semibold text-gray-900">Delete Account</h3>
             </div>
-            <p className="text-sm text-gray-700 mb-6">
+            <p className="text-sm text-gray-700 mb-2">
               Are you absolutely sure you want to delete your account? This action cannot be undone and will permanently delete:
             </p>
-            <ul className="text-sm text-gray-600 mb-6 space-y-1 list-disc list-inside">
+            <ul className="text-sm text-gray-600 mb-2 space-y-1 list-disc list-inside">
               <li>All your scan history and results</li>
               <li>All saved credits and transaction history</li>
               <li>All notifications and preferences</li>
               <li>All product backlog items and issues</li>
               <li>Your active subscription (if any)</li>
             </ul>
+            <p className="text-sm text-red-700 mb-4 font-medium">
+              You will forfeit the rest of your subscription and any unused credits. Your account is removed immediately.
+            </p>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type <strong>Delete my account</strong> to confirm:
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Delete my account"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-4 focus:ring-red-500 focus:border-red-500"
+              disabled={deletingAccount}
+              autoComplete="off"
+            />
             <div className="flex space-x-3">
               <button
                 onClick={() => {
                   setShowDeleteConfirm(false)
                   setDeletingAccount(false)
+                  setDeleteConfirmText('')
                 }}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 disabled={deletingAccount}
@@ -2299,8 +2319,8 @@ export default function SettingsPage() {
               </button>
               <button
                 onClick={handleDeleteAccount}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-                disabled={deletingAccount}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={deletingAccount || deleteConfirmText !== 'Delete my account'}
               >
                 {deletingAccount ? 'Deleting...' : 'Yes, Delete My Account'}
               </button>

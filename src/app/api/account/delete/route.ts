@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { queryOne } from '@/lib/database'
 import pool from '@/lib/database'
 import { getStripe } from '@/lib/stripe-config'
+import { sendAccountDeletedEmail } from '@/lib/subscription-email-service'
 
 // Delete user account and all associated data
 export async function DELETE(request: NextRequest) {
@@ -11,9 +12,9 @@ export async function DELETE(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
     
-    // Get user data to check for subscription
+    // Get user data to check for subscription and for goodbye email
     const userData = await queryOne(
-      `SELECT email, stripe_subscription_id FROM users WHERE id = $1`,
+      `SELECT email, first_name, last_name, stripe_subscription_id FROM users WHERE id = $1`,
       [user.userId]
     )
 
@@ -28,11 +29,14 @@ export async function DELETE(request: NextRequest) {
     await client.query('BEGIN')
 
     try {
-      // 1. Cancel Stripe subscription if exists
+      // 1. Cancel Stripe subscription if exists (mark as account_deletion so webhook skips "access until end" email)
       if (userData.stripe_subscription_id) {
         try {
-          await getStripe().subscriptions.cancel(userData.stripe_subscription_id)
-
+          const stripe = getStripe()
+          await stripe.subscriptions.update(userData.stripe_subscription_id, {
+            metadata: { cancel_reason: 'account_deletion' }
+          })
+          await stripe.subscriptions.cancel(userData.stripe_subscription_id)
         } catch (stripeError: any) {
           // Log but don't fail - subscription might already be cancelled
           console.warn(`⚠️ Could not cancel Stripe subscription: ${stripeError.message}`)
@@ -142,6 +146,18 @@ export async function DELETE(request: NextRequest) {
         `UPDATE users SET default_organization_id = NULL, updated_at = NOW() WHERE id = $1`,
         [user.userId]
       )
+
+      // Send "Sorry to see you go" email before deleting user (so we still have email)
+      try {
+        const customerName = [userData.first_name, userData.last_name].filter(Boolean).join(' ') || undefined
+        await sendAccountDeletedEmail({
+          customerEmail: userData.email,
+          customerName: customerName || undefined
+        })
+      } catch (emailError) {
+        console.warn('⚠️ Could not send account-deleted email:', emailError)
+        // Don't fail the delete if email fails
+      }
 
       // Finally, delete the user record itself
       const deleteUserResult = await client.query('DELETE FROM users WHERE id = $1', [user.userId])

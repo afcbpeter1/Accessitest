@@ -519,8 +519,9 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
     console.log(`✅ Updated subscription ${subscription.id} status: ${subscription.status}, cancel_at_period_end: ${isCancelling}`)
     
-    // If subscription is being cancelled, send cancellation email
-    if (isCancelling && !wasCancelling) {
+    // If subscription is being cancelled, send cancellation email (unless account was deleted - they get a different email)
+    const isAccountDeletion = subscription.metadata?.cancel_reason === 'account_deletion'
+    if (isCancelling && !wasCancelling && !isAccountDeletion) {
       console.log('📧 Subscription cancellation detected - sending cancellation email')
       
       // Get user email and name
@@ -720,13 +721,14 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       await query('COMMIT')
       console.log(`Set user ${cancelledUserId} with subscription ${subscription.id} back to free plan (${creditResult.credits_remaining} credits preserved)`)
 
-      // Create notification for subscription cancellation
-      if (userId) {
+      // Create notification for subscription cancellation (skip if account was deleted)
+      const isAccountDeletion = subscription.metadata?.cancel_reason === 'account_deletion'
+      if (userId && !isAccountDeletion) {
         await NotificationService.notifySubscriptionCancelled(userId)
       }
       
-      // Send cancellation email
-      if (userEmail) {
+      // Send cancellation email (skip if account was deleted - they get account-deleted email instead)
+      if (userEmail && !isAccountDeletion) {
         const cancellationDate = new Date().toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
