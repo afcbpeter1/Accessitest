@@ -1,7 +1,8 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { 
   LayoutDashboard, 
   Plus, 
@@ -87,6 +88,8 @@ export default function Sidebar({ children }: SidebarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const firstMenuItemRef = useRef<HTMLAnchorElement>(null)
+  const notificationButtonRef = useRef<HTMLButtonElement>(null)
+  const [notificationDropdownPosition, setNotificationDropdownPosition] = useState({ top: 0, right: 0 })
 
   // Load user data, notifications, and organizations
   useEffect(() => {
@@ -318,6 +321,16 @@ export default function Sidebar({ children }: SidebarProps) {
     }
   }
 
+  // Position notifications dropdown via portal so it isn't clipped by overflow-hidden ancestors
+  useLayoutEffect(() => {
+    if (!showNotifications || !notificationButtonRef.current) return
+    const rect = notificationButtonRef.current.getBoundingClientRect()
+    setNotificationDropdownPosition({
+      top: rect.bottom + 8,
+      right: window.innerWidth - rect.right
+    })
+  }, [showNotifications])
+
   const getCreditDisplay = () => {
     if (!user) return null
     
@@ -452,7 +465,7 @@ export default function Sidebar({ children }: SidebarProps) {
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 py-4 overflow-hidden">
+        <header className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 py-4 overflow-visible">
           <div className="flex items-center justify-between lg:justify-end gap-2 min-w-0">
             {/* Mobile menu button */}
             <button
@@ -498,12 +511,14 @@ export default function Sidebar({ children }: SidebarProps) {
                 </a>
               </div>
 
-              {/* Notifications */}
-              <div className="relative dropdown-container flex-shrink-0">
+              {/* Notifications - dropdown rendered in portal so it isn't clipped */}
+              <div className="relative flex-shrink-0">
                 <button 
+                  ref={notificationButtonRef}
                   onClick={() => setShowNotifications(!showNotifications)}
                   className="flex items-center justify-center p-2 text-gray-400 hover:text-gray-600 transition-colors relative min-h-[44px] min-w-[44px] rounded-md"
                   aria-label="Notifications"
+                  aria-expanded={showNotifications}
                 >
                   <Bell className="h-5 w-5" />
                   {unreadCount > 0 && (
@@ -513,56 +528,71 @@ export default function Sidebar({ children }: SidebarProps) {
                   )}
                 </button>
                 
-                {/* Notifications Dropdown */}
-                {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                    <div className="p-4 border-b border-gray-200">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
-                        {unreadCount > 0 && (
-                          <button
-                            onClick={() => markNotificationsAsRead()}
-                            className="text-sm text-blue-600 hover:text-blue-800"
-                          >
-                            Mark all as read
-                          </button>
+                {/* Notifications Dropdown - portal to body so it's not clipped by overflow-hidden */}
+                {showNotifications && notificationDropdownPosition.top > 0 && typeof document !== 'undefined' && createPortal(
+                  <>
+                    <div
+                      className="fixed inset-0 z-[60]"
+                      aria-hidden="true"
+                      onClick={() => setShowNotifications(false)}
+                    />
+                    <div
+                      className="fixed w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 z-[70]"
+                      style={{
+                        top: notificationDropdownPosition.top,
+                        right: notificationDropdownPosition.right,
+                        left: 'auto'
+                      }}
+                    >
+                      <div className="p-4 border-b border-gray-200">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
+                          {unreadCount > 0 && (
+                            <button
+                              onClick={() => markNotificationsAsRead()}
+                              className="text-sm text-blue-600 hover:text-blue-800"
+                            >
+                              Mark all as read
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="max-h-96 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="p-4 text-center text-gray-500">
+                            No notifications
+                          </div>
+                        ) : (
+                          notifications.map((notification) => (
+                            <div
+                              key={notification.id}
+                              className={`p-4 border-b border-gray-100 hover:bg-gray-50 ${
+                                !notification.is_read ? 'bg-blue-50' : ''
+                              }`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <h4 className="text-sm font-medium text-gray-900">
+                                    {notification.title}
+                                  </h4>
+                                  <p className="text-sm text-gray-600 mt-1">
+                                    {notification.message}
+                                  </p>
+                                  <p className="text-xs text-gray-400 mt-2">
+                                    {new Date(notification.created_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                                {!notification.is_read && (
+                                  <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1"></div>
+                                )}
+                              </div>
+                            </div>
+                          ))
                         )}
                       </div>
                     </div>
-                    <div className="max-h-96 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-4 text-center text-gray-500">
-                          No notifications
-                        </div>
-                      ) : (
-                        notifications.map((notification) => (
-                          <div
-                            key={notification.id}
-                            className={`p-4 border-b border-gray-100 hover:bg-gray-50 ${
-                              !notification.is_read ? 'bg-blue-50' : ''
-                            }`}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h4 className="text-sm font-medium text-gray-900">
-                                  {notification.title}
-                                </h4>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  {notification.message}
-                                </p>
-                                <p className="text-xs text-gray-400 mt-2">
-                                  {new Date(notification.created_at).toLocaleDateString()}
-                                </p>
-                              </div>
-                              {!notification.is_read && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1"></div>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
+                  </>,
+                  document.body
                 )}
               </div>
               
