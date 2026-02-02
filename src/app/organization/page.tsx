@@ -2440,6 +2440,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
     seatPrice: number
     billingPeriod: 'monthly' | 'yearly'
     totalAtRenewal: number
+    newSeatsAtRenewal?: number
     numberOfUsers: number
     periodStart?: string | null
     periodEnd?: string | null
@@ -2862,29 +2863,45 @@ function BillingTab({ organization }: { organization: Organization | null }) {
             )}
 
             {/* Confirm step: pay proration today only */}
-            {showConfirmAdd && addPreview && (
+            {showConfirmAdd && addPreview && (() => {
+              const prorationOnly = addPreview.prorationOnlyAmount ?? addPreview.proratedAmount
+              const hasChargeToday = prorationOnly > 0
+              const newSeatsAtRenewal = addPreview.newSeatsAtRenewal ?? addPreview.totalAtRenewal
+              const periodLabel = addPreview.billingPeriod === 'yearly' ? 'year' : 'month'
+              return (
               <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <h5 className="font-semibold text-gray-900 mb-3">Review and confirm</h5>
                 <div className="space-y-2 text-sm">
-                  <p>
-                    <strong>Pay today (proration only):</strong>{' '}
-                    {addPreview.currency === 'GBP' ? '£' : addPreview.currency}
-                    {(addPreview.prorationOnlyAmount ?? addPreview.proratedAmount).toFixed(2)}
-                  </p>
-                  <p className="text-gray-600">
-                    You pay for seats immediately today. If you're midway through your {addPreview.billingPeriod} period, you pay less today (proration for the rest of the period). The full seat fee ({addPreview.currency === 'GBP' ? '£' : ''}{addPreview.seatPrice.toFixed(2)}/seat/{addPreview.billingPeriod === 'yearly' ? 'year' : 'month'}) is added to your next bill at renewal.
-                  </p>
+                  {hasChargeToday ? (
+                    <>
+                      <p>
+                        <strong>Pay today (proration only):</strong>{' '}
+                        {addPreview.currency === 'GBP' ? '£' : addPreview.currency}
+                        {prorationOnly.toFixed(2)}
+                      </p>
+                      <p className="text-gray-600">
+                        Pay {addPreview.currency === 'GBP' ? '£' : ''}{prorationOnly.toFixed(2)} today for the rest of this period; from your next billing date, {addPreview.currency === 'GBP' ? '£' : ''}{newSeatsAtRenewal.toFixed(2)}/{periodLabel} will be added for these {addPreview.numberOfUsers} seat{addPreview.numberOfUsers !== 1 ? 's' : ''}.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-gray-600">
+                      No charge today. From your next billing date, {addPreview.currency === 'GBP' ? '£' : ''}{newSeatsAtRenewal.toFixed(2)}/{periodLabel} will be added for these {addPreview.numberOfUsers} seat{addPreview.numberOfUsers !== 1 ? 's' : ''}—these seats will appear on your next bill.
+                    </p>
+                  )}
                   {addPreview.periodStart != null && addPreview.periodEnd != null && (addPreview.daysInPeriod != null || addPreview.daysRemainingInPeriod != null) && (
                     <p className="text-gray-600 text-xs">
                       Your current billing period: {new Date(addPreview.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – {new Date(addPreview.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.
-                      {addPreview.daysRemainingInPeriod != null && addPreview.daysRemainingInPeriod >= 0 && (
-                        <> Today's charge covers the remaining <strong>{addPreview.daysRemainingInPeriod} day{addPreview.daysRemainingInPeriod !== 1 ? 's' : ''}</strong> in this period—so the amount depends on when in the month you add seats (earlier = more, later = less).</>
+                      {addPreview.daysRemainingInPeriod != null && addPreview.daysRemainingInPeriod >= 0 && hasChargeToday && (
+                        <> Today&apos;s charge covers the remaining <strong>{addPreview.daysRemainingInPeriod} day{addPreview.daysRemainingInPeriod !== 1 ? 's' : ''}</strong> in this period.</>
                       )}
                     </p>
                   )}
                   <p>
                     <strong>At next renewal:</strong> {addPreview.currency === 'GBP' ? '£' : addPreview.currency}
-                    {addPreview.totalAtRenewal.toFixed(2)}/{addPreview.billingPeriod} for {addPreview.numberOfUsers} user seat{addPreview.numberOfUsers > 1 ? 's' : ''}
+                    {newSeatsAtRenewal.toFixed(2)}/{periodLabel} for these {addPreview.numberOfUsers} new seat{addPreview.numberOfUsers !== 1 ? 's' : ''}
+                    {(addPreview.totalAtRenewal !== newSeatsAtRenewal) && (
+                      <>. Your total subscription at renewal: {addPreview.currency === 'GBP' ? '£' : addPreview.currency}{addPreview.totalAtRenewal.toFixed(2)}/{periodLabel}</>
+                    )}
                   </p>
                   {addPreview.nextBillingDate && (
                     <p className="text-gray-600">
@@ -2892,15 +2909,17 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                     </p>
                   )}
                 </div>
-                <label className="mt-3 flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={agreeToCharges}
-                    onChange={(e) => setAgreeToCharges(e.target.checked)}
-                    className="rounded border-gray-300"
-                  />
-                  <span className="text-sm font-medium text-gray-800">I agree to these charges and to add {addPreview.numberOfUsers} user seat{addPreview.numberOfUsers > 1 ? 's' : ''} to my subscription.</span>
-                </label>
+                {hasChargeToday && (
+                  <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={agreeToCharges}
+                      onChange={(e) => setAgreeToCharges(e.target.checked)}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm font-medium text-gray-800">I agree to these charges and to add {addPreview.numberOfUsers} user seat{addPreview.numberOfUsers > 1 ? 's' : ''} to my subscription.</span>
+                  </label>
+                )}
                 <div className="flex flex-wrap gap-2 mt-4">
                   <button
                     type="button"
@@ -2909,24 +2928,28 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                   >
                     Cancel
                   </button>
-                  <button
-                    onClick={handleConfirmAndPay}
-                    disabled={addingUsers || !agreeToCharges}
-                    className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {addingUsers ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Redirecting... </> : 'Pay proration now (Stripe)'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddSeatsAtRenewal}
-                    disabled={addingUsers}
-                    className="px-4 py-2 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 disabled:opacity-50"
-                  >
-                    Add seats at renewal instead (no charge today)
-                  </button>
+                  {hasChargeToday ? (
+                    <button
+                      onClick={handleConfirmAndPay}
+                      disabled={addingUsers || !agreeToCharges}
+                      className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {addingUsers ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Redirecting... </> : 'Pay now'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleAddSeatsAtRenewal}
+                      disabled={addingUsers}
+                      className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                    >
+                      Add seats at renewal (no charge today)
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
+              )
+            })()}
 
             {/* Add Users: pay proration today (primary) or bill at renewal */}
             {!showConfirmAdd && (
@@ -2939,20 +2962,12 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                   {addingUsers ? (
                     <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading preview... </>
                   ) : (
-                    <><Plus className="h-4 w-4 mr-2" /> Add {usersToAdd} seat{usersToAdd > 1 ? 's' : ''} and pay proration today </>
+                    <><Plus className="h-4 w-4 mr-2" /> Add {usersToAdd} seat{usersToAdd > 1 ? 's' : ''} – pay today </>
                   )}
                 </button>
                 <p className="text-sm text-gray-600 mt-2">
-                  You pay only the proration today (rest of current period). The full seat fee is added to your next bill.
+                  You pay only for the rest of this period today; the full seat fee is added to your next bill.
                 </p>
-                <button
-                  type="button"
-                  onClick={handleAddSeatsAtRenewal}
-                  disabled={addingUsers}
-                  className="mt-2 text-sm text-primary-600 hover:text-primary-800 underline disabled:opacity-50"
-                >
-                  Add seats at renewal instead (no charge today)
-                </button>
               </>
             )}
             

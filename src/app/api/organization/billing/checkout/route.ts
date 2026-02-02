@@ -187,10 +187,9 @@ export async function PUT(request: NextRequest) {
       const result = await reduceSeatsFromOwnerSubscription(organizationId, numberOfUsers)
       return NextResponse.json(result)
     } else {
-      // Add seats - requires owner to have an active subscription
-      // Don't pass billingPeriod - let it auto-detect from owner's subscription
+      // Add seats at renewal (no payment today) - do not send receipt; receipts only after payment is confirmed on Stripe
       try {
-        const result = await addSeatsToOwnerSubscription(organizationId, numberOfUsers)
+        const result = await addSeatsToOwnerSubscription(organizationId, numberOfUsers, undefined, { sendEmail: false })
         return NextResponse.json(result)
       } catch (error) {
         // If owner doesn't have subscription, return error instead of falling back

@@ -195,7 +195,10 @@ export async function previewAddSeats(
   nextBillingDate: string | null
   seatPrice: number
   billingPeriod: 'monthly' | 'yearly'
+  /** Total subscription amount for this line at renewal (all seats). */
   totalAtRenewal: number
+  /** Amount at renewal for the new seats only (seatPrice × numberOfUsers). */
+  newSeatsAtRenewal: number
   numberOfUsers: number
   /** When the current billing period started (ISO). */
   periodStart: string | null
@@ -255,6 +258,7 @@ export async function previewAddSeats(
     const proratedAmount = (upcoming.amount_due || 0) / 100
     const seatPrice = (await getSeatPriceInfo(billingPeriod)).amount
     const prorationOnlyAmount = sumProrationOnlyFromInvoice(upcoming)
+    const newSeatsAtRenewal = Math.round(seatPrice * numberOfUsers * 100) / 100
     return {
       proratedAmount: Math.round(proratedAmount * 100) / 100,
       prorationOnlyAmount: Math.round(prorationOnlyAmount * 100) / 100,
@@ -262,7 +266,8 @@ export async function previewAddSeats(
       nextBillingDate: upcoming.period_end ? new Date(upcoming.period_end * 1000).toISOString() : null,
       seatPrice,
       billingPeriod,
-      totalAtRenewal: Math.round(seatPrice * numberOfUsers * 100) / 100,
+      totalAtRenewal: newSeatsAtRenewal,
+      newSeatsAtRenewal,
       numberOfUsers,
       ...baseReturn
     }
@@ -271,7 +276,9 @@ export async function previewAddSeats(
     id: item.id,
     quantity: item.price.id === priceId ? (item.quantity || 0) + numberOfUsers : (item.quantity || 1)
   }))
+  const customerId = typeof subscription.customer === 'string' ? subscription.customer : (subscription.customer as Stripe.Customer)?.id
   const upcoming = await getStripe().invoices.createPreview({
+    ...(customerId ? { customer: customerId } : {}),
     subscription: subscription.id,
     subscription_details: {
       items: subscriptionDetailsItems,
@@ -281,6 +288,8 @@ export async function previewAddSeats(
   const proratedAmount = (upcoming.amount_due || 0) / 100
   const seatPrice = (await getSeatPriceInfo(billingPeriod)).amount
   const prorationOnlyAmount = sumProrationOnlyFromInvoice(upcoming)
+  const newSeatsAtRenewal = Math.round(seatPrice * numberOfUsers * 100) / 100
+  const totalAtRenewal = Math.round(seatPrice * ((existingItem.quantity || 0) + numberOfUsers) * 100) / 100
   return {
     proratedAmount: Math.round(proratedAmount * 100) / 100,
     prorationOnlyAmount: Math.round(prorationOnlyAmount * 100) / 100,
@@ -288,7 +297,8 @@ export async function previewAddSeats(
     nextBillingDate: upcoming.period_end ? new Date(upcoming.period_end * 1000).toISOString() : null,
     seatPrice,
     billingPeriod,
-    totalAtRenewal: Math.round(seatPrice * ((existingItem.quantity || 0) + numberOfUsers) * 100) / 100,
+    totalAtRenewal,
+    newSeatsAtRenewal,
     numberOfUsers,
     ...baseReturn
   }
@@ -558,10 +568,11 @@ export async function addSeatsAndPayProratedNow(
   if (!owner?.stripe_subscription_id) {
     throw new Error('Organization owner does not have an active subscription.')
   }
-  const subscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id)
-  const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer?.id
-  if (!customerId) {
-    throw new Error('Subscription has no customer ID')
+  const subscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id, { expand: ['customer'] })
+  const rawCustomer = subscription.customer
+  const customerId = typeof rawCustomer === 'string' ? rawCustomer : (rawCustomer as Stripe.Customer)?.id
+  if (!customerId || typeof customerId !== 'string') {
+    throw new Error('Subscription has no customer ID; cannot create checkout session.')
   }
   const successUrlWithParams = `${successUrl}${successUrl.includes('?') ? '&' : '?'}seats=${numberOfUsers}&amount=${encodeURIComponent(preview.prorationOnlyAmount.toFixed(2))}&type=proration`
   const session = await stripe.checkout.sessions.create({
