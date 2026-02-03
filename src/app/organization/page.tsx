@@ -146,7 +146,12 @@ export default function OrganizationPage() {
     }
     
     if (canceled === 'true') {
-      setMessage({ type: 'error', text: 'Payment was canceled. No charges were made.' })
+      setMessage({ type: 'error', text: 'Payment canceled. No charge was made.' })
+      if (typeof window !== 'undefined' && window.history.replaceState) {
+        const u = new URL(window.location.href)
+        u.searchParams.delete('canceled')
+        window.history.replaceState({}, '', u.toString())
+      }
     }
     
     // Listen for organization switch events
@@ -2448,6 +2453,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
     daysRemainingInPeriod?: number | null
   } | null>(null)
   const [agreeToCharges, setAgreeToCharges] = useState(false)
+  const [agreeToAddAtRenewal, setAgreeToAddAtRenewal] = useState(false)
   const [reducingUsers, setReducingUsers] = useState(false)
   const [usersToReduceTo, setUsersToReduceTo] = useState(1)
   const [showConfirmReduce, setShowConfirmReduce] = useState(false)
@@ -2487,11 +2493,9 @@ function BillingTab({ organization }: { organization: Organization | null }) {
     if (success === 'true' && organization) {
       const seatsNum = seats ? parseInt(seats, 10) : 0
       const amountStr = amount != null && amount !== '' ? `£${Number(amount).toFixed(2)}` : ''
-      const text = type === 'proration' && seatsNum > 0
-        ? alreadyPaid
-          ? `Seats added. ${seatsNum} seat${seatsNum !== 1 ? 's' : ''} added${amountStr ? `; ${amountStr} charged.` : '.'} A receipt has been sent to your email.`
-          : `Payment successful. You've added ${seatsNum} seat${seatsNum !== 1 ? 's' : ''}. Amount paid: ${amountStr}. A receipt has been sent to your email.`
-        : 'Payment successful. Your seats are added and a receipt has been sent to your email.'
+      const text = seatsNum > 0
+        ? `Payment successful. ${seatsNum} seat${seatsNum !== 1 ? 's' : ''} added.${amountStr ? ` ${amountStr} paid.` : ''} ${type === 'proration' ? 'A receipt has been sent to your email.' : ''}`
+        : 'Payment successful. Your seats are added.'
       setMessage({ type: 'success', text })
       setTimeout(() => {
         loadBillingStatus()
@@ -2553,6 +2557,11 @@ function BillingTab({ organization }: { organization: Organization | null }) {
       })
       const data = await res.json()
       if (data.success) {
+        const prorationOnly = data.prorationOnlyAmount ?? data.proratedAmount ?? 0
+        if (prorationOnly <= 0) {
+          setMessage({ type: 'success', text: 'No charge today. Use "Add at next renewal" below to add these seats to your next bill.' })
+          return
+        }
         setAddPreview(data)
         setShowConfirmAdd(true)
       } else {
@@ -2585,6 +2594,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
         setMessage({ type: 'success', text: `${usersToAdd} seat(s) added. Proration and new seats will appear on your next bill—no charge today.` })
         setShowConfirmAdd(false)
         setAddPreview(null)
+        setAgreeToAddAtRenewal(false)
         setUsersToAdd(1)
         loadBillingStatus()
       } else {
@@ -2866,52 +2876,67 @@ function BillingTab({ organization }: { organization: Organization | null }) {
               </div>
             )}
 
-            {/* Confirm step: pay proration today only */}
+            {/* Confirm step: pay proration today – clear breakdown and Continue to Stripe */}
             {showConfirmAdd && addPreview && (() => {
               const prorationOnly = addPreview.prorationOnlyAmount ?? addPreview.proratedAmount
               const newSeatsAtRenewal = addPreview.newSeatsAtRenewal ?? addPreview.totalAtRenewal
+              const totalSeatsAtRenewal = addPreview.totalAtRenewal ?? newSeatsAtRenewal
+              const basePlanAtRenewal = addPreview.basePlanAmountAtRenewal ?? 0
+              const fullTotalAtRenewal = basePlanAtRenewal + totalSeatsAtRenewal
               const periodLabel = addPreview.billingPeriod === 'yearly' ? 'year' : 'month'
+              const currencySym = addPreview.currency === 'GBP' ? '£' : (addPreview.currency || '')
+              const showSeatsBreakdown = totalSeatsAtRenewal !== newSeatsAtRenewal
               return (
               <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <h5 className="font-semibold text-gray-900 mb-3">Review and confirm</h5>
-                <div className="space-y-2 text-sm">
-                  <p>
-                    <strong>Pay today (proration):</strong>{' '}
-                    {addPreview.currency === 'GBP' ? '£' : addPreview.currency}
-                    {prorationOnly.toFixed(2)}
-                  </p>
-                  <p className="text-gray-600">
-                    Click &quot;Pay now (Stripe)&quot; to add the seats and pay {addPreview.currency === 'GBP' ? '£' : ''}{prorationOnly.toFixed(2)} on Stripe&apos;s secure page. Your card is charged for the rest of this period; from your next billing date you will be charged {addPreview.currency === 'GBP' ? '£' : ''}{newSeatsAtRenewal.toFixed(2)}/{periodLabel} for these {addPreview.numberOfUsers} seat{addPreview.numberOfUsers !== 1 ? 's' : ''}. After paying, return to this page to see your updated seat count.
-                  </p>
-                  {addPreview.periodStart != null && addPreview.periodEnd != null && (addPreview.daysInPeriod != null || addPreview.daysRemainingInPeriod != null) && (
-                    <p className="text-gray-600 text-xs">
-                      Your current billing period: {new Date(addPreview.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – {new Date(addPreview.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.
-                      {addPreview.daysRemainingInPeriod != null && addPreview.daysRemainingInPeriod >= 0 && (
-                        <> Today&apos;s charge covers the remaining <strong>{addPreview.daysRemainingInPeriod} day{addPreview.daysRemainingInPeriod !== 1 ? 's' : ''}</strong> in this period.</>
+                <h5 className="font-semibold text-gray-900 mb-3">Payment breakdown</h5>
+                <p className="text-xs text-gray-600 mb-2">Licences are added to your subscription as extras. Your existing plan is unchanged; you are not charged for it again today.</p>
+                <div className="bg-white/70 border border-amber-200 rounded-lg p-3 mb-3 text-sm">
+                  <div className="flex justify-between items-baseline gap-2 mb-2">
+                    <span className="text-gray-700">Due now (new seats only)</span>
+                    <span className="font-semibold text-gray-900">{currencySym}{prorationOnly.toFixed(2)}</span>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-2">Proration for the rest of this period for these {addPreview.numberOfUsers} seat{addPreview.numberOfUsers !== 1 ? 's' : ''}.</p>
+                  <div className="border-t border-amber-200 pt-2 flex justify-between items-baseline gap-2">
+                    <span className="text-gray-700">From next renewal (new seats only)</span>
+                    <span className="font-semibold text-gray-900">{currencySym}{newSeatsAtRenewal.toFixed(2)}/{periodLabel}</span>
+                  </div>
+                  <p className="text-xs text-gray-600 mb-2">Recurring amount for these {addPreview.numberOfUsers} seat{addPreview.numberOfUsers !== 1 ? 's' : ''}.</p>
+                  {(basePlanAtRenewal > 0 || fullTotalAtRenewal > totalSeatsAtRenewal) && (
+                    <>
+                      {basePlanAtRenewal > 0 && (
+                        <div className="border-t border-amber-200 pt-2 flex justify-between items-baseline gap-2">
+                          <span className="text-gray-600">Your plan (unchanged)</span>
+                          <span className="font-medium text-gray-800">{currencySym}{basePlanAtRenewal.toFixed(2)}/{periodLabel}</span>
+                        </div>
                       )}
-                    </p>
+                      {showSeatsBreakdown && (
+                        <div className="flex justify-between items-baseline gap-2 text-gray-600">
+                          <span>All organisation seats</span>
+                          <span>{currencySym}{totalSeatsAtRenewal.toFixed(2)}/{periodLabel}</span>
+                        </div>
+                      )}
+                      <div className="border-t border-amber-200 pt-2 mt-2 flex justify-between items-baseline gap-2">
+                        <span className="text-gray-700 font-medium">Total at next renewal</span>
+                        <span className="font-semibold text-gray-900">{currencySym}{fullTotalAtRenewal.toFixed(2)}/{periodLabel}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Your plan plus seats on one bill: {currencySym}{basePlanAtRenewal.toFixed(2)} + {currencySym}{newSeatsAtRenewal.toFixed(2)} = {currencySym}{fullTotalAtRenewal.toFixed(2)}/{periodLabel}</p>
+                    </>
                   )}
-                  <p>
-                    <strong>At next renewal:</strong> {addPreview.currency === 'GBP' ? '£' : addPreview.currency}
-                    {newSeatsAtRenewal.toFixed(2)}/{periodLabel} for these {addPreview.numberOfUsers} new seat{addPreview.numberOfUsers !== 1 ? 's' : ''}
-                    {(addPreview.totalAtRenewal !== newSeatsAtRenewal) && (
-                      <>. Your total subscription at renewal: {addPreview.currency === 'GBP' ? '£' : addPreview.currency}{addPreview.totalAtRenewal.toFixed(2)}/{periodLabel}</>
-                    )}
-                  </p>
                   {addPreview.nextBillingDate && (
-                    <p className="text-gray-600">
-                      Next billing date: {new Date(addPreview.nextBillingDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                    </p>
+                    <p className="text-xs text-gray-500 mt-2">Next billing date: {new Date(addPreview.nextBillingDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                   )}
                 </div>
-                <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                <p className="text-xs text-gray-600 mb-3">
+                  You&apos;ll be sent to Stripe to pay {currencySym}{prorationOnly.toFixed(2)} today. This is charged once now; at your next billing date you pay only your plan + {currencySym}{newSeatsAtRenewal.toFixed(2)} (the proration is not added to that bill).
+                </p>
+                <label className="mt-2 flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={agreeToCharges}
                     onChange={(e) => setAgreeToCharges(e.target.checked)}
                     className="rounded border-gray-300"
                   />
-                  <span className="text-sm font-medium text-gray-800">I agree to these charges and to add {addPreview.numberOfUsers} user seat{addPreview.numberOfUsers > 1 ? 's' : ''} to my subscription.</span>
+                  <span className="text-sm text-gray-800">I agree to these charges and to add {addPreview.numberOfUsers} seat{addPreview.numberOfUsers > 1 ? 's' : ''}.</span>
                 </label>
                 <div className="flex flex-wrap gap-2 mt-4">
                   <button
@@ -2926,29 +2951,48 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                     disabled={addingUsers || !agreeToCharges}
                     className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {addingUsers ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending you to Stripe... </> : 'Pay now (Stripe)'}
+                    {addingUsers ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending you to Stripe... </> : `Continue to Stripe – pay ${currencySym}${prorationOnly.toFixed(2)}`}
                   </button>
                 </div>
               </div>
               )
             })()}
 
-            {/* Add Users: pay proration today (primary) or bill at renewal */}
+            {/* Add Users: two clear actions – pay today (Stripe) or add at renewal */}
             {!showConfirmAdd && (
               <>
-                <button
-                  onClick={handleReviewAdd}
-                  disabled={addingUsers}
-                  className="w-full flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {addingUsers ? (
-                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading preview... </>
-                  ) : (
-                    <><Plus className="h-4 w-4 mr-2" /> Add {usersToAdd} seat{usersToAdd > 1 ? 's' : ''} – pay today </>
-                  )}
-                </button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={handleReviewAdd}
+                    disabled={addingUsers}
+                    className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {addingUsers ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading... </>
+                    ) : (
+                      <><Plus className="h-4 w-4 mr-2" /> Pay proration now </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleAddSeatsAtRenewal}
+                    disabled={addingUsers || !agreeToAddAtRenewal}
+                    type="button"
+                    className="flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Add at next renewal (no charge today)
+                  </button>
+                </div>
+                <label className="mt-3 flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agreeToAddAtRenewal}
+                    onChange={(e) => setAgreeToAddAtRenewal(e.target.checked)}
+                    className="rounded border-gray-300 mt-0.5"
+                  />
+                  <span className="text-sm text-gray-800">I agree to add these seats with no charge today. The proration and seat fee will be added to my next bill.</span>
+                </label>
                 <p className="text-sm text-gray-600 mt-2">
-                  You pay only for the rest of this period today; the full seat fee is added to your next bill.
+                  <strong>Pay proration now:</strong> You pay the proration today on Stripe. At your next billing date you pay only your plan + seat fee (e.g. £19.99 + £5)—the proration is not added to that bill. <strong>Add at renewal:</strong> No charge today. The proration is added to your next invoice along with your plan and seat fee (so you pay plan + seats + proration on one bill).
                 </p>
               </>
             )}

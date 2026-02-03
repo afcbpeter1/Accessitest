@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
-import { createCheckoutSession, canAddUser, addSeatsToOwnerSubscription, addSeatsAndPayProratedNow, reduceSeatsFromOwnerSubscription, getSeatPriceInfo, getOwnerBillingPeriod } from '@/lib/organization-billing'
+import { createCheckoutSession, canAddUser, addSeatsToOwnerSubscription, createProrationCheckoutSession, reduceSeatsFromOwnerSubscription, getSeatPriceInfo, getOwnerBillingPeriod } from '@/lib/organization-billing'
 import { checkPermission } from '@/lib/role-service'
 
 /**
  * POST /api/organization/billing/checkout
- * Add users: when payProratedNow is true, add seats and return Stripe hosted invoice URL to pay prorated amount immediately.
+ * Add users: when payProratedNow is true, create Stripe Checkout (one-time payment) for proration and return URL.
  * Otherwise (legacy), add seats and add proration to next invoice.
  */
 export async function POST(request: NextRequest) {
@@ -30,14 +30,14 @@ export async function POST(request: NextRequest) {
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-    const successUrl = `${baseUrl}/organization?tab=billing&success=true`
+    const successUrl = `${baseUrl}/organization?tab=billing&success=true&seats=${numberOfUsers}&type=proration`
     const cancelUrl = `${baseUrl}/organization?tab=billing&canceled=true`
 
     if (payProratedNow === true) {
-      const { hostedInvoiceUrl } = await addSeatsAndPayProratedNow(organizationId, numberOfUsers, successUrl, cancelUrl)
+      const { url } = await createProrationCheckoutSession(organizationId, numberOfUsers, successUrl, cancelUrl)
       return NextResponse.json({
         success: true,
-        url: hostedInvoiceUrl,
+        url,
         payProratedNow: true
       })
     }
@@ -61,10 +61,13 @@ export async function POST(request: NextRequest) {
     console.error('Error creating checkout session:', error)
     const errorMessage = error instanceof Error ? error.message : 'Failed to create checkout session'
     
-    // Return 400 for subscription requirement errors (user needs to subscribe first)
-    const statusCode = errorMessage.includes('must have an active') || 
-                       errorMessage.includes('subscription is not active') 
-                       ? 400 
+    // Return 400 for subscription requirement or proration errors (user should use Add at renewal)
+    const statusCode = errorMessage.includes('must have an active') ||
+                       errorMessage.includes('subscription is not active') ||
+                       errorMessage.includes('Proration is zero') ||
+                       errorMessage.includes('below the minimum') ||
+                       errorMessage.includes('Add at renewal')
+                       ? 400
                        : 500
     
     return NextResponse.json(
