@@ -1,7 +1,7 @@
 import { Resend } from 'resend'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { getEmailManageLinksFooterHtml, getEmailManageLinksFooterText } from './email-links'
+import { getEmailManageLinksFooterHtml, getEmailManageLinksFooterText, getManageBillingUrl, getProfileUrl } from './email-links'
 
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-development')
 
@@ -331,6 +331,12 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
                 Go to Dashboard
               </a>
             </div>
+
+            <div style="margin-top: 28px; padding: 16px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #06B6D4;">
+              <p style="margin: 0 0 10px 0; font-weight: 600; color: #0f172a;">Manage your account</p>
+              <p style="margin: 0 0 6px 0;"><a href="${getManageBillingUrl(customerEmail)}" style="color: #06B6D4; text-decoration: none;">Manage subscription &amp; billing (Stripe)</a> – update payment method, view invoices, cancel</p>
+              <p style="margin: 0;"><a href="${getProfileUrl()}" style="color: #06B6D4; text-decoration: none;">Update profile</a></p>
+            </div>
           </div>
 
           <div class="footer">
@@ -365,6 +371,11 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
       - Check your dashboard for usage details
 
       Dashboard: ${process.env.NEXT_PUBLIC_BASE_URL}/dashboard
+
+      Manage your account:
+      - Manage subscription & billing (Stripe): ${getManageBillingUrl(customerEmail)}
+      - Update profile: ${getProfileUrl()}
+
       ${getEmailManageLinksFooterText(customerEmail)}
 
       This is an automated receipt. Please keep this email for your records.

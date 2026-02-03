@@ -1,5 +1,5 @@
 import { Resend } from 'resend'
-import { getEmailManageLinksFooterHtml, getEmailManageLinksFooterText, getAppBaseUrl } from './email-links'
+import { getEmailManageLinksFooterHtml, getEmailManageLinksFooterText, getAppBaseUrl, getManageBillingUrl, getProfileUrl } from './email-links'
 
 // Avoid crashing when key is missing (e.g. test mode); other services use same pattern
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-development')
@@ -326,6 +326,12 @@ export class EmailService {
               
               <p>If you have any questions about your billing, please contact our support team.</p>
               
+              <div class="info-box" style="margin-top: 24px; margin-bottom: 24px;">
+                <p style="margin: 0 0 10px 0;"><strong>Manage your account</strong></p>
+                <p style="margin: 0 0 6px 0;"><a href="${getManageBillingUrl(email)}" style="color: #06B6D4; text-decoration: none; font-weight: 600;">Manage subscription &amp; billing (Stripe)</a> – update payment method, view invoices, cancel</p>
+                <p style="margin: 0;"><a href="${getProfileUrl()}" style="color: #06B6D4; text-decoration: none;">Update profile</a></p>
+              </div>
+              
               <p>Best regards,<br>The A11ytest.ai Team</p>
               ${getEmailManageLinksFooterHtml(email)}
             </div>
@@ -370,6 +376,10 @@ export class EmailService {
           3. Users will receive an invitation email to join your organization
           
           If you have any questions about your billing, please contact our support team.
+          
+          Manage your account:
+          - Manage subscription & billing (Stripe): ${getManageBillingUrl(email)}
+          - Update profile: ${getProfileUrl()}
           
           Best regards,
           The A11ytest.ai Team
