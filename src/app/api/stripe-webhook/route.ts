@@ -879,6 +879,49 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
 
     // Get subscription details
     const subscription = await getStripe().subscriptions.retrieve(inv.subscription as string)
+
+    // Seat-add invoice (addSeatsAndInvoiceNow): send receipt and clear metadata
+    const seatAddInvoiceId = subscription.metadata?.last_seat_add_invoice_id
+    if (seatAddInvoiceId === invoice.id) {
+      const orgId = subscription.metadata?.organization_id
+      const numberOfUsers = parseInt(subscription.metadata?.last_seat_add_count || '1', 10)
+      const { EmailService } = await import('@/lib/email-service')
+      const org = orgId ? await queryOne(`SELECT id, name FROM organizations WHERE id = $1`, [orgId]) : null
+      const owner = orgId ? await queryOne(
+        `SELECT u.email FROM organization_members om INNER JOIN users u ON om.user_id = u.id
+         WHERE om.organization_id = $1 AND om.role = 'owner' AND om.is_active = true LIMIT 1`,
+        [orgId]
+      ) : null
+      if (org && owner?.email) {
+        const amountPaid = (invoice.amount_paid || 0) / 100
+        await EmailService.sendBillingConfirmation({
+          email: owner.email,
+          organizationName: org.name,
+          numberOfUsers,
+          amount: `£${amountPaid.toFixed(2)}`,
+          billingPeriod: (subscription.items.data[0]?.price?.recurring?.interval === 'year') ? 'yearly' : 'monthly',
+          subscriptionId: subscription.id,
+          billingDetails: {
+            proratedAmount: amountPaid,
+            nextPeriodAmount: 0,
+            totalUpcomingInvoice: amountPaid,
+            currency: (invoice.currency || 'gbp').toUpperCase(),
+            nextBillingDate: null,
+            numberOfUsers,
+            seatPrice: numberOfUsers > 0 ? amountPaid / numberOfUsers : 0
+          }
+        })
+        console.log(`✅ Sent seat-add receipt to ${owner.email} for org ${orgId} (${numberOfUsers} seat(s), £${amountPaid.toFixed(2)})`)
+      }
+      await getStripe().subscriptions.update(subscription.id, {
+        metadata: {
+          ...subscription.metadata,
+          last_seat_add_invoice_id: '',
+          last_seat_add_count: ''
+        }
+      })
+      return
+    }
     
     // FIRST: Check if this is an organization subscription and handle it
     const customerId = subscription.customer as string

@@ -257,7 +257,8 @@ export async function previewAddSeats(
     })
     const proratedAmount = (upcoming.amount_due || 0) / 100
     const seatPrice = (await getSeatPriceInfo(billingPeriod)).amount
-    const prorationOnlyAmount = sumProrationOnlyFromInvoice(upcoming)
+    let prorationOnlyAmount = sumProrationOnlyFromInvoice(upcoming)
+    if (prorationOnlyAmount <= 0 && proratedAmount > 0) prorationOnlyAmount = proratedAmount
     const newSeatsAtRenewal = Math.round(seatPrice * numberOfUsers * 100) / 100
     return {
       proratedAmount: Math.round(proratedAmount * 100) / 100,
@@ -287,7 +288,8 @@ export async function previewAddSeats(
   })
   const proratedAmount = (upcoming.amount_due || 0) / 100
   const seatPrice = (await getSeatPriceInfo(billingPeriod)).amount
-  const prorationOnlyAmount = sumProrationOnlyFromInvoice(upcoming)
+  let prorationOnlyAmount = sumProrationOnlyFromInvoice(upcoming)
+  if (prorationOnlyAmount <= 0 && proratedAmount > 0) prorationOnlyAmount = proratedAmount
   const newSeatsAtRenewal = Math.round(seatPrice * numberOfUsers * 100) / 100
   const totalAtRenewal = Math.round(seatPrice * ((existingItem.quantity || 0) + numberOfUsers) * 100) / 100
   return {
@@ -541,22 +543,16 @@ export async function addSeatsToOwnerSubscription(
 }
 
 /**
- * Create a Stripe Checkout Session for the proration-only amount (rest of current period).
- * Seats are NOT added until payment succeeds; the webhook adds seats and sends the receipt.
- * Customer pays today; the full seat fee is added to their next renewal.
+ * Add seats and invoice the proration now (Stripe's standard pattern).
+ * Uses proration_behavior: 'always_invoice' so Stripe creates a real invoice for the exact
+ * proration amount and charges the customer (or returns the hosted invoice URL to pay).
+ * No synthetic Checkout, no minimums – the amount is always what Stripe calculates.
  */
-export async function addSeatsAndPayProratedNow(
+export async function addSeatsAndInvoiceNow(
   organizationId: string,
-  numberOfUsers: number,
-  successUrl: string,
-  cancelUrl: string
-): Promise<{ hostedInvoiceUrl: string }> {
+  numberOfUsers: number
+): Promise<{ hostedInvoiceUrl: string | null; alreadyPaid: boolean; amountDue: number }> {
   const stripe = getStripe()
-  const preview = await previewAddSeats(organizationId, numberOfUsers)
-  const prorationOnlyCents = Math.round(preview.prorationOnlyAmount * 100)
-  if (prorationOnlyCents <= 0) {
-    throw new Error('No proration amount for the rest of the period')
-  }
   const owner = await queryOne(
     `SELECT u.id, u.email, u.stripe_subscription_id
      FROM organization_members om
@@ -568,43 +564,106 @@ export async function addSeatsAndPayProratedNow(
   if (!owner?.stripe_subscription_id) {
     throw new Error('Organization owner does not have an active subscription.')
   }
-  const subscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id, { expand: ['customer'] })
-  const rawCustomer = subscription.customer
-  const customerId = typeof rawCustomer === 'string' ? rawCustomer : (rawCustomer as Stripe.Customer)?.id
-  if (!customerId || typeof customerId !== 'string') {
-    throw new Error('Subscription has no customer ID; cannot create checkout session.')
+  const subscription = await stripe.subscriptions.retrieve(owner.stripe_subscription_id)
+  if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+    throw new Error('Owner subscription is not active.')
   }
-  const successUrlWithParams = `${successUrl}${successUrl.includes('?') ? '&' : '?'}seats=${numberOfUsers}&amount=${encodeURIComponent(preview.prorationOnlyAmount.toFixed(2))}&type=proration`
-  const session = await stripe.checkout.sessions.create({
-    mode: 'payment',
-    customer: customerId,
-    line_items: [
-      {
-        price_data: {
-          currency: (preview.currency || 'gbp').toLowerCase(),
-          unit_amount: prorationOnlyCents,
-          product_data: {
-            name: `Proration for ${numberOfUsers} seat(s) – rest of current ${preview.billingPeriod} period`,
-            description: 'The full seat fee will be added to your next bill at renewal.'
-          }
-        },
-        quantity: 1
+  const billingPeriod = (subscription.items.data[0]?.price?.recurring?.interval === 'year') ? 'yearly' : 'monthly'
+  const priceId = await getSeatPriceId(organizationId, billingPeriod)
+  const existingItem = subscription.items.data.find(item => item.price.id === priceId)
+
+  // Update subscription with always_invoice so Stripe creates and charges the proration invoice
+  if (existingItem) {
+    const newQuantity = (existingItem.quantity || 0) + numberOfUsers
+    await stripe.subscriptions.update(subscription.id, {
+      items: [{ id: existingItem.id, quantity: newQuantity }],
+      proration_behavior: 'always_invoice',
+      metadata: {
+        ...subscription.metadata,
+        organization_seats_added: (parseInt(subscription.metadata?.organization_seats_added || '0', 10) + numberOfUsers).toString(),
+        organization_id: organizationId
       }
-    ],
-    success_url: successUrlWithParams,
-    cancel_url: cancelUrl,
+    })
+  } else {
+    await stripe.subscriptions.update(subscription.id, {
+      items: [
+        ...subscription.items.data.map(item => ({ id: item.id })),
+        { price: priceId, quantity: numberOfUsers }
+      ],
+      proration_behavior: 'always_invoice',
+      metadata: {
+        ...subscription.metadata,
+        organization_seats_added: numberOfUsers.toString(),
+        organization_id: organizationId
+      }
+    })
+  }
+
+  const updated = await stripe.subscriptions.retrieve(subscription.id, { expand: ['latest_invoice'] })
+  const latestInvoice = updated.latest_invoice
+  const invoiceId = typeof latestInvoice === 'string' ? latestInvoice : latestInvoice?.id
+  if (!invoiceId) {
+    throw new Error('Stripe did not create an invoice for the proration')
+  }
+  const invoice = typeof latestInvoice === 'object' && latestInvoice
+    ? latestInvoice
+    : await stripe.invoices.retrieve(invoiceId)
+  const amountDue = (invoice.amount_due || 0) / 100
+
+  // Update org max_users
+  const org = await queryOne(`SELECT max_users FROM organizations WHERE id = $1`, [organizationId])
+  if (org) {
+    const newMaxUsers = (org.max_users || 0) + numberOfUsers
+    await query(
+      `UPDATE organizations SET max_users = $1, subscription_status = 'active', updated_at = NOW() WHERE id = $2`,
+      [newMaxUsers, organizationId]
+    )
+  }
+
+  // Mark subscription so webhook can send receipt when this invoice is paid
+  await stripe.subscriptions.update(updated.id, {
     metadata: {
-      organization_id: organizationId,
-      number_of_users: String(numberOfUsers),
-      source: 'add_seats_proration_only',
-      proration_amount_cents: String(prorationOnlyCents)
+      ...updated.metadata,
+      last_seat_add_invoice_id: invoice.id,
+      last_seat_add_count: String(numberOfUsers),
+      organization_id: organizationId
     }
   })
-  const url = session.url
-  if (!url) {
-    throw new Error('Stripe did not return a checkout URL')
+
+  if (invoice.status === 'paid') {
+    return { hostedInvoiceUrl: null, alreadyPaid: true, amountDue }
   }
-  return { hostedInvoiceUrl: url }
+  if (invoice.status === 'open' && invoice.hosted_invoice_url) {
+    return { hostedInvoiceUrl: invoice.hosted_invoice_url, alreadyPaid: false, amountDue }
+  }
+  if (invoice.status === 'draft') {
+    const finalized = await stripe.invoices.finalizeInvoice(invoice.id)
+    if (finalized.hosted_invoice_url) {
+      return { hostedInvoiceUrl: finalized.hosted_invoice_url, alreadyPaid: false, amountDue: (finalized.amount_due || 0) / 100 }
+    }
+  }
+  throw new Error('Could not get payment URL for the proration invoice')
+}
+
+/**
+ * Add seats and return a URL so the customer can pay the proration today (Stripe invoice).
+ * Uses Stripe's standard subscription + invoice flow: real proration amount, no minimums.
+ */
+export async function addSeatsAndPayProratedNow(
+  organizationId: string,
+  numberOfUsers: number,
+  successUrl: string,
+  _cancelUrl: string
+): Promise<{ hostedInvoiceUrl: string }> {
+  const result = await addSeatsAndInvoiceNow(organizationId, numberOfUsers)
+  if (result.alreadyPaid) {
+    const url = `${successUrl}${successUrl.includes('?') ? '&' : '?'}seats=${numberOfUsers}&amount=${encodeURIComponent(result.amountDue.toFixed(2))}&type=proration&alreadyPaid=true`
+    return { hostedInvoiceUrl: url }
+  }
+  if (result.hostedInvoiceUrl) {
+    return { hostedInvoiceUrl: result.hostedInvoiceUrl }
+  }
+  throw new Error('No payment URL available')
 }
 
 /**

@@ -98,39 +98,28 @@ export async function autoAddDocumentIssuesToBacklog(
           priority = 'medium'
         }
         
-        // wcag_level is VARCHAR(50) - truncate wcagCriterion to 50 chars
-        const wcagLevel = String(issue.wcagCriterion || 'AA').substring(0, 50).trim() // VARCHAR(50)
+        // Some DBs have wcag_level/impact as VARCHAR(10) - truncate to 10 to avoid "value too long"
+        const wcagLevel = String(issue.wcagCriterion || 'AA').substring(0, 10).trim()
+        const impact = String(issue.type || 'moderate').substring(0, 10).trim()
         
-        // impact is VARCHAR(50) - truncate issue.type to 50 chars
-        const impact = String(issue.type || 'moderate').substring(0, 50).trim() // VARCHAR(50)
-        
-        // Ensure all string values are properly converted and truncated
+        // Ensure all string values fit DB limits (some columns may be VARCHAR(10) in production)
         const safeIssueKey = String(issueKey).substring(0, 50).trim() // VARCHAR(50)
-        const safeRuleId = String(issue.id || issue.description || '').substring(0, 255).trim() // VARCHAR(255)
+        const safeRuleId = String(issue.id || issue.description || '').substring(0, 10).trim() // may be VARCHAR(10)
         const safeRuleName = String(issue.description || issue.section || 'Accessibility Issue').substring(0, 255).trim() // VARCHAR(255)
         const safeDescription = String(issue.description || '').substring(0, 1000).trim() // TEXT but truncate for safety
         const safeNotes = String(issue.recommendation || '').substring(0, 5000).trim() // TEXT but truncate for safety
         const safePriority = String(priority).substring(0, 20).trim() // VARCHAR(20)
         
-        // Final values for INSERT - ensure all VARCHAR fields are within exact limits
-        // Use Math.min to ensure we never exceed limits, even after trim
-        // Use 'backlog' status as intended (7 chars, fits VARCHAR(10))
-        const finalStatus = String(status).substring(0, Math.min(10, String(status).length)).trim().substring(0, 10) // VARCHAR(10)
-        const finalWcagLevel = String(wcagLevel || 'AA').trim().substring(0, Math.min(50, String(wcagLevel || 'AA').trim().length)) // VARCHAR(50)
-        const finalImpact = String(impact || 'moderate').trim().substring(0, Math.min(50, String(impact || 'moderate').trim().length)) // VARCHAR(50)
-        const finalPriority = String(safePriority || 'medium').trim().substring(0, Math.min(20, String(safePriority || 'medium').trim().length)) // VARCHAR(20)
+        // Final values for INSERT - DB may have status/impact/wcag_level/priority as VARCHAR(10)
+        const finalStatus = String(status).substring(0, 10).trim()
+        const finalWcagLevel = String(wcagLevel || 'AA').trim().substring(0, 10)
+        const finalImpact = String(impact || 'moderate').trim().substring(0, 10)
+        const finalPriority = String(safePriority || 'medium').trim().substring(0, 10)
         
-        // Double-check lengths after all processing
-        const finalStatusSafe = finalStatus.length <= 10 ? finalStatus : finalStatus.substring(0, 10)
-        const finalWcagLevelSafe = finalWcagLevel.length <= 50 ? finalWcagLevel : finalWcagLevel.substring(0, 50)
-        const finalImpactSafe = finalImpact.length <= 50 ? finalImpact : finalImpact.substring(0, 50)
-        const finalPrioritySafe = finalPriority.length <= 20 ? finalPriority : finalPriority.substring(0, 20)
-        
-        // Final validation - ensure no field exceeds its database limit
-        if (finalStatusSafe.length > 10) throw new Error(`Status too long: "${finalStatusSafe}" (${finalStatusSafe.length} chars, max 10)`)
-        if (finalWcagLevelSafe.length > 50) throw new Error(`WCAG level too long: "${finalWcagLevelSafe}" (${finalWcagLevelSafe.length} chars, max 50)`)
-        if (finalImpactSafe.length > 50) throw new Error(`Impact too long: "${finalImpactSafe}" (${finalImpactSafe.length} chars, max 50)`)
-        if (finalPrioritySafe.length > 20) throw new Error(`Priority too long: "${finalPrioritySafe}" (${finalPrioritySafe.length} chars, max 20)`)
+        const finalStatusSafe = finalStatus.substring(0, 10)
+        const finalWcagLevelSafe = finalWcagLevel.substring(0, 10)
+        const finalImpactSafe = finalImpact.substring(0, 10)
+        const finalPrioritySafe = finalPriority.substring(0, 10)
         if (safeIssueKey.length > 50) throw new Error(`Issue key too long: ${safeIssueKey.length} chars (max 50)`)
         if (safeRuleId.length > 255) throw new Error(`Rule ID too long: ${safeRuleId.length} chars (max 255)`)
         if (safeRuleName.length > 255) throw new Error(`Rule name too long: ${safeRuleName.length} chars (max 255)`)

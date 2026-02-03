@@ -2476,18 +2476,21 @@ function BillingTab({ organization }: { organization: Organization | null }) {
     }
   }, [organization])
 
-  // Reload billing status and show success when returning from Stripe (prorated pay)
+  // Reload billing status and show success when returning (proration pay: from our success URL or Stripe)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search)
     const success = urlParams.get('success')
     const seats = urlParams.get('seats')
     const amount = urlParams.get('amount')
     const type = urlParams.get('type')
+    const alreadyPaid = urlParams.get('alreadyPaid') === 'true'
     if (success === 'true' && organization) {
       const seatsNum = seats ? parseInt(seats, 10) : 0
       const amountStr = amount != null && amount !== '' ? `£${Number(amount).toFixed(2)}` : ''
       const text = type === 'proration' && seatsNum > 0
-        ? `Payment successful. You've added ${seatsNum} seat${seatsNum !== 1 ? 's' : ''}. Amount paid: ${amountStr}. A receipt has been sent to your email.`
+        ? alreadyPaid
+          ? `Seats added. ${seatsNum} seat${seatsNum !== 1 ? 's' : ''} added${amountStr ? `; ${amountStr} charged.` : '.'} A receipt has been sent to your email.`
+          : `Payment successful. You've added ${seatsNum} seat${seatsNum !== 1 ? 's' : ''}. Amount paid: ${amountStr}. A receipt has been sent to your email.`
         : 'Payment successful. Your seats are added and a receipt has been sent to your email.'
       setMessage({ type: 'success', text })
       setTimeout(() => {
@@ -2500,6 +2503,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
         u.searchParams.delete('seats')
         u.searchParams.delete('amount')
         u.searchParams.delete('type')
+        u.searchParams.delete('alreadyPaid')
         window.history.replaceState({}, '', u.toString())
       }
     }
@@ -2865,33 +2869,24 @@ function BillingTab({ organization }: { organization: Organization | null }) {
             {/* Confirm step: pay proration today only */}
             {showConfirmAdd && addPreview && (() => {
               const prorationOnly = addPreview.prorationOnlyAmount ?? addPreview.proratedAmount
-              const hasChargeToday = prorationOnly > 0
               const newSeatsAtRenewal = addPreview.newSeatsAtRenewal ?? addPreview.totalAtRenewal
               const periodLabel = addPreview.billingPeriod === 'yearly' ? 'year' : 'month'
               return (
               <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <h5 className="font-semibold text-gray-900 mb-3">Review and confirm</h5>
                 <div className="space-y-2 text-sm">
-                  {hasChargeToday ? (
-                    <>
-                      <p>
-                        <strong>Pay today (proration only):</strong>{' '}
-                        {addPreview.currency === 'GBP' ? '£' : addPreview.currency}
-                        {prorationOnly.toFixed(2)}
-                      </p>
-                      <p className="text-gray-600">
-                        Pay {addPreview.currency === 'GBP' ? '£' : ''}{prorationOnly.toFixed(2)} today for the rest of this period; from your next billing date, {addPreview.currency === 'GBP' ? '£' : ''}{newSeatsAtRenewal.toFixed(2)}/{periodLabel} will be added for these {addPreview.numberOfUsers} seat{addPreview.numberOfUsers !== 1 ? 's' : ''}.
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-gray-600">
-                      No charge today. From your next billing date, {addPreview.currency === 'GBP' ? '£' : ''}{newSeatsAtRenewal.toFixed(2)}/{periodLabel} will be added for these {addPreview.numberOfUsers} seat{addPreview.numberOfUsers !== 1 ? 's' : ''}—these seats will appear on your next bill.
-                    </p>
-                  )}
+                  <p>
+                    <strong>Pay today (proration):</strong>{' '}
+                    {addPreview.currency === 'GBP' ? '£' : addPreview.currency}
+                    {prorationOnly.toFixed(2)}
+                  </p>
+                  <p className="text-gray-600">
+                    Click &quot;Pay now (Stripe)&quot; to add the seats and pay {addPreview.currency === 'GBP' ? '£' : ''}{prorationOnly.toFixed(2)} on Stripe&apos;s secure page. Your card is charged for the rest of this period; from your next billing date you will be charged {addPreview.currency === 'GBP' ? '£' : ''}{newSeatsAtRenewal.toFixed(2)}/{periodLabel} for these {addPreview.numberOfUsers} seat{addPreview.numberOfUsers !== 1 ? 's' : ''}. After paying, return to this page to see your updated seat count.
+                  </p>
                   {addPreview.periodStart != null && addPreview.periodEnd != null && (addPreview.daysInPeriod != null || addPreview.daysRemainingInPeriod != null) && (
                     <p className="text-gray-600 text-xs">
                       Your current billing period: {new Date(addPreview.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – {new Date(addPreview.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.
-                      {addPreview.daysRemainingInPeriod != null && addPreview.daysRemainingInPeriod >= 0 && hasChargeToday && (
+                      {addPreview.daysRemainingInPeriod != null && addPreview.daysRemainingInPeriod >= 0 && (
                         <> Today&apos;s charge covers the remaining <strong>{addPreview.daysRemainingInPeriod} day{addPreview.daysRemainingInPeriod !== 1 ? 's' : ''}</strong> in this period.</>
                       )}
                     </p>
@@ -2909,17 +2904,15 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                     </p>
                   )}
                 </div>
-                {hasChargeToday && (
-                  <label className="mt-3 flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={agreeToCharges}
-                      onChange={(e) => setAgreeToCharges(e.target.checked)}
-                      className="rounded border-gray-300"
-                    />
-                    <span className="text-sm font-medium text-gray-800">I agree to these charges and to add {addPreview.numberOfUsers} user seat{addPreview.numberOfUsers > 1 ? 's' : ''} to my subscription.</span>
-                  </label>
-                )}
+                <label className="mt-3 flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agreeToCharges}
+                    onChange={(e) => setAgreeToCharges(e.target.checked)}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-sm font-medium text-gray-800">I agree to these charges and to add {addPreview.numberOfUsers} user seat{addPreview.numberOfUsers > 1 ? 's' : ''} to my subscription.</span>
+                </label>
                 <div className="flex flex-wrap gap-2 mt-4">
                   <button
                     type="button"
@@ -2928,24 +2921,13 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                   >
                     Cancel
                   </button>
-                  {hasChargeToday ? (
-                    <button
-                      onClick={handleConfirmAndPay}
-                      disabled={addingUsers || !agreeToCharges}
-                      className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {addingUsers ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Redirecting... </> : 'Pay now'}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleAddSeatsAtRenewal}
-                      disabled={addingUsers}
-                      className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
-                    >
-                      Add seats at renewal (no charge today)
-                    </button>
-                  )}
+                  <button
+                    onClick={handleConfirmAndPay}
+                    disabled={addingUsers || !agreeToCharges}
+                    className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {addingUsers ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending you to Stripe... </> : 'Pay now (Stripe)'}
+                  </button>
                 </div>
               </div>
               )

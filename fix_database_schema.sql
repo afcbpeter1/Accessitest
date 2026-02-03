@@ -12,9 +12,15 @@ WHERE table_name = 'issues'
 ORDER BY column_name;
 
 -- Increase status field from VARCHAR(10) to VARCHAR(20) to be safe
--- This will allow values like 'backlog', 'in_progress', 'resolved', etc.
 ALTER TABLE issues 
 ALTER COLUMN status TYPE VARCHAR(20);
+
+-- Allow longer impact and wcag_level (document scan issues can have long criterion text)
+ALTER TABLE issues ALTER COLUMN impact TYPE VARCHAR(100);
+ALTER TABLE issues ALTER COLUMN wcag_level TYPE VARCHAR(100);
+
+-- Ensure rule_id can hold long IDs (e.g. adobe_issue_1770141764002_0 or hashed values)
+ALTER TABLE issues ALTER COLUMN rule_id TYPE VARCHAR(255);
 
 -- Verify the change
 SELECT 
