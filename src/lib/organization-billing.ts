@@ -624,7 +624,7 @@ export async function addSeatsAndInvoiceNow(
   await stripe.subscriptions.update(updated.id, {
     metadata: {
       ...updated.metadata,
-      last_seat_add_invoice_id: invoice.id,
+      last_seat_add_invoice_id: invoiceId,
       last_seat_add_count: String(numberOfUsers),
       organization_id: organizationId
     }
@@ -637,7 +637,7 @@ export async function addSeatsAndInvoiceNow(
     return { hostedInvoiceUrl: invoice.hosted_invoice_url, alreadyPaid: false, amountDue }
   }
   if (invoice.status === 'draft') {
-    const finalized = await stripe.invoices.finalizeInvoice(invoice.id)
+    const finalized = await stripe.invoices.finalizeInvoice(invoiceId)
     if (finalized.hosted_invoice_url) {
       return { hostedInvoiceUrl: finalized.hosted_invoice_url, alreadyPaid: false, amountDue: (finalized.amount_due || 0) / 100 }
     }
