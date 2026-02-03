@@ -136,6 +136,42 @@ export async function getOwnerBillingPeriod(organizationId: string): Promise<'mo
 }
 
 /**
+ * Get owner's next billing date and any pending seat reduction (for UI)
+ */
+export async function getOwnerBillingStatus(organizationId: string): Promise<{
+  nextBillingDate: string | null
+  pendingSeatsAfterRenewal: number | null
+  reductionEffectiveDate: string | null
+} | null> {
+  const owner = await queryOne(
+    `SELECT u.stripe_subscription_id
+     FROM organization_members om
+     INNER JOIN users u ON om.user_id = u.id
+     WHERE om.organization_id = $1 AND om.role = 'owner' AND om.is_active = true
+     LIMIT 1`,
+    [organizationId]
+  )
+  if (!owner?.stripe_subscription_id) return null
+  try {
+    const subscription = await getStripe().subscriptions.retrieve(owner.stripe_subscription_id)
+    const periodEnd = (subscription as any).current_period_end as number | undefined
+    const nextBillingDate = periodEnd ? new Date(periodEnd * 1000).toISOString().slice(0, 10) : null
+    const pending = subscription.metadata?.pending_org_seat_quantity
+    const pendingSeatsAfterRenewal = pending !== undefined && pending !== '' ? parseInt(pending, 10) : null
+    const effectiveAfter = subscription.metadata?.pending_org_seat_effective_after
+    const reductionEffectiveDate = effectiveAfter ? new Date(parseInt(effectiveAfter, 10) * 1000).toISOString().slice(0, 10) : null
+    return {
+      nextBillingDate,
+      pendingSeatsAfterRenewal: pendingSeatsAfterRenewal != null && !isNaN(pendingSeatsAfterRenewal) ? pendingSeatsAfterRenewal : null,
+      reductionEffectiveDate: reductionEffectiveDate || (pendingSeatsAfterRenewal != null ? nextBillingDate : null)
+    }
+  } catch (error) {
+    console.error('Error getting owner billing status:', error)
+    return null
+  }
+}
+
+/**
  * Get price information for display
  */
 export async function getSeatPriceInfo(billingPeriod: 'monthly' | 'yearly'): Promise<{ priceId: string; amount: number; currency: string }> {
@@ -760,13 +796,14 @@ export async function createProrationCheckoutSession(
 }
 
 /**
- * Reduce seats from owner's existing subscription
- * This reduces organization seats from the owner's personal subscription
+ * Reduce seats from owner's existing subscription.
+ * The reduction takes effect the month after the next payment: your next invoice will
+ * still be for the current seat count; the following invoice will be for the new count.
  */
 export async function reduceSeatsFromOwnerSubscription(
   organizationId: string,
   numberOfUsersToRemove: number
-): Promise<{ success: boolean; subscriptionId?: string; message: string }> {
+): Promise<{ success: boolean; subscriptionId?: string; message: string; effectiveDate?: string }> {
   // Get organization owner
   const owner = await queryOne(
     `SELECT u.id, u.stripe_subscription_id, u.email
@@ -797,21 +834,12 @@ export async function reduceSeatsFromOwnerSubscription(
     throw new Error('Owner subscription is not active.')
   }
   
-  // Get appropriate price ID - try to find existing seat price first
-  // Check both monthly and yearly prices to find which one is in the subscription
   const monthlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID
   const yearlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID_YEARLY
   
-  // Find the organization seat item (could be monthly or yearly)
-  const existingItem = subscription.items.data.find(item => 
+  const existingItem = subscription.items.data.find(item =>
     item.price.id === monthlyPriceId || item.price.id === yearlyPriceId
   )
-  
-  if (!existingItem) {
-    throw new Error('No organization seats found in subscription.')
-  }
-  
-  const priceId = existingItem.price.id
   
   if (!existingItem) {
     throw new Error('No organization seats found in subscription.')
@@ -824,61 +852,86 @@ export async function reduceSeatsFromOwnerSubscription(
     throw new Error('Cannot reduce seats - already at minimum.')
   }
   
-  let updatedSubscription: Stripe.Subscription
+  const periodEnd = (subscription as any).current_period_end as number | undefined
+  const effectiveDate = periodEnd ? new Date(periodEnd * 1000).toISOString().slice(0, 10) : undefined
   
+  // Store pending reduction: take effect the month after the next payment (after next renewal).
+  // We do not change subscription quantity or max_users yet.
+  await getStripe().subscriptions.update(subscription.id, {
+    metadata: {
+      ...subscription.metadata,
+      organization_id: organizationId,
+      organization_seats_added: subscription.metadata?.organization_seats_added ?? existingItem.quantity?.toString(),
+      pending_org_seat_quantity: newQuantity.toString(),
+      pending_org_seat_effective_after: periodEnd?.toString() ?? ''
+    }
+  })
+  
+  console.log(`✅ Scheduled seat reduction for org ${organizationId}: ${currentQuantity} → ${newQuantity} after next renewal (period end ${effectiveDate})`)
+  
+  return {
+    success: true,
+    subscriptionId: subscription.id,
+    message: `Seat reduction scheduled. Your next invoice will still be for ${currentQuantity} seat(s). From the month after your next payment you will be charged for ${newQuantity} seat(s).`,
+    effectiveDate
+  }
+}
+
+/**
+ * Apply a pending seat reduction to the subscription (called from webhook after renewal invoice is paid).
+ */
+export async function applyPendingSeatReduction(subscription: Stripe.Subscription): Promise<boolean> {
+  const pending = subscription.metadata?.pending_org_seat_quantity
+  const orgId = subscription.metadata?.organization_id
+  if (pending === undefined || pending === null || pending === '' || !orgId) return false
+  
+  const newQuantity = parseInt(pending, 10)
+  if (isNaN(newQuantity) || newQuantity < 0) return false
+  
+  const monthlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID
+  const yearlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID_YEARLY
+  const existingItem = subscription.items.data.find(item =>
+    item.price.id === monthlyPriceId || item.price.id === yearlyPriceId
+  )
+  if (!existingItem) return false
+  
+  const stripe = getStripe()
   if (newQuantity === 0) {
-    // Remove the item entirely
-    updatedSubscription = await getStripe().subscriptions.update(subscription.id, {
+    await stripe.subscriptions.update(subscription.id, {
       items: [
         ...subscription.items.data
           .filter(item => item.id !== existingItem.id)
           .map(item => ({ id: item.id }))
       ],
-      proration_behavior: 'create_prorations', // Prorate the refund
+      proration_behavior: 'none',
       metadata: {
         ...subscription.metadata,
-        organization_seats_added: '0'
+        organization_seats_added: '0',
+        pending_org_seat_quantity: '',
+        pending_org_seat_effective_after: ''
       }
     })
-    console.log(`✅ Removed all organization seats from subscription (prorated refund)`)
   } else {
-    // Update quantity
-    updatedSubscription = await getStripe().subscriptions.update(subscription.id, {
-      items: [{
-        id: existingItem.id,
-        quantity: newQuantity
-      }],
-      proration_behavior: 'create_prorations', // Prorate the refund
+    await stripe.subscriptions.update(subscription.id, {
+      items: [{ id: existingItem.id, quantity: newQuantity }],
+      proration_behavior: 'none',
       metadata: {
         ...subscription.metadata,
-        organization_seats_added: newQuantity.toString()
+        organization_seats_added: newQuantity.toString(),
+        pending_org_seat_quantity: '',
+        pending_org_seat_effective_after: ''
       }
     })
-    console.log(`✅ Reduced ${numberOfUsersToRemove} seats from subscription. New quantity: ${newQuantity} (prorated refund)`)
   }
   
-  // Update organization max_users immediately
-  const org = await queryOne(
-    `SELECT max_users FROM organizations WHERE id = $1`,
-    [organizationId]
-  )
-  const currentMaxUsers = org?.max_users || 0
-  const newMaxUsers = Math.max(0, currentMaxUsers - numberOfUsersToRemove)
-  
+  const org = await queryOne(`SELECT max_users FROM organizations WHERE id = $1`, [orgId])
+  const currentMax = org?.max_users ?? 0
   await query(
-    `UPDATE organizations 
-     SET max_users = $1, updated_at = NOW()
-     WHERE id = $2`,
-    [newMaxUsers, organizationId]
+    `UPDATE organizations SET max_users = $1, updated_at = NOW() WHERE id = $2`,
+    [newQuantity, orgId]
   )
-  
-  console.log(`✅ Updated organization ${organizationId} max_users from ${currentMaxUsers} to ${newMaxUsers}`)
-  
-  return {
-    success: true,
-    subscriptionId: updatedSubscription.id,
-    message: `Successfully reduced ${numberOfUsersToRemove} seat(s). You'll receive a prorated credit on your next invoice.`
-  }
+  console.log(`✅ Applied pending seat reduction for org ${orgId}: max_users ${currentMax} → ${newQuantity}`)
+  return true
 }
 
 /**

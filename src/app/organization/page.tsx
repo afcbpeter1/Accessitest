@@ -2432,6 +2432,9 @@ function BillingTab({ organization }: { organization: Organization | null }) {
       monthly?: { priceId: string; amount: number; currency: string };
       yearly?: { priceId: string; amount: number; currency: string };
     } | null;
+    nextBillingDate?: string | null;
+    pendingSeatsAfterRenewal?: number | null;
+    reductionEffectiveDate?: string | null;
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [addingUsers, setAddingUsers] = useState(false)
@@ -2654,7 +2657,11 @@ function BillingTab({ organization }: { organization: Organization | null }) {
       })
       const data = await res.json()
       if (data.success) {
-        setMessage({ type: 'success', text: data.message || 'Seats reduced successfully.' })
+        const effective = data.effectiveDate ? new Date(data.effectiveDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+        setMessage({
+          type: 'success',
+          text: data.message || (effective ? `Seat reduction scheduled. It will take effect from ${effective} (the month after your next payment).` : 'Seat reduction scheduled. It will take effect the month after your next payment.')
+        })
         setShowConfirmReduce(false)
         loadBillingStatus()
       } else {
@@ -3010,10 +3017,15 @@ function BillingTab({ organization }: { organization: Organization | null }) {
             {/* Reduce users */}
             {billingStatus?.maxUsers != null && billingStatus.maxUsers > 1 && (
               <div className="border-t border-gray-200 pt-6 mt-6">
-                <h4 className="font-semibold text-gray-900 mb-4">Reduce users</h4>
+                <h4 className="font-semibold text-gray-900 mb-4">Reduce licences</h4>
                 <p className="text-sm text-gray-600 mb-3">
-                  Lower your seat count. You will receive a prorated credit on your next invoice. You cannot set seats below your current number of active members ({billingStatus.currentUsers}).
+                  Lower your licence count. The reduction takes effect <strong>the month after your next payment</strong>—your next invoice will still be for your current seat count; from the following billing date you will be charged for the new count. You cannot set seats below your current number of active members ({billingStatus.currentUsers}).
                 </p>
+                {billingStatus.pendingSeatsAfterRenewal != null && (
+                  <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+                    A reduction to <strong>{billingStatus.pendingSeatsAfterRenewal}</strong> licence{billingStatus.pendingSeatsAfterRenewal !== 1 ? 's' : ''} is already scheduled and will apply from {billingStatus.reductionEffectiveDate ? new Date(billingStatus.reductionEffectiveDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'your next renewal'}.
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-3">
                   <label className="flex items-center gap-2">
                     <span className="text-sm text-gray-700">Seats:</span>
@@ -3030,7 +3042,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                 </div>
                 {usersToReduceTo < billingStatus.maxUsers && (
                   <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm">
-                    <p>From your next billing date you will be charged for <strong>{usersToReduceTo}</strong> user{usersToReduceTo !== 1 ? 's' : ''}. A prorated credit will appear on your next invoice.</p>
+                    <p>Your next invoice will still be for <strong>{billingStatus.maxUsers}</strong> licence{billingStatus.maxUsers !== 1 ? 's' : ''}. From the month after your next payment you will be charged for <strong>{usersToReduceTo}</strong> licence{usersToReduceTo !== 1 ? 's' : ''}.{billingStatus.nextBillingDate && <> Next billing date: <strong>{new Date(billingStatus.nextBillingDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</>}</p>
                     {!showConfirmReduce ? (
                       <button
                         type="button"

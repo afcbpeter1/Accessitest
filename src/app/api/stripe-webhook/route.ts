@@ -6,7 +6,7 @@ import { sendReceiptEmail, ReceiptData } from '@/lib/receipt-email-service'
 import { sendSubscriptionPaymentEmail, sendSubscriptionCancellationEmail } from '@/lib/subscription-email-service'
 import { NotificationService } from '@/lib/notification-service'
 import { addCredits, activateUnlimitedCredits, deactivateUnlimitedCredits, getUserCredits } from '@/lib/credit-service'
-import { updateOrganizationSubscription } from '@/lib/organization-billing'
+import { updateOrganizationSubscription, applyPendingSeatReduction } from '@/lib/organization-billing'
 
 // Trim whitespace to avoid issues with .env file formatting
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim() || ''
@@ -921,6 +921,20 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
         }
       })
       return
+    }
+    
+    // Apply pending seat reduction: take effect the month after the next payment (after this renewal is paid)
+    if (invoice.billing_reason === 'subscription_cycle' && subscription.metadata?.pending_org_seat_quantity !== undefined && subscription.metadata?.pending_org_seat_quantity !== '') {
+      try {
+        const applied = await applyPendingSeatReduction(subscription)
+        if (applied) {
+          // Re-retrieve subscription after update for downstream logic
+          const updated = await getStripe().subscriptions.retrieve(inv.subscription as string)
+          Object.assign(subscription, updated)
+        }
+      } catch (err) {
+        console.error('Failed to apply pending seat reduction:', err)
+      }
     }
     
     // FIRST: Check if this is an organization subscription and handle it

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
-import { createCheckoutSession, canAddUser, addSeatsToOwnerSubscription, createProrationCheckoutSession, reduceSeatsFromOwnerSubscription, getSeatPriceInfo, getOwnerBillingPeriod } from '@/lib/organization-billing'
+import { createCheckoutSession, canAddUser, addSeatsToOwnerSubscription, createProrationCheckoutSession, reduceSeatsFromOwnerSubscription, getSeatPriceInfo, getOwnerBillingPeriod, getOwnerBillingStatus } from '@/lib/organization-billing'
 import { checkPermission } from '@/lib/role-service'
 
 /**
@@ -108,8 +108,9 @@ export async function GET(request: NextRequest) {
     
     const status = await canAddUser(organizationId)
     
-    // Get owner's billing period (auto-detect from subscription)
+    // Get owner's billing period and status (next billing date, pending reduction)
     const ownerBillingPeriod = await getOwnerBillingPeriod(organizationId)
+    const ownerBillingStatus = await getOwnerBillingStatus(organizationId)
     
     // Get price information for the detected billing period
     let pricing = null
@@ -135,7 +136,10 @@ export async function GET(request: NextRequest) {
       success: true,
       ...status,
       ownerBillingPeriod, // The billing period from owner's subscription
-      pricing: pricingObject
+      pricing: pricingObject,
+      nextBillingDate: ownerBillingStatus?.nextBillingDate ?? null,
+      pendingSeatsAfterRenewal: ownerBillingStatus?.pendingSeatsAfterRenewal ?? null,
+      reductionEffectiveDate: ownerBillingStatus?.reductionEffectiveDate ?? null
     })
   } catch (error) {
     console.error('Error checking user limit:', error)
