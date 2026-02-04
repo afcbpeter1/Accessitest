@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { scanResults, domain } = body
+    const { scanResults, domain, fileName } = body
 
     if (!scanResults || !Array.isArray(scanResults) || !domain) {
       return NextResponse.json(
@@ -30,13 +30,20 @@ export async function POST(request: NextRequest) {
           .update(`${issue.ruleName}|${issue.elementSelector || ''}|${issue.url}`)
           .digest('hex').substring(0, 16)
 
-        // Check if this issue already exists for this domain
-        const existingItem = await queryOne(`
-          SELECT i.id, i.status, i.created_at, i.updated_at 
-          FROM issues i
-          JOIN scan_history sh ON i.first_seen_scan_id = sh.id
-          WHERE sh.user_id = $1 AND i.rule_name = $2 AND sh.url LIKE $3
-        `, [user.userId, issue.ruleName, `%${domain}%`])
+        // Check if this issue already exists for this domain (for document-scan, match by file_name when provided)
+        const existingItem = domain === 'document-scan' && fileName
+          ? await queryOne(`
+              SELECT i.id, i.status, i.created_at, i.updated_at 
+              FROM issues i
+              JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+              WHERE sh.user_id = $1 AND i.rule_name = $2 AND sh.file_name = $3
+            `, [user.userId, issue.ruleName, fileName])
+          : await queryOne(`
+              SELECT i.id, i.status, i.created_at, i.updated_at 
+              FROM issues i
+              JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+              WHERE sh.user_id = $1 AND i.rule_name = $2 AND sh.url LIKE $3
+            `, [user.userId, issue.ruleName, `%${domain}%`])
 
         if (existingItem) {
           // Update last_scan_at for existing items
@@ -65,13 +72,20 @@ export async function POST(request: NextRequest) {
 
         const nextRank = (maxRank?.max_rank || 0) + 1
 
-        // Get the most recent scan history for this user
-        const scanHistory = await queryOne(`
-          SELECT id FROM scan_history 
-          WHERE user_id = $1
-          ORDER BY created_at DESC 
-          LIMIT 1
-        `, [user.userId])
+        // Get the most recent scan history for this user (for document-scan, use most recent document scan so we don't attach to a web scan)
+        const scanHistory = domain === 'document-scan'
+          ? await queryOne(`
+              SELECT id FROM scan_history 
+              WHERE user_id = $1 AND scan_type = 'document'
+              ORDER BY created_at DESC 
+              LIMIT 1
+            `, [user.userId])
+          : await queryOne(`
+              SELECT id FROM scan_history 
+              WHERE user_id = $1
+              ORDER BY created_at DESC 
+              LIMIT 1
+            `, [user.userId])
 
         if (!scanHistory) {
           console.error(`No scan history found for user ${user.userId}`)

@@ -1114,7 +1114,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     setScanLogs([])
   }
 
-  const addIssuesToBacklog = async (issues: any[]) => {
+  const addIssuesToBacklog = async (issues: any[], fileName?: string) => {
     try {
       const token = localStorage.getItem('accessToken')
       if (!token) {
@@ -1122,7 +1122,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         return
       }
 
-      addScanLog('🔄 Adding issues to product backlog...')
+      const docName = fileName || uploadedDocuments.find(doc => doc.scanResults)?.name || 'Unknown'
 
       // Transform document issues to match the expected format for backlog
       const transformedIssues = issues.map(issue => ({
@@ -1133,7 +1133,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         elementSelector: issue.elementLocation || '',
         elementHtml: issue.context || '',
         failureSummary: issue.recommendation || '',
-        url: `Document: ${uploadedDocuments.find(doc => doc.scanResults)?.name || 'Unknown'}`,
+        url: `Document: ${docName}`,
         domain: 'document-scan'
       }))
 
@@ -1145,7 +1145,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         },
         body: JSON.stringify({
           scanResults: transformedIssues,
-          domain: 'document-scan'
+          domain: 'document-scan',
+          fileName: docName
         })
       })
 
@@ -1286,6 +1287,10 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
       const result = await response.json()
       
+      if (result.autoFixUnavailableReason) {
+        addScanLog(`ℹ️ ${result.autoFixUnavailableReason}`)
+      }
+      
       if (!result.success) {
         // Check if it was cancelled
         if (result.cancelled) {
@@ -1340,7 +1345,15 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         addScanLog(`✅ Scan Complete!`)
         addScanLog(`📋 Found ${scanResult.issues.length} accessibility issue${scanResult.issues.length !== 1 ? 's' : ''}`)
         addScanLog(`💡 AI suggestions generated for all issues`)
-        addScanLog(`📦 Issues automatically added to product backlog`)
+        const backlogAdded = result.backlogAdded
+        if (backlogAdded?.added > 0) {
+          addScanLog(`📦 Added ${backlogAdded.added} issue${backlogAdded.added !== 1 ? 's' : ''} to product backlog`)
+        } else if (!backlogAdded || backlogAdded.added === 0 || backlogAdded.error) {
+          addScanLog(`📦 Adding issues to product backlog...`)
+          await addIssuesToBacklog(scanResult.issues, document.name)
+        } else {
+          addScanLog(`📦 Issues added to product backlog`)
+        }
       } else {
         addScanLog('✅ Document has no accessibility issues!')
       }

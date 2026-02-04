@@ -1419,6 +1419,10 @@ export async function POST(request: NextRequest) {
           console.warn('   No tagged PDF buffer returned from Adobe')
         }
       }
+      // Surface PyMuPDF unavailable so UI can show a friendly message (scan still succeeds)
+      if (autoFixResult?.errors?.length && autoFixResult.errors.some((e: string) => String(e).includes('PyMuPDF'))) {
+        ;(finalScanResult as any).autoFixUnavailableReason = 'PDF auto-fix was skipped (PyMuPDF is not installed on this server). You still receive full scan results and AI suggestions. To enable automatic PDF fixes, install PyMuPDF on the server (e.g. pip install pymupdf).'
+      }
     } else {
       console.warn(` Adobe Accessibility Check failed: ${accessibilityResult.error || 'Unknown error'}`)
       
@@ -1634,9 +1638,18 @@ export async function POST(request: NextRequest) {
           hasScanHistoryResult: !!scanHistoryResult,
           scanHistoryResult: scanHistoryResult
         })
+        backlogResult = { success: true, added: 0, skipped: 0, addedItems: [], skippedItems: [], total: scanResult.issues?.length ?? 0 }
       }
     } catch (error) {
       console.error('Failed to store document scan results in history:', error)
+      backlogResult = {
+        success: false,
+        added: 0,
+        skipped: 0,
+        addedItems: [],
+        skippedItems: [],
+        error: error instanceof Error ? error.message : 'Scan history could not be stored'
+      }
     }
     
     // Include tagged PDF in response if available
@@ -1654,6 +1667,12 @@ export async function POST(request: NextRequest) {
 
     } else {
       console.warn(' No tagged PDF to include in response')
+    }
+    
+    // Surface PyMuPDF/unavailable auto-fix so the UI can show a friendly message (scan still succeeds)
+    if (typeof (scanResult as any).autoFixUnavailableReason === 'string' && (scanResult as any).autoFixUnavailableReason) {
+      responseData.autoFixUnavailable = true
+      responseData.autoFixUnavailableReason = (scanResult as any).autoFixUnavailableReason
     }
     
     return NextResponse.json(responseData)

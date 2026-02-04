@@ -81,6 +81,25 @@ SMTP_USER=your_smtp_user
 SMTP_PASS=your_smtp_password
 ```
 
+### Deployment (Railway, Render, etc.)
+
+To avoid **"Failed to find Server Action"** errors after redeploys (e.g. `Failed to find Server Action "x"`), set a **persistent** Server Actions encryption key so all builds and instances use the same key:
+
+```bash
+# Generate once and set in your host's environment (e.g. Railway, Render)
+openssl rand -base64 32
+```
+
+Add to your deployment environment:
+
+```env
+NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=<paste the generated key>
+```
+
+Set this at **build time** (not only at runtime) so the key is embedded consistently. If you still see the error, do a full redeploy after setting the variable and have users refresh the page to clear cached client code.
+
+**Optional – PDF auto-fix:** Document scan works without it. To enable automatic PDF fixes (alt text, table summaries, etc.) on the server, install PyMuPDF in the same environment that runs the Node app (e.g. in a custom Dockerfile or Nixpacks setup): `pip install pymupdf`. If PyMuPDF is not installed, the UI will show a short message and you still get full scan results and AI suggestions.
+
 ## Project Structure
 
 ```
