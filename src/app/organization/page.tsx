@@ -2449,6 +2449,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
     billingPeriod: 'monthly' | 'yearly'
     totalAtRenewal: number
     newSeatsAtRenewal?: number
+    basePlanAmountAtRenewal?: number
     numberOfUsers: number
     periodStart?: string | null
     periodEnd?: string | null
