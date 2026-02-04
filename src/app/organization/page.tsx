@@ -2806,26 +2806,34 @@ function BillingTab({ organization }: { organization: Organization | null }) {
           <div className="border-t border-gray-200 pt-6">
             <h4 className="font-semibold text-gray-900 mb-4">Add Users</h4>
             
-            {/* Subscription Requirement Notice */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <div className="flex items-start">
-                <AlertCircle className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm text-blue-800 font-medium mb-1">
-                    Subscription Required
-                  </p>
-                  <p className="text-sm text-blue-700">
-                    You must have an active monthly or yearly subscription before you can add users to your organization. 
-                    <a href="/pricing" className="text-blue-600 hover:text-blue-800 underline ml-1">
+            {/* When owner has no subscription: only show subscribe CTA (no add-user form) */}
+            {!billingStatus?.ownerBillingPeriod && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start">
+                  <AlertCircle className="h-5 w-5 text-amber-600 mr-2 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-amber-900 font-medium mb-1">
+                      Subscription required to add users
+                    </p>
+                    <p className="text-sm text-amber-800 mb-3">
+                      You need an active monthly or yearly plan before you can add seats. Subscribe first, then return here to add users.
+                    </p>
+                    <a
+                      href="/pricing"
+                      className="inline-flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium"
+                    >
                       Subscribe now
                     </a>
-                  </p>
+                  </div>
                 </div>
               </div>
-            </div>
-            
+            )}
+
+            {/* Add-users form only when owner has an active subscription */}
+            {billingStatus?.ownerBillingPeriod && (
+              <>
             {/* Billing Period Display (Read-only, auto-detected from owner's subscription) */}
-            {billingStatus?.ownerBillingPeriod && billingStatus?.pricing && (
+            {billingStatus?.pricing && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Billing Period
@@ -3002,6 +3010,8 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                 <p className="text-sm text-gray-600 mt-2">
                   <strong>Pay proration now:</strong> You pay the proration today on Stripe. At your next billing date you pay only your plan + seat fee (e.g. £19.99 + £5)—the proration is not added to that bill. <strong>Add at renewal:</strong> No charge today. The proration is added to your next invoice along with your plan and seat fee (so you pay plan + seats + proration on one bill).
                 </p>
+              </>
+            )}
               </>
             )}
             

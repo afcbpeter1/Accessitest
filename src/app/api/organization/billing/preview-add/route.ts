@@ -31,8 +31,10 @@ export async function POST(request: NextRequest) {
     const preview = await previewAddSeats(organizationId, numberOfUsers)
     return NextResponse.json({ success: true, ...preview })
   } catch (error) {
-    console.error('Error previewing add seats:', error)
     const errorMessage = error instanceof Error ? error.message : 'Failed to preview'
+    if (!errorMessage.toLowerCase().includes('subscription')) {
+      console.error('Error previewing add seats:', error)
+    }
     const statusCode = errorMessage.includes('subscription') ? 400 : 500
     return NextResponse.json(
       { success: false, error: errorMessage },
