@@ -56,5 +56,5 @@ The webhook secret from CLI output should match your `.env` file exactly:
 - **Solution**: 
   1. Check server logs for webhook processing
   2. Look for `🎫 Processing credit purchase` messages
-  3. Check database: `SELECT credits_remaining FROM user_credits WHERE user_id = 'YOUR_USER_ID'`
+  3. Check database (credits are per-organization): `SELECT oc.credits_remaining FROM organization_credits oc JOIN organization_members om ON oc.organization_id = om.organization_id WHERE om.user_id = 'YOUR_USER_ID' AND om.is_active = true LIMIT 1` — or use GET /api/user and check `creditsRemaining`.
 

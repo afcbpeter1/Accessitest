@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { queryOne, query } from '@/lib/database'
+import { getUserCredits, activateUnlimitedCredits } from '@/lib/credit-service'
 import { VPNDetector } from '@/lib/vpn-detector'
 import { EmailService } from '@/lib/email-service'
 import { acceptInvitation } from '@/lib/organization-service'
@@ -112,11 +113,8 @@ async function handleLogin(email: string, password: string) {
       [user.id]
     )
 
-    // Get user credits
-    const creditData = await queryOne(
-      'SELECT * FROM user_credits WHERE user_id = $1',
-      [user.id]
-    )
+    // Get user credits (organization-level, same as rest of app)
+    const creditInfo = await getUserCredits(user.id)
 
     // Generate JWT token with sliding expiration
     const token = jwt.sign(
@@ -139,7 +137,7 @@ async function handleLogin(email: string, password: string) {
         name: `${user.first_name} ${user.last_name}`,
         company: user.company,
         plan: user.plan_type,
-        credits: creditData?.credits_remaining || 0,
+        credits: creditInfo.credits_remaining ?? 0,
         emailVerified: user.email_verified
       },
       token
@@ -384,14 +382,14 @@ export async function updateUserPlan(email: string, plan: string) {
       'UPDATE users SET plan_type = $1 WHERE email = $2',
       [plan, email]
     )
-    
+
     if (plan === 'complete_access') {
-      await query(
-        'UPDATE user_credits SET unlimited_credits = true WHERE user_id = (SELECT id FROM users WHERE email = $1)',
-        [email]
-      )
+      const u = await queryOne('SELECT id FROM users WHERE email = $1', [email])
+      if (u?.id) {
+        await activateUnlimitedCredits(u.id)
+      }
     }
-    
+
     return (result.rowCount ?? 0) > 0
   } catch (error) {
     console.error('Error updating user plan:', error)

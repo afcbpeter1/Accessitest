@@ -654,41 +654,30 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     let planName = 'Unlimited Access'
     
     if (userId) {
-      const userData = await query(
-        `SELECT u.email, u.first_name, u.last_name, uc.credits_remaining, u.plan_type
-         FROM users u
-         LEFT JOIN user_credits uc ON u.id = uc.user_id
-         WHERE u.id = $1`,
+      const userData = await queryOne(
+        `SELECT email, first_name, last_name FROM users WHERE id = $1`,
         [userId]
       )
-      
-      if (userData.rows && userData.rows.length > 0) {
-        userEmail = userData.rows[0].email
-        savedCredits = userData.rows[0].credits_remaining || 0
-        const firstName = userData.rows[0].first_name || ''
-        const lastName = userData.rows[0].last_name || ''
-        if (firstName || lastName) {
-          userName = `${firstName} ${lastName}`.trim()
-        }
+      if (userData) {
+        userEmail = userData.email
+        const firstName = userData.first_name || ''
+        const lastName = userData.last_name || ''
+        if (firstName || lastName) userName = `${firstName} ${lastName}`.trim()
+        const creditInfo = await getUserCredits(userId)
+        savedCredits = creditInfo.credits_remaining ?? 0
       }
     } else {
-      // Try to get user by subscription ID
-      const userData = await query(
-        `SELECT u.id, u.email, u.first_name, u.last_name, uc.credits_remaining, u.plan_type
-         FROM users u
-         LEFT JOIN user_credits uc ON u.id = uc.user_id
-         WHERE u.stripe_subscription_id = $1`,
+      const userData = await queryOne(
+        `SELECT id, email, first_name, last_name FROM users WHERE stripe_subscription_id = $1`,
         [subscription.id]
       )
-      
-      if (userData.rows && userData.rows.length > 0) {
-        userEmail = userData.rows[0].email
-        savedCredits = userData.rows[0].credits_remaining || 0
-        const firstName = userData.rows[0].first_name || ''
-        const lastName = userData.rows[0].last_name || ''
-        if (firstName || lastName) {
-          userName = `${firstName} ${lastName}`.trim()
-        }
+      if (userData) {
+        userEmail = userData.email
+        const firstName = userData.first_name || ''
+        const lastName = userData.last_name || ''
+        if (firstName || lastName) userName = `${firstName} ${lastName}`.trim()
+        const creditInfo = await getUserCredits(userData.id)
+        savedCredits = creditInfo.credits_remaining ?? 0
       }
     }
     

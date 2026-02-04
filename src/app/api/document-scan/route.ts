@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ClaudeAPI } from '@/lib/claude-api'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { queryOne, query } from '@/lib/database'
+import { getUserCredits, deductCredits, addCredits } from '@/lib/credit-service'
 import { NotificationService } from '@/lib/notification-service'
 import { autoAddDocumentIssuesToBacklog } from '@/lib/backlog-service'
 import { getAdobePDFServices } from '@/lib/adobe-pdf-services'
@@ -48,11 +49,12 @@ interface DocumentScanRequest {
 // - GDPR/CCPA compliance measures
 const scanDatabase = new Map<string, any>()
 
-// Track active scans
+// Track active scans (creditDeducted = we used credit-service so refund via addCredits)
 interface ActiveScan {
   cancelled: boolean
   creditTransactionId?: number | null
   userId?: string
+  creditDeducted?: boolean
 }
 
 const activeScans = new Map<string, ActiveScan>()
@@ -261,67 +263,42 @@ export async function POST(request: NextRequest) {
     // WORD DOCUMENT PROCESSING
     // ============================================
     if (isWord) {
-      // Check and deduct credits
-      let creditData = await queryOne(
-        'SELECT * FROM user_credits WHERE user_id = $1',
-        [user.userId]
-      )
-
-      if (!creditData) {
-        await query(
-          `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
-           VALUES ($1, $2, $3, $4)`,
-          [user.userId, 3, 0, false]
-        )
-        creditData = await queryOne(
-          'SELECT * FROM user_credits WHERE user_id = $1',
-          [user.userId]
-        )
-      }
-
-      if (!creditData!.unlimited_credits && creditData!.credits_remaining < 1) {
+      // Check and deduct credits (organization credits - same as top bar / web scans)
+      const creditInfo = await getUserCredits(user.userId)
+      if (!creditInfo.unlimited_credits && creditInfo.credits_remaining < 1) {
         activeScans.delete(scanId)
         return NextResponse.json(
-          { 
-            success: false, 
+          {
+            success: false,
             error: 'Insufficient credits. Please upgrade your plan or purchase more credits.',
-            creditsRemaining: creditData!.credits_remaining
+            creditsRemaining: creditInfo.credits_remaining
           },
           { status: 402 }
         )
       }
 
-      // Deduct credit
-      let creditTransactionId: number | null = null
-      if (!creditData!.unlimited_credits) {
-        await query('BEGIN')
-        try {
-          const result = await query(
-            `UPDATE user_credits 
-             SET credits_remaining = credits_remaining - 1, 
-                 credits_used = credits_used + 1,
-                 updated_at = NOW()
-             WHERE user_id = $1
-             RETURNING credits_remaining, credits_used`,
-            [user.userId]
-          )
-          await query('COMMIT')
-          
-          const newCredits = result.rows[0]?.credits_remaining || 0
-
-          if (newCredits <= 3 && !creditData!.unlimited_credits) {
-            await NotificationService.notifyLowCredits(user.userId, newCredits)
-          }
-        } catch (error) {
-          await query('ROLLBACK')
-          throw error
-        }
+      const deductResult = await deductCredits(user.userId, 1, `Document scan: ${body.fileName}`, scanId)
+      if (!deductResult.success) {
+        activeScans.delete(scanId)
+        return NextResponse.json(
+          {
+            success: false,
+            error: deductResult.error ?? 'Insufficient credits. Please upgrade your plan or purchase more credits.',
+            creditsRemaining: deductResult.credits_remaining
+          },
+          { status: 402 }
+        )
       }
 
-      activeScans.set(scanId, { 
+      if (deductResult.credits_remaining <= 3 && deductResult.credits_remaining > 0) {
+        await NotificationService.notifyLowCredits(user.userId, deductResult.credits_remaining)
+      }
+
+      activeScans.set(scanId, {
         cancelled: false,
-        creditTransactionId: creditTransactionId,
-        userId: user.userId
+        creditTransactionId: null,
+        userId: user.userId,
+        creditDeducted: true
       })
 
       // Step 1: Scan Word document
@@ -642,96 +619,37 @@ export async function POST(request: NextRequest) {
       isScannedPDF = false
     }
     
-    // Check and deduct credits AFTER page count validation passes
-    // Get user's current credit information
-    let creditData = await queryOne(
-      'SELECT * FROM user_credits WHERE user_id = $1',
-      [user.userId]
-    )
+    // Check and deduct credits AFTER page count validation passes (organization credits - same as top bar)
+    const creditInfo = await getUserCredits(user.userId)
+    if (!creditInfo.unlimited_credits && creditInfo.credits_remaining < 1) {
+      await NotificationService.notifyInsufficientCredits(user.userId)
+      activeScans.delete(scanId)
+      return NextResponse.json(
+        { error: 'Insufficient credits', canScan: false },
+        { status: 402 }
+      )
+    }
 
-    // If user doesn't have credit data, create it with 3 free credits
-    if (!creditData) {
-      await query(
-        `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
-         VALUES ($1, $2, $3, $4)`,
-        [user.userId, 3, 0, false]
-      )
-      
-      // Get the newly created credit data
-      creditData = await queryOne(
-        'SELECT * FROM user_credits WHERE user_id = $1',
-        [user.userId]
+    const deductResult = await deductCredits(user.userId, 1, `Document scan: ${body.fileName}`, scanId)
+    if (!deductResult.success) {
+      await NotificationService.notifyInsufficientCredits(user.userId)
+      activeScans.delete(scanId)
+      return NextResponse.json(
+        { error: deductResult.error ?? 'Insufficient credits', canScan: false },
+        { status: 402 }
       )
     }
-    
-    // Store credit transaction ID for potential refund if cancelled
-    let creditTransactionId: number | null = null
-    
-    // Check if user has unlimited credits
-    if (creditData.unlimited_credits) {
-      // Unlimited user, log the scan but don't deduct credits
-      const transactionResult = await query(
-        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id`,
-        [user.userId, 'usage', 0, `Document scan: ${body.fileName}`]
-      )
-      creditTransactionId = transactionResult.rows?.[0]?.id || null
-    } else {
-      // Check if user has enough credits
-      if (creditData.credits_remaining < 1) {
-        // Create notification for insufficient credits
-        await NotificationService.notifyInsufficientCredits(user.userId)
-        activeScans.delete(scanId)
-        return NextResponse.json(
-          { error: 'Insufficient credits', canScan: false },
-          { status: 402 }
-        )
-      }
-      
-      // Start transaction to deduct credit and log usage
-      await query('BEGIN')
-      
-      try {
-        // Deduct 1 credit for the scan
-        await query(
-          `UPDATE user_credits 
-           SET credits_remaining = credits_remaining - 1, 
-               credits_used = credits_used + 1,
-               updated_at = NOW()
-           WHERE user_id = $1`,
-          [user.userId]
-        )
-        
-        // Log the scan transaction (with fallback for missing columns)
-        const transactionResult = await query(
-          `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-           VALUES ($1, $2, $3, $4)
-           RETURNING id`,
-          [user.userId, 'usage', -1, `Document scan: ${body.fileName}`]
-        )
-        creditTransactionId = transactionResult.rows?.[0]?.id || null
-        
-        await query('COMMIT')
-        
-        const newCredits = creditData.credits_remaining - 1
-        
-        // Create notification for low credits if remaining credits are low
-        if (newCredits <= 1 && newCredits > 0) {
-          await NotificationService.notifyLowCredits(user.userId, newCredits)
-        }
-      } catch (error) {
-        await query('ROLLBACK')
-        throw error
-      }
+
+    if (deductResult.credits_remaining <= 1 && deductResult.credits_remaining > 0) {
+      await NotificationService.notifyLowCredits(user.userId, deductResult.credits_remaining)
     }
-    
-    // Update active scan with credit transaction ID and userId for potential refund if cancelled
+
     const currentScan = activeScans.get(scanId)
-    activeScans.set(scanId, { 
+    activeScans.set(scanId, {
       cancelled: currentScan?.cancelled || false,
-      creditTransactionId: creditTransactionId,
-      userId: user.userId
+      creditTransactionId: null,
+      userId: user.userId,
+      creditDeducted: true
     })
     
     // Get Adobe PDF Services instance
@@ -783,21 +701,11 @@ export async function POST(request: NextRequest) {
           errorMessage.toLowerCase().includes('too many pages') ||
           errorMessage.toLowerCase().includes('not suitable for conversion')) {
         // Refund the credit since we can't process this PDF
-        if (creditTransactionId && user.userId) {
+        const scanToRefund = activeScans.get(scanId)
+        if (scanToRefund?.creditDeducted && scanToRefund?.userId) {
           try {
-            await query('BEGIN')
-            await query(
-              `UPDATE user_credits 
-               SET credits_remaining = credits_remaining + 1, 
-                   credits_used = GREATEST(credits_used - 1, 0),
-                   updated_at = NOW()
-               WHERE user_id = $1`,
-              [user.userId]
-            )
-            await query('COMMIT')
-
+            await addCredits(scanToRefund.userId, 1, `Document scan refund: PDF page limit - ${body.fileName}`)
           } catch (refundError) {
-            await query('ROLLBACK')
             console.error('❌ Failed to refund credit:', refundError)
           }
         }
@@ -1486,26 +1394,10 @@ export async function POST(request: NextRequest) {
     // Final cancellation check - refund credit if cancelled
     if (activeScans.get(scanId)?.cancelled) {
       const scanStatus = activeScans.get(scanId)
-      if (scanStatus?.creditTransactionId && scanStatus?.userId) {
+      if (scanStatus?.creditDeducted && scanStatus?.userId) {
         try {
-          await query('BEGIN')
-          await query(
-            `UPDATE user_credits 
-             SET credits_remaining = credits_remaining + 1, 
-                 credits_used = GREATEST(0, credits_used - 1),
-                 updated_at = NOW()
-             WHERE user_id = $1`,
-            [scanStatus.userId]
-          )
-          await query(
-            `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-             VALUES ($1, $2, $3, $4)`,
-            [scanStatus.userId, 'refund', 1, `Refund for cancelled scan: ${scanId}`]
-          )
-          await query('COMMIT')
-
+          await addCredits(scanStatus.userId, 1, `Refund for cancelled scan: ${scanId}`)
         } catch (refundError) {
-          await query('ROLLBACK')
           console.error('❌ Failed to refund credit on cancellation:', refundError)
         }
       }
@@ -1690,25 +1582,14 @@ export async function POST(request: NextRequest) {
     }
     
     // Refund credit if it was deducted
-    if (currentScan?.creditTransactionId && currentScan?.userId) {
+    if (currentScan?.creditDeducted && currentScan?.userId) {
       try {
-        await query('BEGIN')
-        await query(
-          `UPDATE user_credits 
-           SET credits_remaining = credits_remaining + 1, 
-               credits_used = GREATEST(credits_used - 1, 0),
-               updated_at = NOW()
-           WHERE user_id = $1`,
-          [currentScan.userId]
-        )
-        await query('COMMIT')
-
+        await addCredits(currentScan.userId, 1, `Document scan refund: processing error`)
       } catch (refundError) {
-        await query('ROLLBACK')
         console.error('❌ Failed to refund credit:', refundError)
       }
     }
-    
+
     return NextResponse.json(
       { 
         success: false, 
@@ -1748,47 +1629,11 @@ export async function DELETE(request: NextRequest) {
     scanStatus.cancelled = true
 
     // Refund credit if scan was cancelled (only if credits were deducted)
-    if (scanStatus.creditTransactionId && scanStatus.userId && scanStatus.userId === user.userId) {
+    if (scanStatus.creditDeducted && scanStatus.userId && scanStatus.userId === user.userId) {
       try {
-        // Get the transaction to check if credit was deducted
-        const transaction = await queryOne(
-          'SELECT * FROM credit_transactions WHERE id = $1 AND user_id = $2',
-          [scanStatus.creditTransactionId, scanStatus.userId]
-        )
-        
-        if (transaction && transaction.credits_amount < 0) {
-          // Credit was deducted, refund it
-          await query('BEGIN')
-          
-          try {
-            // Refund the credit
-            await query(
-              `UPDATE user_credits 
-               SET credits_remaining = credits_remaining + 1, 
-                   credits_used = GREATEST(0, credits_used - 1),
-                   updated_at = NOW()
-               WHERE user_id = $1`,
-              [scanStatus.userId]
-            )
-            
-            // Log the refund transaction
-            await query(
-              `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-               VALUES ($1, $2, $3, $4)`,
-              [scanStatus.userId, 'refund', 1, `Refund for cancelled scan: ${scanId}`]
-            )
-            
-            await query('COMMIT')
-
-          } catch (refundError) {
-            await query('ROLLBACK')
-            console.error('❌ Failed to refund credit:', refundError)
-            // Continue with cancellation even if refund fails
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error checking transaction for refund:', error)
-        // Continue with cancellation even if refund check fails
+        await addCredits(scanStatus.userId, 1, `Refund for cancelled scan: ${scanId}`)
+      } catch (refundError) {
+        console.error('❌ Failed to refund credit:', refundError)
       }
     }
     

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-middleware'
 import { query, queryOne } from '@/lib/database'
+import { activateUnlimitedCredits } from '@/lib/credit-service'
 import { getStripe, getPlanTypeFromPriceId } from '@/lib/stripe-config'
 
 /**
@@ -56,49 +57,28 @@ export const POST = requireAuth(async (request: NextRequest, user: any) => {
 
     const planType = getPlanTypeFromPriceId(priceId)
 
-    // Activate subscription
     await query('BEGIN')
     try {
-      // Update user's plan and subscription ID
       await query(
         `UPDATE users SET plan_type = $1, stripe_subscription_id = $2, updated_at = NOW() 
          WHERE id = $3`,
         [planType, subscription.id, user.userId]
       )
-
-      // Ensure user_credits row exists and set unlimited
-      const existingCredits = await queryOne(
-        `SELECT user_id FROM user_credits WHERE user_id = $1`,
-        [user.userId]
-      )
-
-      if (!existingCredits) {
-        await query(
-          `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
-           VALUES ($1, $2, $3, $4)`,
-          [user.userId, 0, 0, true]
-        )
-      } else {
-        await query(
-          `UPDATE user_credits 
-           SET unlimited_credits = true, updated_at = NOW() 
-           WHERE user_id = $1`,
-          [user.userId]
-        )
-      }
-
       await query('COMMIT')
-
-      return NextResponse.json({
-        success: true,
-        message: 'Subscription activated successfully',
-        planType,
-        subscriptionId: subscription.id
-      })
     } catch (error) {
       await query('ROLLBACK')
       throw error
     }
+
+    // Set unlimited credits on user's organization (credit-service)
+    await activateUnlimitedCredits(user.userId)
+
+    return NextResponse.json({
+      success: true,
+      message: 'Subscription activated successfully',
+      planType,
+      subscriptionId: subscription.id
+    })
   } catch (error: any) {
     console.error('Error activating subscription:', error)
     return NextResponse.json(

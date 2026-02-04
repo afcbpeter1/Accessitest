@@ -187,7 +187,7 @@
           "sprints",
           "template_columns",
           "user_audit_log",
-          "user_credits",
+          "organization_credits",
           "user_notification_preferences",
           "user_passwords",
           "user_sessions",
@@ -293,11 +293,11 @@
       "timestamp": "2025-12-22T22:24:16.592Z"
     },
     {
-      "name": "Data Exposure: Access to user_credits",
+      "name": "Data Exposure: Access to organization_credits",
       "passed": false,
       "severity": "HIGH",
       "details": {
-        "table": "user_credits",
+        "table": "organization_credits",
         "accessible": true,
         "rowCount": "7",
         "note": "READ-ONLY test - only counting rows, no data accessed"
@@ -590,37 +590,37 @@
           {
             "grantee": "neondb_owner",
             "privilege_type": "INSERT",
-            "table_name": "user_credits"
+            "table_name": "organization_credits"
           },
           {
             "grantee": "neondb_owner",
             "privilege_type": "SELECT",
-            "table_name": "user_credits"
+            "table_name": "organization_credits"
           },
           {
             "grantee": "neondb_owner",
             "privilege_type": "UPDATE",
-            "table_name": "user_credits"
+            "table_name": "organization_credits"
           },
           {
             "grantee": "neondb_owner",
             "privilege_type": "DELETE",
-            "table_name": "user_credits"
+            "table_name": "organization_credits"
           },
           {
             "grantee": "neondb_owner",
             "privilege_type": "TRUNCATE",
-            "table_name": "user_credits"
+            "table_name": "organization_credits"
           },
           {
             "grantee": "neondb_owner",
             "privilege_type": "REFERENCES",
-            "table_name": "user_credits"
+            "table_name": "organization_credits"
           },
           {
             "grantee": "neondb_owner",
             "privilege_type": "TRIGGER",
-            "table_name": "user_credits"
+            "table_name": "organization_credits"
           },
           {
             "grantee": "neondb_owner",

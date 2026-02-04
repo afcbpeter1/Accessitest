@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth-middleware'
 import { queryOne, query } from '@/lib/database'
+import { activateUnlimitedCredits } from '@/lib/credit-service'
 import Stripe from 'stripe'
 import { sendSubscriptionReactivationEmail } from '@/lib/subscription-email-service'
 import { getStripe, getPlanTypeFromPriceId } from '@/lib/stripe-config'
@@ -525,29 +526,10 @@ async function handleSyncSubscription(request: NextRequest, user: any) {
         [planType, subscription.id, user.userId]
       )
 
-      // Set unlimited credits for subscription users
-      // First ensure user_credits row exists
-      const existingCredits = await queryOne(
-        `SELECT user_id FROM user_credits WHERE user_id = $1`,
-        [user.userId]
-      )
-
-      if (!existingCredits) {
-        await query(
-          `INSERT INTO user_credits (user_id, credits_remaining, credits_used, unlimited_credits)
-           VALUES ($1, $2, $3, $4)`,
-          [user.userId, 0, 0, true]
-        )
-      } else {
-        await query(
-          `UPDATE user_credits 
-           SET unlimited_credits = true, updated_at = NOW() 
-           WHERE user_id = $1`,
-          [user.userId]
-        )
-      }
-
       await query('COMMIT')
+
+      // Set unlimited credits on user's organization (credit-service)
+      await activateUnlimitedCredits(user.userId)
       console.log(`✅ Synced and activated subscription for user ${user.userId}: plan_type=${planType}, subscription_id=${subscription.id}`)
     } catch (error) {
       await query('ROLLBACK')

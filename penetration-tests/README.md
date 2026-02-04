@@ -71,7 +71,7 @@ Test results are saved to `penetration-test-report.json` in the penetration-test
 1. **CRITICAL**: Password hash access is possible
 2. **HIGH**: Can access system tables (pg_user, pg_shadow, pg_roles, etc.)
 3. **HIGH**: Can create/drop tables
-4. **HIGH**: Can access sensitive tables (users, user_passwords, user_credits, etc.)
+4. **HIGH**: Can access sensitive tables (users, user_passwords, organization_credits, etc.)
 5. **HIGH**: Can modify data in tables
 
 **Note**: Many database findings are expected if the database user has full privileges. In production, the database user should have limited privileges and only access to necessary tables/functions.

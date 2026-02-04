@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ScanService, ScanOptions } from '@/lib/scan-service'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
-import { queryOne, query } from '@/lib/database'
+import { query } from '@/lib/database'
+import { getUserCredits, deductCredits } from '@/lib/credit-service'
 import { NotificationService } from '@/lib/notification-service'
 import { ScanToIssuesIntegration } from '@/lib/scan-to-issues-integration'
 
@@ -16,75 +17,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'URL and pages to scan are required' }, { status: 400 })
     }
 
-    // Check and deduct credits before starting scan
     const scanId = `web_scan_${Date.now()}`
-    
-    // Get user's current credit information
-    const creditData = await queryOne(
-      'SELECT * FROM user_credits WHERE user_id = $1',
-      [user.userId]
-    )
 
-    if (!creditData) {
+    // Check and deduct credits (organization credits - same as top bar and document scan)
+    const creditInfo = await getUserCredits(user.userId)
+    if (!creditInfo.unlimited_credits && creditInfo.credits_remaining < 1) {
+      await NotificationService.notifyInsufficientCredits(user.userId)
       return NextResponse.json(
-        { error: 'User credit data not found' },
-        { status: 404 }
+        { error: 'Insufficient credits', canScan: false },
+        { status: 402 }
       )
     }
-    
-    // Check if user has unlimited credits
-    if (creditData.unlimited_credits) {
-      // Unlimited user, log the scan but don't deduct credits
-      await query(
-        `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-         VALUES ($1, $2, $3, $4)`,
-        [user.userId, 'usage', 0, `Web scan: ${url}`]
+
+    const deductResult = await deductCredits(user.userId, 1, `Web scan: ${url}`, scanId)
+    if (!deductResult.success) {
+      await NotificationService.notifyInsufficientCredits(user.userId)
+      return NextResponse.json(
+        { error: deductResult.error ?? 'Insufficient credits', canScan: false },
+        { status: 402 }
       )
-    } else {
-      // Check if user has enough credits
-      if (creditData.credits_remaining < 1) {
-        // Create notification for insufficient credits
-        await NotificationService.notifyInsufficientCredits(user.userId)
-        
-        return NextResponse.json(
-          { error: 'Insufficient credits', canScan: false },
-          { status: 402 }
-        )
-      }
-      
-      // Start transaction to deduct credit and log usage
-      await query('BEGIN')
-      
-      try {
-        // Deduct 1 credit for the scan
-        await query(
-          `UPDATE user_credits 
-           SET credits_remaining = credits_remaining - 1, 
-               credits_used = credits_used + 1,
-               updated_at = NOW()
-           WHERE user_id = $1`,
-          [user.userId]
-        )
-        
-        // Log the scan transaction
-        await query(
-          `INSERT INTO credit_transactions (user_id, transaction_type, credits_amount, description)
-           VALUES ($1, $2, $3, $4)`,
-          [user.userId, 'usage', -1, `Web scan: ${url}`]
-        )
-        
-        await query('COMMIT')
-        
-        const newCredits = creditData.credits_remaining - 1
-        
-        // Create notification for low credits if remaining credits are low
-        if (newCredits <= 1 && newCredits > 0) {
-          await NotificationService.notifyLowCredits(user.userId, newCredits)
-        }
-      } catch (error) {
-        await query('ROLLBACK')
-        throw error
-      }
+    }
+
+    if (deductResult.credits_remaining <= 1 && deductResult.credits_remaining > 0) {
+      await NotificationService.notifyLowCredits(user.userId, deductResult.credits_remaining)
     }
 
     // Create scan options

@@ -1304,6 +1304,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
           )
           setIsScanning(false)
           setCurrentScanId(null)
+          window.dispatchEvent(new CustomEvent('refreshUserData'))
           await checkUserCredits() // Refresh credits to show refund
           return
         }
@@ -1394,9 +1395,10 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         }, 2000)
       }
       
-      // Refresh credits after scan
+      // Refresh credits after scan (Sidebar top bar uses this)
+      window.dispatchEvent(new CustomEvent('refreshUserData'))
       await checkUserCredits()
-      
+
       setIsScanning(false)
       setCurrentScanId(null)
       
@@ -1433,8 +1435,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       
       setIsScanning(false)
       setCurrentScanId(null)
-      
-      // Refresh credits on error too
+
+      window.dispatchEvent(new CustomEvent('refreshUserData'))
       await checkUserCredits()
     }
   }

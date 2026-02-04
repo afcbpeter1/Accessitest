@@ -161,7 +161,7 @@ export class DatabaseSecurityTests {
     const sensitiveTables = [
       'users',
       'user_passwords',
-      'user_credits',
+      'organization_credits',
       'jira_integrations',
       'azure_devops_integrations'
     ];
