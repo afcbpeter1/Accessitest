@@ -2935,7 +2935,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                         <span className="text-gray-700 font-medium">Total at next renewal</span>
                         <span className="font-semibold text-gray-900">{currencySym}{fullTotalAtRenewal.toFixed(2)}/{periodLabel}</span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">Your plan plus seats on one bill: {currencySym}{basePlanAtRenewal.toFixed(2)} + {currencySym}{newSeatsAtRenewal.toFixed(2)} = {currencySym}{fullTotalAtRenewal.toFixed(2)}/{periodLabel}</p>
+                      <p className="text-xs text-gray-500 mt-1">Your plan plus seats on one bill: {currencySym}{basePlanAtRenewal.toFixed(2)} + {currencySym}{totalSeatsAtRenewal.toFixed(2)} = {currencySym}{fullTotalAtRenewal.toFixed(2)}/{periodLabel}</p>
                     </>
                   )}
                   {addPreview.nextBillingDate && (

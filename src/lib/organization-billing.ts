@@ -201,9 +201,14 @@ function sumProrationOnlyFromInvoice(invoice: Stripe.Invoice, seatPriceId?: stri
   const lines = invoice.lines?.data ?? []
   let sumCents = 0
   for (const line of lines) {
-    const details = (line as any).subscription_item_details ?? (line as any)
-    if (details?.proration !== true) continue
-    const linePriceId = typeof (line as any).price === 'string' ? (line as any).price : (line as any).price?.id
+    const parent = (line as any).parent
+    const subDetails = parent?.subscription_item_details ?? (line as any).subscription_item_details
+    const invDetails = parent?.invoice_item_details ?? (line as any).invoice_item_details
+    const isProration = subDetails?.proration === true || invDetails?.proration === true
+    if (!isProration) continue
+    const linePriceId =
+      (line as any).pricing?.price_details?.price ??
+      (typeof (line as any).price === 'string' ? (line as any).price : (line as any).price?.id)
     if (seatPriceId && linePriceId !== seatPriceId) continue
     sumCents += line.amount ?? 0
   }
@@ -309,7 +314,9 @@ export async function previewAddSeats(
     const proratedAmount = (upcoming.amount_due || 0) / 100
     const seatPrice = (await getSeatPriceInfo(billingPeriod)).amount
     let prorationOnlyAmount = sumProrationOnlyFromInvoice(upcoming, priceId)
-    if (prorationOnlyAmount <= 0 && proratedAmount > 0) prorationOnlyAmount = proratedAmount
+    if (prorationOnlyAmount <= 0 && daysInPeriod != null && daysRemainingInPeriod != null && daysInPeriod > 0) {
+      prorationOnlyAmount = (daysRemainingInPeriod / daysInPeriod) * seatPrice * numberOfUsers
+    }
     const newSeatsAtRenewal = Math.round(seatPrice * numberOfUsers * 100) / 100
     return {
       proratedAmount: Math.round(proratedAmount * 100) / 100,
@@ -341,7 +348,9 @@ export async function previewAddSeats(
   const proratedAmount = (upcoming.amount_due || 0) / 100
   const seatPrice = (await getSeatPriceInfo(billingPeriod)).amount
   let prorationOnlyAmount = sumProrationOnlyFromInvoice(upcoming, priceId)
-  if (prorationOnlyAmount <= 0 && proratedAmount > 0) prorationOnlyAmount = proratedAmount
+  if (prorationOnlyAmount <= 0 && daysInPeriod != null && daysRemainingInPeriod != null && daysInPeriod > 0) {
+    prorationOnlyAmount = (daysRemainingInPeriod / daysInPeriod) * seatPrice * numberOfUsers
+  }
   const newSeatsAtRenewal = Math.round(seatPrice * numberOfUsers * 100) / 100
   const totalAtRenewal = Math.round(seatPrice * ((existingItem.quantity || 0) + numberOfUsers) * 100) / 100
   return {
