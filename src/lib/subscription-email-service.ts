@@ -277,7 +277,7 @@ export async function sendSubscriptionPaymentEmail(data: SubscriptionPaymentData
         <div class="email-wrapper">
           <div class="header">
             <div class="logo-container">
-              <div class="header-title" style="font-size: 32px; font-weight: 700; color: #0B1220; letter-spacing: -1px;">A11ytest.ai</div>
+              <img src="${logoUrl}" alt="a11ytest.ai" class="logo-img" />
             </div>
             <div class="header-title" style="margin-top: 20px;">Subscription Payment Processed</div>
             <div class="header-subtitle">Thank you for your continued subscription</div>
@@ -627,7 +627,7 @@ export async function sendSubscriptionCancellationEmail(data: SubscriptionCancel
         <div class="email-wrapper">
           <div class="header">
             <div class="logo-container">
-              <div class="header-title" style="font-size: 32px; font-weight: 700; color: #0B1220; letter-spacing: -1px;">A11ytest.ai</div>
+              <img src="${logoUrl}" alt="a11ytest.ai" class="logo-img" />
             </div>
             <div class="header-title" style="margin-top: 20px;">Subscription Cancelled</div>
             <div class="header-subtitle">We're sorry to see you go</div>
@@ -1052,7 +1052,7 @@ export async function sendSubscriptionReactivationEmail(data: SubscriptionReacti
         <div class="email-wrapper">
           <div class="header">
             <div class="logo-container">
-              <div class="header-title" style="font-size: 32px; font-weight: 700; color: #0B1220; letter-spacing: -1px;">A11ytest.ai</div>
+              <img src="${logoUrl}" alt="a11ytest.ai" class="logo-img" />
             </div>
             <div class="header-title" style="margin-top: 20px;">Subscription Reactivated</div>
             <div class="header-subtitle">Your subscription is active again</div>

@@ -17,8 +17,13 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'AccessScan - Accessibility Testing Platform',
+  title: 'a11ytest.ai - Accessibility Testing Platform',
   description: 'Professional accessibility scanning and testing for your website',
+  icons: {
+    icon: '/allytest.png',
+    shortcut: '/allytest.png',
+    apple: '/allytest.png',
+  },
 }
 
 export default function RootLayout({

@@ -1,8 +1,25 @@
 import { Resend } from 'resend'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import { getEmailManageLinksFooterHtml, getEmailManageLinksFooterText, getAppBaseUrl, getManageBillingUrl, getProfileUrl } from './email-links'
 
 // Avoid crashing when key is missing (e.g. test mode); other services use same pattern
 const resend = new Resend(process.env.RESEND_API_KEY || 'dummy-key-for-development')
+
+// Get logo as base64 for email embedding (most reliable for email clients)
+function getLogoUrl(): string {
+  try {
+    // Try to load from local file first (more reliable)
+    const logoPath = join(process.cwd(), 'public', 'allytest.png')
+    const logoBuffer = readFileSync(logoPath)
+    const base64Logo = logoBuffer.toString('base64')
+    return `data:image/png;base64,${base64Logo}`
+  } catch (error) {
+    console.error('❌ Error loading local logo file, using Cloudinary URL:', error)
+    // Fallback to Cloudinary URL if local file not found
+    return 'https://res.cloudinary.com/dyzzpsxov/image/upload/v1764106136/allytest_vmuws6.png'
+  }
+}
 
 /** In test mode, send all verification emails to this address (e.g. your Resend account email). */
 const VERIFICATION_REDIRECT = process.env.RESEND_VERIFICATION_REDIRECT_EMAIL?.trim()
@@ -65,6 +82,8 @@ export class EmailService {
         console.warn('⚠️ Using onboarding@resend.dev – only the Resend account owner receives mail. Set RESEND_FROM_EMAIL to a verified address (e.g. onboarding@a11ytest.ai) for production.')
       }
 
+      const logoUrl = getLogoUrl()
+      
       const result = await resend.emails.send({
         from: FROM_EMAIL,
         to: [toAddress],
@@ -79,6 +98,8 @@ export class EmailService {
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
               .header { background: #06B6D4; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+              .logo-container { margin-bottom: 15px; }
+              .logo-img { max-width: 180px; height: auto; display: block; margin: 0 auto; background: white; padding: 10px; border-radius: 8px; }
               .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
               .verification-code { background: #0B1220; color: white; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 3px; border-radius: 8px; margin: 20px 0; }
               .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
@@ -87,6 +108,9 @@ export class EmailService {
           </head>
           <body>
             <div class="header">
+              <div class="logo-container">
+                <img src="${logoUrl}" alt="a11ytest.ai" class="logo-img" />
+              </div>
               <h1>Welcome to A11ytest.ai!</h1>
             </div>
             <div class="content">
@@ -164,6 +188,8 @@ export class EmailService {
         ? `${baseUrl}/accept-invitation?token=${invitationToken}`
         : `${baseUrl}/organization`
 
+      const logoUrl = getLogoUrl()
+      
       const result = await resend.emails.send({
         from: FROM_EMAIL,
         to: [email],
@@ -178,6 +204,8 @@ export class EmailService {
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
               .header { background: #06B6D4; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+              .logo-container { margin-bottom: 15px; }
+              .logo-img { max-width: 180px; height: auto; display: block; margin: 0 auto; background: white; padding: 10px; border-radius: 8px; }
               .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
               .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
               .button { display: inline-block; background: #06B6D4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
@@ -185,6 +213,9 @@ export class EmailService {
           </head>
           <body>
             <div class="header">
+              <div class="logo-container">
+                <img src="${logoUrl}" alt="a11ytest.ai" class="logo-img" />
+              </div>
               <h1>Organization Invitation</h1>
             </div>
             <div class="content">
@@ -262,6 +293,7 @@ export class EmailService {
       
       const billingText = billingPeriod === 'yearly' ? 'yearly' : 'monthly'
       const billingFrequency = billingPeriod === 'yearly' ? 'per year' : 'per month'
+      const logoUrl = getLogoUrl()
       
       const result = await resend.emails.send({
         from: FROM_EMAIL,
@@ -277,6 +309,8 @@ export class EmailService {
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
               .header { background: #06B6D4; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+              .logo-container { margin-bottom: 15px; }
+              .logo-img { max-width: 180px; height: auto; display: block; margin: 0 auto; background: white; padding: 10px; border-radius: 8px; }
               .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
               .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
               .info-box { background: white; border-left: 4px solid #06B6D4; padding: 15px; margin: 20px 0; }
@@ -285,6 +319,9 @@ export class EmailService {
           </head>
           <body>
             <div class="header">
+              <div class="logo-container">
+                <img src="${logoUrl}" alt="a11ytest.ai" class="logo-img" />
+              </div>
               <h1>Billing Confirmation</h1>
             </div>
             <div class="content">

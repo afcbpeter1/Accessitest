@@ -1,5 +1,7 @@
 # Install Chromium and deps for Puppeteer (page discovery, scans) on Railway.
 # See docs/RAILWAY-PUPPETEER.md for required env var.
+# Also installs Python and pip for PyMuPDF (PDF auto-fix functionality).
+# PyMuPDF will be installed by build.sh during the build process.
 
 [phases.setup]
 aptPkgs = [
@@ -19,5 +21,7 @@ aptPkgs = [
   "libxfixes3",
   "libxrandr2",
   "libxss1",
-  "xdg-utils"
+  "xdg-utils",
+  "python3",
+  "python3-pip"
 ]

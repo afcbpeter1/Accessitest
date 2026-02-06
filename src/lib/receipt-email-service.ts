@@ -258,7 +258,7 @@ export async function sendReceiptEmail(receiptData: ReceiptData) {
         <div class="email-wrapper">
           <div class="header">
             <div class="logo-container">
-              <div class="header-title" style="font-size: 32px; font-weight: 700; color: #0B1220; letter-spacing: -1px;">A11ytest.ai</div>
+              <img src="${logoUrl}" alt="a11ytest.ai" class="logo-img" />
             </div>
             <div class="header-title" style="margin-top: 20px;">Payment Receipt</div>
             <div class="header-subtitle">Thank you for your purchase</div>
