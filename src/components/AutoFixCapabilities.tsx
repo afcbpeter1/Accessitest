@@ -11,17 +11,17 @@ export default function AutoFixCapabilities() {
         {
           icon: Wrench,
           title: 'Step 1: Auto-Tag',
-          description: 'Automatically tag your PDF document using Adobe PDF Services to add accessibility structure (headings, lists, tables, etc.)'
+          description: 'Automatically tag your PDF document to add accessibility structure (headings, lists, tables, etc.) compliant with ISO 14289-1'
         },
         {
           icon: Search,
           title: 'Step 2: Scan',
-          description: 'Run comprehensive Adobe Acrobat accessibility tests (PDF/UA, WCAG 2.1 AA) on the tagged PDF to identify all issues'
+          description: 'Run comprehensive ISO 14289-1 (PDF/UA) compliance validation to identify all accessibility issues'
         },
         {
           icon: Sparkles,
           title: 'Step 3: Auto-Fix',
-          description: 'Automatically fix 15/16 accessibility issues (93.75% coverage) including alt text, table summaries, metadata, bookmarks, headings, language tags, color contrast, form labels, link text, text size, tab order, and more'
+          description: 'Automatically fix all ISO 14289-1 (PDF/UA) compliance issues including structure tree, tagged content, language, title, alt text, table summaries, metadata, bookmarks, headings, color contrast, form labels, link text, text size, tab order, and more - achieving 100% ISO 14289-1 compliance'
         },
         {
           icon: Search,

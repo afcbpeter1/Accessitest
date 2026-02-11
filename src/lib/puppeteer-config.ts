@@ -74,7 +74,26 @@ export async function getLaunchOptionsForServerAsync(
         ],
       }
     }
-    const chromium = (await import('@sparticuz/chromium')).default
+    // Only import @sparticuz/chromium on Linux when needed
+    // Use lazy require() with Function constructor to prevent webpack from analyzing at build time
+    // This code only runs on Linux servers, not during Windows builds
+    let chromium: any
+    try {
+      // Use Function constructor to create require() that webpack can't analyze
+      // This completely hides the module name from webpack's static analysis
+      const requireChromium = new Function('pkg', 'return require(pkg)')
+      const pkg1 = '@' + 'sparticuz'
+      const pkg2 = 'chromium'
+      const chromiumModule = requireChromium(pkg1 + '/' + pkg2)
+      chromium = chromiumModule.default || chromiumModule
+    } catch (importError: any) {
+      // @sparticuz/chromium not available - provide helpful error
+      const errorMsg = importError?.message || 'Unknown error'
+      throw new Error(
+        `No Chromium found on Linux. Install system Chromium (e.g. nixpacks apt chromium) or set PUPPETEER_EXECUTABLE_PATH. @sparticuz/chromium import failed: ${errorMsg}`
+      )
+    }
+    
     // Use process.cwd() for bin dir: require.resolve() is replaced with a numeric module id in the
     // Next.js server bundle, so path.dirname(require.resolve(...)) can throw ERR_INVALID_ARG_TYPE.
     const binDir = path.join(process.cwd(), 'node_modules', '@sparticuz', 'chromium', 'bin')

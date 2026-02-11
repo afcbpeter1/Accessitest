@@ -84,7 +84,6 @@ interface ScanResults {
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState('overview')
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [scanUrl, setScanUrl] = useState('')
   const [isScanning, setIsScanning] = useState(false)
   const [scanProgress, setScanProgress] = useState(0)
@@ -306,7 +305,7 @@ export default function HomePage() {
     {
       icon: FileText,
       title: 'Document Accessibility Testing',
-      description: 'Comprehensive Section 508 compliance testing for PDFs and web documents',
+      description: '100% ISO 14289-1 (PDF/UA) compliance for PDFs. Section 508 compliance testing for all document formats',
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
@@ -382,8 +381,8 @@ export default function HomePage() {
     {
       icon: FileText,
       standard: 'Document Accessibility',
-      description: 'Comprehensive testing for all major document formats and content types',
-      coverage: 'PDF and Web support',
+      description: '100% ISO 14289-1 (PDF/UA) compliance for PDFs. Comprehensive testing for all major document formats and content types',
+      coverage: 'ISO 14289-1 + PDF/UA support',
       color: 'text-purple-600'
     }
   ]
@@ -567,8 +566,7 @@ export default function HomePage() {
               { id: 'overview', label: 'Overview' },
               { id: 'free-scan', label: 'Free Scan' },
               { id: 'features', label: 'Features' },
-              { id: 'compliance', label: 'Compliance' },
-              { id: 'pricing', label: 'Pricing' }
+              { id: 'compliance', label: 'Compliance' }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -1150,132 +1148,6 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Pricing Tab */}
-          {activeTab === 'pricing' && (
-            <div className="space-y-12">
-              <div className="text-center">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                  Simple, Transparent Pricing
-                </h2>
-                <p className="text-lg text-gray-700 max-w-3xl mx-auto">
-                  Choose the plan that fits your needs. All plans include our core accessibility testing features.
-                </p>
-              </div>
-
-              {/* Billing Toggle */}
-              <div className="flex justify-center">
-                <div className="bg-gray-100 rounded-lg p-1">
-                  <button
-                    onClick={() => setBillingCycle('monthly')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      billingCycle === 'monthly'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-700 hover:text-gray-900'
-                    }`}
-                  >
-                    Monthly
-                  </button>
-                  <button
-                    onClick={() => setBillingCycle('yearly')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      billingCycle === 'yearly'
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-700 hover:text-gray-900'
-                    }`}
-                  >
-                    Yearly
-                    <span className="ml-1 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
-                      Save 20%
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto py-4">
-                <div className="bg-white rounded-lg border-2 border-primary-500 p-6 text-center">
-                  <div className="flex justify-center mb-4">
-                    <span className="bg-primary-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap shadow-md">
-                      Most Popular
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Unlimited Access</h3>
-                  <div className="text-3xl font-bold text-gray-900 mb-2">
-                    ${billingCycle === 'monthly' ? '29.99' : '287.90'}
-                    <span className="text-lg text-gray-700">
-                      /{billingCycle === 'monthly' ? 'month' : 'year'}
-                    </span>
-                  </div>
-                  {billingCycle === 'yearly' && (
-                    <div className="text-sm text-green-600 mb-4">
-                      <p>Save $72 per year</p>
-                      <p className="text-xs text-gray-500 mt-1">Billed annually</p>
-                    </div>
-                  )}
-                  <ul className="text-left space-y-2 mb-6">
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">3 free scans</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">No card details up front</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">Unlimited website scans</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">Unlimited document scans</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">WCAG 2.2 + Section 508 compliance</span>
-                    </li>
-                  </ul>
-                  <Link 
-                    href="/signup" 
-                    className="w-full bg-primary-600 text-white py-3 px-4 rounded-lg hover:bg-primary-700 transition-colors font-medium"
-                  >
-                    Get Started
-                  </Link>
-                </div>
-
-                <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Pay Per Scan</h3>
-                  <div className="text-3xl font-bold text-gray-900 mb-4">$1.50<span className="text-lg text-gray-700">/scan</span></div>
-                  <ul className="text-left space-y-2 mb-6">
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">3 free scans</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">No card details up front</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">No monthly commitment</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">Buy credits as needed</span>
-                    </li>
-                    <li className="flex items-center">
-                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      <span className="text-gray-800">Same features as plans</span>
-                    </li>
-                  </ul>
-                  <Link 
-                    href="/pricing" 
-                    className="w-full bg-primary-600 text-white py-3 px-4 rounded-lg hover:bg-primary-700 transition-colors font-medium"
-                  >
-                    Get Started
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </section>
 

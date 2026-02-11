@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
 
-# Install PyMuPDF if Python is available (for PDF auto-fix functionality)
-if command -v python3 &> /dev/null; then
-  echo "Installing PyMuPDF for PDF auto-fix..."
-  python3 -m pip install --user pymupdf>=1.23.0 2>/dev/null || \
-  pip3 install --break-system-packages pymupdf>=1.23.0 2>/dev/null || \
-  pip3 install pymupdf>=1.23.0 2>/dev/null || \
-  echo "⚠️  Warning: Could not install PyMuPDF. PDF auto-fix will be unavailable."
-fi
+    # Install PyMuPDF and pikepdf if Python is available (for PDF auto-tagging and structure element creation)
+    if command -v python3 &> /dev/null; then
+      echo "Installing PyMuPDF and pikepdf for PDF auto-tagging..."
+      python3 -m pip install --user pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
+      pip3 install --break-system-packages pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
+      pip3 install pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
+      echo "⚠️  Warning: Could not install PyMuPDF/pikepdf. PDF auto-tagging will be unavailable."
+    fi
 
 # Run Next.js build
 npm run build:next 2>&1 | tee build.log

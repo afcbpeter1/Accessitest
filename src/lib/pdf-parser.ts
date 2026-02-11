@@ -150,19 +150,22 @@ export class PDFParser {
       const form = pdfDoc.getForm()
       
       // Extract metadata from pdf-lib (more reliable for metadata)
+      // Language extraction uses Python script (pdf-lib doesn't expose /Lang key)
+      const language = await this.extractLanguage(pdfDoc, buffer)
+      
       const metadata = {
         title: pdfDoc.getTitle() || null,
         author: pdfDoc.getAuthor() || null,
         subject: pdfDoc.getSubject() || null,
         creator: pdfDoc.getCreator() || null,
         producer: pdfDoc.getProducer() || null,
-        language: this.extractLanguage(pdfDoc) || null,
+        language: language || null,
         creationDate: pdfDoc.getCreationDate() || null,
         modificationDate: pdfDoc.getModificationDate() || null,
       }
 
-      // Extract structure from text using pdf-parse result
-      const structure = this.extractDocumentStructure(pdfParseResult.text, pdfParseResult.numpages || pages.length)
+      // Extract structure from text using pdf-parse result (with font info from PyMuPDF)
+      const structure = await this.extractDocumentStructure(pdfParseResult.text, pdfParseResult.numpages || pages.length, buffer)
 
       // Extract images - skip pdfjs-dist (causes ES module errors), use fallback
       // Images will be detected from text analysis instead
@@ -434,6 +437,34 @@ export class PDFParser {
         
         const structureTree = result.structureTree || []
 
+        // Debug: Log structure tree extraction results
+        const countElements = (nodes: any[]): { total: number; content: number; withMCID: number } => {
+          let total = 0
+          let content = 0
+          let withMCID = 0
+          const traverse = (ns: any[]) => {
+            if (!ns || !Array.isArray(ns)) return
+            for (const node of ns) {
+              total++
+              const nodeType = (node.type || '').toUpperCase()
+              const isContent = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'TD', 'TH', 'FIGURE', 'SPAN'].includes(nodeType)
+              if (isContent) {
+                content++
+                if (node.mcid !== undefined || node.attributes?.MCID !== undefined || node.attributes?.mcid !== undefined) {
+                  withMCID++
+                }
+              }
+              if (node.children && Array.isArray(node.children)) {
+                traverse(node.children)
+              }
+            }
+          }
+          traverse(nodes)
+          return { total, content, withMCID }
+        }
+        const counts = countElements(structureTree)
+        console.log(`📊 Structure tree extraction: ${counts.total} total elements, ${counts.content} content elements, ${counts.withMCID} with MCID`)
+
         // Log language attributes found
         const findLanguages = (nodes: any[]): void => {
           for (const node of nodes) {
@@ -495,44 +526,156 @@ export class PDFParser {
 
   /**
    * Extract document structure from full text
+   * Uses PyMuPDF to get font information for better heading detection
    */
-  private extractDocumentStructure(text: string, totalPages: number): {
+  private async extractDocumentStructure(text: string, totalPages: number, buffer: Buffer): Promise<{
     headings: Array<{ level: number; text: string; page: number }>
     lists: Array<{ type: 'ordered' | 'unordered'; items: string[]; page: number }>
     tables: Array<{ rows: number; columns: number; hasHeaders: boolean; page: number }>
-  } {
+  }> {
     const headings: Array<{ level: number; text: string; page: number }> = []
     const lists: Array<{ type: 'ordered' | 'unordered'; items: string[]; page: number }> = []
     const tables: Array<{ rows: number; columns: number; hasHeaders: boolean; page: number }> = []
 
+    // Try to extract text blocks with font information using PyMuPDF
+    try {
+      const { exec } = require('child_process')
+      const { promisify } = require('util')
+      const execAsync = promisify(exec)
+      const fs = require('fs/promises')
+      const path = require('path')
+      const { tmpdir } = require('os')
+      
+      const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
+      const extractScriptPath = path.join(process.cwd(), 'scripts', 'extract-pdf-text-blocks.py')
+      
+      // Write PDF to temp file
+      const tempDir = tmpdir()
+      const tempPdfPath = path.join(tempDir, `text-blocks-${Date.now()}.pdf`)
+      await fs.writeFile(tempPdfPath, buffer)
+      
+      try {
+        const { stdout } = await execAsync(`${pythonCmd} "${extractScriptPath}" "${tempPdfPath}"`, {
+          maxBuffer: 10 * 1024 * 1024
+        })
+        
+        const result = JSON.parse(stdout.trim())
+        if (result.success && result.textBlocks) {
+          // Analyze font sizes to determine heading levels
+          const fontSizes = result.textBlocks.map((b: any) => b.fontSize).filter((s: number) => s > 0)
+          const avgFontSize = fontSizes.length > 0 ? fontSizes.reduce((a: number, b: number) => a + b, 0) / fontSizes.length : 12
+          const maxFontSize = Math.max(...fontSizes, 12)
+          
+          // Group text blocks by page and Y position (top to bottom)
+          const blocksByPage: { [page: number]: any[] } = {}
+          result.textBlocks.forEach((block: any) => {
+            if (!blocksByPage[block.page]) {
+              blocksByPage[block.page] = []
+            }
+            blocksByPage[block.page].push(block)
+          })
+          
+          // Sort blocks by Y position (top to bottom) within each page
+          Object.keys(blocksByPage).forEach(pageNum => {
+            blocksByPage[parseInt(pageNum)].sort((a: any, b: any) => a.y - b.y)
+          })
+          
+          // Detect headings based on font size, bold, and position
+          Object.keys(blocksByPage).forEach(pageNum => {
+            const pageBlocks = blocksByPage[parseInt(pageNum)]
+            let previousHeadingLevel = 0
+            
+            pageBlocks.forEach((block: any) => {
+              const blockText = block.text.trim()
+              if (!blockText || blockText.length < 2 || blockText.length > 200) {
+                return
+              }
+              
+              // Skip if it looks like regular paragraph text
+              if (blockText.length > 100 && block.fontSize <= avgFontSize) {
+                return
+              }
+              
+              // Determine heading level based on font size
+              let level = 1
+              if (block.fontSize >= maxFontSize * 0.9) {
+                level = 1 // Largest text = H1
+              } else if (block.fontSize >= maxFontSize * 0.75) {
+                level = 2
+              } else if (block.fontSize >= maxFontSize * 0.6) {
+                level = 3
+              } else if (block.fontSize >= avgFontSize * 1.2) {
+                level = 4
+              } else if (block.fontSize >= avgFontSize * 1.1) {
+                level = 5
+              } else if (block.fontSize > avgFontSize) {
+                level = 6
+              } else {
+                // Not a heading if font size is average or smaller
+                return
+              }
+              
+              // Additional checks: bold text or short lines are more likely headings
+              const isLikelyHeading = block.isBold || blockText.length < 80
+              
+              if (isLikelyHeading) {
+                // Ensure heading hierarchy (don't skip levels)
+                if (previousHeadingLevel > 0 && level > previousHeadingLevel + 1) {
+                  level = previousHeadingLevel + 1
+                }
+                previousHeadingLevel = level
+                
+                headings.push({
+                  level: Math.min(level, 6), // Cap at H6
+                  text: blockText,
+                  page: parseInt(pageNum)
+                })
+              }
+            })
+          })
+        }
+      } catch (error) {
+        // Fall back to text-based detection if Python script fails
+        console.warn('⚠️ PyMuPDF text block extraction failed, using text-based detection:', error)
+      } finally {
+        await fs.unlink(tempPdfPath).catch(() => {})
+      }
+    } catch (error) {
+      // Fall back to text-based detection
+      console.warn('⚠️ Text block extraction failed, using text-based detection:', error)
+    }
+
+    // Fallback: text-based detection if PyMuPDF extraction failed or found no headings
+    // Define lines at function level for list/table detection
     const lines = text.split('\n').filter(line => line.trim().length > 0)
     const linesPerPage = Math.ceil(lines.length / totalPages)
 
-    // Detect headings (all caps, short lines, or lines with specific patterns)
-    lines.forEach((line, index) => {
-      const trimmed = line.trim()
-      const pageNumber = Math.floor(index / linesPerPage) + 1
-      
-      // Check for heading patterns
-      if (trimmed.length < 100 && trimmed.length > 3) {
-        // All caps likely heading
-        if (trimmed === trimmed.toUpperCase() && trimmed.match(/^[A-Z\s]+$/)) {
-          headings.push({
-            level: 1, // Default level
-            text: trimmed,
-            page: pageNumber,
-          })
+    if (headings.length === 0) {
+      lines.forEach((line, index) => {
+        const trimmed = line.trim()
+        const pageNumber = Math.floor(index / linesPerPage) + 1
+        
+        // Check for heading patterns
+        if (trimmed.length < 100 && trimmed.length > 3) {
+          // All caps likely heading
+          if (trimmed === trimmed.toUpperCase() && trimmed.match(/^[A-Z\s]+$/)) {
+            headings.push({
+              level: 1,
+              text: trimmed,
+              page: pageNumber,
+            })
+          }
+          // Numbered headings (1. Title, 2. Title, etc.)
+          else if (trimmed.match(/^\d+\.\s+[A-Z]/)) {
+            headings.push({
+              level: 2,
+              text: trimmed,
+              page: pageNumber,
+            })
+          }
         }
-        // Numbered headings (1. Title, 2. Title, etc.)
-        else if (trimmed.match(/^\d+\.\s+[A-Z]/)) {
-          headings.push({
-            level: 2,
-            text: trimmed,
-            page: pageNumber,
-          })
-        }
-      }
-    })
+      })
+    }
 
     // Detect lists
     const listItems: string[] = []
@@ -714,12 +857,44 @@ export class PDFParser {
 
   /**
    * Extract language from PDF metadata
+   * Uses Python script to properly read /Lang from PDF catalog (pdf-lib doesn't expose this)
    */
-  private extractLanguage(doc: PDFDocument): string | null {
+  private async extractLanguage(doc: PDFDocument, buffer: Buffer): Promise<string | null> {
     try {
-      // Language is stored in the document catalog's Lang key
-      // pdf-lib doesn't directly expose this, but we can access it via the PDFDocument's internal structure
-      // Try to get language from document catalog
+      // Try Python script first (more reliable for /Lang key)
+      const { exec } = require('child_process')
+      const { promisify } = require('util')
+      const execAsync = promisify(exec)
+      const fs = require('fs/promises')
+      const path = require('path')
+      const { tmpdir } = require('os')
+      
+      const pythonCmd = process.platform === 'win32' ? 'python' : 'python3'
+      const extractScriptPath = path.join(process.cwd(), 'scripts', 'extract-pdf-language.py')
+      
+      // Write PDF to temp file
+      const tempDir = tmpdir()
+      const tempPdfPath = path.join(tempDir, `lang-extract-${Date.now()}.pdf`)
+      await fs.writeFile(tempPdfPath, buffer)
+      
+      try {
+        const { stdout } = await execAsync(`${pythonCmd} "${extractScriptPath}" "${tempPdfPath}"`, {
+          maxBuffer: 1024 * 1024
+        })
+        
+        const result = JSON.parse(stdout.trim())
+        if (result.success && result.language) {
+          return result.language
+        }
+      } catch (error) {
+        // Python script failed, fall back to pdf-lib attempt
+        console.warn('⚠️ Python language extraction failed, trying pdf-lib fallback:', error)
+      } finally {
+        // Cleanup temp file
+        await fs.unlink(tempPdfPath).catch(() => {})
+      }
+      
+      // Fallback: Try pdf-lib (may not work for /Lang key)
       const context = (doc as any).context
       if (!context || !context.trailerInfo || !context.trailerInfo.Root) {
         return null

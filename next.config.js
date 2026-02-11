@@ -45,12 +45,20 @@ const nextConfig = {
       }
     }
     
-    // Also mark as external in webpack for compatibility
+    // Mark packages as external to prevent webpack from trying to bundle them
     config.externals = config.externals || []
     if (isServer) {
       config.externals.push('pdf-parse')
       // Mark pdfjs-dist as external - it will be loaded at runtime via dynamic import
       config.externals.push('pdfjs-dist')
+      // Mark @sparticuz/chromium as external using function form
+      // This prevents webpack from analyzing require() calls with string concatenation
+      config.externals.push(({ request }, callback) => {
+        if (request && (request === '@sparticuz/chromium' || request.includes('@sparticuz/chromium'))) {
+          return callback(null, `commonjs ${request}`)
+        }
+        callback()
+      })
     }
     
     return config
@@ -58,4 +66,3 @@ const nextConfig = {
 }
 
 module.exports = nextConfig
-

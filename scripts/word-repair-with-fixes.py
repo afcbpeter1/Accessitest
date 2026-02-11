@@ -502,34 +502,160 @@ def repair_word_document(input_path: str, output_path: str, fixes: dict):
             return False
 
 
+def validate_docx_file(file_path: str) -> bool:
+    """
+    Validate that file is actually a .docx by checking magic number (ZIP signature)
+    Prevents file spoofing attacks
+    """
+    try:
+        with open(file_path, 'rb') as f:
+            header = f.read(4)
+            # .docx files are ZIP archives - check for ZIP magic number (PK..)
+            if header[0] != 0x50 or header[1] != 0x4B or header[2] != 0x03 or header[3] != 0x04:
+                return False
+        return True
+    except Exception:
+        return False
+
+
+def sanitize_path(file_path: str) -> str:
+    """
+    Sanitize file path to prevent directory traversal attacks
+    """
+    import os
+    # Normalize path (removes .. and .)
+    normalized = os.path.normpath(file_path)
+    
+    # Check for path traversal attempts after normalization
+    if '..' in normalized:
+        raise ValueError(f"Invalid file path: {file_path} (path traversal attempt detected)")
+    
+    return normalized
+
+
 def main():
+    import os
+    import tempfile
+    import shutil
+    import atexit
+    
     parser = argparse.ArgumentParser(description='Repair Word document with accessibility fixes')
     parser.add_argument('--input', required=True, help='Input Word document path')
     parser.add_argument('--output', required=True, help='Output Word document path')
     parser.add_argument('--fixes', required=True, help='JSON file with fixes to apply')
+    parser.add_argument('--title', help='Document title')
+    parser.add_argument('--language', help='Document language (ISO code)')
+    parser.add_argument('--author', help='Document author')
     
     args = parser.parse_args()
+    
+    # CRITICAL: Sanitize and validate input paths (prevent path traversal attacks)
+    try:
+        input_path = sanitize_path(args.input)
+        output_path = sanitize_path(args.output)
+        fixes_path = sanitize_path(args.fixes)
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+    
+    # CRITICAL: Validate that input file is actually a .docx (prevent file spoofing)
+    if not os.path.exists(input_path):
+        print(f"ERROR: Input file does not exist: {input_path}", file=sys.stderr)
+        sys.exit(1)
+    
+    if not validate_docx_file(input_path):
+        print(f"ERROR: Input file is not a valid .docx (magic number check failed): {input_path}", file=sys.stderr)
+        print(f"ERROR: This may be a file spoofing attack - file has .docx extension but is not a ZIP archive", file=sys.stderr)
+        sys.exit(1)
+    
+    # CRITICAL: Create secure temp directory (not in output directory)
+    # This prevents file spoofing and ensures cleanup
+    temp_dir = tempfile.mkdtemp(prefix='word_repair_', suffix='_secure')
+    
+    # Register cleanup function to ensure temp directory is deleted even on crash
+    def cleanup_temp_dir():
+        if os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            except:
+                pass
+    atexit.register(cleanup_temp_dir)
+    
+    print(f"INFO: Created secure temp directory: {temp_dir}", file=sys.stderr)
     
     # Read fixes from JSON file
     try:
         # Try utf-8-sig first (handles BOM), fall back to utf-8
         try:
-            with open(args.fixes, 'r', encoding='utf-8-sig') as f:
+            with open(fixes_path, 'r', encoding='utf-8-sig') as f:
                 fixes = json.load(f)
         except UnicodeDecodeError:
-            with open(args.fixes, 'r', encoding='utf-8') as f:
+            with open(fixes_path, 'r', encoding='utf-8') as f:
                 fixes = json.load(f)
     except Exception as e:
         print(f"ERROR: Failed to read fixes file: {str(e)}", file=sys.stderr)
+        # Cleanup temp directory
+        cleanup_temp_dir()
         sys.exit(1)
     
-    # Repair the document
-    success = repair_word_document(args.input, args.output, fixes)
+    # Override metadata from command line arguments if provided
+    if not fixes.get('metadata'):
+        fixes['metadata'] = {}
+    if args.title:
+        fixes['metadata']['title'] = args.title
+    if args.language:
+        fixes['metadata']['language'] = args.language
+    if args.author:
+        fixes['metadata']['author'] = args.author
     
-    if not success:
+    # Use temp directory for intermediate processing
+    temp_output = os.path.join(temp_dir, 'repaired.docx')
+    
+    try:
+        # Repair the document
+        success = repair_word_document(input_path, temp_output, fixes)
+        
+        if not success:
+            cleanup_temp_dir()
+            sys.exit(1)
+        
+        # CRITICAL: Verify temp file before moving
+        if not os.path.exists(temp_output):
+            print(f"ERROR: Repaired file was not created: {temp_output}", file=sys.stderr)
+            cleanup_temp_dir()
+            sys.exit(1)
+        
+        # Verify it's still a valid .docx
+        if not validate_docx_file(temp_output):
+            print(f"ERROR: Repaired file is not a valid .docx: {temp_output}", file=sys.stderr)
+            cleanup_temp_dir()
+            sys.exit(1)
+        
+        # Move verified file to final location
+        try:
+            shutil.move(temp_output, output_path)
+            print(f"INFO: Repaired document saved to: {output_path}", file=sys.stderr)
+        except (PermissionError, OSError) as move_error:
+            # Windows file locking - try copy + delete instead
+            print(f"WARNING: Move failed ({move_error}), trying copy instead...", file=sys.stderr)
+            shutil.copy2(temp_output, output_path)
+            try:
+                os.remove(temp_output)
+            except:
+                pass
+            print(f"INFO: Repaired document saved (via copy): {output_path}", file=sys.stderr)
+        
+        print("SUCCESS: Word document repaired", file=sys.stderr)
+        
+    except Exception as e:
+        print(f"ERROR: Repair failed: {str(e)}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        cleanup_temp_dir()
         sys.exit(1)
-    
-    print("SUCCESS: Word document repaired")
+    finally:
+        # Always clean up temp directory
+        cleanup_temp_dir()
 
 
 if __name__ == '__main__':

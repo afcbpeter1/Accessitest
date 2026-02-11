@@ -1,0 +1,86 @@
+﻿python : \U0001f50d Validating PDF/UA compliance: Introduction-to-Research.pdf
+At C:\Users\kirby\AppData\Local\Temp\ps-script-7231783c-8c02-4740-8690-a5c65e9303ea.ps1:90 char:32
++ ... ccessitest; python scripts/validate-pdf-ua.py "Introduction-to-Resear ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (\U0001f50d Vali...to-Research.pdf:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+{
+  "pdf_path": "Introduction-to-Research.pdf",
+  "iso_14289_1_compliant": false,
+  "checks": {
+    "Tagged PDF": {
+      "passed": false,
+      "details": {
+        "structTreeRoot_exists": false,
+        "pymupdf_is_tagged": true
+      }
+    },
+    "Primary Language": {
+      "passed": true,
+      "details": {
+        "language": "en-IN",
+        "language_type": "Object"
+      }
+    },
+    "Document Title": {
+      "passed": true,
+      "details": {
+        "title_metadata": "MCLR PDF CH1",
+        "has_title_info": false,
+        "has_title_metadata": true
+      }
+    },
+    "Tagged Content": {
+      "passed": false,
+      "details": {
+        "total_pages": 14,
+        "pages_with_tags": 14,
+        "total_content_elements": 226
+      }
+    },
+    "Tab Order": {
+      "passed": false,
+      "details": {}
+    },
+    "Alternate Text": {
+      "passed": false,
+      "details": {
+        "total_images": 31
+      }
+    },
+    "Structure Tree": {
+      "passed": false,
+      "details": {}
+    },
+    "MarkInfo/Marked": {
+      "passed": false,
+      "details": {}
+    },
+    "MCID Linking": {
+      "passed": false,
+      "details": {}
+    },
+    "Reading Order": {
+      "passed": false,
+      "details": {}
+    }
+  },
+  "issues": [
+    "CRITICAL: Tagged PDF - StructTreeRoot missing",
+    "CRITICAL: Tagged Content - StructTreeRoot missing",
+    "CRITICAL: Tab Order - StructTreeRoot missing",
+    "CRITICAL: Structure Tree - StructTreeRoot missing",
+    "CRITICAL: MarkInfo/Marked - MarkInfo missing",
+    "CRITICAL: Reading Order - StructTreeRoot missing"
+  ],
+  "warnings": [],
+  "summary": {
+    "total_checks": 10,
+    "passed": 2,
+    "failed": 8,
+    "critical_issues": 6,
+    "warnings": 0
+  }
+}

@@ -836,18 +836,13 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                 const fileSize = checkResult.fileSize || 0
                 const isScanned = checkResult.isScanned || false
                 
-                // Adobe PDF Services API limits
-                const ADOBE_STANDARD_PAGE_LIMIT = 400
-                const ADOBE_SCANNED_PAGE_LIMIT = 150
-                const ADOBE_FILE_SIZE_LIMIT = 100 * 1024 * 1024 // 100MB
-                
-                const pageLimit = isScanned ? ADOBE_SCANNED_PAGE_LIMIT : ADOBE_STANDARD_PAGE_LIMIT
-                const pdfType = isScanned ? 'scanned' : 'standard'
+                // File size limit only (for performance) - no page limit needed
+                const FILE_SIZE_LIMIT = 50 * 1024 * 1024 // 50MB
                 
                 // Check file size
-                if (fileSize > ADOBE_FILE_SIZE_LIMIT) {
+                if (fileSize > FILE_SIZE_LIMIT) {
                   const fileSizeMB = Math.round(fileSize / (1024 * 1024))
-                  addScanLog(`❌ PDF exceeds file size limit: ${fileSizeMB}MB (maximum: 100MB)`)
+                  addScanLog(`❌ PDF exceeds file size limit: ${fileSizeMB}MB (maximum: ${Math.round(FILE_SIZE_LIMIT / (1024 * 1024))}MB)`)
                   addScanLog(`💡 Please compress the PDF or split it into smaller documents`)
                   
                   setUploadedDocuments(prev => 
@@ -856,7 +851,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                         ? { 
                             ...doc, 
                             status: 'error', 
-                            error: `PDF exceeds file size limit (${fileSizeMB}MB, max 100MB)` 
+                            error: `PDF exceeds file size limit (${fileSizeMB}MB, max ${Math.round(FILE_SIZE_LIMIT / (1024 * 1024))}MB)` 
                           }
                         : doc
                     )
@@ -864,25 +859,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                   continue // Skip this file
                 }
                 
-                // Check page count
-                if (pageCount > pageLimit) {
-                  addScanLog(`❌ PDF exceeds page limit: ${pageCount} pages (maximum: ${pageLimit} pages for ${pdfType} PDFs)`)
-                  addScanLog(`💡 Please split the PDF into smaller documents (under ${pageLimit} pages each)`)
-                  
-                  setUploadedDocuments(prev => 
-                    prev.map(doc => 
-                      doc.id === documentId 
-                        ? { 
-                            ...doc, 
-                            status: 'error', 
-                            error: `PDF exceeds page limit (${pageCount} pages, max ${pageLimit} for ${pdfType} PDFs)` 
-                          }
-                        : doc
-                    )
-                  )
-                  continue // Skip this file
-                }
-                
+                // No page limit - we can process any size PDF now
+                const pdfType = isScanned ? 'scanned' : 'standard'
                 addScanLog(`PDF validated: ${pageCount} pages (${pdfType} PDF)`)
               } else {
                 // If check fails, log warning but continue (server will check again)
@@ -1916,7 +1894,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                         </button>
                         {(document.scanResults as any)?.autoFixed ? (
                           <p className="text-xs text-gray-500 mt-1">
-                            Layout preserved - only accessibility metadata was modified
+                            Layout preserved - accessibility fixes applied: structure tags, metadata, content linking, color contrast, and text sizing improvements
                           </p>
                         ) : (document.type?.includes('word') || document.type?.includes('document') || 
                              document.name?.toLowerCase().endsWith('.docx') || 
@@ -1926,7 +1904,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                           </p>
                         ) : (
                           <p className="text-xs text-gray-500 mt-1">
-                            This PDF has been automatically tagged for accessibility by Adobe PDF Services
+                            This PDF has been automatically tagged for accessibility
                           </p>
                         )}
                       </div>
@@ -2064,136 +2042,6 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                       </div>
                     )}
 
-                    {/* Debug: Show if detailedReport is missing */}
-                    {!document.scanResults.detailedReport && (
-                      <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-sm text-yellow-800">
-                          ⚠️ Detailed report not available. Check console logs for report download status.
-                        </p>
-                        <p className="text-xs text-yellow-700 mt-1">
-                          Report structure: {JSON.stringify(Object.keys(document.scanResults || {}))}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Detailed Acrobat-Style Report */}
-                    {document.scanResults.detailedReport && (
-                      <div className="mt-6 border border-gray-300 rounded-lg bg-white">
-                        <div className="p-4 bg-gray-50 border-b border-gray-300">
-                          <h2 className="text-lg font-semibold text-gray-900 mb-2">Accessibility Report</h2>
-                          <div className="text-sm text-gray-600 space-y-1">
-                            <div><strong>Filename:</strong> {document.scanResults.detailedReport.filename}</div>
-                            <div><strong>Report created by:</strong> {document.scanResults.detailedReport.reportCreatedBy}</div>
-                            <div><strong>Organization:</strong> {document.scanResults.detailedReport.organization}</div>
-                            {document.scanResults.detailedReport.autoTagged && (
-                              <div className="text-xs text-blue-600 mt-2">
-                                ✓ Document was auto-tagged by Adobe PDF Services
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Summary */}
-                        <div className="p-4 border-b border-gray-200">
-                          <h3 className="font-semibold text-gray-900 mb-3">Summary</h3>
-                          <p className="text-sm text-gray-700 mb-3">
-                            The checker found problems which may prevent the document from being fully accessible.
-                          </p>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                            <div>
-                              <span className="text-gray-600">Needs manual check:</span>
-                              <span className="ml-2 font-semibold text-blue-600">
-                                {document.scanResults.detailedReport.summary.needsManualCheck}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Passed manually:</span>
-                              <span className="ml-2 font-semibold text-gray-700">
-                                {document.scanResults.detailedReport.summary.passedManually}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Failed manually:</span>
-                              <span className="ml-2 font-semibold text-gray-700">
-                                {document.scanResults.detailedReport.summary.failedManually}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Skipped:</span>
-                              <span className="ml-2 font-semibold text-gray-700">
-                                {document.scanResults.detailedReport.summary.skipped}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Passed:</span>
-                              <span className="ml-2 font-semibold text-green-600">
-                                {document.scanResults.detailedReport.summary.passed}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Failed:</span>
-                              <span className="ml-2 font-semibold text-red-600">
-                                {document.scanResults.detailedReport.summary.failed}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Detailed Report by Category */}
-                        <div className="p-4">
-                          <h3 className="font-semibold text-gray-900 mb-4">Detailed Report</h3>
-                          <div className="space-y-6">
-                            {Object.entries(document.scanResults.detailedReport.categories).map(([categoryName, checks]) => (
-                              <div key={categoryName} className="border border-gray-200 rounded-lg">
-                                <div className="p-3 bg-gray-50 border-b border-gray-200">
-                                  <h4 className="font-semibold text-gray-900">{categoryName}</h4>
-                                </div>
-                                <div className="overflow-x-auto">
-                                  <table className="w-full text-sm">
-                                    <thead className="bg-gray-50">
-                                      <tr>
-                                        <th className="px-4 py-2 text-left font-semibold text-gray-700 border-b border-gray-200">Rule Name</th>
-                                        <th className="px-4 py-2 text-left font-semibold text-gray-700 border-b border-gray-200">Status</th>
-                                        <th className="px-4 py-2 text-left font-semibold text-gray-700 border-b border-gray-200">Description</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {checks.map((check, index) => (
-                                        <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                                          <td className="px-4 py-2 text-gray-900">{check.ruleName}</td>
-                                          <td className="px-4 py-2">
-                                            <span className={`px-2 py-1 text-xs rounded font-medium ${
-                                              check.status === 'Failed' ? 'bg-red-100 text-red-800' :
-                                              check.status === 'Needs manual check' ? 'bg-blue-100 text-blue-800' :
-                                              check.status === 'Skipped' ? 'bg-gray-100 text-gray-800' :
-                                              'bg-green-100 text-green-800'
-                                            }`}>
-                                              {check.status}
-                                            </span>
-                                            {check.page && (
-                                              <span className="ml-2 text-xs text-gray-500">Page {check.page}</span>
-                                            )}
-                                          </td>
-                                          <td className="px-4 py-2 text-gray-700">
-                                            {check.description}
-                                            {check.location && (
-                                              <div className="text-xs text-gray-500 mt-1">Location: {check.location}</div>
-                                            )}
-                                            {check.elementId && (
-                                              <div className="text-xs text-gray-500">Element ID: {check.elementId}</div>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 )}
 

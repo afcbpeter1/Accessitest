@@ -1,0 +1,12 @@
+﻿{
+  "pdf_path": "Introduction-to-Research.pdf",
+  "has_struct_tree_root": false,
+  "has_document_wrapper": false,
+  "document_wrapper_is_first": false,
+  "document_has_children": false,
+  "structure_hierarchy": null,
+  "issues": [
+    "CRITICAL: StructTreeRoot missing"
+  ],
+  "passed": false
+}

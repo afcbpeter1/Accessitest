@@ -152,7 +152,7 @@ export default function TermsOfServicePage() {
                   <li><strong>File Formats:</strong> Currently supports PDF documents only</li>
                   <li><strong>Scan Accuracy:</strong> While we strive for accuracy, automated scans may not catch all accessibility issues</li>
                   <li><strong>Service Availability:</strong> We do not guarantee 100% uptime and may perform maintenance</li>
-                  <li><strong>Third-Party Services:</strong> Service depends on third-party APIs (Adobe, Anthropic) which may have their own limitations</li>
+                  <li><strong>Third-Party Services:</strong> Service depends on third-party APIs (Anthropic) which may have their own limitations</li>
                 </ul>
               </div>
             </section>

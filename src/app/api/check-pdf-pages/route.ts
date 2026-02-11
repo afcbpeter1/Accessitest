@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
+import { validatePDFFile } from '@/lib/file-security-validator'
 
 /**
  * Quick PDF page count check endpoint
  * Used to validate PDFs before upload/scan
+ * Includes security validation to prevent file spoofing attacks
  */
 export async function POST(request: NextRequest) {
   try {
@@ -20,32 +22,35 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Only process PDFs
-    if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
-      return NextResponse.json(
-        { success: false, error: 'File is not a PDF' },
-        { status: 400 }
-      )
-    }
-    
     // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer()
     const fileBuffer = Buffer.from(arrayBuffer)
     
-    // Adobe PDF Services API limits
-    const ADOBE_STANDARD_PAGE_LIMIT = 400
-    const ADOBE_SCANNED_PAGE_LIMIT = 150
-    const ADOBE_FILE_SIZE_LIMIT = 100 * 1024 * 1024 // 100MB
+    // CRITICAL: Validate PDF file (prevents file spoofing)
+    // Checks: file name, size, extension, and actual file content (magic number)
+    const FILE_SIZE_LIMIT = 50 * 1024 * 1024 // 50MB
+    const validation = validatePDFFile(fileBuffer, file.name, file.type, FILE_SIZE_LIMIT)
+    
+    if (!validation.valid) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: validation.error || 'Invalid PDF file',
+          details: validation.details
+        },
+        { status: 400 }
+      )
+    }
     
     // Check file size first
-    if (fileBuffer.length > ADOBE_FILE_SIZE_LIMIT) {
+    if (fileBuffer.length > FILE_SIZE_LIMIT) {
       return NextResponse.json(
         { 
           success: false, 
           error: `PDF exceeds file size limit`,
-          details: `This PDF is ${Math.round(fileBuffer.length / (1024 * 1024))}MB, but Adobe PDF Services supports a maximum of ${Math.round(ADOBE_FILE_SIZE_LIMIT / (1024 * 1024))}MB for auto-tagging and accessibility checking.`,
+          details: `This PDF is ${Math.round(fileBuffer.length / (1024 * 1024))}MB, but the maximum file size for document scanning is ${Math.round(FILE_SIZE_LIMIT / (1024 * 1024))}MB.`,
           fileSize: fileBuffer.length,
-          maxFileSize: ADOBE_FILE_SIZE_LIMIT,
+          maxFileSize: FILE_SIZE_LIMIT,
           suggestion: 'Please compress the PDF or split it into smaller documents to reduce file size.'
         },
         { status: 400 }
@@ -68,34 +73,14 @@ export async function POST(request: NextRequest) {
       // Also check if file size is large but text is small (indicates image-heavy/scanned)
       const isScanned = avgTextPerPage < 100 || (fileBuffer.length > 1024 * 1024 && textToSizeRatio < 0.01)
       
-      const pageLimit = isScanned ? ADOBE_SCANNED_PAGE_LIMIT : ADOBE_STANDARD_PAGE_LIMIT
-      
-      // Check page count
-      if (pageCount > pageLimit) {
-        const pdfType = isScanned ? 'scanned' : 'standard'
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: `PDF exceeds page limit`,
-            details: `This ${pdfType} PDF has ${pageCount} pages, but Adobe PDF Services supports a maximum of ${pageLimit} pages for ${pdfType} PDFs during auto-tagging and accessibility checking.`,
-            pageCount: pageCount,
-            maxPages: pageLimit,
-            pdfType: pdfType,
-            isScanned: isScanned,
-            suggestion: `Please split the PDF into smaller documents (under ${pageLimit} pages each) or use our manual accessibility checker for larger documents.`
-          },
-          { status: 400 }
-        )
-      }
-      
+      // No page limit - we can process any size PDF now
       return NextResponse.json({
         success: true,
         pageCount: pageCount,
         fileName: file.name,
         fileSize: fileBuffer.length,
         isScanned: isScanned,
-        pdfType: isScanned ? 'scanned' : 'standard',
-        maxPages: pageLimit
+        pdfType: isScanned ? 'scanned' : 'standard'
       })
     } catch (parseError: any) {
       console.error('Error parsing PDF:', parseError)

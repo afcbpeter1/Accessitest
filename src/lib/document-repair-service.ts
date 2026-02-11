@@ -1,6 +1,7 @@
 import { PDFDocument, PDFPage, PDFImage, rgb } from 'pdf-lib'
 import { ClaudeAPI } from './claude-api'
 import { PyMuPDFWrapper, PDFStructureFix } from './pymupdf-wrapper'
+import { WordRepairWrapper, WordStructureFix } from './word-repair-wrapper'
 import { getAdobePDFServices, AdobePDFServices } from './adobe-pdf-services'
 import * as fs from 'fs/promises'
 import * as path from 'path'
@@ -97,6 +98,7 @@ export interface DocumentIssue {
 export class DocumentRepairService {
   private claudeAPI: ClaudeAPI
   private pymupdfWrapper: PyMuPDFWrapper | null = null
+  private wordRepairWrapper: WordRepairWrapper | null = null
   private adobePDFServices: AdobePDFServices | null
 
   constructor() {
@@ -107,6 +109,13 @@ export class DocumentRepairService {
     } catch (error) {
       console.warn(' PyMuPDF wrapper not available:', error)
       this.pymupdfWrapper = null
+    }
+    // Initialize Word repair wrapper
+    try {
+      this.wordRepairWrapper = new WordRepairWrapper()
+    } catch (error) {
+      console.warn(' Word repair wrapper not available:', error)
+      this.wordRepairWrapper = null
     }
     // Initialize Adobe PDF Services if configured
     this.adobePDFServices = getAdobePDFServices()
