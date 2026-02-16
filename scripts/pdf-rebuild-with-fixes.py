@@ -442,7 +442,7 @@ Keep alt text concise (under 125 characters each)."""
             json_str = response_text.split("```")[1].split("```")[0].strip()
             if json_str.startswith("json"):
                 json_str = json_str[4:].strip()
-                    else:
+        else:
             json_str = response_text.strip()
         
         alt_texts = json.loads(json_str)
@@ -615,7 +615,7 @@ def audit_logical_reading_order(pdf_path):
         
         return issues
         
-                                except Exception as e:
+    except Exception as e:
         print(f"[WARN] Could not audit reading order: {e}")
         return []
 
@@ -685,7 +685,7 @@ def tag_page_content(pdf, builder, page_num, fixes_for_page=None, image_alt_text
                     if image_counter is not None:
                         image_counter[0] += 1
                         global_image_index = image_counter[0]
-                        else:
+                    else:
                         global_image_index = image_count
                     
                     # Check if this image was already handled by a fix
@@ -701,7 +701,7 @@ def tag_page_content(pdf, builder, page_num, fixes_for_page=None, image_alt_text
                         image_key = str(global_image_index)
                         if image_alt_texts and image_key in image_alt_texts:
                             alt_text = image_alt_texts[image_key]
-                            else:
+                        else:
                             alt_text = f'Image {image_count} on page {page_num + 1}'
                         
                         # Create Figure element with alt text
@@ -849,7 +849,7 @@ def add_alt_text_to_elements(pdf):
     
     if annotations_fixed > 0:
         print(f"\n[OK] Fixed {annotations_fixed} annotation(s)")
-                else:
+    else:
         print(f"\n[INFO] No annotations found in document")
     
     return annotations_fixed
@@ -870,11 +870,11 @@ def extract_annotation_info(pdf_path):
             
             annots = page.Annots
             if not isinstance(annots, Array):
-                                continue
+                continue
             
             for idx, annot_ref in enumerate(annots):
-                                            try:
-                                                annot = pdf.get_object(annot_ref.objgen) if hasattr(annot_ref, 'objgen') else annot_ref
+                try:
+                    annot = pdf.get_object(annot_ref.objgen) if hasattr(annot_ref, 'objgen') else annot_ref
                     
                     if not isinstance(annot, Dictionary):
                         continue
@@ -901,8 +901,8 @@ def extract_annotation_info(pdf_path):
                     
                     annotation_data["annotations"].append(annot_info)
                     
-                                            except Exception as e:
-                                                continue
+                except Exception as e:
+                    continue
         
         return annotation_data
 
@@ -979,13 +979,13 @@ Keep descriptions concise (under 125 chars)."""
             json_str = response_text.split("```")[1].split("```")[0].strip()
             if json_str.startswith("json"):
                 json_str = json_str[4:].strip()
-                                            else:
+        else:
             json_str = response_text.strip()
-                                        
+        
         fixes = json.loads(json_str)
         return fixes
-                                    
-                                except Exception as e:
+        
+    except Exception as e:
         print(f"[WARN] Could not get AI annotation fixes: {e}")
         return None
 
@@ -1066,7 +1066,7 @@ def main():
                     fixes = fixes_data
                 elif isinstance(fixes_data, dict):
                     fixes = fixes_data.get('fixes', [])
-                    else:
+                else:
                     print(f"Warning: Unexpected fixes format: {type(fixes_data)}", file=sys.stderr)
                 print(f"Loaded {len(fixes)} fixes from {args.fixes}")
         except Exception as e:
@@ -1089,7 +1089,7 @@ def main():
         detected_lang = detect_language_with_ai(input_path, args.title)
         if detected_lang:
             lang_code = detected_lang
-                            else:
+        else:
             lang_code = 'en'
     
     # Open PDF with pikepdf
@@ -1098,26 +1098,56 @@ def main():
         title = args.title or Path(input_path).stem
         
         # ADOBE-COMPLIANT LANGUAGE SETTING (4 locations)
-        # Map simple codes to full locale codes
-        lang_locale_map = {
-            'en': 'en-US',
-            'es': 'es-ES',
-            'fr': 'fr-FR',
-            'de': 'de-DE',
-            'it': 'it-IT',
-            'pt': 'pt-PT',
-            'ru': 'ru-RU',
-            'zh': 'zh-CN',
-            'ja': 'ja-JP',
-            'ko': 'ko-KR',
-            'ar': 'ar-SA',
-            'hi': 'hi-IN'
+        # Map ISO codes to Adobe's EXACT language names from dropdown
+        lang_name_map = {
+            'ar': 'Arabic',
+            'bg': 'Bulgarian',
+            'zh': 'Chinese - Simplified',
+            'zh-cn': 'Chinese - Simplified',
+            'zh-tw': 'Chinese - Traditional',
+            'hr': 'Croatian',
+            'cs': 'Czech',
+            'da': 'Danish',
+            'nl': 'Dutch',
+            'en': 'English',
+            'en-ar': 'English with Arabic support',
+            'en-he': 'English with Hebrew support',
+            'et': 'Estonian',
+            'fi': 'Finnish',
+            'fr': 'French',
+            'fr-ma': 'French (Morocco)',
+            'de': 'German',
+            'el': 'Greek',
+            'he': 'Hebrew',
+            'hu': 'Hungarian',
+            'it': 'Italian',
+            'ja': 'Japanese',
+            'ko': 'Korean',
+            'lv': 'Latvian',
+            'lt': 'Lithuanian',
+            'no': 'Norwegian',
+            'pl': 'Polish',
+            'pt': 'Portuguese Brazil',
+            'pt-br': 'Portuguese Brazil',
+            'ro': 'Romanian',
+            'ru': 'Russian',
+            'sk': 'Slovak',
+            'sl': 'Slovenian',
+            'es': 'Spanish',
+            'sv': 'Swedish',
+            'tr': 'Turkish',
+            'uk': 'Ukrainian'
         }
         
-        # Get full locale (e.g., "en-US" from "en")
-        lang_full = lang_locale_map.get(lang_code, f'{lang_code}-{lang_code.upper()}')
+        # Get the full language NAME Adobe expects (NOT locale code!)
+        # Try exact match first, then try base code (e.g., "zh-cn" -> "zh")
+        lang_name = lang_name_map.get(lang_code)
+        if not lang_name:
+            # Try base code (e.g., "zh-cn" -> "zh")
+            base_code = lang_code.split('-')[0].split('_')[0].lower()
+            lang_name = lang_name_map.get(base_code, 'English')
         
-        # 1. PDF Catalog Lang (PDF/UA requirement) - Name object with slash
+        # 1. PDF Catalog Lang (PDF/UA requirement) - Name with slash
         pdf.Root.Lang = Name(f'/{lang_code}')
         print(f"[OK] Set Root.Lang: /{lang_code}")
         
@@ -1127,13 +1157,13 @@ def main():
         pdf.Root.Info.Title = String(title)
         print(f"[OK] Set Info.Title: {title}")
         
-        # 3. ViewerPreferences (THIS IS WHAT ADOBE READS!) - String, not Name!
+        # 3. ViewerPreferences - USE FULL LANGUAGE NAME!
         if not hasattr(pdf.Root, 'ViewerPreferences') or pdf.Root.ViewerPreferences is None:
             pdf.Root.ViewerPreferences = pdf.make_indirect(Dictionary())
         
-        # CRITICAL: Use String() for the language value, full locale format
-        pdf.Root.ViewerPreferences[Name('/Language')] = String(lang_full)
-        print(f"[OK] Set ViewerPreferences.Language: {lang_full} (Adobe reads this)")
+        # CRITICAL: Adobe wants "French" not "fr-FR"!
+        pdf.Root.ViewerPreferences[Name('/Language')] = String(lang_name)
+        print(f"[OK] Set ViewerPreferences.Language: '{lang_name}' (Adobe format)")
         
         # 4. XMP Metadata
         try:
@@ -1164,7 +1194,7 @@ def main():
         except Exception as e:
             print(f"  [WARN] Could not set XMP metadata: {e}")
         
-        print(f"[OK] Set language in ALL required locations: Root.Lang=/{lang_code}, ViewerPreferences.Language={lang_full}")
+        print(f"[OK] Set language in ALL required locations: Root.Lang=/{lang_code}, ViewerPreferences.Language='{lang_name}'")
         
         # Mark as tagged
         if '/MarkInfo' not in pdf.Root:
