@@ -48,11 +48,8 @@ export interface PyMuPDFRepairOptions {
 }
 
 export class PyMuPDFWrapper {
-  private pythonScriptPath: string
-
   constructor() {
-    // Path to Python script that uses PyMuPDF
-    this.pythonScriptPath = path.join(process.cwd(), 'scripts', 'pdf-repair.py')
+    // This wrapper now uses pdf-rebuild-with-fixes.py directly
   }
 
   /**
@@ -79,20 +76,57 @@ export class PyMuPDFWrapper {
         '--output', options.outputPath,
         '--fixes', fixesJsonPath,
         ...(options.metadata?.title ? ['--title', options.metadata.title] : []),
-        ...(options.metadata?.language ? ['--language', options.metadata.language] : []),
-        ...(options.metadata?.author ? ['--author', options.metadata.author] : [])
+        ...(options.metadata?.language ? ['--lang', options.metadata.language] : [])
+        // Note: --author is not currently supported by pdf-rebuild-with-fixes.py
       ].join(' ')
 
       // Execute Python script
-      const { stdout, stderr } = await execAsync(cmd, {
-        maxBuffer: 10 * 1024 * 1024 // 10MB buffer
-      })
-
-      if (stderr) {
-
+      let stdout: string
+      let stderr: string
+      try {
+        const result = await execAsync(cmd, {
+          maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+        })
+        stdout = result.stdout
+        stderr = result.stderr
+      } catch (error: any) {
+        stdout = error.stdout || ''
+        stderr = error.stderr || ''
+        
+        // Check for pikepdf installation error
+        if (stderr.includes('pikepdf not installed') || stdout.includes('pikepdf not installed')) {
+          const installCmd = process.platform === 'win32' 
+            ? 'pip install -r scripts/requirements.txt'
+            : 'pip3 install -r scripts/requirements.txt'
+          throw new Error(
+            `❌ PDF auto-tagging requires pikepdf to be installed.\n\n` +
+            `Please install it by running:\n` +
+            `  ${installCmd}\n\n` +
+            `Or on Windows, you can run:\n` +
+            `  scripts\\install-pymupdf.bat\n\n` +
+            `This will install both PyMuPDF and pikepdf required for PDF accessibility fixes.`
+          )
+        }
+        
+        // Re-throw other errors
+        throw error
       }
 
       if (stderr && !stderr.includes('WARNING') && !stderr.includes('INFO') && !stderr.includes('SUCCESS')) {
+        // Check for pikepdf installation error in stderr
+        if (stderr.includes('pikepdf not installed')) {
+          const installCmd = process.platform === 'win32' 
+            ? 'pip install -r scripts/requirements.txt'
+            : 'pip3 install -r scripts/requirements.txt'
+          throw new Error(
+            `❌ PDF auto-tagging requires pikepdf to be installed.\n\n` +
+            `Please install it by running:\n` +
+            `  ${installCmd}\n\n` +
+            `Or on Windows, you can run:\n` +
+            `  scripts\\install-pymupdf.bat\n\n` +
+            `This will install both PyMuPDF and pikepdf required for PDF accessibility fixes.`
+          )
+        }
         console.error(`❌ PyMuPDF error: ${stderr}`)
         throw new Error(`PyMuPDF rebuild failed: ${stderr}`)
       }
@@ -123,9 +157,9 @@ export class PyMuPDFWrapper {
   }
 
   /**
-   * Check if Python and PyMuPDF are available
+   * Check if Python, PyMuPDF, and pikepdf are available
    */
-  async checkDependencies(): Promise<{ python: boolean; pymupdf: boolean }> {
+  async checkDependencies(): Promise<{ python: boolean; pymupdf: boolean; pikepdf: boolean }> {
     try {
       // Try 'python' first (Windows), then 'python3' (Unix)
       let pythonCmd = 'python'
@@ -134,38 +168,38 @@ export class PyMuPDFWrapper {
         const { stdout: pythonVersion } = await execAsync('python --version')
         hasPython = pythonVersion.includes('Python 3')
       } catch (error) {
-
         try {
           const { stdout: pythonVersion } = await execAsync('python3 --version')
           hasPython = pythonVersion.includes('Python 3')
           pythonCmd = 'python3'
         } catch (error2) {
-
           hasPython = false
         }
       }
 
       // Check PyMuPDF
       let hasPyMuPDF = false
+      let hasPikepdf = false
       if (hasPython) {
         try {
           const { stdout } = await execAsync(`${pythonCmd} -c "import fitz; print(fitz.version)"`)
           hasPyMuPDF = stdout.includes('1.') || stdout.includes('2.')
-          if (hasPyMuPDF) {
-          } else {
-          }
         } catch (error) {
-
           hasPyMuPDF = false
         }
-      } else {
 
+        // Check pikepdf
+        try {
+          await execAsync(`${pythonCmd} -c "import pikepdf; print(pikepdf.__version__)"`)
+          hasPikepdf = true
+        } catch (error) {
+          hasPikepdf = false
+        }
       }
 
-      return { python: hasPython, pymupdf: hasPyMuPDF }
+      return { python: hasPython, pymupdf: hasPyMuPDF, pikepdf: hasPikepdf }
     } catch (error) {
-
-      return { python: false, pymupdf: false }
+      return { python: false, pymupdf: false, pikepdf: false }
     }
   }
 }

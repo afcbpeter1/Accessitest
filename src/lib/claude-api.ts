@@ -2,15 +2,7 @@
 
 interface ClaudeMessage {
   role: 'user' | 'assistant';
-  content: string | Array<{
-    type: 'text' | 'image';
-    text?: string;
-    source?: {
-      type: 'base64';
-      media_type: string;
-      data: string;
-    };
-  }>;
+  content: string;
 }
 
 interface ClaudeRequest {
@@ -44,8 +36,16 @@ export class ClaudeAPI {
     this.apiKey = process.env.ANTHROPIC_API_KEY || '';
     
     if (!this.apiKey) {
-      console.warn('ANTHROPIC_API_KEY not found in environment variables');
+      console.warn('⚠️ ANTHROPIC_API_KEY not found in environment variables');
     }
+    
+    console.log('🔧 Claude API Config:', {
+      apiUrl: this.apiUrl,
+      apiKey: this.apiKey ? '***' + this.apiKey.slice(-4) : 'MISSING',
+      provider: 'Anthropic Official API',
+      rateLimit: `${this.minRequestInterval}ms between requests`,
+      maxConcurrent: this.maxConcurrentRequests
+    });
   }
 
   /**
@@ -57,7 +57,7 @@ export class ClaudeAPI {
         try {
           // Wait for any active requests to complete
           while (this.activeRequests >= this.maxConcurrentRequests) {
-
+            console.log('⏳ Waiting for active request to complete...');
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
           
@@ -66,7 +66,7 @@ export class ClaudeAPI {
           const timeSinceLastRequest = now - this.lastRequestTime;
           if (timeSinceLastRequest < this.minRequestInterval) {
             const waitTime = this.minRequestInterval - timeSinceLastRequest;
-
+            console.log(`⏳ Rate limiting: waiting ${waitTime}ms before next request`);
             await new Promise(resolve => setTimeout(resolve, waitTime));
           }
           
@@ -110,75 +110,12 @@ export class ClaudeAPI {
       
       // Always wait between requests to prevent any rate limiting
       if (this.requestQueue.length > 0) {
-
+        console.log(`⏳ Queue processing: waiting ${this.minRequestInterval}ms before next request`);
         await new Promise(resolve => setTimeout(resolve, this.minRequestInterval));
       }
     }
     
     this.isProcessingQueue = false;
-  }
-
-  /**
-   * Generate simple text using Claude API
-   */
-  async generateText(prompt: string, systemPrompt?: string): Promise<string> {
-    try {
-      // Use the same API call method as other functions for consistency
-      return await this.makeRateLimitedRequest(() =>
-        this.callClaudeAPI(
-          [{ role: 'user', content: prompt }],
-          systemPrompt || 'You are a helpful assistant.'
-        )
-      )
-    } catch (error) {
-      console.error('❌ Claude API generateText error:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Generate text with vision (image analysis) using Claude API
-   */
-  async generateTextWithVision(
-    prompt: string,
-    imageBase64: string,
-    mediaType: string = 'image/png',
-    systemPrompt?: string
-  ): Promise<string> {
-    try {
-      const messageContent: Array<{
-        type: 'text' | 'image';
-        text?: string;
-        source?: {
-          type: 'base64';
-          media_type: string;
-          data: string;
-        };
-      }> = [
-        {
-          type: 'text',
-          text: prompt
-        },
-        {
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: mediaType,
-            data: imageBase64
-          }
-        }
-      ]
-
-      return await this.makeRateLimitedRequest(() =>
-        this.callClaudeAPI(
-          [{ role: 'user', content: messageContent }],
-          systemPrompt || 'You are a helpful assistant that analyzes images and generates descriptive text.'
-        )
-      )
-    } catch (error) {
-      console.error('❌ Claude API generateTextWithVision error:', error)
-      throw error
-    }
   }
 
   /**
@@ -191,9 +128,10 @@ export class ClaudeAPI {
     cssSelector: string
   ): Promise<string> {
     try {
-
-
-
+      console.log('🚀 Claude API: Starting request for', issueType);
+      console.log('📝 Claude API: HTML length:', html.length);
+      console.log('🎯 Claude API: CSS Selector:', cssSelector);
+      
       const systemPrompt = `You are an expert web accessibility consultant. Provide concise, actionable fixes for accessibility issues.
 
 Guidelines:
@@ -217,12 +155,14 @@ Problem: ${failureSummary}
 
 Provide a specific, actionable fix for this exact element.`;
 
+      console.log('📤 Claude API: Sending request...');
       const response = await this.makeRateLimitedRequest(() => 
         this.callClaudeAPI([
           { role: 'user', content: userPrompt }
         ], systemPrompt)
       );
 
+      console.log('📥 Claude API: Received response, length:', response.length);
       return response;
     } catch (error) {
       console.error('❌ Claude API error:', error);
@@ -238,93 +178,79 @@ Provide a specific, actionable fix for this exact element.`;
     section: string,
     fileName: string,
     fileType: string,
-    elementLocation?: string,
-    pageNumber?: number,
     elementContent?: string,
-    elementId?: string,
-    elementType?: string,
-    documentType?: string // 'PDF document' or 'Word document'
+    pageNumber?: number
   ): Promise<string> {
     try {
-
-
-
-
-
-      const isWordDoc = documentType?.toLowerCase().includes('word') || fileType?.toLowerCase().includes('word') || fileName?.toLowerCase().endsWith('.docx') || fileName?.toLowerCase().endsWith('.doc')
-      const docType = isWordDoc ? 'Word document' : 'PDF document'
-      const toolName = isWordDoc ? 'Microsoft Word' : 'Adobe Acrobat Pro'
+      console.log('🚀 Claude API: Starting document analysis for', fileName);
+      console.log('📝 Claude API: Issue:', issueDescription);
+      console.log('📄 Claude API: Section:', section);
+      console.log('📍 Claude API: Page:', pageNumber);
+      console.log('📄 Claude API: Element:', elementContent || 'Not provided');
       
-      const systemPrompt = `You are an expert ${docType} accessibility consultant. Provide precise, actionable instructions for fixing ${docType} accessibility issues.
+      const systemPrompt = `You are an expert document accessibility consultant specializing in Section 508 compliance and WCAG 2.1 standards. Provide detailed, step-by-step remediation instructions for fixing document accessibility issues.
 
-CRITICAL RULES:
-1. The user has ALREADY scanned this ${docType} - NEVER tell them to run the accessibility checker
-2. You MUST provide helpful instructions even if location is "Unknown" - use the issue description and rule name
-3. The issue description and rule name contain ALL the information needed to provide useful instructions
-4. "Unknown location" just means you need to search for ALL instances of this issue type - that's still actionable!
-5. IMPORTANT: This is a ${docType} - provide instructions specific to ${toolName}, NOT the other document type
+CRITICAL GUIDELINES:
+- Provide DETAILED step-by-step instructions that can be followed immediately
+- Include specific menu paths, button names, and tool locations
+- Mention the exact document editing software (Adobe Acrobat, Microsoft Word, etc.)
+- Break down complex fixes into numbered steps (Step 1, Step 2, etc.)
+- Include keyboard shortcuts when applicable
+- Provide specific values or settings when relevant
+- Explain WHY each step is important for accessibility
+- Reference the exact Section 508 requirement (e.g., 36 CFR § 1194.22(a))
+- Consider the user may not be an accessibility expert
 
-INFORMATION PROVIDED:
-- Document Type: ${docType}
-- Tool to Use: ${toolName}
-${pageNumber ? `- Page: ${pageNumber}` : '- Page: Not specified (search entire document)'}
-${elementLocation ? `- Location: ${elementLocation}` : '- Location: Not specified (check all pages)'}
-${elementId ? `- Element ID: ${elementId}` : '- Element ID: Not provided'}
-${elementType ? `- Element Type: ${elementType}` : '- Element Type: Not provided'}
-${elementContent ? `- Element Content: ${elementContent.substring(0, 200)}` : '- Element Content: Not provided'}
-- Issue Description: ${issueDescription}
-- Rule Name: ${section}
+REQUIRED FORMAT:
+1. ISSUE EXPLANATION (2-3 sentences)
+   - What the issue is
+   - Why it violates Section 508/WCAG
+   - The specific requirement being violated
 
-YOUR RESPONSE MUST:
-1. NEVER say "I don't have enough information" - you ALWAYS have enough (the description and rule name)
-2. Use the rule name (e.g., "Figures alternate text" = images need alt text, "Summary" = tables need summaries)
-3. If location is "Unknown", provide instructions to find and fix ALL instances of this issue type
-4. Give step-by-step instructions that are specific to THIS issue type (not generic)
-5. ${isWordDoc ? 'Use correct Word terminology: "Right-click image > Format Picture > Alt Text", "Review > Check Accessibility", etc.' : 'Use correct Acrobat panel names: "Tags panel", "Reading Order tool"'}
-6. NEVER mention running the accessibility checker - we've already done that
-7. NEVER mention PDF tools if this is a Word document, and NEVER mention Word tools if this is a PDF
+2. STEP-BY-STEP SOLUTION
+   - Number each step clearly (Step 1:, Step 2:, etc.)
+   - Include exact menu paths: "Go to File > Properties > Advanced"
+   - Mention specific tools or panels to open
+   - Provide exact values or settings to change
+   - Include keyboard shortcuts in parentheses: (Ctrl+D)
 
-FORMAT:
-1. Element Location: State what you know (e.g., "All figures/images in the document" or "All tables" if location unknown, or specific page if known)
-2. Issue Explanation: Brief explanation of THIS specific issue based on the rule name and description
-3. Step-by-Step Fix: Clear instructions to find and fix THIS specific issue type using ${toolName} (if location unknown, tell them how to find all instances)
-4. Verification: How to verify the fix worked
+3. VERIFICATION STEPS
+   - How to verify the fix worked
+   - What to check to ensure compliance
 
-EXAMPLE FOR ${docType.toUpperCase()}: If rule is "Figures alternate text" and location is "Unknown", say:
-"Element Location: All figures/images throughout the document that are missing alternate text"
-Then provide instructions specific to ${toolName}: ${isWordDoc ? '1) Right-click each image, 2) Select "Format Picture", 3) Go to "Alt Text" tab, 4) Enter descriptive alt text' : '1) Open Tags panel, 2) Find all Figure tags, 3) Add alt text to each one'}
+4. ADDITIONAL NOTES (if applicable)
+   - Alternative methods if available
+   - Best practices for preventing this issue
+   - Related accessibility considerations
 
-Keep instructions clear, practical, and specific. Work with the information provided - it's always enough!`;
+Keep total response between 200-400 words, prioritizing clarity and actionability.`;
 
-      const userPrompt = `Fix this ${docType} accessibility issue. We've already scanned and identified the problem:
+      const userPrompt = `Analyze this document accessibility issue and provide detailed step-by-step remediation instructions:
 
-File: ${fileName}
-Document Type: ${docType}
-Tool to Use: ${toolName}
-Rule: ${section}
-Issue Description: ${issueDescription}
-${pageNumber ? `Page: ${pageNumber}` : 'Page: Not specified - check entire document'}
-${elementLocation && elementLocation !== 'Unknown location' ? `Location: ${elementLocation}` : 'Location: Not specified - find all instances in document'}
-${elementId ? `Element ID: ${elementId}` : ''}
-${elementType ? `Element Type: ${elementType}` : ''}
-${elementContent ? `Content: ${elementContent.substring(0, 200)}` : ''}
+DOCUMENT INFORMATION:
+- File Name: ${fileName}
+- File Type: ${fileType}
+- Issue: ${issueDescription}
+- Section: ${section}
+${pageNumber ? `- Page Number: ${pageNumber}` : ''}
+${elementContent ? `- Problematic Element: ${elementContent.substring(0, 200)}` : ''}
 
-Provide step-by-step instructions to fix THIS specific issue using ${toolName}. Use the rule name and description to understand what needs fixing:
-- If the rule is "Figures alternate text" or "Figures require alternate text", provide instructions to add alt text to images in ${toolName}
-- If the rule is "Summary" or "Tables must have a summary", provide instructions to add summaries to tables in ${toolName}
-- If the rule mentions "Title", provide instructions to set document title in ${toolName}
-- If the rule mentions "Language", provide instructions to set document language in ${toolName}
-- If location is "Unknown" or "Not specified", provide instructions to find and fix ALL instances of this issue type in the document
+Please provide:
+1. A clear explanation of why this violates Section 508/WCAG
+2. Detailed step-by-step instructions specific to ${fileType} files
+3. Exact menu paths, tool locations, and settings to change
+4. How to verify the fix was successful
 
-IMPORTANT: Provide instructions specific to ${toolName} for ${docType}s. Do NOT mention tools for the other document type.
-Do NOT say you need more information - use what's provided. Do NOT tell them to run the accessibility checker - we've already done that.`;
+Focus on practical, actionable steps that someone can follow immediately in their document editor.`;
 
+      console.log('📤 Claude API: Sending document analysis request...');
       const response = await this.makeRateLimitedRequest(() => 
         this.callClaudeAPI([
           { role: 'user', content: userPrompt }
         ], systemPrompt)
       );
 
+      console.log('📥 Claude API: Received document analysis response, length:', response.length);
       return response;
     } catch (error) {
       console.error('❌ Claude API document analysis error:', error);
@@ -436,11 +362,17 @@ Can this be automatically fixed? What will be changed?`;
       requestBody.system = systemPrompt;
     }
 
+    console.log('🌐 Claude API: Making request to:', this.apiUrl);
+    console.log('🔑 Claude API: Using key:', this.apiKey ? '***' + this.apiKey.slice(-4) : 'MISSING');
+    console.log('📊 Claude API: Request body size:', JSON.stringify(requestBody).length);
+
     const maxRetries = 2; // Reduced retries to be more conservative
     let lastError: Error | null = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        console.log(`📡 Claude API: Making request (attempt ${attempt}/${maxRetries})...`)
+        
         // Create a timeout promise (60 seconds)
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('Request timeout after 60 seconds')), 60000)
@@ -460,10 +392,12 @@ Can this be automatically fixed? What will be changed?`;
         // Race between fetch and timeout
         const response = await Promise.race([fetchPromise, timeoutPromise])
 
+        console.log('📡 Claude API: Response status:', response.status, response.statusText);
+
         if (response.status === 529) {
           // Overloaded error - wait much longer and retry
           const waitTime = Math.pow(2, attempt) * 5000; // 10s, 20s backoff
-          console.log(`Claude API overloaded, waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`);
+          console.log(`⚠️ Claude API overloaded (529), waiting ${waitTime}ms before retry ${attempt}/${maxRetries}`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           lastError = new Error(`Claude API overloaded (attempt ${attempt}/${maxRetries})`);
           continue;
@@ -476,13 +410,16 @@ Can this be automatically fixed? What will be changed?`;
         }
 
         const data: ClaudeResponse = await response.json();
-
+        console.log('✅ Claude API: Success, response data:', JSON.stringify(data, null, 2));
+        console.log('📝 Claude API: Content blocks found:', data.content?.length || 0);
+        
         // Extract text content from the response
         const textContent = data.content
           ?.filter(block => block.type === 'text')
           ?.map(block => block.text)
           ?.join('') || 'No response from Claude API';
-
+        
+        console.log('📄 Claude API: Extracted text length:', textContent.length);
         return textContent;
         
       } catch (error) {
@@ -491,7 +428,7 @@ Can this be automatically fixed? What will be changed?`;
         
         if (attempt < maxRetries) {
           const waitTime = Math.pow(2, attempt) * 3000; // 6s, 12s backoff
-
+          console.log(`⏳ Waiting ${waitTime}ms before retry...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }

@@ -62,7 +62,9 @@ except ImportError:
         try:
             with pikepdf.Pdf.open(pdf_path) as pdf:
                 language = None
+                has_viewer_prefs_lang = False
                 
+                # Check Root.Lang first (PDF/UA requirement)
                 if '/Lang' in pdf.Root:
                     lang_obj = pdf.Root['/Lang']
                     if isinstance(lang_obj, pikepdf.Name):
@@ -75,6 +77,35 @@ except ImportError:
                         lang_code = lang_value.split('-')[0].split('_')[0].lower()
                         if len(lang_code) == 2:
                             language = lang_code
+                
+                # CRITICAL: Check ViewerPreferences.Language (Adobe requirement for Reading Options)
+                # Adobe requires BOTH Root.Lang AND ViewerPreferences.Language
+                if '/ViewerPreferences' in pdf.Root:
+                    vp = pdf.Root['/ViewerPreferences']
+                    if isinstance(vp, pikepdf.Dictionary) and '/Language' in vp:
+                        has_viewer_prefs_lang = True
+                        # If Root.Lang exists but ViewerPreferences.Language doesn't, Adobe will fail
+                        # So we should return None to trigger UI warning
+                        if not language:
+                            # Fallback: use ViewerPreferences if Root.Lang doesn't exist
+                            lang_obj = vp['/Language']
+                            # ViewerPreferences.Language can be String or Name
+                            if isinstance(lang_obj, pikepdf.Name):
+                                lang_value = str(lang_obj).replace('/', '').strip()
+                            elif isinstance(lang_obj, pikepdf.String):
+                                lang_value = str(lang_obj).strip()
+                            else:
+                                lang_value = str(lang_obj).strip()
+                            if lang_value:
+                                lang_code = lang_value.split('-')[0].split('_')[0].lower()
+                                if len(lang_code) == 2:
+                                    language = lang_code
+                
+                # Adobe requires ViewerPreferences.Language - if Root.Lang exists but ViewerPreferences doesn't, fail
+                if language and not has_viewer_prefs_lang:
+                    # Root.Lang exists but ViewerPreferences.Language is missing - Adobe will fail
+                    # Return None to trigger UI warning
+                    language = None
             
             result = {
                 'success': True,

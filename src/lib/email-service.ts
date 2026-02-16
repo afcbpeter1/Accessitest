@@ -82,7 +82,8 @@ export class EmailService {
         console.warn('⚠️ Using onboarding@resend.dev – only the Resend account owner receives mail. Set RESEND_FROM_EMAIL to a verified address (e.g. onboarding@a11ytest.ai) for production.')
       }
 
-      const logoUrl = getLogoUrl()
+      // Use Cloudinary URL for better email client compatibility (many don't support data URIs)
+      const logoUrl = 'https://res.cloudinary.com/dyzzpsxov/image/upload/v1764106136/allytest_vmuws6.png'
       
       const result = await resend.emails.send({
         from: FROM_EMAIL,
@@ -98,8 +99,8 @@ export class EmailService {
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
               .header { background: #06B6D4; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-              .logo-container { margin-bottom: 15px; }
-              .logo-img { max-width: 180px; height: auto; display: block; margin: 0 auto; background: white; padding: 10px; border-radius: 8px; }
+              .logo-container { margin-bottom: 15px; background: white; padding: 15px; border-radius: 8px; display: inline-block; }
+              .logo-img { max-width: 180px; height: auto; display: block; margin: 0 auto; }
               .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
               .verification-code { background: #0B1220; color: white; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 3px; border-radius: 8px; margin: 20px 0; }
               .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }

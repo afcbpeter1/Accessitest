@@ -434,18 +434,43 @@ export class PDFAutoTagService {
         execArgs.push('--title', metadata.title)
       }
       // Always set language (defaults to 'en' if not specified)
-      execArgs.push('--language', language)
-      if (metadata.author) {
-        execArgs.push('--author', metadata.author)
-      }
+      execArgs.push('--lang', language)
+      // Note: --author is not currently supported by pdf-rebuild-with-fixes.py
 
       // Build command string with proper quoting
       const cmd = [pythonCmd, ...execArgs.map(quoteArg)].join(' ')
 
       console.log(`🔧 Running: ${cmd}`)
-      const { stdout, stderr } = await execAsync(cmd, {
-        maxBuffer: 10 * 1024 * 1024 // 10MB buffer
-      })
+      let stdout: string
+      let stderr: string
+      try {
+        const result = await execAsync(cmd, {
+          maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+        })
+        stdout = result.stdout
+        stderr = result.stderr
+      } catch (error: any) {
+        stdout = error.stdout || ''
+        stderr = error.stderr || ''
+        
+        // Check for pikepdf installation error
+        if (stderr.includes('pikepdf not installed') || stdout.includes('pikepdf not installed')) {
+          const installCmd = process.platform === 'win32' 
+            ? 'pip install -r scripts/requirements.txt'
+            : 'pip3 install -r scripts/requirements.txt'
+          throw new Error(
+            `❌ PDF auto-tagging requires pikepdf to be installed.\n\n` +
+            `Please install it by running:\n` +
+            `  ${installCmd}\n\n` +
+            `Or on Windows, you can run:\n` +
+            `  scripts\\install-pymupdf.bat\n\n` +
+            `This will install both PyMuPDF and pikepdf required for PDF accessibility fixes.`
+          )
+        }
+        
+        // Re-throw other errors
+        throw error
+      }
 
       // Log output for debugging
       if (stdout) {
@@ -459,6 +484,20 @@ export class PDFAutoTagService {
       try {
         await fs.access(outputPdfPath)
       } catch {
+        // Check if the error was due to missing pikepdf
+        if (stderr.includes('pikepdf not installed') || stdout.includes('pikepdf not installed')) {
+          const installCmd = process.platform === 'win32' 
+            ? 'pip install -r scripts/requirements.txt'
+            : 'pip3 install -r scripts/requirements.txt'
+          throw new Error(
+            `❌ PDF auto-tagging requires pikepdf to be installed.\n\n` +
+            `Please install it by running:\n` +
+            `  ${installCmd}\n\n` +
+            `Or on Windows, you can run:\n` +
+            `  scripts\\install-pymupdf.bat\n\n` +
+            `This will install both PyMuPDF and pikepdf required for PDF accessibility fixes.`
+          )
+        }
         throw new Error('Tagged PDF output file was not created. Check Python script output above.')
       }
 

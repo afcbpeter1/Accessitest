@@ -1,13 +1,21 @@
 #!/bin/bash
 set -e
 
-    # Install PyMuPDF and pikepdf if Python is available (for PDF auto-tagging and structure element creation)
+    # Install Python dependencies from requirements.txt if Python is available (for PDF auto-tagging and structure element creation)
     if command -v python3 &> /dev/null; then
-      echo "Installing PyMuPDF and pikepdf for PDF auto-tagging..."
-      python3 -m pip install --user pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
-      pip3 install --break-system-packages pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
-      pip3 install pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
-      echo "⚠️  Warning: Could not install PyMuPDF/pikepdf. PDF auto-tagging will be unavailable."
+      echo "Installing Python dependencies for PDF auto-tagging..."
+      if [ -f scripts/requirements.txt ]; then
+        python3 -m pip install --user -r scripts/requirements.txt 2>/dev/null || \
+        pip3 install --break-system-packages -r scripts/requirements.txt 2>/dev/null || \
+        pip3 install -r scripts/requirements.txt 2>/dev/null || \
+        echo "⚠️  Warning: Could not install Python dependencies from requirements.txt. PDF auto-tagging will be unavailable."
+      else
+        # Fallback to direct installation if requirements.txt doesn't exist
+        python3 -m pip install --user pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
+        pip3 install --break-system-packages pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
+        pip3 install pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
+        echo "⚠️  Warning: Could not install PyMuPDF/pikepdf. PDF auto-tagging will be unavailable."
+      fi
     fi
 
 # Run Next.js build

@@ -11,6 +11,9 @@ import { ComprehensiveDocumentScanner } from '@/lib/comprehensive-document-scann
 import { WordAutoFixService } from '@/lib/word-auto-fix-service'
 import { AIAutoFixService } from '@/lib/ai-auto-fix-service'
 import { validatePDFFile, validateWordFile } from '@/lib/file-security-validator'
+import * as path from 'path'
+import { tmpdir } from 'os'
+import { promises as fs } from 'fs'
 
 interface DocumentScanRequest {
   fileName: string
@@ -79,6 +82,14 @@ async function verifyPDFFixes(pdfBuffer: Buffer): Promise<{
   error?: string
 }> {
   try {
+    // Validate input
+    if (!pdfBuffer || !Buffer.isBuffer(pdfBuffer)) {
+      return {
+        success: false,
+        error: 'Invalid PDF buffer provided'
+      }
+    }
+    
     const { exec } = require('child_process')
     const { promisify } = require('util')
     const execAsync = promisify(exec)
@@ -543,41 +554,41 @@ export async function POST(request: NextRequest) {
             improvementPercentage: comparisonReport.improvement.improvementPercentage
           }
         } : undefined,
-        isoComplianceReport: isoComplianceReport ? {
+        isoComplianceReport: fixedISOCompliance ? {
           before: {
-            compliant: isoComplianceReport.before.compliant,
-            passed: isoComplianceReport.before.summary.passed,
-            failed: isoComplianceReport.before.summary.failed,
-            totalChecks: isoComplianceReport.before.summary.total_checks,
-            complianceRate: isoComplianceReport.before.summary.compliance_rate,
-            failures: isoComplianceReport.before.failures,
-            checks: Object.entries(isoComplianceReport.before.checks || {}).map(([name, check]: [string, any]) => ({
+            compliant: fixedISOCompliance.before.compliant,
+            passed: fixedISOCompliance.before.summary.passed,
+            failed: fixedISOCompliance.before.summary.failed,
+            totalChecks: fixedISOCompliance.before.summary.total_checks,
+            complianceRate: fixedISOCompliance.before.summary.compliance_rate,
+            failures: fixedISOCompliance.before.failures,
+            checks: Object.entries(fixedISOCompliance.before.checks || {}).map(([name, check]: [string, any]) => ({
               name,
               passed: check.passed,
               failures: check.failures || []
             }))
           },
           after: {
-            compliant: isoComplianceReport.after.compliant,
-            passed: isoComplianceReport.after.summary.passed,
-            failed: isoComplianceReport.after.summary.failed,
-            totalChecks: isoComplianceReport.after.summary.total_checks,
-            complianceRate: isoComplianceReport.after.summary.compliance_rate,
-            failures: isoComplianceReport.after.failures,
-            checks: Object.entries(isoComplianceReport.after.checks || {}).map(([name, check]: [string, any]) => ({
+            compliant: fixedISOCompliance.after.compliant,
+            passed: fixedISOCompliance.after.summary.passed,
+            failed: fixedISOCompliance.after.summary.failed,
+            totalChecks: fixedISOCompliance.after.summary.total_checks,
+            complianceRate: fixedISOCompliance.after.summary.compliance_rate,
+            failures: fixedISOCompliance.after.failures,
+            checks: Object.entries(fixedISOCompliance.after.checks || {}).map(([name, check]: [string, any]) => ({
               name,
               passed: check.passed,
               failures: check.failures || []
             }))
           },
           improvement: {
-            checksFixed: isoComplianceReport.improvement.checks_fixed,
-            checksRegressed: isoComplianceReport.improvement.checks_regressed,
-            complianceRateBefore: isoComplianceReport.improvement.compliance_rate_before,
-            complianceRateAfter: isoComplianceReport.improvement.compliance_rate_after,
-            compliant: isoComplianceReport.improvement.compliant
+            checksFixed: fixedISOCompliance.improvement.checks_fixed,
+            checksRegressed: fixedISOCompliance.improvement.checks_regressed,
+            complianceRateBefore: fixedISOCompliance.improvement.compliance_rate_before,
+            complianceRateAfter: fixedISOCompliance.improvement.compliance_rate_after,
+            compliant: fixedISOCompliance.improvement.compliant
           },
-          checks: isoComplianceReport.checks.map((check: any) => ({
+          checks: fixedISOCompliance.checks.map((check: any) => ({
             checkName: check.check_name,
             isoRequirement: check.iso_requirement,
             isoDescription: check.iso_description,
@@ -945,10 +956,10 @@ export async function POST(request: NextRequest) {
             const { generateISOComplianceReport } = await import('@/lib/iso-compliance-validator')
             const tempOriginalPath = path.join(tmpdir(), `original_iso_${Date.now()}.pdf`)
             const tempFixedPath = path.join(tmpdir(), `fixed_iso_${Date.now()}.pdf`)
-            await fs.writeFile(tempOriginalPath, pdfBuffer)
+            await fs.writeFile(tempOriginalPath, taggedPdfBuffer)
             await fs.writeFile(tempFixedPath, autoFixedPdfBuffer)
             
-            isoComplianceReport = await generateISOComplianceReport(tempOriginalPath, tempFixedPath)
+            fixedISOCompliance = await generateISOComplianceReport(tempOriginalPath, tempFixedPath)
             
             // Cleanup temp files
             await fs.unlink(tempOriginalPath).catch(() => {})

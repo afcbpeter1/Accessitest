@@ -281,16 +281,24 @@ export default function HomePage() {
       const data = await response.json()
 
       if (data.success) {
-        setSignupSuccess('Account created successfully! Redirecting to dashboard...')
-        
-        // Store token and user data
-        localStorage.setItem('accessToken', data.token)
-        localStorage.setItem('user', JSON.stringify(data.user))
-        
-        // Redirect to dashboard after a short delay
-        setTimeout(() => {
-          window.location.href = '/dashboard'
-        }, 2000)
+        if (data.requiresVerification) {
+          // Redirect to verification page with email pre-filled
+          setSignupSuccess('Account created successfully! Redirecting to verification...')
+          setTimeout(() => {
+            window.location.href = `/signup?verification=true&email=${encodeURIComponent(signupData.email)}&firstName=${encodeURIComponent(signupData.firstName)}&lastName=${encodeURIComponent(signupData.lastName)}&company=${encodeURIComponent(signupData.company || '')}`
+          }, 1500)
+        } else {
+          setSignupSuccess('Account created successfully! Redirecting to dashboard...')
+          
+          // Store token and user data
+          localStorage.setItem('accessToken', data.token)
+          localStorage.setItem('user', JSON.stringify(data.user))
+          
+          // Redirect to dashboard after a short delay
+          setTimeout(() => {
+            window.location.href = '/dashboard'
+          }, 2000)
+        }
       } else {
         setSignupError(data.error || 'Registration failed')
       }

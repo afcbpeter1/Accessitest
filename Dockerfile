@@ -57,8 +57,9 @@ COPY package*.json ./
 # Install Node.js dependencies
 RUN npm ci --ignore-scripts
 
-# Install PyMuPDF and pikepdf for PDF auto-tagging and structure element creation
-RUN pip3 install --no-cache-dir pymupdf>=1.23.0 pikepdf>=8.0.0
+# Install Python dependencies for PDF auto-tagging and structure element creation
+COPY scripts/requirements.txt /tmp/requirements.txt
+RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
 # Copy application files
 COPY . .

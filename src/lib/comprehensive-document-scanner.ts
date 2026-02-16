@@ -2058,11 +2058,11 @@ export class ComprehensiveDocumentScanner {
     }
 
     // Check for language declaration - use REAL metadata if available
-    // CRITICAL: Adobe checks the catalog /Lang key, not just metadata
-    // We extract language via Python script which checks the catalog
-    // Adobe fails if language is missing or not properly set
+    // CRITICAL: Adobe checks BOTH Root.Lang AND ViewerPreferences.Language
+    // We extract language via Python script which checks both locations
+    // Adobe fails if language is missing in either location or not properly set
     if (parsedStructure && parsedStructure.metadata) {
-      // Use actual PDF metadata for language check (extracted from catalog /Lang)
+      // Use actual PDF metadata for language check (extracted from catalog /Lang and ViewerPreferences)
       const language = parsedStructure.metadata.language
       if (!language || language.trim() === '' || language === 'null' || language === 'undefined' || language.toLowerCase() === 'none') {
         issues.push({
@@ -2074,11 +2074,11 @@ export class ComprehensiveDocumentScanner {
           pageNumber: 1,
           lineNumber: 1,
           elementLocation: 'Document metadata',
-          context: 'No language declaration found in PDF catalog (/Lang key). Adobe requires language to be set in the document catalog as a name object (e.g., /en, /fr). The language must be in the PDF catalog, not just metadata.',
+          context: 'No language declaration found in PDF. Adobe requires language to be set in BOTH the document catalog Root.Lang (as a name object like /en) AND in ViewerPreferences.Language (for Reading Options). The language must be set in both locations for Adobe Accessibility Checker to pass.',
           wcagCriterion: 'WCAG 2.1 AA - 3.1.1 Language of Page',
           section508Requirement: '36 CFR § 1194.22(a) - Readability and Language',
           impact: this.calculateImpact('serious'),
-          remediation: 'Set the document language in the document catalog (File > Properties > Advanced > Language). The language must be set in the PDF catalog /Lang key as a name object (e.g., /en for English, /fr for French).'
+          remediation: 'Set the document language in both locations: 1) Root catalog /Lang key as a name object (e.g., /en), and 2) ViewerPreferences.Language (File > Properties > Initial View > Reading Options > Language). Both must be set for Adobe compliance.'
         })
       }
     } else {
