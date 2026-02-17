@@ -227,7 +227,7 @@ export async function generateISOComplianceReport(
     after,
     improvement: {
       checks_fixed: checksFixed,
-      checks_regressed,
+      checks_regressed: checksRegressed,
       compliance_rate_before: before.summary.compliance_rate,
       compliance_rate_after: after.summary.compliance_rate,
       compliant: after.compliant

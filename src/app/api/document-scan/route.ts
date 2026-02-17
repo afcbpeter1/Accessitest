@@ -328,6 +328,9 @@ export async function POST(request: NextRequest) {
     // WORD DOCUMENT PROCESSING
     // ============================================
     if (isWord) {
+      // Initialize ISO compliance report variable (only used for PDFs, but declared here for scope)
+      let fixedISOCompliance: any = undefined
+      
       // Check and deduct credits (organization credits - same as top bar / web scans)
       const creditInfo = await getUserCredits(user.userId)
       if (!creditInfo.unlimited_credits && creditInfo.credits_remaining < 1) {
@@ -490,12 +493,8 @@ export async function POST(request: NextRequest) {
             issue.section || issue.rule || 'Accessibility',
             body.fileName,
             body.fileType,
-            issue.elementLocation || 'Document',
-            issue.pageNumber || 1,
             issue.elementContent,
-            issue.elementId,
-            issue.elementType,
-            documentType // Pass document type for context-aware suggestions
+            issue.pageNumber || 1
           )
 
           return {
@@ -850,7 +849,12 @@ export async function POST(request: NextRequest) {
     }
     
     // Create ISO 14289-1 compliance result
-    const accessibilityResult = {
+    const accessibilityResult: {
+      success: boolean
+      compliant: boolean
+      report: any
+      error?: string
+    } = {
       success: true,
       compliant: reportSummary.criticalIssues === 0 && reportSummary.warnings === 0,
       report: {
@@ -920,7 +924,10 @@ export async function POST(request: NextRequest) {
         const failedIssues = complianceIssues.filter((issue: any) => {
           const status = issue.status || 'Failed'
           return status === 'Failed' || status === 'Failed manually'
-        })
+        }).map((issue: any) => ({
+          ...issue,
+          type: issue.type || 'critical' // Ensure type property exists
+        }))
         
         autoFixResult = await autoFixService.applyAutoFixes(
           taggedPdfBuffer,
@@ -957,9 +964,10 @@ export async function POST(request: NextRequest) {
             const tempOriginalPath = path.join(tmpdir(), `original_iso_${Date.now()}.pdf`)
             const tempFixedPath = path.join(tmpdir(), `fixed_iso_${Date.now()}.pdf`)
             await fs.writeFile(tempOriginalPath, taggedPdfBuffer)
-            await fs.writeFile(tempFixedPath, autoFixedPdfBuffer)
-            
-            fixedISOCompliance = await generateISOComplianceReport(tempOriginalPath, tempFixedPath)
+            if (autoFixedPdfBuffer) {
+              await fs.writeFile(tempFixedPath, autoFixedPdfBuffer)
+              fixedISOCompliance = await generateISOComplianceReport(tempOriginalPath, tempFixedPath)
+            }
             
             // Cleanup temp files
             await fs.unlink(tempOriginalPath).catch(() => {})
@@ -1132,11 +1140,8 @@ export async function POST(request: NextRequest) {
                     issue.rule || issue.ruleName || 'Accessibility',
                     body.fileName,
                     body.fileType,
-                    locationForAI,
-                    issue.page || issue.pageNumber,
                     issue.elementContent,
-                    issue.elementId,
-                    issue.elementType
+                    issue.page || issue.pageNumber
                   )
                   
                   return {
@@ -1224,11 +1229,8 @@ export async function POST(request: NextRequest) {
                   complianceIssue.rule || complianceIssue.ruleName || 'ISO 14289-1',
                   body.fileName,
                   body.fileType,
-                  locationForAI,
-                  complianceIssue.page || complianceIssue.pageNumber,
                   complianceIssue.elementContent,
-                  complianceIssue.elementId,
-                  complianceIssue.elementType
+                  complianceIssue.page || complianceIssue.pageNumber
                 )
                 
                 return {
@@ -1309,11 +1311,8 @@ export async function POST(request: NextRequest) {
                 complianceIssue.rule || complianceIssue.ruleName || 'ISO 14289-1',
                 body.fileName,
                 body.fileType,
-                locationForAI,
-                complianceIssue.page || complianceIssue.pageNumber,
                 complianceIssue.elementContent,
-                complianceIssue.elementId,
-                complianceIssue.elementType
+                complianceIssue.page || complianceIssue.pageNumber
               )
               
               return {

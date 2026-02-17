@@ -132,6 +132,10 @@ print(f'Marked: {marked_value}')
 print(f'Structure elements: {struct_count}')
 `
   
+  const { exec } = require('child_process')
+  const { promisify } = require('util')
+  const execAsync = promisify(exec)
+  
   const verifyScriptPath = path.join(tmpdir(), `verify-final-${Date.now()}.py`)
   await fs.writeFile(verifyScriptPath, verifyScript)
   
@@ -189,14 +193,14 @@ async function verifyTaggedPDF(pdfBuffer: Buffer): Promise<{
   tableCount?: number
   headingCount?: number
 }> {
+  const { exec } = require('child_process')
+  const { promisify } = require('util')
+  const execAsync = promisify(exec)
+  const fs = require('fs/promises')
+  const path = require('path')
+  const { tmpdir } = require('os')
+  
   try {
-    const { exec } = require('child_process')
-    const { promisify } = require('util')
-    const execAsync = promisify(exec)
-    const fs = require('fs/promises')
-    const path = require('path')
-    const { tmpdir } = require('os')
-    
     // Create temporary PDF file
     const tempDir = tmpdir()
     const tempPdfPath = path.join(tempDir, `verify-test-${Date.now()}.pdf`)

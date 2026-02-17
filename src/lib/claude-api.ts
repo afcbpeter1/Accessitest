@@ -575,4 +575,76 @@ Return ONLY valid JSON:
       return { orderedLines: lines };
     }
   }
+
+  /**
+   * Generate text response from a prompt (simple text generation)
+   */
+  async generateText(prompt: string): Promise<string> {
+    try {
+      const response = await this.makeRateLimitedRequest(() =>
+        this.callClaudeAPI([{ role: 'user', content: prompt }])
+      );
+      return response;
+    } catch (error) {
+      console.error('Error generating text:', error);
+      return '';
+    }
+  }
+
+  /**
+   * Generate text response with vision (image analysis)
+   */
+  async generateTextWithVision(
+    prompt: string,
+    imageBase64: string,
+    mediaType: string
+  ): Promise<string> {
+    try {
+      // Anthropic API format for vision: content array with text and image
+      const response = await this.makeRateLimitedRequest(async () => {
+        const requestBody: any = {
+          model: 'claude-3-7-sonnet-20250219',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: mediaType,
+                  data: imageBase64
+                }
+              }
+            ]
+          }],
+          max_tokens: 1000,
+          temperature: 0.3
+        };
+
+        const response = await fetch(this.apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': this.apiKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Claude API error: ${response.status} ${errorText}`);
+        }
+
+        const data: ClaudeResponse = await response.json();
+        return data.content[0]?.text || '';
+      });
+
+      return response;
+    } catch (error) {
+      console.error('Error generating text with vision:', error);
+      return '';
+    }
+  }
 }
