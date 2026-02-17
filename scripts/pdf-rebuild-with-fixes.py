@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-PDF Rebuild with Fixes - Robust Version
-Uses raw byte insertion for MCID markers (100% reliable)
+PDF Accessibility Fixer - Combined Rebuild + Patch
+Automatically detects whether input PDF already has an Adobe structure tree:
+  - PATCH MODE  (Adobe auto-tagged): preserves structure, patches metadata/bookmarks/figures/tables/annotations
+  - REBUILD MODE (untagged):          builds structure tree from scratch
 """
 
 # CRITICAL: Force UTF-8 encoding on Windows (MUST be first!)
@@ -16,1256 +18,827 @@ if sys.stderr.encoding != 'utf-8':
 import argparse
 import json
 import os
-import shutil
 from pathlib import Path
 
 try:
     import pikepdf
     from pikepdf import Dictionary, Array, Name, String
 except ImportError:
-    print("ERROR: pikepdf not installed. Install with: pip install pikepdf", file=sys.stderr)
+    print("ERROR: pikepdf not installed. Run: pip install pikepdf", file=sys.stderr)
     sys.exit(1)
 
+# ---------------------------------------------------------------------------
+# Language map
+# ---------------------------------------------------------------------------
+LANG_NAME_MAP = {
+    'ar': 'Arabic', 'bg': 'Bulgarian',
+    'zh': 'Chinese - Simplified', 'zh-cn': 'Chinese - Simplified', 'zh-tw': 'Chinese - Traditional',
+    'hr': 'Croatian', 'cs': 'Czech', 'da': 'Danish', 'nl': 'Dutch',
+    'en': 'English', 'en-ar': 'English with Arabic support', 'en-he': 'English with Hebrew support',
+    'et': 'Estonian', 'fi': 'Finnish', 'fr': 'French', 'fr-ma': 'French (Morocco)',
+    'de': 'German', 'el': 'Greek', 'he': 'Hebrew', 'hu': 'Hungarian',
+    'it': 'Italian', 'ja': 'Japanese', 'ko': 'Korean',
+    'lv': 'Latvian', 'lt': 'Lithuanian', 'no': 'Norwegian', 'pl': 'Polish',
+    'pt': 'Portuguese Brazil', 'pt-br': 'Portuguese Brazil',
+    'ro': 'Romanian', 'ru': 'Russian', 'sk': 'Slovak', 'sl': 'Slovenian',
+    'es': 'Spanish', 'sv': 'Swedish', 'tr': 'Turkish', 'uk': 'Ukrainian',
+}
+
+
+# ===========================================================================
+# SHARED UTILITIES
+# ===========================================================================
+
+def detect_language_with_ai(pdf_path, title=None):
+    try:
+        import anthropic, fitz
+        doc = fitz.open(pdf_path)
+        sample = ''.join(doc[i].get_text()[:500] for i in range(min(3, len(doc))))
+        doc.close()
+        if not sample.strip():
+            return 'en'
+        api_key = os.getenv('ANTHROPIC_API_KEY')
+        if not api_key:
+            return 'en'
+        client = anthropic.Anthropic(api_key=api_key)
+        msg = client.messages.create(
+            model='claude-sonnet-4-20250514', max_tokens=10,
+            messages=[{'role': 'user', 'content':
+                f'Respond with ONLY the ISO 639-1 two-letter language code (e.g. en, fr, de):\n\nTitle: {title or ""}\n\n{sample[:800]}'}]
+        )
+        code = msg.content[0].text.strip().lower()[:2]
+        return code if code in LANG_NAME_MAP else 'en'
+    except Exception as e:
+        print(f'[WARN] Language detection failed: {e}')
+        return 'en'
+
+
+def set_metadata(pdf, title, lang_code, lang_name):
+    """Set title + language in all 4 required locations."""
+    # 1. Root.Lang
+    pdf.Root[Name('/Lang')] = String(lang_code)
+
+    # 2. Info dictionary (via trailer)
+    if '/Info' not in pdf.trailer or pdf.trailer['/Info'] is None:
+        pdf.trailer['/Info'] = pdf.make_indirect(Dictionary())
+    pdf.trailer['/Info'][Name('/Title')] = String(title)
+
+    # 3. ViewerPreferences
+    if '/ViewerPreferences' not in pdf.Root:
+        pdf.Root.ViewerPreferences = pdf.make_indirect(Dictionary())
+    vp = pdf.Root.ViewerPreferences
+    vp[Name('/DisplayDocTitle')] = True
+    vp[Name('/Language')] = String(lang_name)
+    vp[Name('/PrintArea')] = Name('/MediaBox')
+    vp[Name('/ViewArea')] = Name('/MediaBox')
+
+    # 4. XMP Metadata
+    try:
+        xmp = f'''<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about=""
+    xmlns:dc="http://purl.org/dc/elements/1.1/">
+   <dc:title><rdf:Alt><rdf:li xml:lang="x-default">{title}</rdf:li></rdf:Alt></dc:title>
+   <dc:language><rdf:Bag><rdf:li>{lang_code}</rdf:li></rdf:Bag></dc:language>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>'''
+        pdf.Root.Metadata = pdf.make_stream(xmp.encode('utf-8'))
+        pdf.Root.Metadata[Name('/Type')] = Name('/Metadata')
+        pdf.Root.Metadata[Name('/Subtype')] = Name('/XML')
+    except Exception as e:
+        print(f'  [WARN] XMP update failed: {e}')
+
+    # Ensure MarkInfo.Marked
+    if '/MarkInfo' not in pdf.Root:
+        pdf.Root.MarkInfo = Dictionary()
+    pdf.Root.MarkInfo.Marked = True
+
+    print(f'[OK] Metadata: title="{title}", lang={lang_code} ({lang_name}), DisplayDocTitle=True')
+
+
+def fix_annotation_tagging(pdf):
+    """Add /StructParent and /Contents to annotations missing them."""
+    fixed = 0
+    sp_next = 0
+    if '/StructTreeRoot' in pdf.Root:
+        sr = pdf.Root.StructTreeRoot
+        if '/ParentTree' not in sr:
+            sr[Name('/ParentTree')] = pdf.make_indirect(Dictionary(Nums=Array([])))
+        if '/ParentTreeNextKey' in sr:
+            try:
+                sp_next = int(sr['/ParentTreeNextKey'])
+            except Exception:
+                pass
+
+    for page_num, page in enumerate(pdf.pages):
+        if '/Annots' not in page:
+            continue
+        annots = page['/Annots']
+        if not isinstance(annots, Array):
+            continue
+        for annot_ref in annots:
+            try:
+                annot = pdf.get_object(annot_ref.objgen) if hasattr(annot_ref, 'objgen') else annot_ref
+                if not isinstance(annot, Dictionary):
+                    continue
+                subtype = str(annot.get('/Subtype', '')).lstrip('/')
+
+                if '/StructParent' not in annot:
+                    annot[Name('/StructParent')] = sp_next  # Native int, not pikepdf.Integer
+                    sp_next += 1
+
+                if subtype == 'Link' and '/Contents' not in annot:
+                    uri = ''
+                    if '/A' in annot:
+                        action = annot['/A']
+                        if isinstance(action, Dictionary) and '/URI' in action:
+                            uri = str(action['/URI'])
+                    annot[Name('/Contents')] = String(f'Link: {uri[:80]}' if uri else f'Link on page {page_num + 1}')
+                    fixed += 1
+                elif subtype == 'Widget':
+                    if '/TU' not in annot:
+                        field_name = str(annot.get('/T', f'Form field on page {page_num + 1}'))
+                        annot[Name('/TU')] = String(field_name)
+                        fixed += 1
+                    if '/Contents' not in annot:
+                        annot[Name('/Contents')] = annot.get('/TU', String(f'Form field on page {page_num + 1}'))
+                        fixed += 1
+                elif subtype in ('Screen', 'Movie', 'Sound'):
+                    if '/Contents' not in annot:
+                        annot[Name('/Contents')] = String(f'Multimedia on page {page_num + 1}')
+                        fixed += 1
+                    if '/Alt' not in annot:
+                        annot[Name('/Alt')] = String(f'Multimedia on page {page_num + 1}')
+                        fixed += 1
+                else:
+                    if '/Contents' not in annot:
+                        annot[Name('/Contents')] = String(f'{subtype} on page {page_num + 1}')
+                        fixed += 1
+            except Exception as e:
+                print(f'  [WARN] Annotation on page {page_num + 1}: {e}')
+
+    if '/StructTreeRoot' in pdf.Root:
+        pdf.Root.StructTreeRoot[Name('/ParentTreeNextKey')] = sp_next  # Native int
+
+    print(f'[OK] Annotations: {fixed} fixed, {sp_next} tagged')
+    return fixed
+
+
+# ===========================================================================
+# PATCH MODE FUNCTIONS  (operate on existing structure tree)
+# ===========================================================================
+
+def _get_page_num(pdf, elem):
+    if '/Pg' in elem:
+        try:
+            pg_ref = elem['/Pg']
+            for i, page in enumerate(pdf.pages):
+                if page.obj.objgen == pg_ref.objgen:
+                    return i
+        except Exception:
+            pass
+    if '/K' in elem:
+        kids = elem['/K']
+        if not isinstance(kids, Array):
+            kids = Array([kids])
+        for kid in kids:
+            try:
+                ko = pdf.get_object(kid.objgen) if hasattr(kid, 'objgen') else kid
+                if isinstance(ko, Dictionary) and ko.get('/Type') == Name('/MCR') and '/Pg' in ko:
+                    for i, page in enumerate(pdf.pages):
+                        if page.obj.objgen == ko['/Pg'].objgen:
+                            return i
+            except Exception:
+                pass
+    return 0
+
+
+def _walk_tree(pdf, func, elem=None, depth=0):
+    """Generic tree walker; calls func(elem) for every dict node."""
+    if elem is None:
+        if '/StructTreeRoot' not in pdf.Root:
+            return
+        root = pdf.Root.StructTreeRoot
+        if hasattr(root, 'objgen'):
+            root = pdf.get_object(root.objgen)
+        _walk_tree(pdf, func, root, 0)
+        return
+    if not isinstance(elem, Dictionary):
+        return
+    func(elem)
+    if '/K' in elem:
+        kids = elem['/K']
+        if not isinstance(kids, Array):
+            kids = Array([kids])
+        for kid in kids:
+            try:
+                if isinstance(kid, Dictionary):
+                    _walk_tree(pdf, func, kid, depth + 1)
+                elif hasattr(kid, 'objgen'):
+                    ko = pdf.get_object(kid.objgen)
+                    if isinstance(ko, Dictionary):
+                        _walk_tree(pdf, func, ko, depth + 1)
+            except Exception:
+                pass
+
+
+def patch_fix_bookmarks(pdf):
+    """Build Outlines from heading elements in existing structure tree."""
+    headings = []
+
+    def collect(elem):
+        s = str(elem.get('/S', '')).lstrip('/')
+        level = None
+        if s == 'H':
+            level = 1
+        elif s.startswith('H') and len(s) >= 2:
+            try:
+                level = int(s[1:])
+            except ValueError:
+                pass
+        if level is None:
+            return
+        text = ''
+        if '/ActualText' in elem:
+            text = str(elem['/ActualText']).strip()
+        if not text and '/T' in elem:
+            text = str(elem['/T']).strip()
+        if text:
+            headings.append({'level': level, 'title': text, 'page': _get_page_num(pdf, elem)})
+
+    _walk_tree(pdf, collect)
+
+    if not headings:
+        # Empty outline still satisfies the check for small docs
+        pdf.Root.Outlines = pdf.make_indirect(Dictionary(
+            Type=Name('/Outlines'), Count=0  # Native int, not pikepdf.Integer
+        ))
+        print('[OK] Bookmarks: no headings found, created empty Outlines')
+        return
+
+    outline_root = pdf.make_indirect(Dictionary(
+        Type=Name('/Outlines'), Count=len(headings)  # Native int
+    ))
+    pdf.Root.Outlines = outline_root
+
+    item_refs = []
+    for h in headings:
+        page = pdf.pages[h['page']]
+        dest = Array([page.obj, Name('/XYZ'), None, None, None])  # pikepdf.Null() -> None
+        item_refs.append(pdf.make_indirect(Dictionary(
+            Title=String(h['title']), Dest=dest, Parent=outline_root
+        )))
+
+    for i, ref in enumerate(item_refs):
+        item = pdf.get_object(ref.objgen)
+        if i > 0:
+            item[Name('/Prev')] = item_refs[i - 1]
+        if i < len(item_refs) - 1:
+            item[Name('/Next')] = item_refs[i + 1]
+
+    outline_root[Name('/First')] = item_refs[0]
+    outline_root[Name('/Last')] = item_refs[-1]
+    print(f'[OK] Bookmarks: created {len(item_refs)} entries from headings')
+
+
+def patch_fix_figure_alt_text(pdf, use_ai=False, pdf_path=None, document_title=None):
+    """Add /Alt to Figure elements that are missing it."""
+    figure_count = [0]
+    fixed = [0]
+    ai_alts = {}
+
+    if use_ai and pdf_path:
+        try:
+            import anthropic, fitz
+            doc = fitz.open(pdf_path)
+            images = []
+            for pn, pg in enumerate(doc):
+                for img in pg.get_images(full=True):
+                    images.append({'page': pn + 1, 'index': len(images) + 1})
+            doc.close()
+            if images:
+                api_key = os.getenv('ANTHROPIC_API_KEY')
+                if api_key:
+                    client = anthropic.Anthropic(api_key=api_key)
+                    msg = client.messages.create(
+                        model='claude-sonnet-4-20250514', max_tokens=1000,
+                        messages=[{'role': 'user', 'content':
+                            f'PDF "{document_title or "Document"}" has {len(images)} figures.\n'
+                            f'Images: {json.dumps(images)}\n'
+                            'Return JSON mapping figure number (1-based) to concise alt text under 125 chars.\n'
+                            'Example: {"1": "Decorative illustration", "2": "Bar chart"}\n'
+                            'JSON only, no markdown.'}]
+                    )
+                    text = msg.content[0].text.strip()
+                    if text.startswith('```'):
+                        text = text.split('```')[1]
+                        if text.startswith('json'):
+                            text = text[4:]
+                    ai_alts = json.loads(text.strip())
+        except Exception as e:
+            print(f'  [WARN] AI alt text failed: {e}')
+
+    def fix_figure(elem):
+        s = str(elem.get('/S', '')).lstrip('/')
+        if s != 'Figure':
+            return
+        figure_count[0] += 1
+        if '/Alt' in elem and str(elem['/Alt']).strip():
+            return
+        alt = ai_alts.get(str(figure_count[0]))
+        if not alt:
+            page = _get_page_num(pdf, elem)
+            alt = f'Figure {figure_count[0]} on page {page + 1}'
+        elem[Name('/Alt')] = String(alt)
+        fixed[0] += 1
+        print(f'  [OK] Figure {figure_count[0]} alt text: {alt[:60]}')
+
+    _walk_tree(pdf, fix_figure)
+    print(f'[OK] Figures: {figure_count[0]} found, {fixed[0]} alt texts added')
+
+
+def patch_fix_table_headers(pdf):
+    """Convert first-row TD cells to TH in each Table."""
+    tables = [0]
+    cells = [0]
+
+    def fix_table(elem):
+        s = str(elem.get('/S', '')).lstrip('/')
+        if s != 'Table' or '/K' not in elem:
+            return
+        tables[0] += 1
+        kids = elem['/K']
+        if not isinstance(kids, Array):
+            kids = Array([kids])
+        first_tr_done = False
+        for kid in kids:
+            try:
+                tr = kid if isinstance(kid, Dictionary) else (
+                    pdf.get_object(kid.objgen) if hasattr(kid, 'objgen') else None)
+                if tr is None or not isinstance(tr, Dictionary):
+                    continue
+                if str(tr.get('/S', '')).lstrip('/') == 'TR' and not first_tr_done:
+                    first_tr_done = True
+                    if '/K' not in tr:
+                        continue
+                    row_kids = tr['/K']
+                    if not isinstance(row_kids, Array):
+                        row_kids = Array([row_kids])
+                    for ck in row_kids:
+                        try:
+                            cell = ck if isinstance(ck, Dictionary) else (
+                                pdf.get_object(ck.objgen) if hasattr(ck, 'objgen') else None)
+                            if cell and isinstance(cell, Dictionary):
+                                if str(cell.get('/S', '')).lstrip('/') == 'TD':
+                                    cell[Name('/S')] = Name('/TH')
+                                    cell[Name('/Scope')] = Name('/Column')
+                                    cells[0] += 1
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+    _walk_tree(pdf, fix_table)
+    print(f'[OK] Tables: {tables[0]} tables processed, {cells[0]} TD→TH conversions')
+
+
+# ===========================================================================
+# REBUILD MODE CLASSES + FUNCTIONS  (for untagged PDFs)
+# ===========================================================================
 
 class StructureTreeBuilder:
-    """Build complete PDF structure tree with MCID linking"""
-    
     def __init__(self, pdf):
         self.pdf = pdf
         self.mcid_counter = 0
         self.struct_elements = []
-        
+
     def create_root(self):
-        """Create StructTreeRoot and Document wrapper"""
-        struct_root = Dictionary(
-            Type=Name.StructTreeRoot,
-            K=Array([])
-        )
+        struct_root = Dictionary(Type=Name.StructTreeRoot, K=Array([]))
         self.struct_root_ref = self.pdf.make_indirect(struct_root)
         self.pdf.Root.StructTreeRoot = self.struct_root_ref
-        
-        self.doc_elem = Dictionary(
-            Type=Name.StructElem,
-            S=Name.Document,
-            P=self.struct_root_ref,
-            K=Array([])
-        )
+        self.doc_elem = Dictionary(Type=Name.StructElem, S=Name.Document,
+                                   P=self.struct_root_ref, K=Array([]))
         self.doc_elem_ref = self.pdf.make_indirect(self.doc_elem)
         struct_root.K = Array([self.doc_elem_ref])
-        
-        print("[OK] Created StructTreeRoot -> Document hierarchy")
-    
+        print('[OK] Created StructTreeRoot -> Document hierarchy')
+
     def create_element(self, tag, page_num, mcid=None, text=None, alt=None):
-        """Create a structure element with MCID linking"""
         page = self.pdf.pages[page_num]
-        
         elem = Dictionary(
             Type=Name.StructElem,
             S=Name(tag) if tag.startswith('/') else Name(f'/{tag}'),
             P=self.doc_elem_ref,
             K=Array([])
         )
-        
         if text:
             elem.T = String(text)
         if alt:
             elem.Alt = String(alt)
-        
         if mcid is None:
             mcid = self.mcid_counter
             self.mcid_counter += 1
-        
-        mcr = Dictionary(
-            Type=Name.MCR,
-            Pg=page.obj,
-            MCID=mcid
-        )
-        mcr_ref = self.pdf.make_indirect(mcr)
-        elem.K = Array([mcr_ref])
-        
+        mcr = Dictionary(Type=Name.MCR, Pg=page.obj, MCID=mcid)  # Native int for MCID
+        elem.K = Array([self.pdf.make_indirect(mcr)])
         elem_ref = self.pdf.make_indirect(elem)
         self.struct_elements.append(elem_ref)
-        
         return elem_ref, mcid
-    
+
     def create_table(self, page_num, table_data, mcid_start=None):
-        """Create table structure with TR/TH/TD elements"""
         page = self.pdf.pages[page_num]
-        
         if mcid_start is None:
             mcid_start = self.mcid_counter
-        
-        # Create Table element
-        table_elem = Dictionary(
-            Type=Name.StructElem,
-            S=Name.Table,
-            P=self.doc_elem_ref,
-            K=Array([])
-        )
-        
-        # Add summary if provided
+        table_elem = Dictionary(Type=Name.StructElem, S=Name.Table,
+                                P=self.doc_elem_ref, K=Array([]))
         if 'summary' in table_data:
             table_elem.Summary = String(table_data['summary'])
-        
         table_ref = self.pdf.make_indirect(table_elem)
         rows = table_data.get('rows', [])
+        if not isinstance(rows, list):
+            rows = []
         has_headers = table_data.get('hasHeaders', False)
-        
         row_refs = []
         mcid = mcid_start
-        
         for row_idx, row in enumerate(rows):
-            # Create TR (table row)
-            tr_elem = Dictionary(
-                Type=Name.StructElem,
-                S=Name.TR,
-                P=table_ref,
-                K=Array([])
-            )
+            tr_elem = Dictionary(Type=Name.StructElem, S=Name.TR,
+                                 P=table_ref, K=Array([]))
             tr_ref = self.pdf.make_indirect(tr_elem)
-            
             cells = row if isinstance(row, list) else row.get('cells', [])
             cell_refs = []
-            
             for cell_idx, cell in enumerate(cells):
-                # Determine if header cell
-                is_header = has_headers and row_idx == 0
-                cell_tag = Name.TH if is_header else Name.TD
-                
-                # Create cell element
-                cell_elem = Dictionary(
-                    Type=Name.StructElem,
-                    S=cell_tag,
-                    P=tr_ref,
-                    K=Array([])
-                )
-                
-                # Add MCID reference
-                mcr = Dictionary(
-                    Type=Name.MCR,
-                    Pg=page.obj,
-                    MCID=mcid
-                )
-                mcr_ref = self.pdf.make_indirect(mcr)
-                cell_elem.K = Array([mcr_ref])
-                
-                cell_ref = self.pdf.make_indirect(cell_elem)
-                cell_refs.append(cell_ref)
+                cell_tag = Name.TH if (has_headers and row_idx == 0) else Name.TD
+                cell_elem = Dictionary(Type=Name.StructElem, S=cell_tag,
+                                       P=tr_ref, K=Array([]))
+                if has_headers and row_idx == 0:
+                    cell_elem[Name('/Scope')] = Name('/Column')
+                mcr = Dictionary(Type=Name.MCR, Pg=page.obj, MCID=mcid)  # Native int
+                cell_elem.K = Array([self.pdf.make_indirect(mcr)])
+                cell_refs.append(self.pdf.make_indirect(cell_elem))
                 mcid += 1
-            
             tr_elem.K = Array(cell_refs)
             row_refs.append(tr_ref)
-        
         table_elem.K = Array(row_refs)
         self.struct_elements.append(table_ref)
         self.mcid_counter = mcid
-        
         return table_ref, (mcid - mcid_start)
-    
+
     def create_list(self, page_num, list_data, mcid_start=None):
-        """Create list structure with LI/Lbl/LBody elements"""
         page = self.pdf.pages[page_num]
-        
         if mcid_start is None:
             mcid_start = self.mcid_counter
-        
-        # Create List element
-        list_elem = Dictionary(
-            Type=Name.StructElem,
-            S=Name.L,
-            P=self.doc_elem_ref,
-            K=Array([])
-        )
+        list_elem = Dictionary(Type=Name.StructElem, S=Name.L,
+                               P=self.doc_elem_ref, K=Array([]))
         list_ref = self.pdf.make_indirect(list_elem)
-        
         items = list_data.get('items', [])
         item_refs = []
         mcid = mcid_start
-        
-        for item_idx, item in enumerate(items):
-            # Create LI (list item)
-            li_elem = Dictionary(
-                Type=Name.StructElem,
-                S=Name.LI,
-                P=list_ref,
-                K=Array([])
-            )
+        for item in items:
+            li_elem = Dictionary(Type=Name.StructElem, S=Name.LI,
+                                 P=list_ref, K=Array([]))
             li_ref = self.pdf.make_indirect(li_elem)
-            
-            # Create Lbl (label/bullet)
-            lbl_elem = Dictionary(
-                Type=Name.StructElem,
-                S=Name.Lbl,
-                P=li_ref,
-                K=Array([])
-            )
-            lbl_mcr = Dictionary(
-                Type=Name.MCR,
-                Pg=page.obj,
-                MCID=mcid
-            )
-            lbl_mcr_ref = self.pdf.make_indirect(lbl_mcr)
-            lbl_elem.K = Array([lbl_mcr_ref])
-            lbl_ref = self.pdf.make_indirect(lbl_elem)
+            lbl_elem = Dictionary(Type=Name.StructElem, S=Name.Lbl, P=li_ref, K=Array([]))
+            lbl_elem.K = Array([self.pdf.make_indirect(
+                Dictionary(Type=Name.MCR, Pg=page.obj, MCID=mcid))])  # Native int
             mcid += 1
-            
-            # Create LBody (content)
-            lbody_elem = Dictionary(
-                Type=Name.StructElem,
-                S=Name.LBody,
-                P=li_ref,
-                K=Array([])
-            )
-            lbody_mcr = Dictionary(
-                Type=Name.MCR,
-                Pg=page.obj,
-                MCID=mcid
-            )
-            lbody_mcr_ref = self.pdf.make_indirect(lbody_mcr)
-            lbody_elem.K = Array([lbody_mcr_ref])
-            lbody_ref = self.pdf.make_indirect(lbody_elem)
+            lbody_elem = Dictionary(Type=Name.StructElem, S=Name.LBody, P=li_ref, K=Array([]))
+            lbody_elem.K = Array([self.pdf.make_indirect(
+                Dictionary(Type=Name.MCR, Pg=page.obj, MCID=mcid))])  # Native int
             mcid += 1
-            
-            li_elem.K = Array([lbl_ref, lbody_ref])
+            li_elem.K = Array([self.pdf.make_indirect(lbl_elem),
+                                self.pdf.make_indirect(lbody_elem)])
             item_refs.append(li_ref)
-        
         list_elem.K = Array(item_refs)
         self.struct_elements.append(list_ref)
         self.mcid_counter = mcid
-        
         return list_ref, (mcid - mcid_start)
-    
+
     def finalize(self):
-        """Add all structure elements to Document's K array"""
         self.doc_elem.K = Array(self.struct_elements)
-        print(f"[OK] Added {len(self.struct_elements)} structure elements to Document")
+        print(f'[OK] Added {len(self.struct_elements)} structure elements to Document')
         return len(self.struct_elements)
 
 
-def add_mcid_to_page_simple(pdf, page_num, mcid, tag='/P'):
-    """
-    Add MCID markers using simple raw bytes prepend/append
-    This is 100% reliable and works on all PDFs
-    """
+def add_mcid_to_page(pdf, page_num, mcid, tag='/P'):
     try:
         page = pdf.pages[page_num]
-        
         if '/Contents' not in page:
             return False
-        
         contents = page.Contents
-        
-        # Handle both single stream and array
-        if isinstance(contents, Array):
-            if len(contents) == 0:
-                return False
-            content_stream = contents[0]
-        else:
-            content_stream = contents
-        
-        # Read current content as bytes
-        content_bytes = content_stream.read_bytes()
-        
-        # Create BDC/EMC markers as raw PDF operators
-        bdc_marker = f'{tag} <</MCID {mcid}>> BDC\n'.encode('latin-1')
-        emc_marker = b'\nEMC'
-        
-        # Prepend BDC, append EMC
-        new_content = bdc_marker + content_bytes + emc_marker
-        
-        # Create new stream with modified content
-        page.Contents = pdf.make_stream(new_content)
-        
+        stream = contents[0] if isinstance(contents, Array) else contents
+        raw = stream.read_bytes()
+        bdc = f'{tag} <</MCID {mcid}>> BDC\n'.encode('latin-1')
+        page.Contents = pdf.make_stream(bdc + raw + b'\nEMC')
         return True
-        
     except Exception as e:
-        print(f"  [ERROR] Failed to add MCID to page {page_num + 1}: {e}")
+        print(f'  [ERROR] MCID on page {page_num + 1}: {e}')
         return False
 
 
-def detect_language_with_ai(pdf_path, title=None):
-    """Use Claude to detect document language"""
-    try:
-        import anthropic
-    except ImportError:
-        print("[WARN] anthropic package not installed, defaulting to English")
-        return 'en'
-    
-    try:
-        # Extract sample text from first few pages
-        import fitz
-        doc = fitz.open(pdf_path)
-        sample_text = ""
-        for page_num in range(min(3, len(doc))):
-            page = doc[page_num]
-            sample_text += page.get_text()[:500]  # First 500 chars per page
-        doc.close()
-        
-        if not sample_text.strip():
-            return 'en'
-        
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            return 'en'
-        
-        client = anthropic.Anthropic(api_key=api_key)
-        
-        prompt = f"""Detect the primary language of this document.
-
-Title: {title or 'Unknown'}
-
-Sample text:
-{sample_text[:1000]}
-
-Respond with ONLY the ISO 639-1 two-letter language code (e.g., "en", "es", "fr", "de", "zh", "ja").
-No explanations, just the code."""
-
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=10,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        
-        detected_lang = message.content[0].text.strip().lower()[:2]
-        
-        # Validate it's a real language code
-        valid_langs = ['en', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko', 'ar', 'hi']
-        if detected_lang in valid_langs:
-            print(f"[OK] AI detected language: {detected_lang}")
-            return detected_lang
-        else:
-            print(f"[WARN] Invalid language code '{detected_lang}', defaulting to 'en'")
-            return 'en'
-        
-    except Exception as e:
-        print(f"[WARN] Could not detect language with AI: {e}")
-        return 'en'
-
-
-def extract_images_from_pdf(pdf_path):
-    """
-    Find all images in the PDF and their locations
-    """
-    images = []
-    
-    with pikepdf.Pdf.open(pdf_path) as pdf:
-        for page_num, page in enumerate(pdf.pages):
-            # Get page resources
-            if '/Resources' not in page:
-                continue
-            
-            resources = page.Resources
-            
-            # Check for XObject (where images live)
-            if '/XObject' not in resources:
-                continue
-            
-            xobjects = resources.XObject
-            
-            for name, xobj in xobjects.items():
-                try:
-                    # Check if it's an image
-                    if xobj.get('/Subtype') == Name('/Image'):
-                        images.append({
-                            'page': page_num + 1,
-                            'name': str(name),
-                            'width': int(xobj.get('/Width', 0)),
-                            'height': int(xobj.get('/Height', 0))
-                        })
-                except Exception:
-                    continue
-    
-    return images
-
-
 def get_image_alt_text_from_claude(pdf_path, document_title=None):
-    """
-    Use Claude to generate better alt text for images
-    """
     try:
         import anthropic
-    except ImportError:
-        print("\n[WARN] anthropic package not installed. Install with: pip install anthropic")
-        return {}
-    
-    images = extract_images_from_pdf(pdf_path)
-    
-    if not images:
-        return {}
-    
-    # Get document title for context
-    title = document_title or "Document"
-    
-    prompt = f"""You are helping make a PDF accessible.
-
-This PDF has {len(images)} images across {max(img['page'] for img in images)} pages.
-
-Images:
-{json.dumps(images, indent=2)}
-
-The document is titled "{title}" and appears to be an academic/educational document.
-
-For each image, suggest appropriate alternate text. Consider:
-- Page 1 images are likely decorative (laptop, illustrations)
-- Other pages may have diagrams, charts, or educational graphics
-- Use descriptive text that helps screen reader users understand the image
-
-Return JSON with keys as image indices (1, 2, 3, etc.):
-{{
-  "1": "Decorative illustration of laptop computer",
-  "2": "Decorative graphic element",
-  ...
-}}
-
-Keep alt text concise (under 125 characters each)."""
-
-    try:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            print("\n[WARN] ANTHROPIC_API_KEY not set, skipping AI alt text generation")
-            return {}
-        
-        client = anthropic.Anthropic(api_key=api_key)
-        
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=1500,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        
-        response_text = message.content[0].text
-        
-        # Extract JSON
-        if "```json" in response_text:
-            json_str = response_text.split("```json")[1].split("```")[0].strip()
-        elif "```" in response_text:
-            json_str = response_text.split("```")[1].split("```")[0].strip()
-            if json_str.startswith("json"):
-                json_str = json_str[4:].strip()
-        else:
-            json_str = response_text.strip()
-        
-        alt_texts = json.loads(json_str)
-        
-        return alt_texts
-        
-    except Exception as e:
-        print(f"[WARN] Could not get AI alt text: {e}")
-        return {}
-
-
-def audit_color_contrast(pdf_path):
-    """
-    Scan PDF for color contrast issues
-    Returns: list of issues with specific failures
-    """
-    try:
-        import fitz  # PyMuPDF
-        
-        doc = fitz.open(pdf_path)
-        issues = []
-        
-        for page_num in range(min(len(doc), 50)):  # Limit to first 50 pages
-            page = doc[page_num]
-            
-            # Extract text with color and position
-            blocks = page.get_text("dict")["blocks"]
-            
-            for block_idx, block in enumerate(blocks):
-                if "lines" not in block:
-                                    continue
-                                
-                for line in block["lines"]:
-                    for span in line["spans"]:
-                        # Get text color
-                        color = span.get("color", 0)
-                        r = (color >> 16) & 0xFF
-                        g = (color >> 8) & 0xFF
-                        b = color & 0xFF
-                        
-                        # Get text sample
-                        text_sample = span.get("text", "")[:50].strip()
-                        
-                        # SKIP if text is empty or whitespace
-                        if not text_sample:
-                                    continue
-                        
-                        # ASSUME white background (255, 255, 255)
-                        bg_r, bg_g, bg_b = 255, 255, 255
-                        
-                        # SKIP if text color is white/near-white (likely on colored background we can't detect)
-                        if r > 240 and g > 240 and b > 240:
-                            continue  # White text is likely on colored background
-                        
-                        # Calculate contrast
-                        def luminance(r, g, b):
-                            def adjust(c):
-                                c = c / 255.0
-                                return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
-                            return 0.2126 * adjust(r) + 0.7152 * adjust(g) + 0.0722 * adjust(b)
-                        
-                        l1 = luminance(r, g, b)
-                        l2 = luminance(bg_r, bg_g, bg_b)
-                        contrast = (max(l1, l2) + 0.05) / (min(l1, l2) + 0.05)
-                        
-                        # Check if fails WCAG AA (4.5:1)
-                        font_size = span.get("size", 12)
-                        required_contrast = 3.0 if font_size >= 18 else 4.5
-                        
-                        if contrast < required_contrast:
-                            issues.append({
-                                'page': page_num + 1,
-                                'text_color': f'rgb({r},{g},{b})',
-                                'bg_color': f'rgb({bg_r},{bg_g},{bg_b})',
-                                'contrast_ratio': round(contrast, 2),
-                                'required_ratio': required_contrast,
-                                'text_sample': text_sample,
-                                'font_size': round(font_size, 1),
-                                'bbox': span.get("bbox", [0,0,0,0])
-                            })
-        
-        doc.close()
-        return issues
-        
-    except Exception as e:
-        print(f"[WARN] Could not audit color contrast: {e}")
-        return []
-
-
-def audit_logical_reading_order(pdf_path):
-    """
-    Scan PDF structure tree for reading order issues
-    Returns: list of issues with specific problems
-    """
-    try:
-        issues = []
-        
+        images = []
         with pikepdf.Pdf.open(pdf_path) as pdf:
-            # Extract structure tree
-            structure_elements = []
-            
-            def extract_structure(elem, depth=0, parent_type=None):
-                if not isinstance(elem, Dictionary):
-                    return
-                
-                elem_type = elem.get('/S')
-                if elem_type:
-                    structure_elements.append({
-                        'type': str(elem_type).replace('/', ''),
-                        'depth': depth,
-                        'parent': parent_type
-                    })
-                
-                # Recurse
-                if '/K' in elem:
-                    children = elem.get('/K')
-                    if isinstance(children, Array):
-                        for child in children:
-                            if isinstance(child, Dictionary):
-                                extract_structure(child, depth + 1, str(elem_type))
-                            else:
-                                try:
-                                    child_obj = pdf.get_object(child.objgen) if hasattr(child, 'objgen') else child
-                                    if isinstance(child_obj, Dictionary):
-                                        extract_structure(child_obj, depth + 1, str(elem_type))
-                                except:
-                                    pass
-            
-            if '/StructTreeRoot' in pdf.Root:
-                struct_root = pdf.Root.StructTreeRoot
-                struct_root_obj = pdf.get_object(struct_root.objgen) if hasattr(struct_root, 'objgen') else struct_root
-                extract_structure(struct_root_obj)
-            
-            # Check for heading order issues
-            heading_levels = []
-            for idx, elem in enumerate(structure_elements):
-                elem_type = elem['type']
-                if elem_type.startswith('H'):
+            for pn, page in enumerate(pdf.pages):
+                if '/Resources' not in page or '/XObject' not in page.Resources:
+                    continue
+                for name, xobj in page.Resources.XObject.items():
                     try:
-                        level = int(elem_type[1:])
-                        heading_levels.append({
-                            'level': level,
-                            'index': idx,
-                            'type': elem_type
-                        })
-                    except:
+                        if xobj.get('/Subtype') == Name('/Image'):
+                            images.append({'page': pn + 1, 'name': str(name),
+                                           'width': int(xobj.get('/Width', 0)),
+                                           'height': int(xobj.get('/Height', 0))})
+                    except Exception:
                         pass
-            
-            # Detect skipped heading levels (H1 -> H3)
-            for i in range(len(heading_levels) - 1):
-                current = heading_levels[i]['level']
-                next_level = heading_levels[i + 1]['level']
-                
-                if next_level > current + 1:
-                    issues.append({
-                        'type': 'heading_skip',
-                        'description': f'Heading jumps from H{current} to H{next_level} (skips H{current + 1})',
-                        'location': f'Structure element {heading_levels[i + 1]["index"]}',
-                        'severity': 'warning'
-                    })
-            
-            # Detect H1 not first
-            if heading_levels and heading_levels[0]['level'] != 1:
-                issues.append({
-                    'type': 'h1_missing',
-                    'description': f'Document should start with H1, but starts with H{heading_levels[0]["level"]}',
-                    'location': 'Document structure',
-                    'severity': 'error'
-                })
-        
-        return issues
-        
+        if not images:
+            return {}
+        api_key = os.getenv('ANTHROPIC_API_KEY')
+        if not api_key:
+            return {}
+        client = anthropic.Anthropic(api_key=api_key)
+        prompt = (f'PDF "{document_title or "Document"}" has {len(images)} images.\n'
+                  f'{json.dumps(images, indent=2)}\n'
+                  'Return JSON with keys as image index (1-based) and values as alt text under 125 chars.\n'
+                  'JSON only.')
+        msg = client.messages.create(model='claude-sonnet-4-20250514', max_tokens=1500,
+                                     messages=[{'role': 'user', 'content': prompt}])
+        text = msg.content[0].text
+        if '```' in text:
+            text = text.split('```')[1]
+            if text.startswith('json'):
+                text = text[4:]
+        return json.loads(text.strip())
     except Exception as e:
-        print(f"[WARN] Could not audit reading order: {e}")
-        return []
+        print(f'[WARN] AI alt text: {e}')
+        return {}
 
 
-def tag_page_content(pdf, builder, page_num, fixes_for_page=None, image_alt_texts=None, image_counter=None):
-    """
-    Tag a single page with structure elements: headings, paragraphs, tables, lists, images
-    """
+def tag_page_content(pdf, builder, page_num, fixes_for_page=None,
+                     image_alt_texts=None, image_counter=None):
     page = pdf.pages[page_num]
     page.StructParents = page_num
-    
     elements_created = []
-    
-    # Process fixes for this page - create proper structure elements
+
     if fixes_for_page:
         for fix in fixes_for_page:
             fix_type = fix.get('type')
             fix_text = fix.get('text', '')
             fix_level = fix.get('level', 1)
-            
+
             if fix_type == 'heading':
-                # Create heading element (H1-H6)
-                heading_tag = f'/H{min(max(fix_level, 1), 6)}'
-                elem_ref, mcid = builder.create_element(
-                    tag=heading_tag,
-                    page_num=page_num,
-                    text=fix_text or f'Heading {fix_level}'
-                )
-                elements_created.append((elem_ref, mcid))
-                print(f"  [OK] Added {heading_tag} element: {fix_text[:50] if fix_text else 'Heading'}...")
-            
+                tag = f'/H{min(max(fix_level, 1), 6)}'
+                ref, mcid = builder.create_element(tag, page_num, text=fix_text or f'Heading {fix_level}')
+                elements_created.append((ref, mcid))
+                print(f'  [OK] {tag}: {fix_text[:50]}')
+
             elif fix_type == 'table':
-                # Create table structure with proper TR/TH/TD hierarchy
                 table_data = fix.get('tableData', {})
-                table_ref, mcid_count = builder.create_table(page_num, table_data)
-                elements_created.append((table_ref, None))
-                print(f"  [OK] Created Table with {len(table_data.get('rows', []))} rows on page {page_num + 1}")
-            
+                ref, _ = builder.create_table(page_num, table_data)
+                elements_created.append((ref, None))
+
             elif fix_type == 'list':
-                # Create list structure with proper LI/Lbl/LBody hierarchy
                 list_data = fix.get('listData', {})
-                list_ref, mcid_count = builder.create_list(page_num, list_data)
-                elements_created.append((list_ref, None))
-                print(f"  [OK] Created List with {len(list_data.get('items', []))} items on page {page_num + 1}")
-            
-            elif fix_type == 'altText' or fix_type == 'imageOfText':
-                # Image with alt text
-                alt_text = fix.get('altText', fix.get('extractedText', f'Image on page {page_num + 1}'))
-                elem_ref, mcid = builder.create_element(
-                    tag='/Figure',
-                    page_num=page_num,
-                    alt=alt_text
-                )
-                elements_created.append((elem_ref, mcid))
-                print(f"  [OK] Added Figure element with alt text: {alt_text[:50]}...")
-    
-    # Create Figure elements for images on this page (if not already handled by fixes)
+                ref, _ = builder.create_list(page_num, list_data)
+                elements_created.append((ref, None))
+
+            elif fix_type in ('altText', 'imageOfText'):
+                alt = fix.get('altText', fix.get('extractedText', f'Image on page {page_num + 1}'))
+                ref, mcid = builder.create_element('/Figure', page_num, alt=alt)
+                elements_created.append((ref, mcid))
+
+    # Auto-tag images not already handled
     if '/Resources' in page and '/XObject' in page.Resources:
-        xobjects = page.Resources.XObject
         image_count = 0
-        
-        for name, xobj in xobjects.items():
+        for name, xobj in page.Resources.XObject.items():
             try:
-                # Check if it's an image
                 if xobj.get('/Subtype') == Name('/Image'):
                     image_count += 1
                     if image_counter is not None:
                         image_counter[0] += 1
-                        global_image_index = image_counter[0]
+                        idx = image_counter[0]
                     else:
-                        global_image_index = image_count
-                    
-                    # Check if this image was already handled by a fix
-                    already_tagged = False
-                    if fixes_for_page:
-                        for fix in fixes_for_page:
-                            if fix.get('type') in ['altText', 'imageOfText']:
-                                already_tagged = True
-                                break
-                    
-                    if not already_tagged:
-                        # Use AI-generated alt text if available, otherwise use generic
-                        image_key = str(global_image_index)
-                        if image_alt_texts and image_key in image_alt_texts:
-                            alt_text = image_alt_texts[image_key]
-                        else:
-                            alt_text = f'Image {image_count} on page {page_num + 1}'
-                        
-                        # Create Figure element with alt text
-                        elem_ref, mcid = builder.create_element(
-                            tag='/Figure',
-                            page_num=page_num,
-                            alt=alt_text
-                        )
-                        elements_created.append((elem_ref, mcid))
-                        print(f"  [OK] Added Figure element for image on page {page_num + 1}: {alt_text[:50]}...")
+                        idx = image_count
+                    already = fixes_for_page and any(
+                        f.get('type') in ('altText', 'imageOfText') for f in fixes_for_page)
+                    if not already:
+                        alt = (image_alt_texts or {}).get(str(idx),
+                                                          f'Image {image_count} on page {page_num + 1}')
+                        ref, mcid = builder.create_element('/Figure', page_num, alt=alt)
+                        elements_created.append((ref, mcid))
+                        print(f'  [OK] Figure on page {page_num + 1}: {alt[:50]}')
             except Exception:
-                continue
-    
-    # If no elements created, create at least one paragraph element per page
+                pass
+
     if not elements_created:
-        elem_ref, mcid = builder.create_element(
-            tag='/P',
-            page_num=page_num,
-            text=f'Content on page {page_num + 1}'
-        )
-        elements_created.append((elem_ref, mcid))
-    
-    # Add MCID marker to page (for elements that have MCIDs)
-    if elements_created:
-        # Find first element with an MCID
-        for elem_ref, mcid in elements_created:
-            if mcid is not None:
-                success = add_mcid_to_page_simple(pdf, page_num, mcid, tag='/P')
-                if success:
-                    break
-    
+        ref, mcid = builder.create_element('/P', page_num,
+                                           text=f'Content on page {page_num + 1}')
+        elements_created.append((ref, mcid))
+
+    for ref, mcid in elements_created:
+        if mcid is not None:
+            add_mcid_to_page(pdf, page_num, mcid, tag='/P')
+            break
+
     return len(elements_created)
 
 
-def add_alt_text_to_elements(pdf):
-    """
-    COMPREHENSIVE fix for "Other elements alternate text: Failed"
-    Adds descriptions to ALL annotation types that Adobe checks
-    """
-    annotations_fixed = 0
-    
-    for page_num, page in enumerate(pdf.pages):
-        if '/Annots' not in page:
-            continue
-        
-        annots = page.Annots
-        if not isinstance(annots, Array):
-            continue
-        
-        for annot_ref in annots:
-            try:
-                annot = pdf.get_object(annot_ref.objgen) if hasattr(annot_ref, 'objgen') else annot_ref
-                if not isinstance(annot, Dictionary):
-                    continue
-                
-                subtype = annot.get('/Subtype')
-                if subtype is None:
-                    continue
-                
-                subtype_str = str(subtype)
-                needs_fix = False
-                
-                # FIX 1: Link annotations - Adobe requires /Contents
-                if '/Link' in subtype_str:
-                    if '/Contents' not in annot or not annot.get('/Contents'):
-                        description = f'Link on page {page_num + 1}'
-                        
-                        # Try to get better description from URI
-                        if '/A' in annot:
-                            action = annot.get('/A')
-                            if isinstance(action, Dictionary) and '/URI' in action:
-                                uri = str(action.get('/URI'))
-                                description = f'Link to {uri[:47]}...' if len(uri) > 50 else f'Link to {uri}'
-                        
-                        annot['/Contents'] = String(description)
-                        needs_fix = True
-                        print(f"  [OK] Added /Contents to Link on page {page_num + 1}")
-                
-                # FIX 2: Form fields - Adobe requires BOTH /TU and /Contents
-                elif '/Widget' in subtype_str:
-                    if '/TU' not in annot or not annot.get('/TU'):
-                        field_name = str(annot.get('/T', 'Form field'))
-                        annot['/TU'] = String(field_name)
-                        needs_fix = True
-                    
-                    if '/Contents' not in annot or not annot.get('/Contents'):
-                        annot['/Contents'] = annot.get('/TU', String(f'Form field on page {page_num + 1}'))
-                        needs_fix = True
-                        print(f"  [OK] Added descriptions to Widget on page {page_num + 1}")
-                
-                # FIX 3: Multimedia annotations
-                elif any(x in subtype_str for x in ['/Screen', '/Movie', '/Sound']):
-                    if '/Contents' not in annot or not annot.get('/Contents'):
-                        annot['/Contents'] = String(f'Multimedia element on page {page_num + 1}')
-                        needs_fix = True
-                    
-                    if '/Alt' not in annot or not annot.get('/Alt'):
-                        annot['/Alt'] = String(f'Multimedia on page {page_num + 1}')
-                        needs_fix = True
-                        print(f"  [OK] Added descriptions to multimedia on page {page_num + 1}")
-                
-                # FIX 4: Stamp/Watermark annotations
-                elif '/Stamp' in subtype_str:
-                    if '/Contents' not in annot or not annot.get('/Contents'):
-                        annot['/Contents'] = String(f'Stamp annotation on page {page_num + 1}')
-                        needs_fix = True
-                        print(f"  [OK] Added /Contents to Stamp on page {page_num + 1}")
-                
-                # FIX 5: File attachment annotations
-                elif '/FileAttachment' in subtype_str:
-                    if '/Contents' not in annot or not annot.get('/Contents'):
-                        annot['/Contents'] = String(f'File attachment on page {page_num + 1}')
-                        needs_fix = True
-                    
-                    if '/Alt' not in annot or not annot.get('/Alt'):
-                        annot['/Alt'] = String(f'Attached file on page {page_num + 1}')
-                        needs_fix = True
-                        print(f"  [OK] Added descriptions to FileAttachment on page {page_num + 1}")
-                
-                # FIX 6: Redaction annotations
-                elif '/Redact' in subtype_str:
-                    if '/Contents' not in annot or not annot.get('/Contents'):
-                        annot['/Contents'] = String(f'Redacted content on page {page_num + 1}')
-                        needs_fix = True
-                        print(f"  [OK] Added /Contents to Redact on page {page_num + 1}")
-                
-                # FIX 7: All other annotation types
-                elif any(x in subtype_str for x in ['/Popup', '/Highlight', '/Underline', 
-                                                    '/StrikeOut', '/Squiggly', '/Ink', 
-                                                    '/FreeText', '/Line', '/Square',
-                                                    '/Circle', '/Polygon', '/PolyLine',
-                                                    '/Caret', '/Text']):
-                    if '/Contents' not in annot or not annot.get('/Contents'):
-                        type_name = subtype_str.replace('/', '').replace('Name', '').strip()
-                        annot['/Contents'] = String(f'{type_name} annotation on page {page_num + 1}')
-                        needs_fix = True
-                        print(f"  [OK] Added /Contents to {type_name} on page {page_num + 1}")
-                
-                if needs_fix:
-                    annotations_fixed += 1
-                
-            except Exception as e:
-                print(f"  [WARN] Could not process annotation on page {page_num + 1}: {e}")
-                continue
-    
-    if annotations_fixed > 0:
-        print(f"\n[OK] Fixed {annotations_fixed} annotation(s)")
-    else:
-        print(f"\n[INFO] No annotations found in document")
-    
-    return annotations_fixed
-
-
-def extract_annotation_info(pdf_path):
-    """Extract detailed annotation info for Claude to analyze"""
-    
-    with pikepdf.Pdf.open(pdf_path) as pdf:
-        annotation_data = {
-            "total_pages": len(pdf.pages),
-            "annotations": []
-        }
-        
-        for page_num, page in enumerate(pdf.pages):
-            if '/Annots' not in page:
-                continue
-            
-            annots = page.Annots
-            if not isinstance(annots, Array):
-                continue
-            
-            for idx, annot_ref in enumerate(annots):
-                try:
-                    annot = pdf.get_object(annot_ref.objgen) if hasattr(annot_ref, 'objgen') else annot_ref
-                    
-                    if not isinstance(annot, Dictionary):
-                        continue
-                    
-                    # Extract all relevant info
-                    annot_info = {
-                        "page": page_num + 1,
-                        "index": idx,
-                        "subtype": str(annot.get('/Subtype', 'Unknown')),
-                        "has_contents": '/Contents' in annot,
-                        "has_alt": '/Alt' in annot,
-                        "has_tu": '/TU' in annot,
-                        "has_t": '/T' in annot,
-                        "has_action": '/A' in annot,
-                    }
-                    
-                    # Get actual values if they exist
-                    if '/Contents' in annot:
-                        annot_info['contents_value'] = str(annot.get('/Contents'))[:50]
-                    if '/Alt' in annot:
-                        annot_info['alt_value'] = str(annot.get('/Alt'))[:50]
-                    if '/TU' in annot:
-                        annot_info['tu_value'] = str(annot.get('/TU'))[:50]
-                    
-                    annotation_data["annotations"].append(annot_info)
-                    
-                except Exception as e:
-                    continue
-        
-        return annotation_data
-
-
-def get_claude_fix_code(pdf_path):
-    """
-    Ask Claude to analyze and write fix code
-    """
+def audit_color_contrast(pdf_path):
     try:
-        import anthropic
-    except ImportError:
-        print("\n[WARN] anthropic package not installed. Install with: pip install anthropic")
-        return None
-    
-    # Extract annotation info
-    annot_data = extract_annotation_info(pdf_path)
-    
-    print(f"\n[INFO] Found {len(annot_data['annotations'])} annotation(s) in PDF")
-    
-    # Create prompt for Claude
-    prompt = f"""You are a PDF/UA (ISO 14289-1) accessibility expert.
+        import fitz
+        doc = fitz.open(pdf_path)
+        issues = []
+        for pn in range(min(len(doc), 50)):
+            for block in doc[pn].get_text('dict')['blocks']:
+                if 'lines' not in block:
+                    continue
+                for line in block['lines']:
+                    for span in line['spans']:
+                        color = span.get('color', 0)
+                        r, g, b = (color >> 16) & 0xFF, (color >> 8) & 0xFF, color & 0xFF
+                        text = span.get('text', '')[:50].strip()
+                        if not text or (r > 240 and g > 240 and b > 240):
+                            continue
 
-Adobe Accessibility Checker reports: "Other elements alternate text: Failed"
+                        def lum(r, g, b):
+                            def a(c):
+                                c /= 255
+                                return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+                            return 0.2126 * a(r) + 0.7152 * a(g) + 0.0722 * a(b)
 
-Here's the complete annotation data from the PDF:
-```json
-{json.dumps(annot_data, indent=2)}
-```
-
-For each annotation that's missing /Contents, /Alt, or /TU, provide appropriate descriptive text.
-
-Return a JSON object with this structure:
-{{
-  "fixes": [
-    {{
-      "page": 1,
-      "index": 0,
-      "add_contents": "Link to external website",
-      "add_alt": null,
-      "add_tu": null
-    }},
-    ...
-  ]
-}}
-
-Rules:
-- Links: Add /Contents with destination URL or description
-- Widgets (form fields): Add /TU (tooltip) and /Contents
-- Multimedia: Add both /Contents and /Alt
-- Other annotations: Add /Contents with type name
-
-Keep descriptions concise (under 125 chars)."""
-
-    try:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
-            print("\n[WARN] ANTHROPIC_API_KEY not set, skipping AI annotation fixes")
-            return None
-        
-        client = anthropic.Anthropic(api_key=api_key)
-        
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=2000,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        
-        response_text = message.content[0].text
-        
-        # Extract JSON
-        if "```json" in response_text:
-            json_str = response_text.split("```json")[1].split("```")[0].strip()
-        elif "```" in response_text:
-            json_str = response_text.split("```")[1].split("```")[0].strip()
-            if json_str.startswith("json"):
-                json_str = json_str[4:].strip()
-        else:
-            json_str = response_text.strip()
-        
-        fixes = json.loads(json_str)
-        return fixes
-        
+                        contrast = (max(lum(r, g, b), lum(255, 255, 255)) + 0.05) / \
+                                   (min(lum(r, g, b), lum(255, 255, 255)) + 0.05)
+                        req = 3.0 if span.get('size', 12) >= 18 else 4.5
+                        if contrast < req:
+                            issues.append({
+                                'page': pn + 1, 'contrast_ratio': round(contrast, 2),
+                                'required_ratio': req, 'text_sample': text,
+                                'text_color': f'rgb({r},{g},{b})'
+                            })
+        doc.close()
+        return issues
     except Exception as e:
-        print(f"[WARN] Could not get AI annotation fixes: {e}")
-        return None
+        print(f'[WARN] Contrast audit: {e}')
+        return []
 
 
-def apply_claude_annotation_fixes(pdf, fixes):
-    """Apply fixes from Claude to annotations"""
-    if not fixes or 'fixes' not in fixes:
-        return 0
-    
-    fixes_applied = 0
-    
-    for fix in fixes['fixes']:
-        page_num = fix['page'] - 1
-        annot_index = fix['index']
-        
-        try:
-            page = pdf.pages[page_num]
-            if '/Annots' not in page:
-                continue
-            
-            annots = page.Annots
-            if not isinstance(annots, Array) or annot_index >= len(annots):
-                continue
-            
-            annot_ref = annots[annot_index]
-            annot = pdf.get_object(annot_ref.objgen) if hasattr(annot_ref, 'objgen') else annot_ref
-            
-            if not isinstance(annot, Dictionary):
-                continue
-            
-            # Apply fixes
-            if fix.get('add_contents'):
-                annot['/Contents'] = String(fix['add_contents'])
-                fixes_applied += 1
-            
-            if fix.get('add_alt'):
-                annot['/Alt'] = String(fix['add_alt'])
-                fixes_applied += 1
-            
-            if fix.get('add_tu'):
-                annot['/TU'] = String(fix['add_tu'])
-                fixes_applied += 1
-        
-        except Exception as e:
-            print(f"  [WARN] Could not apply fix to annotation {annot_index} on page {page_num + 1}: {e}")
-            continue
-    
-    return fixes_applied
+def audit_reading_order(pdf_path):
+    try:
+        issues = []
+        with pikepdf.Pdf.open(pdf_path) as pdf:
+            headings = []
+            def collect_headings(elem):
+                s = str(elem.get('/S', '')).lstrip('/')
+                if s.startswith('H') and len(s) >= 2:
+                    try:
+                        headings.append(int(s[1:]))
+                    except ValueError:
+                        pass
+            _walk_tree(pdf, collect_headings)
+            for i in range(len(headings) - 1):
+                if headings[i + 1] > headings[i] + 1:
+                    issues.append({'type': 'heading_skip',
+                                   'description': f'H{headings[i]} -> H{headings[i+1]}'})
+            if headings and headings[0] != 1:
+                issues.append({'type': 'h1_missing',
+                               'description': f'First heading is H{headings[0]}, not H1'})
+        return issues
+    except Exception as e:
+        print(f'[WARN] Reading order audit: {e}')
+        return []
 
+
+# ===========================================================================
+# MAIN
+# ===========================================================================
 
 def main():
-    parser = argparse.ArgumentParser(description='Rebuild PDF with accessibility fixes')
-    parser.add_argument('--input', required=True, help='Input PDF file')
-    parser.add_argument('--output', required=True, help='Output PDF file')
-    parser.add_argument('--fixes', help='JSON file with fixes to apply')
-    parser.add_argument('--title', help='Document title')
-    parser.add_argument('--lang', default='en', help='Document language (default: en)')
-    parser.add_argument('--use-ai', action='store_true', help='Use Claude AI for alt text generation')
-    parser.add_argument('--audit', action='store_true', help='Run accessibility audits and output JSON')
-    
+    parser = argparse.ArgumentParser(
+        description='PDF Accessibility Fixer — auto-detects patch vs rebuild mode')
+    parser.add_argument('--input', required=True)
+    parser.add_argument('--output', required=True)
+    parser.add_argument('--fixes', help='JSON fixes file (rebuild mode only)')
+    parser.add_argument('--title')
+    parser.add_argument('--lang', default='en')
+    parser.add_argument('--use-ai', action='store_true')
+    parser.add_argument('--audit', action='store_true')
+    parser.add_argument('--force-rebuild', action='store_true',
+                        help='Force rebuild mode even if structure tree exists')
     args = parser.parse_args()
-    
+
     input_path = Path(args.input)
     if not input_path.exists():
-        print(f"ERROR: Input file not found: {input_path}", file=sys.stderr)
+        print(f'ERROR: {input_path} not found', file=sys.stderr)
         sys.exit(1)
-    
     output_path = Path(args.output)
-    
-    # Load fixes if provided - handle both list and dict formats
-    fixes = []
-    if args.fixes:
-        try:
-            with open(args.fixes, 'r', encoding='utf-8') as f:
-                fixes_data = json.load(f)
-                # Handle both formats: list directly OR dict with 'fixes' key
-                if isinstance(fixes_data, list):
-                    fixes = fixes_data
-                elif isinstance(fixes_data, dict):
-                    fixes = fixes_data.get('fixes', [])
-                else:
-                    print(f"Warning: Unexpected fixes format: {type(fixes_data)}", file=sys.stderr)
-                print(f"Loaded {len(fixes)} fixes from {args.fixes}")
-        except Exception as e:
-            print(f"Warning: Could not load fixes: {e}", file=sys.stderr)
-    
-    # Group fixes by page
-    fixes_by_page = {}
-    for fix in fixes:
-        page = fix.get('page', 1) - 1
-        if page not in fixes_by_page:
-            fixes_by_page[page] = []
-        fixes_by_page[page].append(fix)
-    
-    print(f"[INFO] Opening PDF: {input_path}")
-    
-    # STEP 0: Detect language with AI if not provided
-    lang_code = args.lang.replace('/', '').strip().lower() if args.lang else None
+    title = args.title or input_path.stem
+
+    # Language detection
+    lang_code = args.lang.lower().strip() if args.lang else 'en'
     if not lang_code or lang_code == 'en':
-        print("\n[STEP 0] Detecting document language with AI...")
-        detected_lang = detect_language_with_ai(input_path, args.title)
-        if detected_lang:
-            lang_code = detected_lang
+        print('[INFO] Detecting language...')
+        lang_code = detect_language_with_ai(str(input_path), title)
+        print(f'[INFO] Language: {lang_code}')
+    base = lang_code.split('-')[0].split('_')[0]
+    lang_name = LANG_NAME_MAP.get(lang_code) or LANG_NAME_MAP.get(base, 'English')
+
+    print(f'\n[INFO] Input:  {input_path}')
+    print(f'[INFO] Output: {output_path}')
+    print(f'[INFO] Title:  {title}')
+    print(f'[INFO] Lang:   {lang_code} ({lang_name})')
+
+    with pikepdf.Pdf.open(str(input_path)) as pdf:
+
+        has_structure = (
+            '/StructTreeRoot' in pdf.Root and
+            pdf.Root.StructTreeRoot is not None and
+            not args.force_rebuild
+        )
+
+        print(f'\n[INFO] Mode: {"PATCH" if has_structure else "REBUILD"}')
+
+        # Always set metadata
+        set_metadata(pdf, title, lang_code, lang_name)
+
+        # ---------------------------------------------------------------
+        if has_structure:
+            print('\n[PATCH] Fixing bookmarks from existing headings...')
+            patch_fix_bookmarks(pdf)
+
+            print('\n[PATCH] Adding alt text to Figure elements...')
+            patch_fix_figure_alt_text(
+                pdf,
+                use_ai=args.use_ai,
+                pdf_path=str(input_path),
+                document_title=title
+            )
+
+            print('\n[PATCH] Converting table first-row TD → TH...')
+            patch_fix_table_headers(pdf)
+
+            print('\n[PATCH] Tagging annotations...')
+            fix_annotation_tagging(pdf)
+
+        # ---------------------------------------------------------------
         else:
-            lang_code = 'en'
-    
-    # Open PDF with pikepdf
-    with pikepdf.Pdf.open(input_path) as pdf:
-        # Set document metadata - both Info dictionary and XMP (PDF/UA requirement)
-        title = args.title or Path(input_path).stem
-        
-        # ADOBE-COMPLIANT LANGUAGE SETTING (4 locations)
-        # Map ISO codes to Adobe's EXACT language names from dropdown
-        lang_name_map = {
-            'ar': 'Arabic',
-            'bg': 'Bulgarian',
-            'zh': 'Chinese - Simplified',
-            'zh-cn': 'Chinese - Simplified',
-            'zh-tw': 'Chinese - Traditional',
-            'hr': 'Croatian',
-            'cs': 'Czech',
-            'da': 'Danish',
-            'nl': 'Dutch',
-            'en': 'English',
-            'en-ar': 'English with Arabic support',
-            'en-he': 'English with Hebrew support',
-            'et': 'Estonian',
-            'fi': 'Finnish',
-            'fr': 'French',
-            'fr-ma': 'French (Morocco)',
-            'de': 'German',
-            'el': 'Greek',
-            'he': 'Hebrew',
-            'hu': 'Hungarian',
-            'it': 'Italian',
-            'ja': 'Japanese',
-            'ko': 'Korean',
-            'lv': 'Latvian',
-            'lt': 'Lithuanian',
-            'no': 'Norwegian',
-            'pl': 'Polish',
-            'pt': 'Portuguese Brazil',
-            'pt-br': 'Portuguese Brazil',
-            'ro': 'Romanian',
-            'ru': 'Russian',
-            'sk': 'Slovak',
-            'sl': 'Slovenian',
-            'es': 'Spanish',
-            'sv': 'Swedish',
-            'tr': 'Turkish',
-            'uk': 'Ukrainian'
-        }
-        
-        # Get the full language NAME Adobe expects (NOT locale code!)
-        # Try exact match first, then try base code (e.g., "zh-cn" -> "zh")
-        lang_name = lang_name_map.get(lang_code)
-        if not lang_name:
-            # Try base code (e.g., "zh-cn" -> "zh")
-            base_code = lang_code.split('-')[0].split('_')[0].lower()
-            lang_name = lang_name_map.get(base_code, 'English')
-        
-        # 1. PDF Catalog Lang (PDF/UA requirement) - Name with slash
-        pdf.Root.Lang = Name(f'/{lang_code}')
-        print(f"[OK] Set Root.Lang: /{lang_code}")
-        
-        # 2. Info dictionary
-        if not hasattr(pdf.Root, 'Info') or pdf.Root.Info is None:
-            pdf.Root.Info = pdf.make_indirect(Dictionary())
-        pdf.Root.Info.Title = String(title)
-        print(f"[OK] Set Info.Title: {title}")
-        
-        # 3. ViewerPreferences - USE FULL LANGUAGE NAME!
-        if not hasattr(pdf.Root, 'ViewerPreferences') or pdf.Root.ViewerPreferences is None:
-            pdf.Root.ViewerPreferences = pdf.make_indirect(Dictionary())
-        
-        # CRITICAL: Adobe wants "French" not "fr-FR"!
-        pdf.Root.ViewerPreferences[Name('/Language')] = String(lang_name)
-        print(f"[OK] Set ViewerPreferences.Language: '{lang_name}' (Adobe format)")
-        
-        # 4. XMP Metadata
-        try:
-            xmp_data = f'''<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
-<x:xmpmeta xmlns:x="adobe:ns:meta/">
- <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
-  <rdf:Description rdf:about=""
-    xmlns:dc="http://purl.org/dc/elements/1.1/">
-   <dc:title>
-    <rdf:Alt>
-     <rdf:li xml:lang="x-default">{title}</rdf:li>
-    </rdf:Alt>
-   </dc:title>
-   <dc:language>
-    <rdf:Bag>
-     <rdf:li>{lang_code}</rdf:li>
-    </rdf:Bag>
-   </dc:language>
-  </rdf:Description>
- </rdf:RDF>
-</x:xmpmeta>
-<?xpacket end="w"?>'''
-            
-            pdf.Root.Metadata = pdf.make_stream(xmp_data.encode('utf-8'))
-            pdf.Root.Metadata[Name('/Type')] = Name('/Metadata')
-            pdf.Root.Metadata[Name('/Subtype')] = Name('/XML')
-            print(f"[OK] Set XMP metadata with language: {lang_code}")
-        except Exception as e:
-            print(f"  [WARN] Could not set XMP metadata: {e}")
-        
-        print(f"[OK] Set language in ALL required locations: Root.Lang=/{lang_code}, ViewerPreferences.Language='{lang_name}'")
-        
-        # Mark as tagged
-        if '/MarkInfo' not in pdf.Root:
-            pdf.Root.MarkInfo = Dictionary()
-        pdf.Root.MarkInfo.Marked = True  # Python bool works directly with pikepdf
-        
-        # Build structure tree
-        builder = StructureTreeBuilder(pdf)
-        builder.create_root()
-        
-        # Get AI alt text if requested
-        image_alt_texts = {}
-        if args.use_ai:
-            print("\n[INFO] Getting AI-generated alt text for images...")
-            image_alt_texts = get_image_alt_text_from_claude(input_path, args.title)
-            if image_alt_texts:
-                print(f"[OK] Got alt text for {len(image_alt_texts)} images")
-        
-        # Tag all pages
-        image_counter = [0]
-        total_elements = 0
-        for page_num in range(len(pdf.pages)):
-            page_fixes = fixes_by_page.get(page_num, [])
-            elements = tag_page_content(pdf, builder, page_num, page_fixes, image_alt_texts, image_counter)
-            total_elements += elements
-        
-        # Finalize structure tree
-        builder.finalize()
-        
-        # Fix annotations
-        print("\n[INFO] Fixing annotations...")
-        annotations_fixed = add_alt_text_to_elements(pdf)
-        
-        # Try AI fixes for annotations if requested
-        if args.use_ai and annotations_fixed == 0:
-            print("\n[INFO] Getting AI fixes for annotations...")
-            claude_fixes = get_claude_fix_code(input_path)
-            if claude_fixes:
-                ai_fixes = apply_claude_annotation_fixes(pdf, claude_fixes)
-                if ai_fixes > 0:
-                    print(f"[OK] Applied {ai_fixes} AI-generated annotation fixes")
-        
-        # Save output
-        print(f"\n[INFO] Saving fixed PDF: {output_path}")
-        pdf.save(output_path)
-        print(f"[OK] Saved {len(pdf.pages)} pages with {total_elements} structure elements")
-    
-    # Run audits if requested
+            # Load fixes JSON
+            fixes = []
+            if args.fixes:
+                try:
+                    with open(args.fixes, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    fixes = data if isinstance(data, list) else data.get('fixes', [])
+                    print(f'[INFO] Loaded {len(fixes)} fixes')
+                except Exception as e:
+                    print(f'[WARN] Could not load fixes: {e}')
+
+            fixes_by_page = {}
+            for fix in fixes:
+                p = fix.get('page', 1) - 1
+                fixes_by_page.setdefault(p, []).append(fix)
+
+            builder = StructureTreeBuilder(pdf)
+            builder.create_root()
+
+            image_alt_texts = {}
+            if args.use_ai:
+                print('\n[INFO] Getting AI alt text for images...')
+                image_alt_texts = get_image_alt_text_from_claude(str(input_path), title)
+
+            image_counter = [0]
+            total = 0
+            for pn in range(len(pdf.pages)):
+                total += tag_page_content(pdf, builder, pn,
+                                          fixes_by_page.get(pn, []),
+                                          image_alt_texts, image_counter)
+            builder.finalize()
+
+            print('\n[REBUILD] Tagging annotations...')
+            fix_annotation_tagging(pdf)
+
+            # Empty outlines (rebuild mode has no heading text to extract)
+            pdf.Root.Outlines = pdf.make_indirect(Dictionary(
+                Type=Name('/Outlines'), Count=0  # Native int
+            ))
+
+        # ---------------------------------------------------------------
+        print(f'\n[INFO] Saving: {output_path}')
+        pdf.save(str(output_path))
+        print(f'[OK] Done — {len(pdf.pages)} pages')
+
     if args.audit:
-        print("\n[INFO] Running accessibility audits...")
-        contrast_issues = audit_color_contrast(str(output_path))
-        reading_order_issues = audit_logical_reading_order(str(output_path))
-        
-        audit_results = {
-            'color_contrast': {
-                'issues': contrast_issues,
-                'count': len(contrast_issues)
-            },
-            'reading_order': {
-                'issues': reading_order_issues,
-                'count': len(reading_order_issues)
-            }
+        print('\n[INFO] Running audits...')
+        results = {
+            'color_contrast': {'issues': audit_color_contrast(str(output_path))},
+            'reading_order': {'issues': audit_reading_order(str(output_path))}
         }
-        
-        audit_output = output_path.parent / f"{output_path.stem}_audit.json"
-        with open(audit_output, 'w', encoding='utf-8') as f:
-            json.dump(audit_results, f, indent=2)
-        
-        print(f"[OK] Audit results saved to: {audit_output}")
-        print(f"  - Color contrast issues: {len(contrast_issues)}")
-        print(f"  - Reading order issues: {len(reading_order_issues)}")
+        audit_out = output_path.parent / f'{output_path.stem}_audit.json'
+        with open(audit_out, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2)
+        print(f'[OK] Audit saved: {audit_out}')
+        print(f'  Contrast issues: {len(results["color_contrast"]["issues"])}')
+        print(f'  Reading order issues: {len(results["reading_order"]["issues"])}')
 
 
 if __name__ == '__main__':

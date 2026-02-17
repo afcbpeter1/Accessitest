@@ -231,7 +231,23 @@ def extract_structure_tree(pdf_path: str) -> dict:
                                             children = []
                                             k_array = elem_obj.get('/K', [])
                                             
+                                            # Handle case where k_array might be an int (direct MCID) instead of a list
+                                            if isinstance(k_array, int):
+                                                # This is a direct MCID reference, not a list - return element without children
+                                                return {
+                                                    'type': tag_type,
+                                                    'text': text,
+                                                    'mcid': int(k_array),
+                                                    'children': [],
+                                                    'lang': lang
+                                                }
+                                            
                                             for kid in k_array:
+                                                # Handle bare MCID integer (direct MCID, not a dictionary)
+                                                if isinstance(kid, int):
+                                                    # This is a direct MCID reference - skip or handle as needed
+                                                    continue
+                                                
                                                 # Get the actual object if it's an indirect reference
                                                 kid_obj = kid
                                                 if hasattr(kid, 'objgen'):
@@ -279,6 +295,10 @@ def extract_structure_tree(pdf_path: str) -> dict:
                                     # Extract all root children
                                     k_array = struct_tree_root.get('/K', [])
                                     structure_tree = []
+                                    
+                                    # Handle case where k_array might be an int instead of a list
+                                    if isinstance(k_array, int):
+                                        k_array = []
                                     
                                     for kid in k_array:
                                         # Get the actual object if it's an indirect reference
