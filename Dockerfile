@@ -59,7 +59,7 @@ RUN npm ci --ignore-scripts
 
 # Install Python dependencies for PDF auto-tagging and structure element creation
 COPY scripts/requirements.txt /tmp/requirements.txt
-RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
+RUN pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements.txt
 
 # Copy application files
 COPY . .
