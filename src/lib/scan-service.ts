@@ -1,10 +1,19 @@
 import { AccessibilityScanner, ScanResult } from './accessibility-scanner';
 import { getLaunchOptionsForServerAsync } from './puppeteer-config';
 
-// On Linux (Railway/server) use puppeteer-core + @sparticuz/chromium; locally use full puppeteer
-const puppeteer = process.platform === 'linux'
-  ? require('puppeteer-core')
-  : require('puppeteer');
+// Lazy load puppeteer based on platform (ESM-compatible)
+// On Linux (Railway/server) use puppeteer-core + system Chromium; locally use full puppeteer
+let puppeteer: any = null;
+async function getPuppeteer() {
+  if (!puppeteer) {
+    if (process.platform === 'linux') {
+      puppeteer = await import('puppeteer-core');
+    } else {
+      puppeteer = await import('puppeteer');
+    }
+  }
+  return puppeteer.default || puppeteer;
+}
 
 export interface ScanOptions {
   url: string;
@@ -39,8 +48,9 @@ export class ScanService {
     onProgress?: (progress: ScanProgress) => void
   ): Promise<string[]> {
     try {
-      // Use @sparticuz/chromium on Railway/Linux so we don't depend on /usr/bin/chromium
-      this.browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
+      const puppeteerModule = await getPuppeteer();
+      // Use system Chromium on Railway/Linux (from nixpacks) or @sparticuz/chromium fallback
+      this.browser = await puppeteerModule.launch(await getLaunchOptionsForServerAsync({
         headless: 'new',
         args: [
           '--no-sandbox',
@@ -91,8 +101,9 @@ export class ScanService {
     onProgress?: (progress: ScanProgress) => void
   ): Promise<ScanResult[]> {
     try {
-      // Use @sparticuz/chromium on Railway/Linux
-      this.browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
+      const puppeteerModule = await getPuppeteer();
+      // Use system Chromium on Railway/Linux (from nixpacks) or @sparticuz/chromium fallback
+      this.browser = await puppeteerModule.launch(await getLaunchOptionsForServerAsync({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       }));
@@ -108,15 +119,19 @@ export class ScanService {
 
       const urls = await this.crawlWebsite(options, onProgress);
       
+      // If no URLs found from crawling, fall back to the original URL
+      // This ensures we always scan at least the requested page
+      const urlsToScan = urls.length > 0 ? urls : [this.normalizeUrl(options.url)];
+      
       // Scan each page for accessibility issues
       const results: ScanResult[] = [];
       
-      for (let i = 0; i < urls.length; i++) {
-        const url = urls[i];
+      for (let i = 0; i < urlsToScan.length; i++) {
+        const url = urlsToScan[i];
         
         onProgress?.({
           currentPage: i + 1,
-          totalPages: urls.length,
+          totalPages: urlsToScan.length,
           currentUrl: url,
           status: 'scanning',
           message: `Scanning ${url} for accessibility issues...`
@@ -152,18 +167,33 @@ export class ScanService {
 
   /**
    * Normalize URL to remove duplicates (anchors, trailing slashes, etc.)
+   * Also adds protocol if missing (http:// or https://)
    */
   private normalizeUrl(url: string): string {
     try {
-      const urlObj = new URL(url);
+      // Add protocol if missing
+      let urlWithProtocol = url.trim();
+      if (!urlWithProtocol.match(/^https?:\/\//i)) {
+        urlWithProtocol = 'https://' + urlWithProtocol;
+      }
+      
+      const urlObj = new URL(urlWithProtocol);
       // Remove hash fragments (anchors)
       urlObj.hash = '';
       // Remove trailing slash for root paths
-      if (urlObj.pathname === '/' && url.endsWith('/')) {
+      if (urlObj.pathname === '/' && urlWithProtocol.endsWith('/')) {
         urlObj.pathname = '';
       }
       return urlObj.href;
     } catch (error) {
+      // If URL parsing fails, try adding protocol and retry
+      if (!url.match(/^https?:\/\//i)) {
+        try {
+          return 'https://' + url;
+        } catch {
+          return url;
+        }
+      }
       return url;
     }
   }
@@ -171,6 +201,13 @@ export class ScanService {
   /**
    * Crawl website to discover all pages
    */
+  /**
+   * Short delay so the page main frame is ready (avoids "Requesting main frame too early!" in Docker/Railway).
+   */
+  private async waitForPageReady(): Promise<void> {
+    await new Promise((r) => setTimeout(r, 800));
+  }
+
   private async crawlWebsite(
     options: ScanOptions,
     onProgress?: (progress: ScanProgress) => void
@@ -179,11 +216,12 @@ export class ScanService {
       throw new Error('Browser not initialized');
     }
 
-    const page = await this.browser.newPage();
-    await new Promise((r) => setTimeout(r, 800)); // Docker/Railway: ensure main frame ready before goto
+    let page = await this.browser.newPage();
+    await this.waitForPageReady();
     const visited = new Set<string>();
     const toVisit = [this.normalizeUrl(options.url)];
     const discoveredUrls: string[] = [];
+    const retryCount = new Map<string, number>(); // one retry per URL when goto fails
     const startTime = Date.now();
 
     // Set user agent to avoid being blocked
@@ -232,10 +270,10 @@ export class ScanService {
       }
 
       try {
-        // Navigate to the page
-        await page.goto(currentUrl, { 
-          waitUntil: 'networkidle2',
-          timeout: 30000 
+        // Navigate to the page (use domcontentloaded first to avoid "main frame too early" in containers)
+        await page.goto(currentUrl, {
+          waitUntil: ['domcontentloaded', 'networkidle2'],
+          timeout: 30000
         });
 
         // Add to discovered URLs (use normalized URL)
@@ -243,6 +281,8 @@ export class ScanService {
 
         // If deep crawl is enabled, discover more links
         if (options.deepCrawl) {
+          // Brief delay so JS-rendered links (SPAs, lazy nav) are in the DOM
+          await new Promise((r) => setTimeout(r, 1500));
           const links = await page.evaluate(() => {
             const anchors = document.querySelectorAll('a[href]');
             return Array.from(anchors).map(a => a.getAttribute('href')).filter(Boolean) as string[];
@@ -282,11 +322,30 @@ export class ScanService {
 
       } catch (error) {
         console.error(`Failed to crawl ${currentUrl}:`, error);
-        // Continue with other URLs
+        // Re-queue for one retry so we don't lose pages to transient failures
+        const retries = retryCount.get(normalizedUrl) ?? 0;
+        if (retries < 1) {
+          visited.delete(normalizedUrl);
+          toVisit.unshift(currentUrl);
+          retryCount.set(normalizedUrl, retries + 1);
+        }
+        // Replace page so we don't reuse a broken one (avoids "Requesting main frame too early!" on next goto)
+        try {
+          await page.close();
+        } catch {
+          // Ignore close errors (page may already be detached)
+        }
+        page = await this.browser.newPage();
+        await this.waitForPageReady();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
       }
     }
 
-    await page.close();
+    try {
+      await page.close();
+    } catch {
+      // Ignore if page already closed/detached
+    }
     
     // Final deduplication to ensure no duplicates remain
     const uniqueUrls = Array.from(new Set(discoveredUrls));
@@ -300,7 +359,8 @@ export class ScanService {
    */
   async initializeBrowser(): Promise<void> {
     if (!this.browser) {
-      this.browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
+      const puppeteerModule = await getPuppeteer();
+      this.browser = await puppeteerModule.launch(await getLaunchOptionsForServerAsync({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       }));
@@ -318,14 +378,14 @@ export class ScanService {
     }
 
     const page = await this.browser.newPage();
-    await new Promise((r) => setTimeout(r, 800)); // Docker/Railway: ensure main frame ready before goto
+    await this.waitForPageReady();
 
     try {
       console.log(`🌐 Navigating to ${url}...`)
-      // Navigate to the page
-      await page.goto(url, { 
-        waitUntil: 'networkidle2',
-        timeout: 30000 
+      // Navigate to the page (domcontentloaded first avoids "main frame too early" in containers)
+      await page.goto(url, {
+        waitUntil: ['domcontentloaded', 'networkidle2'],
+        timeout: 30000
       });
       console.log(`✅ Page loaded successfully`)
 
