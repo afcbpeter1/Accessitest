@@ -1,7 +1,18 @@
 import type { Browser } from 'puppeteer'
 import { getLaunchOptionsForServerAsync } from './puppeteer-config'
 
-const puppeteer = process.platform === 'linux' ? require('puppeteer-core') : require('puppeteer')
+// Lazy load puppeteer based on platform (ESM-compatible)
+let puppeteer: any = null;
+async function getPuppeteer() {
+  if (!puppeteer) {
+    if (process.platform === 'linux') {
+      puppeteer = await import('puppeteer-core');
+    } else {
+      puppeteer = await import('puppeteer');
+    }
+  }
+  return puppeteer.default || puppeteer;
+}
 
 export interface ScreenshotResult {
   fullPage: string // base64 encoded screenshot
@@ -23,7 +34,8 @@ export class ScreenshotService {
 
   async initialize() {
     if (!this.browser) {
-      this.browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
+      const puppeteerModule = await getPuppeteer();
+      this.browser = await puppeteerModule.launch(await getLaunchOptionsForServerAsync({
         headless: true,
         args: [
           '--no-sandbox',

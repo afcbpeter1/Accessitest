@@ -1,10 +1,19 @@
 import { AccessibilityScanner, ScanResult } from './accessibility-scanner';
 import { getLaunchOptionsForServerAsync } from './puppeteer-config';
 
-// On Linux (Railway/server) use puppeteer-core + @sparticuz/chromium; locally use full puppeteer
-const puppeteer = process.platform === 'linux'
-  ? require('puppeteer-core')
-  : require('puppeteer');
+// Lazy load puppeteer based on platform (ESM-compatible)
+// On Linux (Railway/server) use puppeteer-core + system Chromium; locally use full puppeteer
+let puppeteer: any = null;
+async function getPuppeteer() {
+  if (!puppeteer) {
+    if (process.platform === 'linux') {
+      puppeteer = await import('puppeteer-core');
+    } else {
+      puppeteer = await import('puppeteer');
+    }
+  }
+  return puppeteer.default || puppeteer;
+}
 
 export interface ScanOptions {
   url: string;
@@ -39,8 +48,9 @@ export class ScanService {
     onProgress?: (progress: ScanProgress) => void
   ): Promise<string[]> {
     try {
-      // Use @sparticuz/chromium on Railway/Linux so we don't depend on /usr/bin/chromium
-      this.browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
+      const puppeteerModule = await getPuppeteer();
+      // Use system Chromium on Railway/Linux (from nixpacks) or @sparticuz/chromium fallback
+      this.browser = await puppeteerModule.launch(await getLaunchOptionsForServerAsync({
         headless: 'new',
         args: [
           '--no-sandbox',
@@ -91,8 +101,9 @@ export class ScanService {
     onProgress?: (progress: ScanProgress) => void
   ): Promise<ScanResult[]> {
     try {
-      // Use @sparticuz/chromium on Railway/Linux
-      this.browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
+      const puppeteerModule = await getPuppeteer();
+      // Use system Chromium on Railway/Linux (from nixpacks) or @sparticuz/chromium fallback
+      this.browser = await puppeteerModule.launch(await getLaunchOptionsForServerAsync({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       }));
@@ -108,15 +119,19 @@ export class ScanService {
 
       const urls = await this.crawlWebsite(options, onProgress);
       
+      // If no URLs found from crawling, fall back to the original URL
+      // This ensures we always scan at least the requested page
+      const urlsToScan = urls.length > 0 ? urls : [this.normalizeUrl(options.url)];
+      
       // Scan each page for accessibility issues
       const results: ScanResult[] = [];
       
-      for (let i = 0; i < urls.length; i++) {
-        const url = urls[i];
+      for (let i = 0; i < urlsToScan.length; i++) {
+        const url = urlsToScan[i];
         
         onProgress?.({
           currentPage: i + 1,
-          totalPages: urls.length,
+          totalPages: urlsToScan.length,
           currentUrl: url,
           status: 'scanning',
           message: `Scanning ${url} for accessibility issues...`
@@ -152,18 +167,33 @@ export class ScanService {
 
   /**
    * Normalize URL to remove duplicates (anchors, trailing slashes, etc.)
+   * Also adds protocol if missing (http:// or https://)
    */
   private normalizeUrl(url: string): string {
     try {
-      const urlObj = new URL(url);
+      // Add protocol if missing
+      let urlWithProtocol = url.trim();
+      if (!urlWithProtocol.match(/^https?:\/\//i)) {
+        urlWithProtocol = 'https://' + urlWithProtocol;
+      }
+      
+      const urlObj = new URL(urlWithProtocol);
       // Remove hash fragments (anchors)
       urlObj.hash = '';
       // Remove trailing slash for root paths
-      if (urlObj.pathname === '/' && url.endsWith('/')) {
+      if (urlObj.pathname === '/' && urlWithProtocol.endsWith('/')) {
         urlObj.pathname = '';
       }
       return urlObj.href;
     } catch (error) {
+      // If URL parsing fails, try adding protocol and retry
+      if (!url.match(/^https?:\/\//i)) {
+        try {
+          return 'https://' + url;
+        } catch {
+          return url;
+        }
+      }
       return url;
     }
   }
@@ -299,7 +329,8 @@ export class ScanService {
    */
   async initializeBrowser(): Promise<void> {
     if (!this.browser) {
-      this.browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
+      const puppeteerModule = await getPuppeteer();
+      this.browser = await puppeteerModule.launch(await getLaunchOptionsForServerAsync({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       }));

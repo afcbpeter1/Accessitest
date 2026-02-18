@@ -32,7 +32,7 @@ function getChromiumPath(): string | undefined {
 
 /**
  * On Linux, find system Chromium if nixpacks/apt installed it.
- * Returns the first path that exists.
+ * Returns the first path that exists and is executable.
  */
 function findSystemChromiumOnLinux(): string | undefined {
   const candidates = [
@@ -42,13 +42,25 @@ function findSystemChromiumOnLinux(): string | undefined {
     '/usr/bin/google-chrome',
     '/usr/bin/google-chrome-stable',
   ].filter(Boolean) as string[]
+  
   for (const p of candidates) {
     try {
-      if (fs.existsSync(p)) return p
-    } catch {
+      if (fs.existsSync(p)) {
+        // Check if it's executable
+        try {
+          fs.accessSync(p, fs.constants.X_OK)
+          console.log(`[Puppeteer] Found executable system Chromium at: ${p}`)
+          return p
+        } catch {
+          console.warn(`[Puppeteer] Found Chromium at ${p} but it's not executable`)
+        }
+      }
+    } catch (err) {
+      // Continue to next candidate
       continue
     }
   }
+  console.log(`[Puppeteer] No system Chromium found in candidates: ${candidates.join(', ')}`)
   return undefined
 }
 
@@ -74,21 +86,17 @@ export async function getLaunchOptionsForServerAsync(
         ],
       }
     }
-    // Only import @sparticuz/chromium on Linux when needed
-    // Use lazy require() with Function constructor to prevent webpack from analyzing at build time
-    // This code only runs on Linux servers, not during Windows builds
+    // Fallback to @sparticuz/chromium if system Chromium not found
+    // Use dynamic import() for ESM compatibility (Next.js runs in ESM mode)
     let chromium: any
     try {
-      // Use Function constructor to create require() that webpack can't analyze
-      // This completely hides the module name from webpack's static analysis
-      const requireChromium = new Function('pkg', 'return require(pkg)')
-      const pkg1 = '@' + 'sparticuz'
-      const pkg2 = 'chromium'
-      const chromiumModule = requireChromium(pkg1 + '/' + pkg2)
+      // Use dynamic import for ESM compatibility
+      const chromiumModule = await import('@sparticuz/chromium')
       chromium = chromiumModule.default || chromiumModule
     } catch (importError: any) {
       // @sparticuz/chromium not available - provide helpful error
       const errorMsg = importError?.message || 'Unknown error'
+      console.error(`[Puppeteer] @sparticuz/chromium import failed: ${errorMsg}`)
       throw new Error(
         `No Chromium found on Linux. Install system Chromium (e.g. nixpacks apt chromium) or set PUPPETEER_EXECUTABLE_PATH. @sparticuz/chromium import failed: ${errorMsg}`
       )
