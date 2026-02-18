@@ -42,8 +42,8 @@ export async function GET(request: NextRequest) {
         status: subscription.status,
         billingPeriod,
         cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
-        currentPeriodEnd: subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toISOString()
+        currentPeriodEnd: (subscription as any).current_period_end
+          ? new Date((subscription as any).current_period_end * 1000).toISOString()
           : null,
         planType: userData.plan_type
       }
