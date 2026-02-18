@@ -11,6 +11,55 @@ export class APIPenTestHelper {
       timeout: 30000,
       validateStatus: () => true // Don't throw on any status code
     });
+    this.authToken = null;
+  }
+
+  /**
+   * Authenticate and get auth token for testing
+   */
+  async authenticate() {
+    if (this.authToken) {
+      return this.authToken;
+    }
+
+    const testEmail = process.env.TEST_EMAIL || 'kirby.peter@hotmail.co.uk';
+    const testPassword = process.env.TEST_PASSWORD || 'Peter!23';
+
+    try {
+      const response = await this.makeRequest('POST', '/api/auth', {
+        data: {
+          action: 'login',
+          email: testEmail,
+          password: testPassword
+        },
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (response.success && response.data?.token) {
+        this.authToken = response.data.token;
+        return this.authToken;
+      } else {
+        console.warn('⚠️  Authentication failed:', response.data?.error || 'Unknown error');
+        return null;
+      }
+    } catch (error) {
+      console.warn('⚠️  Authentication error:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Get authenticated request options
+   */
+  async getAuthenticatedOptions(options = {}) {
+    const token = await this.authenticate();
+    return {
+      ...options,
+      headers: {
+        ...options.headers,
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    };
   }
 
   async makeRequest(method, endpoint, options = {}) {
@@ -190,10 +239,27 @@ export class APIPenTestHelper {
 
   async testAuthorization(endpoint, method = 'GET', token = null) {
     // Prepare request options - include body for POST requests
-    const baseOptions = method === 'POST' ? {
-      data: endpoint === '/api/scan' ? { url: 'https://example.com', pagesToScan: ['https://example.com'] } : {},
-      headers: { 'Content-Type': 'application/json' }
-    } : {};
+    let baseOptions = {};
+    
+    if (method === 'POST') {
+      if (endpoint === '/api/auth') {
+        // Auth endpoint requires action parameter
+        baseOptions = {
+          data: { action: 'login', email: 'test@example.com', password: 'test' },
+          headers: { 'Content-Type': 'application/json' }
+        };
+      } else if (endpoint === '/api/scan') {
+        baseOptions = {
+          data: { url: 'https://example.com', pagesToScan: ['https://example.com'] },
+          headers: { 'Content-Type': 'application/json' }
+        };
+      } else {
+        baseOptions = {
+          data: {},
+          headers: { 'Content-Type': 'application/json' }
+        };
+      }
+    }
     
     // Test without authentication
     const noAuth = await this.makeRequest(method, endpoint, baseOptions);
@@ -209,15 +275,27 @@ export class APIPenTestHelper {
     const invalidToken = await this.makeRequest(method, endpoint, invalidTokenOptions);
 
     // Test with malformed token
-    const malformedToken = await this.makeRequest(method, endpoint, {
-      headers: { 'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c' }
-    });
+    const malformedTokenOptions = {
+      ...baseOptions,
+      headers: {
+        ...baseOptions.headers,
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
+      }
+    };
+    const malformedToken = await this.makeRequest(method, endpoint, malformedTokenOptions);
 
-    // Test with valid token if provided
+    // Test with valid token - try to authenticate if not provided
     let validToken = null;
+    if (!token) {
+      token = await this.authenticate();
+    }
     if (token) {
       validToken = await this.makeRequest(method, endpoint, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        ...baseOptions,
+        headers: {
+          ...baseOptions.headers,
+          'Authorization': `Bearer ${token}`
+        }
       });
     }
 
@@ -245,14 +323,16 @@ export class APIPenTestHelper {
     };
   }
 
-  async testRateLimiting(endpoint, method = 'POST', requests = 100) {
+  async testRateLimiting(endpoint, method = 'POST', requests = 100, body = null) {
     const results = [];
     let rateLimited = false;
     let rateLimitCount = 0;
 
+    const requestBody = body || { test: 'data' };
+
     for (let i = 0; i < requests; i++) {
       const result = await this.makeRequest(method, endpoint, {
-        data: { test: 'data' },
+        data: requestBody,
         headers: { 'Content-Type': 'application/json' }
       });
       
@@ -332,6 +412,33 @@ export class APIPenTestHelper {
     if (!result.data) return false;
     const dataStr = JSON.stringify(result.data).toLowerCase();
     return dataStr.includes('uid=') || dataStr.includes('gid=') || dataStr.includes('groups=');
+  }
+
+  async testFileUpload(endpoint, fileName, fileType, base64Content) {
+    try {
+      const body = {
+        fileName: fileName,
+        fileType: fileType,
+        fileContent: base64Content,
+        fileSize: Buffer.from(base64Content, 'base64').length
+      };
+      
+      // Get authenticated options
+      const authOptions = await this.getAuthenticatedOptions({
+        data: body,
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = await this.makeRequest('POST', endpoint, authOptions);
+      
+      return result;
+    } catch (error) {
+      return {
+        status: 0,
+        error: error.message,
+        success: false
+      };
+    }
   }
 }
 

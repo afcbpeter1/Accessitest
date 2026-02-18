@@ -96,3 +96,17 @@ jspm_packages/
 
 # TernJS port file
 .tern-port
+
+# Test reports and sensitive test files
+*-test-report.json
+penetration-test-report.json
+performance-test-report.json
+**/test-results/
+**/playwright-report/
+**/coverage/
+
+# Test README files (may contain sensitive info)
+**/tests/**/README.md
+**/penetration-tests/README.md
+**/performance-tests/README.md
+**/e2e-tests/README.md

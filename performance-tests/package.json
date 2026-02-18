@@ -1,0 +1,19 @@
+{
+  "name": "performance-tests",
+  "version": "1.0.0",
+  "description": "Load and performance tests for AccessScan SaaS platform",
+  "type": "module",
+  "scripts": {
+    "test": "node test-runner.js",
+    "test:load": "node test-runner.js --type load",
+    "test:performance": "node test-runner.js --type performance",
+    "test:stress": "node test-runner.js --type stress",
+    "test:all": "node test-runner.js --type all"
+  },
+  "dependencies": {
+    "autocannon": "^7.12.0",
+    "axios": "^1.6.0",
+    "dotenv": "^17.2.2"
+  }
+}
+
