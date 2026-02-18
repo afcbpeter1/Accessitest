@@ -124,10 +124,7 @@ export default function HomePage() {
         setScanResults(state.scanResults || null)
         setShowSignupForm(state.showSignupForm || false)
         
-        // If we were scanning, switch to free-scan tab
-        if (state.isScanning || state.scanResults) {
-          setActiveTab('free-scan')
-        }
+        // Note: Free Scan section is now always visible, no need to switch tabs
       } catch (error) {
         console.warn('Failed to load scan state from localStorage:', error)
         localStorage.removeItem('freeScanState')
@@ -566,13 +563,324 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Free Scan Section - Always Visible */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="space-y-12">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                Free Website Accessibility Scan
+              </h2>
+              <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+                Get a quick accessibility assessment of your website's homepage. See what issues we find, then sign up for detailed recommendations and remediation steps.
+              </p>
+            </div>
+
+            <div className="max-w-4xl mx-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left Column - Scan Form */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Scan Your Website</h3>
+                  
+                  {!scanResults ? (
+                    <div className="space-y-4">
+                      {isScanning && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
+                          <div className="flex items-center mb-3">
+                            <LoadingSpinner message="Scanning website..." size="sm" />
+                            <div className="ml-3">
+                              <p className="text-sm text-blue-800">
+                                <strong>{scanStage || 'Starting scan...'}</strong>
+                              </p>
+                              <p className="text-xs text-blue-600 mt-1">
+                                You can navigate away and come back - your scan will continue.
+                              </p>
+                            </div>
+                          </div>
+                          
+                          {/* Progress Bar */}
+                          <div className="w-full bg-blue-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                              style={{ width: `${scanProgress}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-blue-600 mt-2 text-center">
+                            {Math.round(scanProgress)}% complete
+                          </p>
+                        </div>
+                      )}
+                      <div>
+                        <label htmlFor="scanUrl" className="block text-sm font-medium text-gray-700 mb-2">
+                          Website URL
+                        </label>
+                        <input
+                          type="text"
+                          id="scanUrl"
+                          value={scanUrl}
+                          onChange={(e) => setScanUrl(e.target.value)}
+                          placeholder="example.com or https://example.com"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      
+                      <button
+                        onClick={handleFreeScan}
+                        disabled={!scanUrl.trim() || isScanning}
+                        className="w-full bg-[#0B1220] text-white py-3 px-4 rounded-md font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                      >
+                        {isScanning ? (
+                          <LoadingSpinner message="Scanning website..." size="sm" />
+                        ) : (
+                          <>
+                            <Search className="h-4 w-4 mr-2" />
+                            Start Free Scan
+                          </>
+                        )}
+                      </button>
+                      
+                      <p className="text-sm text-gray-500 text-center">
+                        This will scan your homepage for accessibility issues
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="text-center">
+                        <div className="text-4xl font-bold text-red-600 mb-2">
+                          {scanResults.summary.totalIssues}
+                        </div>
+                        <div className="text-lg text-gray-900 mb-4">
+                          accessibility violations found
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          on <span className="font-medium">{scanResults.url}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-red-600">Critical:</span>
+                          <span className="font-medium">{scanResults.summary.criticalIssues}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-orange-600">Serious:</span>
+                          <span className="font-medium">{scanResults.summary.seriousIssues}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-yellow-600">Moderate:</span>
+                          <span className="font-medium">{scanResults.summary.moderateIssues}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-blue-600">Minor:</span>
+                          <span className="font-medium">{scanResults.summary.minorIssues}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Screenshot Display */}
+                      {scanResults.screenshots?.viewport && (
+                        <div className="mb-4">
+                          <div className="text-sm text-gray-600 mb-2">Website Screenshot:</div>
+                          <div className="border border-gray-200 rounded-lg overflow-hidden max-w-full">
+                            <img 
+                              src={scanResults.screenshots.viewport}
+                              alt={`Screenshot of ${scanResults.url}`}
+                              className="w-full h-auto max-h-32 sm:max-h-40 md:max-h-48 lg:max-h-56 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => window.open(scanResults.screenshots?.viewport, '_blank')}
+                            />
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">Click to view full size</div>
+                        </div>
+                      )}
+
+                      <div className="space-y-3">
+                        <button
+                          onClick={() => setShowIssuesModal(true)}
+                          className="w-full bg-[#0B1220] text-white py-2 px-4 rounded-md font-medium hover:bg-gray-800 flex items-center justify-center"
+                        >
+                          <Search className="h-4 w-4 mr-2" />
+                          View {scanResults.summary.totalIssues} Issues Found
+                        </button>
+                        
+                        {scanResults.codeAnalysis && !scanResults.requiresSignup && (
+                          <button
+                            onClick={() => setShowCodeFixes(true)}
+                            className="w-full bg-[#06B6D4] text-white py-2 px-4 rounded-md font-medium hover:bg-[#0891B2] flex items-center justify-center"
+                          >
+                            <Code className="h-4 w-4 mr-2" />
+                            View Code Fixes ({scanResults.codeAnalysis.summary.totalFixes})
+                          </button>
+                        )}
+                        
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                          <div className="flex items-start">
+                            <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+                            <div className="text-sm text-yellow-800">
+                              <strong>Sign up required</strong> to see detailed recommendations and remediation steps.
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <button
+                          onClick={clearScanState}
+                          className="w-full text-gray-600 hover:text-gray-900 text-sm"
+                        >
+                          Scan another website
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column - Signup Form */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">See Detailed Results</h3>
+                  
+                  {scanResults && showSignupForm ? (
+                    <div className="space-y-4">
+                      <p className="text-sm text-gray-600 mb-4">
+                        Enter your details to access detailed recommendations and remediation steps for your accessibility issues.
+                      </p>
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                            First Name *
+                          </label>
+                          <input
+                            type="text"
+                            id="firstName"
+                            value={signupData.firstName}
+                            onChange={(e) => setSignupData({...signupData, firstName: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                            Last Name *
+                          </label>
+                          <input
+                            type="text"
+                            id="lastName"
+                            value={signupData.lastName}
+                            onChange={(e) => setSignupData({...signupData, lastName: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                            Business Email *
+                          </label>
+                          <input
+                            type="email"
+                            id="email"
+                            value={signupData.email}
+                            onChange={(e) => setSignupData({...signupData, email: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                          />
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
+                            Company
+                          </label>
+                          <input
+                            type="text"
+                            id="company"
+                            value={signupData.company}
+                            onChange={(e) => setSignupData({...signupData, company: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                            Password *
+                          </label>
+                          <input
+                            type="password"
+                            id="password"
+                            value={signupData.password}
+                            onChange={(e) => setSignupData({...signupData, password: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Create a password"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Must be at least 8 characters long
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                            Confirm Password *
+                          </label>
+                          <input
+                            type="password"
+                            id="confirmPassword"
+                            value={signupData.confirmPassword}
+                            onChange={(e) => setSignupData({...signupData, confirmPassword: e.target.value})}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Confirm your password"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Error Message */}
+                      {signupError && (
+                        <div className="flex items-center space-x-2 text-red-600 text-sm">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span>{signupError}</span>
+                        </div>
+                      )}
+
+                      {/* Success Message */}
+                      {signupSuccess && (
+                        <div className="flex items-center space-x-2 text-green-600 text-sm">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>{signupSuccess}</span>
+                        </div>
+                      )}
+                      
+                      <button
+                        onClick={handleSignup}
+                        disabled={isSigningUp}
+                        className="w-full bg-[#0B1220] text-white py-3 px-4 rounded-md font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
+                      >
+                        {isSigningUp ? 'Creating Account...' : 'Get My Results'}
+                        <ExternalLink className="h-4 w-4 ml-2" />
+                      </button>
+                      
+                      <p className="text-xs text-gray-500 text-center">
+                        By continuing, you agree to our terms and privacy policy
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="text-gray-400 mb-4">
+                        <Search className="h-12 w-12 mx-auto" />
+                      </div>
+                      <p className="text-gray-600">
+                        {scanResults ? 'Complete the scan to see this form' : 'Start a free scan to see detailed results'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Tab Navigation */}
       <section className="py-8 bg-gray-50" aria-label="Page sections">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center space-x-1 bg-white rounded-lg p-1 shadow-sm" role="tablist">
             {[
               { id: 'overview', label: 'Overview' },
-              { id: 'free-scan', label: 'Free Scan' },
               { id: 'features', label: 'Features' },
               { id: 'compliance', label: 'Compliance' }
             ].map((tab) => (
@@ -765,316 +1073,6 @@ export default function HomePage() {
                         <div className="text-sm text-gray-600 leading-relaxed">Comprehensive testing of forms, navigation, multimedia content, and dynamic web components</div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Free Scan Tab */}
-          {activeTab === 'free-scan' && (
-            <div id="free-scan-panel" role="tabpanel" aria-labelledby="free-scan-tab" className="space-y-12">
-              <div className="text-center">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                  Free Website Accessibility Scan
-                </h2>
-                <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                  Get a quick accessibility assessment of your website's homepage. See what issues we find, then sign up for detailed recommendations and remediation steps.
-                </p>
-              </div>
-
-              <div className="max-w-4xl mx-auto">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Left Column - Scan Form */}
-                  <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-4">Scan Your Website</h3>
-                    
-                    {!scanResults ? (
-                      <div className="space-y-4">
-                        {isScanning && (
-                          <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-4">
-                            <div className="flex items-center mb-3">
-                              <LoadingSpinner message="Scanning website..." size="sm" />
-                              <div className="ml-3">
-                                <p className="text-sm text-blue-800">
-                                  <strong>{scanStage || 'Starting scan...'}</strong>
-                                </p>
-                                <p className="text-xs text-blue-600 mt-1">
-                                  You can navigate away and come back - your scan will continue.
-                                </p>
-                              </div>
-                            </div>
-                            
-                            {/* Progress Bar */}
-                            <div className="w-full bg-blue-200 rounded-full h-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
-                                style={{ width: `${scanProgress}%` }}
-                              ></div>
-                            </div>
-                            <p className="text-xs text-blue-600 mt-2 text-center">
-                              {Math.round(scanProgress)}% complete
-                            </p>
-                          </div>
-                        )}
-                        <div>
-                          <label htmlFor="scanUrl" className="block text-sm font-medium text-gray-700 mb-2">
-                            Website URL
-                          </label>
-                          <input
-                            type="text"
-                            id="scanUrl"
-                            value={scanUrl}
-                            onChange={(e) => setScanUrl(e.target.value)}
-                            placeholder="example.com or https://example.com"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          />
-                        </div>
-                        
-                        <button
-                          onClick={handleFreeScan}
-                          disabled={!scanUrl.trim() || isScanning}
-                          className="w-full bg-[#0B1220] text-white py-3 px-4 rounded-md font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                        >
-                          {isScanning ? (
-                            <LoadingSpinner message="Scanning website..." size="sm" />
-                          ) : (
-                            <>
-                              <Search className="h-4 w-4 mr-2" />
-                              Start Free Scan
-                            </>
-                          )}
-                        </button>
-                        
-                        <p className="text-sm text-gray-500 text-center">
-                          This will scan your homepage for accessibility issues
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="text-center">
-                          <div className="text-4xl font-bold text-red-600 mb-2">
-                            {scanResults.summary.totalIssues}
-                          </div>
-                          <div className="text-lg text-gray-900 mb-4">
-                            accessibility violations found
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            on <span className="font-medium">{scanResults.url}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-red-600">Critical:</span>
-                            <span className="font-medium">{scanResults.summary.criticalIssues}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-orange-600">Serious:</span>
-                            <span className="font-medium">{scanResults.summary.seriousIssues}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-yellow-600">Moderate:</span>
-                            <span className="font-medium">{scanResults.summary.moderateIssues}</span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-blue-600">Minor:</span>
-                            <span className="font-medium">{scanResults.summary.minorIssues}</span>
-                          </div>
-                        </div>
-                        
-                        {/* Screenshot Display */}
-                        {scanResults.screenshots?.viewport && (
-                          <div className="mb-4">
-                            <div className="text-sm text-gray-600 mb-2">Website Screenshot:</div>
-                            <div className="border border-gray-200 rounded-lg overflow-hidden max-w-full">
-                              <img 
-                                src={scanResults.screenshots.viewport}
-                                alt={`Screenshot of ${scanResults.url}`}
-                                className="w-full h-auto max-h-32 sm:max-h-40 md:max-h-48 lg:max-h-56 object-contain cursor-pointer hover:opacity-90 transition-opacity"
-                                onClick={() => window.open(scanResults.screenshots?.viewport, '_blank')}
-                              />
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">Click to view full size</div>
-                          </div>
-                        )}
-
-                        <div className="space-y-3">
-                          <button
-                            onClick={() => setShowIssuesModal(true)}
-                            className="w-full bg-[#0B1220] text-white py-2 px-4 rounded-md font-medium hover:bg-gray-800 flex items-center justify-center"
-                          >
-                            <Search className="h-4 w-4 mr-2" />
-                            View {scanResults.summary.totalIssues} Issues Found
-                          </button>
-                          
-                          {scanResults.codeAnalysis && !scanResults.requiresSignup && (
-                            <button
-                              onClick={() => setShowCodeFixes(true)}
-                              className="w-full bg-[#06B6D4] text-white py-2 px-4 rounded-md font-medium hover:bg-[#0891B2] flex items-center justify-center"
-                            >
-                              <Code className="h-4 w-4 mr-2" />
-                              View Code Fixes ({scanResults.codeAnalysis.summary.totalFixes})
-                            </button>
-                          )}
-                          
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                            <div className="flex items-start">
-                              <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
-                              <div className="text-sm text-yellow-800">
-                                <strong>Sign up required</strong> to see detailed recommendations and remediation steps.
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <button
-                            onClick={clearScanState}
-                            className="w-full text-gray-600 hover:text-gray-900 text-sm"
-                          >
-                            Scan another website
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right Column - Signup Form */}
-                  <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-4">See Detailed Results</h3>
-                    
-                    {scanResults && showSignupForm ? (
-                      <div className="space-y-4">
-                        <p className="text-sm text-gray-600 mb-4">
-                          Enter your details to access detailed recommendations and remediation steps for your accessibility issues.
-                        </p>
-                        
-                        <div className="space-y-3">
-                          <div>
-                            <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-                              First Name *
-                            </label>
-                            <input
-                              type="text"
-                              id="firstName"
-                              value={signupData.firstName}
-                              onChange={(e) => setSignupData({...signupData, firstName: e.target.value})}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              required
-                            />
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-                              Last Name *
-                            </label>
-                            <input
-                              type="text"
-                              id="lastName"
-                              value={signupData.lastName}
-                              onChange={(e) => setSignupData({...signupData, lastName: e.target.value})}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              required
-                            />
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                              Business Email *
-                            </label>
-                            <input
-                              type="email"
-                              id="email"
-                              value={signupData.email}
-                              onChange={(e) => setSignupData({...signupData, email: e.target.value})}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              required
-                            />
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1">
-                              Company
-                            </label>
-                            <input
-                              type="text"
-                              id="company"
-                              value={signupData.company}
-                              onChange={(e) => setSignupData({...signupData, company: e.target.value})}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                              Password *
-                            </label>
-                            <input
-                              type="password"
-                              id="password"
-                              value={signupData.password}
-                              onChange={(e) => setSignupData({...signupData, password: e.target.value})}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Create a password"
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              Must be at least 8 characters long
-                            </p>
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                              Confirm Password *
-                            </label>
-                            <input
-                              type="password"
-                              id="confirmPassword"
-                              value={signupData.confirmPassword}
-                              onChange={(e) => setSignupData({...signupData, confirmPassword: e.target.value})}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Confirm your password"
-                            />
-                          </div>
-                        </div>
-                        
-                        {/* Error Message */}
-                        {signupError && (
-                          <div className="flex items-center space-x-2 text-red-600 text-sm">
-                            <AlertTriangle className="h-4 w-4" />
-                            <span>{signupError}</span>
-                          </div>
-                        )}
-
-                        {/* Success Message */}
-                        {signupSuccess && (
-                          <div className="flex items-center space-x-2 text-green-600 text-sm">
-                            <CheckCircle className="h-4 w-4" />
-                            <span>{signupSuccess}</span>
-                          </div>
-                        )}
-                        
-                        <button
-                          onClick={handleSignup}
-                          disabled={isSigningUp}
-                          className="w-full bg-[#0B1220] text-white py-3 px-4 rounded-md font-medium hover:bg-gray-800 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center"
-                        >
-                          {isSigningUp ? 'Creating Account...' : 'Get My Results'}
-                          <ExternalLink className="h-4 w-4 ml-2" />
-                        </button>
-                        
-                        <p className="text-xs text-gray-500 text-center">
-                          By continuing, you agree to our terms and privacy policy
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <div className="text-gray-400 mb-4">
-                          <Search className="h-12 w-12 mx-auto" />
-                        </div>
-                        <p className="text-gray-600">
-                          {scanResults ? 'Complete the scan to see this form' : 'Start a free scan to see detailed results'}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>

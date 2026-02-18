@@ -11,10 +11,10 @@ set -e
         echo "⚠️  Warning: Could not install Python dependencies from requirements.txt. PDF auto-tagging will be unavailable."
       else
         # Fallback to direct installation if requirements.txt doesn't exist
-        python3 -m pip install --user pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
-        pip3 install --break-system-packages pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
-        pip3 install pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
-        echo "⚠️  Warning: Could not install PyMuPDF/pikepdf. PDF auto-tagging will be unavailable."
+      python3 -m pip install --user pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
+      pip3 install --break-system-packages pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
+      pip3 install pymupdf>=1.23.0 pikepdf>=8.0.0 2>/dev/null || \
+      echo "⚠️  Warning: Could not install PyMuPDF/pikepdf. PDF auto-tagging will be unavailable."
       fi
     fi
 

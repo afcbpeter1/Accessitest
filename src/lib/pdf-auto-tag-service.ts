@@ -445,8 +445,8 @@ export class PDFAutoTagService {
       let stderr: string
       try {
         const result = await execAsync(cmd, {
-          maxBuffer: 10 * 1024 * 1024 // 10MB buffer
-        })
+        maxBuffer: 10 * 1024 * 1024 // 10MB buffer
+      })
         stdout = result.stdout
         stderr = result.stderr
       } catch (error: any) {

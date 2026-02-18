@@ -1006,15 +1006,21 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       base64 = taggedPdfBase64
       fileName = taggedPdfFileName || uploadedDoc.name.replace(/\.pdf$/i, '_tagged.pdf')
       mimeType = 'application/pdf'
+    } else if (uploadedDoc.fileContent) {
+      // Fallback: use original file if no tagged/fixed version available
+      base64 = uploadedDoc.fileContent
+      fileName = uploadedDoc.name
+      mimeType = uploadedDoc.type || 'application/pdf'
     } else {
-      console.error('Fixed document not available:', {
+      console.error('No document available for download:', {
         hasFixedDoc: !!fixedDoc,
         hasDocumentTaggedPdf: !!uploadedDoc.taggedPdfBase64,
         hasScanResultsTaggedPdf: !!uploadedDoc.scanResults?.taggedPdfBase64,
+        hasFileContent: !!uploadedDoc.fileContent,
         documentKeys: Object.keys(uploadedDoc),
         scanResultsKeys: uploadedDoc.scanResults ? Object.keys(uploadedDoc.scanResults) : 'no scanResults'
       })
-      showToast(isWordDoc ? 'Fixed Word document not available' : 'Tagged PDF not available', 'error')
+      showToast(isWordDoc ? 'Document not available for download' : 'PDF not available for download', 'error')
       return
     }
     
@@ -1872,9 +1878,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                       </div>
                     )}
 
-                    {/* Download Fixed Document Button - Shows auto-fixed if available, otherwise tagged */}
-                    {((document.taggedPdfBase64 || document.scanResults?.taggedPdfBase64) || 
-                      (document.scanResults as any)?.fixedDocument) && (
+                    {/* Download Fixed Document Button - Always show if scan completed */}
+                    {document.scanResults && (
                       <div className="mt-3 mb-3">
                         <button
                           onClick={() => downloadTaggedPDF(document)}
@@ -1883,14 +1888,18 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                             ? (document.type?.includes('word') || document.type?.includes('document')
                               ? "Download the automatically fixed Word document with AI-generated alt text and table summaries"
                               : "Download the automatically fixed PDF with AI-generated alt text and table summaries")
-                            : "Download the automatically tagged PDF with improved accessibility structure"}
+                            : (document.taggedPdfBase64 || document.scanResults?.taggedPdfBase64)
+                            ? "Download the automatically tagged PDF with improved accessibility structure"
+                            : "Download the original PDF"}
                         >
                           <Download className="h-4 w-4" />
                           <span>{(document.scanResults as any)?.autoFixed || (document.scanResults as any)?.fixedDocument
                             ? (document.type?.includes('word') || document.type?.includes('document')
                               ? "Download Auto-Fixed Word Document"
                               : "Download Auto-Fixed PDF")
-                            : "Download Fixed PDF (Auto-Tagged)"}</span>
+                            : (document.taggedPdfBase64 || document.scanResults?.taggedPdfBase64)
+                            ? "Download Fixed PDF (Auto-Tagged)"
+                            : "Download PDF"}</span>
                         </button>
                         {(document.scanResults as any)?.autoFixed ? (
                           <p className="text-xs text-gray-500 mt-1">
