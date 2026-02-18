@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getLaunchOptionsForServerAsync } from '@/lib/puppeteer-config'
+import { query } from '@/lib/database'
+import { VPNDetector } from '@/lib/vpn-detector'
 
-// Lazy load puppeteer based on platform (ESM-compatible)
-let puppeteer: any = null;
-async function getPuppeteer() {
-  if (!puppeteer) {
-    if (process.platform === 'linux') {
-      puppeteer = await import('puppeteer-core');
-    } else {
-      puppeteer = await import('puppeteer');
-    }
-  }
-  return puppeteer.default || puppeteer;
-}
+const puppeteer = process.platform === 'linux' ? require('puppeteer-core') : require('puppeteer')
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +13,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'URL is required' },
         { status: 400 }
+      )
+    }
+
+    // Get client IP address
+    const clientIP = request.headers.get('x-forwarded-for') || 
+                     request.headers.get('x-real-ip') || 
+                     'unknown'
+
+    // Check for VPN/Proxy usage
+    const vpnDetector = VPNDetector.getInstance()
+    const vpnResult = await vpnDetector.checkVPN(clientIP, {
+      logToDatabase: true,
+      actionType: 'free_scan'
+    })
+    
+    if (vpnDetector.shouldBlockIP(vpnResult)) {
+      return NextResponse.json(
+        { success: false, error: `${vpnDetector.getBlockReason(vpnResult)}. Please disable VPN/proxy to continue.` },
+        { status: 403 }
+      )
+    }
+
+    // Check for recent free scans from same IP (max 5 per hour)
+    const recentScans = await query(
+      `SELECT COUNT(*) as count FROM free_scan_usage 
+       WHERE ip_address = $1 AND scanned_at > NOW() - INTERVAL '1 hour'`,
+      [clientIP]
+    )
+
+    if (recentScans.rows[0].count >= 5) {
+      return NextResponse.json(
+        { success: false, error: 'Too many free scans from this location. Please try again later or sign up for unlimited access.' },
+        { status: 429 }
       )
     }
 
@@ -41,9 +65,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Launch browser and scan the homepage directly (uses system Chromium on Railway/Linux or @sparticuz/chromium)
-    const puppeteerModule = await getPuppeteer();
-    const browser = await puppeteerModule.launch(await getLaunchOptionsForServerAsync({
+    // Launch browser and scan the homepage directly (uses @sparticuz/chromium on Railway/Linux)
+    const browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
       headless: 'new',
       args: [
         '--no-sandbox',
@@ -59,20 +82,20 @@ export async function POST(request: NextRequest) {
 
     try {
       const page = await browser.newPage()
-      // Avoid "Requesting main frame too early!" in Docker/Railway
-      await new Promise((r) => setTimeout(r, 800))
-
+      
       // Set user agent to avoid blocking
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36')
       
       // Navigate to the URL with fallback for www/non-www
       let finalUrl = normalizedUrl
       try {
+
         await page.goto(normalizedUrl, { 
           waitUntil: 'domcontentloaded',
           timeout: 30000 
         })
-        finalUrl = page.url() // Use the actual URL after navigation (handles redirects)
+
+        finalUrl = normalizedUrl
       } catch (navigationError) {
         console.error('Navigation error:', navigationError)
         
@@ -85,11 +108,13 @@ export async function POST(request: NextRequest) {
         }
         
         try {
+
           await page.goto(alternativeUrl, { 
             waitUntil: 'domcontentloaded',
             timeout: 30000 
           })
-          finalUrl = page.url()
+
+          finalUrl = alternativeUrl
         } catch (alternativeError) {
           console.error('Alternative navigation error:', alternativeError)
           return NextResponse.json(
@@ -105,7 +130,7 @@ export async function POST(request: NextRequest) {
       })
 
       // Wait for axe to be available
-      await page.waitForFunction(() => typeof (window as any).axe !== 'undefined', { timeout: 10000 })
+      await page.waitForFunction(() => typeof (window as any).axe !== 'undefined')
 
       // Run basic accessibility scan
       const results = await page.evaluate(async () => {
@@ -134,6 +159,8 @@ export async function POST(request: NextRequest) {
 
       // Capture basic screenshots and HTML source using the existing page instance
       let screenshots = null
+      let htmlSource = null
+      let elementScreenshots = null
       
       try {
         // Take a full page screenshot (optimized)
@@ -152,8 +179,11 @@ export async function POST(request: NextRequest) {
           type: 'jpeg'
         }) as string
 
+        // Get the HTML source code
+        htmlSource = await page.content()
+
         // Capture screenshots of elements with issues
-        const elementScreenshots = []
+        elementScreenshots = []
         for (const violation of results.violations.slice(0, 5)) {
           for (const node of violation.nodes || []) {
             const selector = node.target?.[0]
@@ -184,19 +214,30 @@ export async function POST(request: NextRequest) {
         }
 
         // For free scans, keep screenshots as base64 data URLs for immediate display
+        // No need to upload to Cloudinary since these are temporary
+
         screenshots = {
-          fullPage: fullPageScreenshot ? `data:image/jpeg;base64,${fullPageScreenshot}` : null,
-          viewport: viewportScreenshot ? `data:image/jpeg;base64,${viewportScreenshot}` : null,
+          fullPage: fullPageScreenshot ? `data:image/png;base64,${fullPageScreenshot}` : null,
+          viewport: viewportScreenshot ? `data:image/png;base64,${viewportScreenshot}` : null,
           elements: elementScreenshots.map((element) => ({
             ...element,
-            screenshot: `data:image/jpeg;base64,${element.screenshot}`
+            screenshot: `data:image/png;base64,${element.screenshot}`
           }))
         }
 
       } catch (screenshotError) {
-        console.warn('Failed to capture screenshots:', screenshotError)
+        console.warn('Failed to capture or upload screenshots:', screenshotError)
         // Continue without screenshots
       }
+
+      // Code analysis is not available for free scans - requires paid subscription
+
+      // Log the free scan usage
+      await query(
+        `INSERT INTO free_scan_usage (ip_address, url_scanned)
+         VALUES ($1, $2)`,
+        [clientIP, finalUrl]
+      )
 
       // Return limited results (no AI enhancements, basic issue info)
       return NextResponse.json({
@@ -210,7 +251,7 @@ export async function POST(request: NextRequest) {
           moderateIssues,
           minorIssues
         },
-        topIssues: results.violations.slice(0, 10).map((violation: any) => ({
+        topIssues: results.violations.slice(0, 5).map((violation: any) => ({
           id: violation.id,
           type: violation.id,
           severity: violation.impact,
@@ -221,14 +262,22 @@ export async function POST(request: NextRequest) {
           nodes: violation.nodes?.length || 0,
           page: finalUrl
         })),
-        screenshots: screenshots || {
-          fullPage: null,
-          viewport: null,
-          elements: []
+        screenshots: {
+          fullPage: screenshots?.fullPage || null,
+          viewport: screenshots?.viewport || null,
+          elements: screenshots?.elements || []
         },
         requiresSignup: true,
         message: 'Sign up to see detailed recommendations and remediation steps'
       })
+
+      // Auto-create backlog items for unique issues (for authenticated users)
+      try {
+        // Note: Free scans don't have authentication, so we skip auto-creation
+        // This would need to be handled differently for authenticated users
+      } catch (error) {
+        console.error('Error auto-creating backlog items for free scan:', error)
+      }
 
     } finally {
       await browser.close()
@@ -237,10 +286,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Free scan error:', error)
     return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Scan failed. Please check the URL and try again.' 
-      },
+      { success: false, error: 'Scan failed. Please check the URL and try again.' },
       { status: 500 }
     )
   }

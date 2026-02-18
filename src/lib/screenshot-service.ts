@@ -1,18 +1,7 @@
 import type { Browser } from 'puppeteer'
 import { getLaunchOptionsForServerAsync } from './puppeteer-config'
 
-// Lazy load puppeteer based on platform (ESM-compatible)
-let puppeteer: any = null;
-async function getPuppeteer() {
-  if (!puppeteer) {
-    if (process.platform === 'linux') {
-      puppeteer = await import('puppeteer-core');
-    } else {
-      puppeteer = await import('puppeteer');
-    }
-  }
-  return puppeteer.default || puppeteer;
-}
+const puppeteer = process.platform === 'linux' ? require('puppeteer-core') : require('puppeteer')
 
 export interface ScreenshotResult {
   fullPage: string // base64 encoded screenshot
@@ -34,8 +23,7 @@ export class ScreenshotService {
 
   async initialize() {
     if (!this.browser) {
-      const puppeteerModule = await getPuppeteer();
-      this.browser = await puppeteerModule.launch(await getLaunchOptionsForServerAsync({
+      this.browser = await puppeteer.launch(await getLaunchOptionsForServerAsync({
         headless: true,
         args: [
           '--no-sandbox',
@@ -60,9 +48,7 @@ export class ScreenshotService {
     }
 
     const page = await this.browser.newPage()
-    // Avoid "Requesting main frame too early!" in Docker/Railway
-    await new Promise((r) => setTimeout(r, 800))
-
+    
     try {
       // Set viewport
       await page.setViewport({ width: 1920, height: 1080 })

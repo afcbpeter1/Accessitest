@@ -18,9 +18,7 @@ export async function GET() {
 
     try {
       const page = await browser.newPage()
-      // Avoid "Requesting main frame too early!" in Docker/Railway
-      await new Promise((r) => setTimeout(r, 800))
-
+      
       // Test with a simple, reliable site
       await page.goto('https://example.com', { 
         waitUntil: 'domcontentloaded',
