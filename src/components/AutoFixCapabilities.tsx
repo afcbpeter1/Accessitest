@@ -21,7 +21,7 @@ export default function AutoFixCapabilities() {
         {
           icon: Sparkles,
           title: 'Step 3: Auto-Fix',
-          description: 'Automatically fix all ISO 14289-1 (PDF/UA) compliance issues including structure tree, tagged content, language, title, alt text, table summaries, metadata, bookmarks, headings, color contrast, form labels, link text, text size, tab order, and more - achieving 100% ISO 14289-1 compliance'
+          description: 'Automatically fix most ISO 14289-1 (PDF/UA) compliance issues including structure tree, tagged content, language, title, alt text, table summaries, metadata, bookmarks, headings, form labels, link text, text size, tab order, and more. Some complex structural issues may require manual intervention, for which we provide detailed AI-powered remediation suggestions.'
         },
         {
           icon: Search,

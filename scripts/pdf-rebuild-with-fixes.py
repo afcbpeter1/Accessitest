@@ -246,7 +246,7 @@ def _walk_tree(pdf, func, elem=None, depth=0):
 
 
 def patch_fix_bookmarks(pdf):
-    """Build Outlines from heading elements in existing structure tree."""
+    """Build Outlines — from heading tags if present, otherwise page-based fallback."""
     headings = []
 
     def collect(elem):
@@ -262,32 +262,33 @@ def patch_fix_bookmarks(pdf):
         if level is None:
             return
         text = ''
-        if '/ActualText' in elem:
-            text = str(elem['/ActualText']).strip()
-        if not text and '/T' in elem:
-            text = str(elem['/T']).strip()
-        if text:
-            headings.append({'level': level, 'title': text, 'page': _get_page_num(pdf, elem)})
+        for attr in ('/ActualText', '/T', '/Alt'):
+            if attr in elem:
+                text = str(elem[attr]).strip()
+                if text:
+                    break
+        if not text:
+            page = _get_page_num(pdf, elem)
+            text = f'Heading level {level} on page {page + 1}'
+        headings.append({'level': level, 'title': text, 'page': _get_page_num(pdf, elem)})
 
     _walk_tree(pdf, collect)
 
+    # If no heading tags found, fall back to one bookmark per page
     if not headings:
-        # Empty outline still satisfies the check for small docs
-        pdf.Root.Outlines = pdf.make_indirect(Dictionary(
-            Type=Name('/Outlines'), Count=0  # Native int, not pikepdf.Integer
-        ))
-        print('[OK] Bookmarks: no headings found, created empty Outlines')
-        return
+        print('[INFO] Bookmarks: no H tags found, creating page-based bookmarks')
+        for i, page in enumerate(pdf.pages):
+            headings.append({'level': 1, 'title': f'Page {i + 1}', 'page': i})
 
     outline_root = pdf.make_indirect(Dictionary(
-        Type=Name('/Outlines'), Count=len(headings)  # Native int
+        Type=Name('/Outlines'), Count=len(headings)
     ))
     pdf.Root.Outlines = outline_root
 
     item_refs = []
     for h in headings:
         page = pdf.pages[h['page']]
-        dest = Array([page.obj, Name('/XYZ'), None, None, None])  # pikepdf.Null() -> None
+        dest = Array([page.obj, Name('/XYZ'), None, None, None])
         item_refs.append(pdf.make_indirect(Dictionary(
             Title=String(h['title']), Dest=dest, Parent=outline_root
         )))
@@ -301,13 +302,15 @@ def patch_fix_bookmarks(pdf):
 
     outline_root[Name('/First')] = item_refs[0]
     outline_root[Name('/Last')] = item_refs[-1]
-    print(f'[OK] Bookmarks: created {len(item_refs)} entries from headings')
+    print(f'[OK] Bookmarks: created {len(item_refs)} entries')
 
 
 def patch_fix_figure_alt_text(pdf, use_ai=False, pdf_path=None, document_title=None):
-    """Add /Alt to Figure elements that are missing it."""
+    """Add /Alt to Figure elements — restructures Figure-inside-Link to Link-inside-Figure."""
     figure_count = [0]
     fixed = [0]
+    restructured = [0]
+    skipped_no_mcr = [0]
     ai_alts = {}
 
     if use_ai and pdf_path:
@@ -341,13 +344,121 @@ def patch_fix_figure_alt_text(pdf, use_ai=False, pdf_path=None, document_title=N
         except Exception as e:
             print(f'  [WARN] AI alt text failed: {e}')
 
+    def _get_struct_children(elem):
+        """Return list of (ref, obj) for structural children (not MCR/OBJR/int)."""
+        result = []
+        if '/K' not in elem:
+            return result
+        kids = elem['/K']
+        if not isinstance(kids, Array):
+            kids = Array([kids])
+        for kid in kids:
+            if isinstance(kid, int):
+                continue
+            try:
+                ko = pdf.get_object(kid.objgen) if hasattr(kid, 'objgen') else kid
+                if isinstance(ko, Dictionary):
+                    t = str(ko.get('/Type', '')).lstrip('/')
+                    if t not in ('MCR', 'OBJR'):
+                        result.append((kid, ko))
+            except Exception:
+                pass
+        return result
+
+    def _has_mcr(elem):
+        """Return True if element has any direct MCR/OBJR/int content reference."""
+        if '/K' not in elem:
+            return False
+        kids = elem['/K']
+        if not isinstance(kids, Array):
+            kids = Array([kids])
+        for kid in kids:
+            if isinstance(kid, int):
+                return True
+            try:
+                ko = pdf.get_object(kid.objgen) if hasattr(kid, 'objgen') else kid
+                if isinstance(ko, Dictionary):
+                    t = str(ko.get('/Type', '')).lstrip('/')
+                    if t in ('MCR', 'OBJR'):
+                        return True
+            except Exception:
+                pass
+        return False
+
     def fix_figure(elem):
         s = str(elem.get('/S', '')).lstrip('/')
         if s != 'Figure':
             return
         figure_count[0] += 1
-        if '/Alt' in elem and str(elem['/Alt']).strip():
+
+        struct_children = _get_struct_children(elem)
+
+        # Case 1: Figure has structural children (e.g. Link inside Figure)
+        # Correct PDF/UA structure is Link > Figure, not Figure > Link
+        # Fix: move Figure inside each Link child, give Figure the alt text and MCR
+        if struct_children:
+            alt_text = str(elem.get('/Alt', '')).strip()
+            if not alt_text:
+                alt_text = ai_alts.get(str(figure_count[0]), '')
+            if not alt_text:
+                page_n = _get_page_num(pdf, elem)
+                alt_text = f'Figure {figure_count[0]} on page {page_n + 1}'
+
+            for kid_ref, child in struct_children:
+                child_s = str(child.get('/S', '')).lstrip('/')
+                if child_s == 'Link':
+                    try:
+                        # Get the Link's current kids (MCR/content refs)
+                        link_kids = child.get('/K', Array([]))
+                        if not isinstance(link_kids, Array):
+                            link_kids = Array([link_kids])
+
+                        # Create a new Figure element as a child of the Link
+                        # This is the correct PDF/UA structure
+                        new_fig = pdf.make_indirect(Dictionary(
+                            Type=Name('/StructElem'),
+                            S=Name('/Figure'),
+                            P=kid_ref,
+                            Alt=String(alt_text),
+                            K=link_kids
+                        ))
+
+                        # Update parent references on moved kids
+                        for lk in link_kids:
+                            if isinstance(lk, int):
+                                continue
+                            try:
+                                lko = pdf.get_object(lk.objgen) if hasattr(lk, 'objgen') else lk
+                                if isinstance(lko, Dictionary):
+                                    lko[Name('/P')] = new_fig
+                            except Exception:
+                                pass
+
+                        # Link now wraps the new Figure
+                        child[Name('/K')] = Array([new_fig])
+                        print(f'  [RESTRUCTURE] Figure {figure_count[0]}: '
+                              f'created Figure inside Link with alt="{alt_text[:50]}"')
+                    except Exception as e:
+                        print(f'  [WARN] Restructure failed for Figure {figure_count[0]}: {e}')
+
+            # Remove /Alt from the original outer Figure — it's now on the inner Figure
+            if '/Alt' in elem:
+                del elem[Name('/Alt')]
+
+            restructured[0] += 1
             return
+
+        # Case 2: Figure has no content reference — remove any floating alt text
+        if not _has_mcr(elem):
+            skipped_no_mcr[0] += 1
+            if '/Alt' in elem:
+                del elem[Name('/Alt')]
+                print(f'  [REMOVED] Figure {figure_count[0]}: /Alt removed (no content reference)')
+            return
+
+        # Case 3: Normal leaf figure — add /Alt if missing
+        if '/Alt' in elem and str(elem['/Alt']).strip():
+            return  # Already has good alt text
         alt = ai_alts.get(str(figure_count[0]))
         if not alt:
             page = _get_page_num(pdf, elem)
@@ -357,11 +468,34 @@ def patch_fix_figure_alt_text(pdf, use_ai=False, pdf_path=None, document_title=N
         print(f'  [OK] Figure {figure_count[0]} alt text: {alt[:60]}')
 
     _walk_tree(pdf, fix_figure)
-    print(f'[OK] Figures: {figure_count[0]} found, {fixed[0]} alt texts added')
+    print(f'[OK] Figures: {figure_count[0]} found, {fixed[0]} alt texts added, '
+          f'{restructured[0]} restructured (Figure moved inside Link), '
+          f'{skipped_no_mcr[0]} skipped (no content)')
+
+
+def _convert_row_to_th(pdf, tr_elem, cells_counter):
+    """Convert all cells in a TR to TH with Column scope."""
+    if '/K' not in tr_elem:
+        return
+    row_kids = tr_elem['/K']
+    if not isinstance(row_kids, Array):
+        row_kids = Array([row_kids])
+    for ck in row_kids:
+        try:
+            cell = ck if isinstance(ck, Dictionary) else (
+                pdf.get_object(ck.objgen) if hasattr(ck, 'objgen') else None)
+            if cell and isinstance(cell, Dictionary):
+                current = str(cell.get('/S', '')).lstrip('/')
+                if current != 'TH':
+                    cell[Name('/S')] = Name('/TH')
+                    cell[Name('/Scope')] = Name('/Column')
+                    cells_counter[0] += 1
+        except Exception:
+            pass
 
 
 def patch_fix_table_headers(pdf):
-    """Convert first-row TD cells to TH in each Table."""
+    """Convert first-row cells to TH in each Table — handles THead and TBody wrappers."""
     tables = [0]
     cells = [0]
 
@@ -373,36 +507,75 @@ def patch_fix_table_headers(pdf):
         kids = elem['/K']
         if not isinstance(kids, Array):
             kids = Array([kids])
+
         first_tr_done = False
         for kid in kids:
+            if first_tr_done:
+                break
             try:
                 tr = kid if isinstance(kid, Dictionary) else (
                     pdf.get_object(kid.objgen) if hasattr(kid, 'objgen') else None)
                 if tr is None or not isinstance(tr, Dictionary):
                     continue
-                if str(tr.get('/S', '')).lstrip('/') == 'TR' and not first_tr_done:
+                tr_s = str(tr.get('/S', '')).lstrip('/')
+
+                # Descend into THead or TBody to find first TR
+                if tr_s in ('THead', 'TBody') and not first_tr_done:
+                    if '/K' in tr:
+                        wrapper_kids = tr['/K']
+                        if not isinstance(wrapper_kids, Array):
+                            wrapper_kids = Array([wrapper_kids])
+                        for wk in wrapper_kids:
+                            try:
+                                inner = wk if isinstance(wk, Dictionary) else (
+                                    pdf.get_object(wk.objgen) if hasattr(wk, 'objgen') else None)
+                                if inner and str(inner.get('/S', '')).lstrip('/') == 'TR':
+                                    _convert_row_to_th(pdf, inner, cells)
+                                    first_tr_done = True
+                                    break
+                            except Exception:
+                                pass
+                    continue
+
+                if tr_s == 'TR' and not first_tr_done:
                     first_tr_done = True
-                    if '/K' not in tr:
-                        continue
-                    row_kids = tr['/K']
-                    if not isinstance(row_kids, Array):
-                        row_kids = Array([row_kids])
-                    for ck in row_kids:
-                        try:
-                            cell = ck if isinstance(ck, Dictionary) else (
-                                pdf.get_object(ck.objgen) if hasattr(ck, 'objgen') else None)
-                            if cell and isinstance(cell, Dictionary):
-                                if str(cell.get('/S', '')).lstrip('/') == 'TD':
-                                    cell[Name('/S')] = Name('/TH')
-                                    cell[Name('/Scope')] = Name('/Column')
-                                    cells[0] += 1
-                        except Exception:
-                            pass
+                    _convert_row_to_th(pdf, tr, cells)
+
             except Exception:
                 pass
 
     _walk_tree(pdf, fix_table)
-    print(f'[OK] Tables: {tables[0]} tables processed, {cells[0]} TD→TH conversions')
+    print(f'[OK] Tables: {tables[0]} tables processed, {cells[0]} cells converted to TH')
+
+
+def patch_fix_document_wrapper(pdf):
+    """Ensure StructTreeRoot's first child is /Document, not /Part or other."""
+    if '/StructTreeRoot' not in pdf.Root:
+        print('[SKIP] Document wrapper: no StructTreeRoot')
+        return
+    sr = pdf.Root.StructTreeRoot
+    if hasattr(sr, 'objgen'):
+        sr = pdf.get_object(sr.objgen)
+    if '/K' not in sr:
+        print('[SKIP] Document wrapper: StructTreeRoot has no K')
+        return
+    kids = sr['/K']
+    if not isinstance(kids, Array):
+        kids = Array([kids])
+    try:
+        first = kids[0]
+        elem = pdf.get_object(first.objgen) if hasattr(first, 'objgen') else first
+        if not isinstance(elem, Dictionary):
+            return
+        s = str(elem.get('/S', '')).lstrip('/')
+        if s in ('Document', 'document'):
+            print('[OK] Document wrapper: already /Document')
+            return
+        # Rename /Part (or whatever) -> /Document
+        elem[Name('/S')] = Name('/Document')
+        print(f'[OK] Document wrapper: renamed /{s} -> /Document')
+    except Exception as e:
+        print(f'[WARN] Document wrapper fix failed: {e}')
 
 
 # ===========================================================================
@@ -763,6 +936,9 @@ def main():
 
         # ---------------------------------------------------------------
         if has_structure:
+            print('\n[PATCH] Fixing document wrapper...')
+            patch_fix_document_wrapper(pdf)
+
             print('\n[PATCH] Fixing bookmarks from existing headings...')
             patch_fix_bookmarks(pdf)
 
@@ -774,7 +950,7 @@ def main():
                 document_title=title
             )
 
-            print('\n[PATCH] Converting table first-row TD → TH...')
+            print('\n[PATCH] Converting table first-row cells → TH...')
             patch_fix_table_headers(pdf)
 
             print('\n[PATCH] Tagging annotations...')

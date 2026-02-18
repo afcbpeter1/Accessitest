@@ -40,7 +40,7 @@ export default function Pricing() {
       features: [
         'Unlimited website scans',
         'Unlimited document scans',
-        '100% ISO 14289-1 (PDF/UA) compliance for PDFs',
+        'Comprehensive ISO 14289-1 (PDF/UA) compliance testing for PDFs',
         'WCAG 2.2 + Section 508 compliance for websites',
         'AI-powered recommendations',
         'Multi-page scanning',
@@ -415,7 +415,7 @@ export default function Pricing() {
                 <h3 className="text-lg font-semibold text-gray-900">Document Scans</h3>
                 </div>
               <ul className="space-y-2 text-gray-700">
-                <li>• 100% ISO 14289-1 (PDF/UA) compliance for PDFs</li>
+                <li>• Comprehensive ISO 14289-1 (PDF/UA) compliance testing for PDFs</li>
                 <li>• Section 508 compliance testing</li>
                 <li>• PDF, Word, PowerPoint support</li>
                 <li>• AI-powered recommendations</li>

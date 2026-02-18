@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Upload, FileText, AlertTriangle, CheckCircle, X, Download, Eye, Sparkles, CreditCard, Plus, ChevronUp, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import CollapsibleIssue from './CollapsibleIssue'
-import FixReport from './FixReport'
 import { useScan } from '@/contexts/ScanContext'
 import { authenticatedFetch } from '@/lib/auth-utils'
 import { useToast } from './Toast'
@@ -411,7 +410,41 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
   const [isCheckingCredits, setIsCheckingCredits] = useState<boolean>(false)
   const [scanProgress, setScanProgress] = useState(0)
   const [documentPreview, setDocumentPreview] = useState<string | null>(null)
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // Fun loading messages (Lemmings-style)
+  const loadingMessages = [
+    "Analyzing document structure...",
+    "Checking accessibility compliance...",
+    "Scanning for missing alt text...",
+    "Validating table headers...",
+    "Reviewing color contrast...",
+    "Checking reading order...",
+    "Verifying bookmarks...",
+    "Examining form fields...",
+    "Inspecting link accessibility...",
+    "Validating language tags...",
+    "Checking text sizing...",
+    "Reviewing metadata...",
+    "Almost there, just a few more checks...",
+    "Double-checking everything...",
+    "Finalizing accessibility report...",
+  ]
+  
+  // Rotate through loading messages while scanning
+  useEffect(() => {
+    if (!isScanning || scanProgress >= 100) {
+      setLoadingMessageIndex(0)
+      return
+    }
+    
+    const interval = setInterval(() => {
+      setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length)
+    }, 2000) // Change message every 2 seconds
+    
+    return () => clearInterval(interval)
+  }, [isScanning, scanProgress, loadingMessages.length])
   
   // Function to restore the most recent scan from database
   const restoreMostRecentScan = useCallback(async () => {
@@ -1528,20 +1561,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         {/* Progress Bar - Keep visible even after scan completes */}
         {(isScanning || scanProgress > 0 || uploadedDocuments.some(doc => doc.status === 'scanning')) && (
           <div className="mb-6 bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                {scanProgress >= 100 ? (
-                  <>
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium text-gray-900">Scan Complete</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    <span className="text-sm font-medium text-gray-900">Scanning your document...</span>
-                  </>
-                )}
-              </div>
+            <div className="flex items-center justify-between mb-4">
               {uploadedDocuments.find(doc => doc.status === 'scanning' || doc.status === 'completed')?.name && (
                 <div className="flex items-center space-x-1 text-xs text-gray-500">
                   <FileText className="h-3 w-3" />
@@ -1550,27 +1570,29 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                   </span>
                 </div>
               )}
+              {scanProgress >= 100 ? (
+                <div className="flex items-center space-x-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="text-sm font-medium text-gray-900">Scan Complete</span>
+                </div>
+              ) : (
+                <span className="text-xs text-gray-500 font-medium">{Math.round(scanProgress)}%</span>
+              )}
             </div>
             
-            {/* Progress bar */}
-            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden shadow-inner">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 via-blue-600 to-blue-500 rounded-full transition-all duration-500 ease-out shadow-lg relative overflow-hidden"
-                style={{
-                  width: `${Math.min(100, Math.max(0, scanProgress))}%`,
-                }}
-              >
-                {/* Animated shimmer effect on progress bar */}
-                <div 
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-shimmer"
-                />
+            {/* Prominent rotating messages display */}
+            {scanProgress < 100 ? (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-3">
+                <div className="flex items-center space-x-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 flex-shrink-0"></div>
+                  <div className="flex-1">
+                    <p className="text-base font-medium text-gray-900 transition-opacity duration-500">
+                      {loadingMessages[loadingMessageIndex]}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
-            
-            {/* Progress percentage */}
-            <div className="mt-2 flex justify-end">
-              <span className="text-xs text-gray-600 font-medium">{Math.round(scanProgress)}%</span>
-            </div>
+            ) : null}
             
             {/* Action buttons */}
             {isScanning && (
@@ -1783,11 +1805,6 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                       </div>
                     )}
 
-                    {/* Fix Report - Show comprehensive fix report if auto-fixed */}
-                    {(document.scanResults as any)?.autoFixed && (document.scanResults as any)?.autoFixStats && (
-                      <FixReport fixesApplied={(document.scanResults as any).autoFixStats} />
-                    )}
-                    
                     {/* Comparison Report: Before vs After */}
                     {document.scanResults.comparisonReport && (
                       <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg shadow-sm">

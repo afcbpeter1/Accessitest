@@ -310,7 +310,7 @@ export default function HomePage() {
     {
       icon: FileText,
       title: 'Document Accessibility Testing',
-      description: '100% ISO 14289-1 (PDF/UA) compliance for PDFs. Section 508 compliance testing for all document formats',
+      description: 'Comprehensive ISO 14289-1 (PDF/UA) compliance testing for PDFs. Section 508 compliance testing for all document formats',
       color: 'text-blue-600',
       bgColor: 'bg-blue-50'
     },
@@ -386,7 +386,7 @@ export default function HomePage() {
     {
       icon: FileText,
       standard: 'Document Accessibility',
-      description: '100% ISO 14289-1 (PDF/UA) compliance for PDFs. Comprehensive testing for all major document formats and content types',
+      description: 'Comprehensive ISO 14289-1 (PDF/UA) compliance testing for PDFs. Full coverage testing for all major document formats and content types',
       coverage: 'ISO 14289-1 + PDF/UA support',
       color: 'text-purple-600'
     }

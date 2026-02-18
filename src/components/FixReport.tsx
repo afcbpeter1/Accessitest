@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckCircle, Image, Table, BookOpen, Languages, Palette, FileText, Link2, Shield, Type } from 'lucide-react'
+import { CheckCircle, Table, BookOpen, Languages, Palette, FileText, Link2, Shield, Type } from 'lucide-react'
 
 interface FixReportProps {
   fixesApplied: {
@@ -23,14 +23,6 @@ interface FixReportProps {
 }
 
 const fixCategories = [
-  {
-    title: 'Images & Media',
-    icon: Image,
-    fixes: [
-      { key: 'altText', label: 'Alt Text Added', description: 'Descriptive alternative text for images' },
-    ],
-    color: 'blue'
-  },
   {
     title: 'Tables',
     icon: Table,

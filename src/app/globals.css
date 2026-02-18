@@ -385,3 +385,33 @@ html[data-grayscale="true"] {
   min-height: 2.5em;
 }
 
+/* Progress bar animations */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(500%);
+  }
+}
+
+@keyframes progress-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.progress-bar-animated {
+  animation: progress-pulse 2s ease-in-out infinite;
+}
+
+.progress-bar-shimmer {
+  animation: shimmer 2s linear infinite;
+  will-change: transform;
+  pointer-events: none;
+  z-index: 1;
+}
+

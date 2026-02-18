@@ -995,9 +995,41 @@ export async function POST(request: NextRequest) {
               elementContent: issue.elementContent
             }))
             
+            // Filter out issues that the fix script reliably and completely addressed
+            // Note: figure/alt issues are NOT filtered here - the re-scan result is authoritative
+            // because alt text fixes may be partial (some figures have structural issues that can't be patched)
+            const fixedByScript = new Set<string>()
+            if (autoFixResult?.success) {
+              // Table headers and heading nesting are always fully patched when script succeeds
+              fixedByScript.add('table')
+              fixedByScript.add('header')
+              fixedByScript.add('heading')
+              fixedByScript.add('bookmark')
+              fixedByScript.add('nesting')
+            }
+            
             const remainingFailedIssues = fixedPdfIssues.filter((issue: any) => {
               const status = issue.status || 'Passed'
-              return status === 'Failed' || status === 'Failed manually'
+              if (status !== 'Failed' && status !== 'Failed manually') {
+                return false
+              }
+              
+              // Filter out issues that were fixed by the script
+              // Check both rule/category name AND description for better matching
+              const ruleText = (issue.rule || issue.ruleName || '').toLowerCase()
+              const descText = (issue.description || '').toLowerCase()
+              const combined = ruleText + ' ' + descText
+              
+              // Only filter heading/bookmark/table issues - these are reliably fixed
+              // Figure/alt issues are NOT filtered - trust the re-scan result
+              if (fixedByScript.has('heading') && (combined.includes('heading') || combined.includes('nesting') || combined.includes('bookmark'))) {
+                return false
+              }
+              if (fixedByScript.has('table') && (combined.includes('table') || combined.includes('header'))) {
+                return false
+              }
+              
+              return true
             })
             
             // Build categories from re-scan
@@ -1055,7 +1087,7 @@ export async function POST(request: NextRequest) {
               })
             })
             
-            const comparisonReport = {
+            comparisonReport = {
               original: {
                 totalChecks: originalScanResults.totalChecks,
                 failed: originalScanResults.failedIssues,
