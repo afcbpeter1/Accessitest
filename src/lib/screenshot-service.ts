@@ -60,7 +60,9 @@ export class ScreenshotService {
     }
 
     const page = await this.browser.newPage()
-    
+    // Avoid "Requesting main frame too early!" in Docker/Railway
+    await new Promise((r) => setTimeout(r, 800))
+
     try {
       // Set viewport
       await page.setViewport({ width: 1920, height: 1080 })
