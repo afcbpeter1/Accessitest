@@ -363,31 +363,41 @@ function NewScanContent() {
         "📊 Categorizing discovered pages..."
       ]
       
-      let tipIndex = 0
-      let pageCount = 0
-      
-      // Start progress updates
-      const progressInterval = setInterval(() => {
-        pageCount += Math.floor(Math.random() * 5) + 1
-        const tip = discoveryTips[tipIndex % discoveryTips.length]
-        
-        updateProgress({
-          currentPage: pageCount,
-          totalPages: 200,
-          url: normalizedUrl,
-          status: 'crawling',
-          message: `${tip} Found ${pageCount} pages so far. Est. ${Math.max(0, 30 - Math.floor(pageCount / 10))}s remaining.`
-        })
-        
-        tipIndex++
-      }, 2000)
-
+      // Initialize scan state first
       updateScan(scanId, {
         currentPage: 0,
         totalPages: 200,
         status: 'crawling',
         message: 'Discovering pages on website...'
       })
+      
+      let tipIndex = 0
+      let pageCount = 0
+      
+      // Start progress updates - use scanId directly instead of activeScanId
+      const progressInterval = setInterval(() => {
+        pageCount += Math.floor(Math.random() * 5) + 1
+        const tip = discoveryTips[tipIndex % discoveryTips.length]
+        
+        // Update scan directly using scanId to avoid timing issues with activeScanId state
+        updateScan(scanId, {
+          currentPage: pageCount,
+          totalPages: 200,
+          status: 'crawling',
+          message: `${tip} Found ${pageCount} pages so far. Est. ${Math.max(0, 30 - Math.floor(pageCount / 10))}s remaining.`
+        })
+        
+        // Also add to discovery log
+        const logMessage = `${tip} Found ${pageCount} pages so far. Est. ${Math.max(0, 30 - Math.floor(pageCount / 10))}s remaining.`
+        setDiscoveryLog(prev => {
+          if (!prev.includes(logMessage)) {
+            return [...prev, logMessage]
+          }
+          return prev
+        })
+        
+        tipIndex++
+      }, 2000)
 
       const response = await authenticatedFetch('/api/discover', {
         method: 'POST',
@@ -1299,24 +1309,6 @@ function NewScanContent() {
                         </div>
                       )}
                     </div>
-                    
-                    {/* Progress Bar */}
-                    {scanProgress && (
-                      <div className="w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
-                        <div 
-                          className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500 ease-out shadow-sm"
-                          style={{ 
-                            width: scanProgress.totalPages > 0 
-                              ? `${(scanProgress.currentPage / scanProgress.totalPages) * 100}%` 
-                              : scanProgress.status === 'crawling' ? '50%' 
-                              : scanProgress.status === 'scanning' ? '75%'
-                              : scanProgress.status === 'analyzing' ? '90%'
-                              : scanProgress.status === 'complete' ? '100%'
-                              : '0%' 
-                          }}
-                        ></div>
-                      </div>
-                    )}
                     
                     {/* Discovery Progress Details */}
                     {scanProgress && scanProgress.status === 'crawling' && (
