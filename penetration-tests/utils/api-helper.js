@@ -256,7 +256,7 @@ export class APIPenTestHelper {
       } else {
         baseOptions = {
           data: {},
-          headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' }
         };
       }
     }

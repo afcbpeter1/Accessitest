@@ -510,7 +510,14 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
     }
     
     // Update subscription status in database
-    const newPlanType = (subscription.status === 'active' && !isCancelling) ? (planType || 'complete_access') : 'free'
+    // Keep plan_type as 'complete_access' if subscription is active OR cancelled but still in period
+    // Only set to 'free' if subscription is actually ended (canceled, unpaid, past_due, etc.)
+    const isActuallyEnded = subscription.status === 'canceled' || 
+                           subscription.status === 'unpaid' || 
+                           subscription.status === 'past_due' ||
+                           subscription.status === 'incomplete_expired'
+    const newPlanType = isActuallyEnded ? 'free' : (planType || 'complete_access')
+    
     await query(
       `UPDATE users SET plan_type = $1, updated_at = NOW() 
        WHERE stripe_subscription_id = $2`,
@@ -519,7 +526,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
 
     // When subscription is no longer active (e.g. past_due, unpaid, canceled), turn off unlimited credits
     // so the user can only scan with saved credits until they pay
-    if (newPlanType === 'free') {
+    if (isActuallyEnded) {
       try {
         const creditResult = await deactivateUnlimitedCredits(userId)
         if (creditResult.success) {

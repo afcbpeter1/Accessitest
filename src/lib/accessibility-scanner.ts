@@ -3,6 +3,7 @@ import { JSDOM } from 'jsdom';
 import { axeConfig, wcag22Rules } from './axe-config';
 import { ClaudeAPI } from './claude-api';
 import { CloudinaryService } from './cloudinary-service';
+import { AIAccessibilityChecks } from './ai-accessibility-checks';
 
 export interface AccessibilityIssue {
   id: string;
@@ -82,10 +83,12 @@ export class AccessibilityScanner {
   private config: typeof axeConfig;
   private claudeAPI: ClaudeAPI;
   private aiResponseCache: Map<string, string> = new Map();
+  private aiChecks: AIAccessibilityChecks;
 
   constructor() {
     this.config = { ...axeConfig };
     this.claudeAPI = new ClaudeAPI();
+    this.aiChecks = new AIAccessibilityChecks();
   }
 
   /**
@@ -242,8 +245,8 @@ export class AccessibilityScanner {
       return results;
       }, tagsToCheck);
 
-      // Process results
-      const issues: AccessibilityIssue[] = results.violations.map((violation: any) => ({
+      // Process axe-core results
+      const axeIssues: AccessibilityIssue[] = results.violations.map((violation: any) => ({
         id: violation.id,
         impact: violation.impact as 'minor' | 'moderate' | 'serious' | 'critical',
         tags: violation.tags,
@@ -260,6 +263,20 @@ export class AccessibilityScanner {
           none: node.none
         }))
       }));
+
+      // Run AI-powered checks (manual-test-like analysis)
+      let aiIssues: AccessibilityIssue[] = [];
+      try {
+        console.log('🤖 Running AI-powered accessibility checks...');
+        aiIssues = await this.aiChecks.runAIChecks(page);
+        console.log(`✅ AI checks found ${aiIssues.length} additional issues`);
+      } catch (error) {
+        console.error('⚠️ AI checks failed, continuing with axe results only:', error);
+        // Don't fail the entire scan if AI checks fail
+      }
+
+      // Combine axe and AI issues
+      const issues = [...axeIssues, ...aiIssues];
 
       // Calculate summary
       const summary = {

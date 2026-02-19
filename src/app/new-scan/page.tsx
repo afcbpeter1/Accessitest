@@ -60,12 +60,18 @@ function NewScanContent() {
   const scanProgress = activeScanId ? getActiveScan(activeScanId) : null
   const [discoveredPages, setDiscoveredPages] = useState<DiscoveredPage[]>([])
   const [selectedPages, setSelectedPages] = useState<string[]>([])
+  const [hasPreviousDiscovery, setHasPreviousDiscovery] = useState(false)
+  const [previousDiscoveryDate, setPreviousDiscoveryDate] = useState<string | null>(null)
+  const [previousScans, setPreviousScans] = useState<any[]>([])
+  const [loadingPreviousScans, setLoadingPreviousScans] = useState(false)
   const [scanResults, setScanResults] = useState<ScanResult[]>([])
   const [remediationReport, setRemediationReport] = useState<any[]>([])
   const [scanError, setScanError] = useState<string | null>(null)
   const [showSuccessNotification, setShowSuccessNotification] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [currentScanId, setCurrentScanId] = useState<string | null>(null)
+  const [discoveryId, setDiscoveryId] = useState<string | null>(null)
+  const [discoveryAbortController, setDiscoveryAbortController] = useState<AbortController | null>(null)
   const hasAutoStartedRef = useRef(false)
   
   // Modal management
@@ -77,7 +83,66 @@ function NewScanContent() {
     if (!searchParams || !searchParams.get('url')) {
       checkForActiveScans()
     }
+    // Load previous scans history
+    loadPreviousScans()
   }, [searchParams])
+
+  const loadPreviousScans = async () => {
+    try {
+      setLoadingPreviousScans(true)
+      const response = await authenticatedFetch('/api/discover/history?limit=10')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setPreviousScans(data.discoveries || [])
+        }
+      }
+    } catch (error) {
+      console.error('Error loading previous scans:', error)
+    } finally {
+      setLoadingPreviousScans(false)
+    }
+  }
+
+  const loadScanFromHistory = async (scanHistory: any) => {
+    if (!scanHistory.url) return
+    
+    try {
+      setIsScanning(true)
+      setScanError(null)
+      setUrl(scanHistory.url) // Set the URL
+      
+      // Load discovered pages from the history
+      if (scanHistory.discoveredPages && scanHistory.discoveredPages.length > 0) {
+        setDiscoveredPages(scanHistory.discoveredPages)
+        
+        // Auto-select high priority pages
+        const highPriorityUrls = scanHistory.discoveredPages
+          .filter((page: DiscoveredPage) => page.priority === 'high')
+          .map((page: DiscoveredPage) => page.url)
+        setSelectedPages(highPriorityUrls)
+      } else {
+        // If no discovered pages in history, fetch from API
+        const response = await authenticatedFetch(`/api/discover/previous?url=${encodeURIComponent(scanHistory.url)}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.discoveredPages) {
+            setDiscoveredPages(data.discoveredPages)
+            
+            const highPriorityUrls = data.discoveredPages
+              .filter((page: DiscoveredPage) => page.priority === 'high')
+              .map((page: DiscoveredPage) => page.url)
+            setSelectedPages(highPriorityUrls)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading scan from history:', error)
+      setScanError('Failed to load scan from history')
+    } finally {
+      setIsScanning(false)
+    }
+  }
 
   // Handle URL parameters for rerun functionality
   useEffect(() => {
@@ -256,6 +321,98 @@ function NewScanContent() {
     await discoverPages()
   }
 
+  // Check for previous discovery when URL changes
+  useEffect(() => {
+    if (url && includeSubdomains) {
+      checkPreviousDiscovery()
+    } else {
+      setHasPreviousDiscovery(false)
+      setPreviousDiscoveryDate(null)
+      setDiscoveredPages([])
+    }
+  }, [url, includeSubdomains])
+
+  const checkPreviousDiscovery = async () => {
+    if (!url.trim()) {
+      setHasPreviousDiscovery(false)
+      setPreviousDiscoveryDate(null)
+      return
+    }
+    
+    try {
+      let normalizedUrl = url.trim()
+      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+        normalizedUrl = `https://${normalizedUrl}`
+      }
+      
+      console.log('🔍 Checking for previous discovery for:', normalizedUrl)
+      const response = await authenticatedFetch(`/api/discover/previous?url=${encodeURIComponent(normalizedUrl)}`)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('📋 Previous discovery response:', data)
+        if (data.success && data.discoveredPages && data.discoveredPages.length > 0) {
+          console.log('✅ Previous discovery found:', data.discoveredPages.length, 'pages')
+          setHasPreviousDiscovery(true)
+          setPreviousDiscoveryDate(data.scanDate)
+        } else {
+          console.log('ℹ️ No previous discovery found')
+          setHasPreviousDiscovery(false)
+          setPreviousDiscoveryDate(null)
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        console.log('❌ Previous discovery check failed:', errorData)
+        setHasPreviousDiscovery(false)
+        setPreviousDiscoveryDate(null)
+      }
+    } catch (error) {
+      console.error('❌ Error checking previous discovery:', error)
+      setHasPreviousDiscovery(false)
+      setPreviousDiscoveryDate(null)
+    }
+  }
+
+  const loadPreviousDiscovery = async () => {
+    if (!url.trim()) return
+    
+    try {
+      setIsScanning(true)
+      setScanError(null)
+      
+      let normalizedUrl = url.trim()
+      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
+        normalizedUrl = `https://${normalizedUrl}`
+      }
+      
+      const response = await authenticatedFetch(`/api/discover/previous?url=${encodeURIComponent(normalizedUrl)}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.discoveredPages) {
+          setDiscoveredPages(data.discoveredPages)
+          
+          // Auto-select high priority pages
+          const highPriorityUrls = data.discoveredPages
+            .filter((page: DiscoveredPage) => page.priority === 'high')
+            .map((page: DiscoveredPage) => page.url)
+          setSelectedPages(highPriorityUrls)
+          
+          setHasPreviousDiscovery(true)
+          setPreviousDiscoveryDate(data.scanDate)
+        } else {
+          setScanError('No previous discovery found')
+        }
+      } else {
+        setScanError('Failed to load previous discovery')
+      }
+    } catch (error) {
+      console.error('Error loading previous discovery:', error)
+      setScanError('Failed to load previous discovery')
+    } finally {
+      setIsScanning(false)
+    }
+  }
+
   // Clear discovered pages when URL changes
   const handleUrlChange = (newUrl: string) => {
     setUrl(newUrl)
@@ -382,13 +539,21 @@ function NewScanContent() {
         tipIndex++
       }, 3000) // Rotate tips every 3 seconds
 
+      // Create abort controller for cancellation
+      const abortController = new AbortController()
+      setDiscoveryAbortController(abortController)
+      const id = `discovery-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+      setDiscoveryId(id)
+
       const response = await authenticatedFetch('/api/discover', {
         method: 'POST',
+        signal: abortController.signal,
         body: JSON.stringify({
           url: normalizedUrl,
           includeSubdomains,
           deepCrawl: true,
-          maxPages: 200
+          maxPages: 200,
+          discoveryId: id
         })
       })
 
@@ -401,6 +566,18 @@ function NewScanContent() {
       }
 
       const result = await response.json()
+      
+      // Check if cancelled
+      if (result.cancelled) {
+        updateScan(scanId, {
+          status: 'cancelled',
+          message: 'Discovery cancelled'
+        })
+        setIsScanning(false)
+        setTimeout(() => removeScan(scanId), 2000)
+        return
+      }
+      
       setDiscoveredPages(result.discoveredPages)
       
       // Auto-select high priority pages
@@ -418,11 +595,57 @@ function NewScanContent() {
       })
       
     } catch (error) {
-      console.error('Page discovery failed:', error)
-      setScanError(error instanceof Error ? error.message : 'Page discovery failed')
+      // Check if it was an abort error (cancellation)
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Discovery cancelled by user')
+        updateScan(scanId, {
+          status: 'cancelled',
+          message: 'Discovery cancelled'
+        })
+        // Also cancel on server side
+        if (discoveryId) {
+          try {
+            await authenticatedFetch(`/api/discover?id=${discoveryId}`, {
+              method: 'DELETE'
+            })
+          } catch (e) {
+            // Ignore errors when cancelling
+          }
+        }
+      } else {
+        console.error('Page discovery failed:', error)
+        setScanError(error instanceof Error ? error.message : 'Page discovery failed')
+      }
     } finally {
       setIsScanning(false)
+      setDiscoveryAbortController(null)
+      setDiscoveryId(null)
       setTimeout(() => removeScan(scanId), 2000)
+    }
+  }
+
+  const cancelDiscovery = async () => {
+    if (discoveryAbortController) {
+      discoveryAbortController.abort()
+    }
+    if (discoveryId) {
+      try {
+        await authenticatedFetch(`/api/discover?id=${discoveryId}`, {
+          method: 'DELETE'
+        })
+      } catch (error) {
+        console.error('Error cancelling discovery:', error)
+      }
+    }
+    setIsScanning(false)
+    setDiscoveryAbortController(null)
+    setDiscoveryId(null)
+    if (activeScanId) {
+      updateScan(activeScanId, {
+        status: 'cancelled',
+        message: 'Discovery cancelled'
+      })
+      setTimeout(() => removeScan(activeScanId), 2000)
     }
   }
 
@@ -681,7 +904,7 @@ function NewScanContent() {
 
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
           {/* Main Form */}
-          <div className="xl:col-span-3">
+          <div className="xl:col-span-3 space-y-4">
             <div className="card">
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Discovery Options */}
@@ -761,8 +984,31 @@ function NewScanContent() {
                     }
                   </p>
                   
+                  {/* Previous Discovery Notice */}
+                  {hasPreviousDiscovery && !discoveredPages.length && (
+                    <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-blue-900">
+                            Previous discovery found
+                          </p>
+                          <p className="text-xs text-blue-700 mt-1">
+                            {previousDiscoveryDate && `Last discovered: ${new Date(previousDiscoveryDate).toLocaleDateString()}`}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={loadPreviousDiscovery}
+                          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Use Previous Discovery
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Discover Pages Button */}
-                  <div className="mt-3">
+                  <div className="mt-3 flex gap-3">
                     <button
                       type="button"
                       onClick={discoverPages}
@@ -777,6 +1023,15 @@ function NewScanContent() {
                         }
                       </span>
                     </button>
+                    {isScanning && includeSubdomains && (
+                      <button
+                        type="button"
+                        onClick={cancelDiscovery}
+                        className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center space-x-2 font-medium"
+                      >
+                        <span>Cancel Discovery</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1419,6 +1674,50 @@ function NewScanContent() {
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Previous Scans */}
+            <div className="card">
+              <h3 className="text-lg font-medium text-gray-900 mb-3">Previous Scans</h3>
+              {loadingPreviousScans ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-xs text-gray-500 mt-2">Loading...</p>
+                </div>
+              ) : previousScans.length > 0 ? (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {previousScans.map((scan) => (
+                    <button
+                      key={scan.id}
+                      type="button"
+                      onClick={() => loadScanFromHistory(scan)}
+                      className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate" title={scan.url}>
+                            {scan.url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || 'Unknown URL'}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-xs text-gray-500">
+                              {scan.pageCount || 0} pages
+                            </span>
+                            <span className="text-xs text-gray-400">•</span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(scan.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <Repeat className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  No previous scans found. Start a new scan to see it here.
+                </p>
+              )}
+            </div>
+
             {/* Scan Info */}
             <div className="card">
               <h3 className="text-lg font-medium text-gray-900 mb-3">What We Scan</h3>

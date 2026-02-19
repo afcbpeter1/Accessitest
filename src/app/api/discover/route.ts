@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ScanService, ScanOptions } from '@/lib/scan-service'
+import { getAuthenticatedUser } from '@/lib/auth-middleware'
+import { queryOne } from '@/lib/database'
+
+// Store active discovery sessions
+const activeDiscoveries = new Map<string, ScanService>()
 
 export async function POST(request: NextRequest) {
   try {
-    const { url, includeSubdomains, deepCrawl, maxPages } = await request.json()
+    const user = await getAuthenticatedUser(request).catch(() => null) // Optional auth for discovery
+    const { url, includeSubdomains, deepCrawl, maxPages, discoveryId, saveDiscovery } = await request.json()
 
     if (!url) {
       return NextResponse.json({ error: 'URL is required' }, { status: 400 })
@@ -25,14 +31,19 @@ export async function POST(request: NextRequest) {
 
     // Initialize the scan service
     const scanService = new ScanService()
+    const id = discoveryId || `discovery-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    
+    // Store active discovery
+    activeDiscoveries.set(id, scanService)
 
-    // Discover pages only (no scanning)
-    const discoveredUrls = await scanService.discoverPages(scanOptions, (progress) => {
-      console.log(`Discovery Progress: ${progress.status} - ${progress.message}`)
-    })
+    try {
+      // Discover pages only (no scanning)
+      const discoveredUrls = await scanService.discoverPages(scanOptions, (progress) => {
+        console.log(`Discovery Progress: ${progress.status} - ${progress.message}`)
+      }, id)
 
-    // Categorize discovered pages
-    const categorizedPages = discoveredUrls.map(url => {
+      // Categorize discovered pages
+      const categorizedPages = discoveredUrls.map(url => {
       const path = new URL(url).pathname.toLowerCase()
       let category: 'home' | 'content' | 'forms' | 'blog' | 'legal' | 'other' = 'other'
       let priority: 'high' | 'medium' | 'low' = 'medium'
@@ -63,16 +74,110 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    return NextResponse.json({
-      url,
-      discoveredPages: categorizedPages,
-      totalPages: categorizedPages.length
-    })
+      // Save discovered pages to scan_history if user is authenticated and saveDiscovery is true
+      if (user && saveDiscovery !== false) {
+        try {
+          // Check if a discovery record already exists for this URL
+          const existing = await queryOne(`
+            SELECT id FROM scan_history
+            WHERE user_id = $1
+              AND url = $2
+              AND scan_type = 'web'
+              AND scan_title LIKE 'Page Discovery:%'
+            ORDER BY created_at DESC
+            LIMIT 1
+          `, [user.userId, url])
+
+          const scanSettings = JSON.stringify({
+            pagesToScan: discoveredUrls,
+            includeSubdomains,
+            deepCrawl,
+            maxPages: enforcedMaxPages,
+            discoveredPages: categorizedPages
+          })
+
+          if (existing) {
+            // Update existing record
+            await queryOne(`
+              UPDATE scan_history
+              SET scan_settings = $1,
+                  pages_scanned = $2,
+                  updated_at = NOW()
+              WHERE id = $3
+            `, [scanSettings, categorizedPages.length, existing.id])
+          } else {
+            // Insert new record
+            await queryOne(`
+              INSERT INTO scan_history (
+                user_id, scan_type, scan_title, url,
+                scan_settings, pages_scanned, created_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            `, [
+              user.userId,
+              'web',
+              `Page Discovery: ${url}`,
+              url,
+              scanSettings,
+              categorizedPages.length
+            ])
+          }
+        } catch (error) {
+          console.error('Failed to save discovered pages:', error)
+          // Don't fail the discovery if saving fails
+        }
+      }
+
+      return NextResponse.json({
+        url,
+        discoveredPages: categorizedPages,
+        totalPages: categorizedPages.length,
+        discoveryId: id
+      })
+    } finally {
+      // Clean up
+      activeDiscoveries.delete(id)
+    }
 
   } catch (error) {
     console.error('Page discovery failed:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    
+    // Check if it was cancelled
+    if (errorMessage.includes('cancelled')) {
+      return NextResponse.json(
+        { error: 'Discovery cancelled', cancelled: true },
+        { status: 200 } // Return 200 so frontend can handle gracefully
+      )
+    }
+    
     return NextResponse.json(
-      { error: 'Page discovery failed', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Page discovery failed', details: errorMessage },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE /api/discover - Cancel an active discovery
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const discoveryId = searchParams.get('id')
+
+    if (!discoveryId) {
+      return NextResponse.json({ error: 'Discovery ID required' }, { status: 400 })
+    }
+
+    const scanService = activeDiscoveries.get(discoveryId)
+    if (scanService) {
+      scanService.cancelDiscovery(discoveryId)
+      return NextResponse.json({ success: true, message: 'Discovery cancelled' })
+    }
+
+    return NextResponse.json({ error: 'Discovery not found or already completed' }, { status: 404 })
+  } catch (error) {
+    console.error('Error cancelling discovery:', error)
+    return NextResponse.json(
+      { error: 'Failed to cancel discovery' },
       { status: 500 }
     )
   }

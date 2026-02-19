@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { Plus, MessageSquare, Copy, Trash2, Edit3, CheckCircle, Clock, XCircle, MoreHorizontal, ChevronDown, ExternalLink } from 'lucide-react'
+import { Plus, MessageSquare, Copy, Trash2, Edit3, CheckCircle, Clock, XCircle, MoreHorizontal, ChevronDown, ExternalLink, CheckSquare } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import IssueDetailModal from '@/components/IssueDetailModal'
@@ -82,6 +82,8 @@ export default function ProductBacklog() {
   const [showSprintDropdown, setShowSprintDropdown] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<string | null>(null)
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
   const [showIntegrationMenu, setShowIntegrationMenu] = useState<string | null>(null)
   const [jiraIntegration, setJiraIntegration] = useState<any>(null)
   const [syncingToJira, setSyncingToJira] = useState<string | null>(null)
@@ -486,6 +488,13 @@ ${item.element_html || 'N/A'}
         // Remove from UI immediately
         setBacklogItems(items => items.filter(item => item.id !== itemId))
         
+        // Remove from selected items if it was selected
+        setSelectedItems(prev => {
+          const next = new Set(prev)
+          next.delete(itemId)
+          return next
+        })
+        
         // Close modal if this item was selected
         if (selectedItem?.id === itemId) {
           setSelectedItem(null)
@@ -504,6 +513,66 @@ ${item.element_html || 'N/A'}
     } finally {
       setShowDeleteConfirm(false)
       setItemToDelete(null)
+    }
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedItems(new Set(backlogItems.map(item => item.id)))
+    } else {
+      setSelectedItems(new Set())
+    }
+  }
+
+  const handleItemSelect = (itemId: string, checked: boolean) => {
+    setSelectedItems(prev => {
+      const next = new Set(prev)
+      if (checked) {
+        next.add(itemId)
+      } else {
+        next.delete(itemId)
+      }
+      return next
+    })
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedItems.size === 0) return
+
+    try {
+      const itemIds = Array.from(selectedItems)
+      const response = await authenticatedFetch('/api/backlog/bulk-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ itemIds })
+      })
+      
+      if (response.ok) {
+        // Remove from UI immediately
+        setBacklogItems(items => items.filter(item => !selectedItems.has(item.id)))
+        
+        // Clear selected items
+        setSelectedItems(new Set())
+        
+        // Close modal if any selected item was open
+        if (selectedItem && selectedItems.has(selectedItem.id)) {
+          setSelectedItem(null)
+          setShowComments(false)
+        }
+        
+        // Show success toast
+        showToast(`${itemIds.length} backlog item(s) deleted successfully!`, 'success')
+      } else {
+        const errorData = await response.json()
+        showToast(`Failed to delete items: ${errorData.error || 'Unknown error'}`, 'error')
+      }
+    } catch (error) {
+      console.error('Error deleting items:', error)
+      showToast('Failed to delete items. Please try again.', 'error')
+    } finally {
+      setShowBulkDeleteConfirm(false)
     }
   }
 
@@ -539,10 +608,33 @@ ${item.element_html || 'N/A'}
               {/* Backlog Items */}
               <div className="lg:col-span-2">
                 <div className="bg-white rounded-lg shadow">
-                  <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
-                    <h2 className="text-base sm:text-lg font-semibold text-gray-900">
-                      Backlog Items ({backlogItems.length})
-                    </h2>
+                  <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={backlogItems.length > 0 && selectedItems.size === backlogItems.length}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        title="Select all"
+                      />
+                      <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                        Backlog Items ({backlogItems.length})
+                      </h2>
+                      {selectedItems.size > 0 && (
+                        <span className="text-sm text-gray-600">
+                          ({selectedItems.size} selected)
+                        </span>
+                      )}
+                    </div>
+                    {selectedItems.size > 0 && (
+                      <button
+                        onClick={() => setShowBulkDeleteConfirm(true)}
+                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center gap-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete Selected ({selectedItems.size})
+                      </button>
+                    )}
                   </div>
                   
                   <DragDropContext onDragEnd={handleDragEnd}>
@@ -567,13 +659,25 @@ ${item.element_html || 'N/A'}
                                   {...provided.dragHandleProps}
                                   className={`p-4 sm:p-6 hover:bg-gray-50 transition-colors cursor-pointer ${
                                     snapshot.isDragging ? 'bg-blue-50 shadow-lg' : ''
-                                  }`}
+                                  } ${selectedItems.has(item.id) ? 'bg-blue-50' : ''}`}
                                   onClick={() => {
                                     setSelectedItem(item)
                                     setShowDetailModal(true)
                                   }}
                                 >
                                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedItems.has(item.id)}
+                                        onChange={(e) => {
+                                          e.stopPropagation()
+                                          handleItemSelect(item.id, e.target.checked)
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-1 flex-shrink-0"
+                                        title="Select item"
+                                      />
                                     <div className="flex-1 min-w-0">
                                       <div className="flex flex-wrap items-center gap-2 mb-2">
                                         <span className="text-sm font-medium text-gray-500 flex-shrink-0">
@@ -618,6 +722,7 @@ ${item.element_html || 'N/A'}
                                           </>
                                         )}
                                       </div>
+                                    </div>
                                     </div>
                                     
                                     <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 flex-wrap">
@@ -914,6 +1019,46 @@ ${item.element_html || 'N/A'}
                       className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
                     >
                       Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Delete Confirmation Modal */}
+        {showBulkDeleteConfirm && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex min-h-screen items-center justify-center p-4">
+              <div className="fixed inset-0 bg-black bg-opacity-50 transition-opacity" onClick={() => setShowBulkDeleteConfirm(false)}></div>
+              <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div className="p-6">
+                  <div className="flex items-center mb-4">
+                    <div className="flex-shrink-0">
+                      <Trash2 className="h-6 w-6 text-red-600" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-lg font-medium text-gray-900">Delete Selected Items</h3>
+                    </div>
+                  </div>
+                  <div className="mb-6">
+                    <p className="text-sm text-gray-500">
+                      Are you sure you want to delete {selectedItems.size} backlog item(s)? This action cannot be undone.
+                    </p>
+                  </div>
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => setShowBulkDeleteConfirm(false)}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleBulkDelete}
+                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    >
+                      Delete {selectedItems.size} Item(s)
                     </button>
                   </div>
                 </div>

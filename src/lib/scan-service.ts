@@ -35,9 +35,31 @@ export interface ScanProgress {
 export class ScanService {
   private scanner: AccessibilityScanner;
   private browser: any = null;
+  private cancellationFlags: Map<string, boolean> = new Map();
 
   constructor() {
     this.scanner = new AccessibilityScanner();
+  }
+
+  /**
+   * Cancel an active discovery process
+   */
+  cancelDiscovery(discoveryId: string): void {
+    this.cancellationFlags.set(discoveryId, true);
+  }
+
+  /**
+   * Check if discovery should be cancelled
+   */
+  private isCancelled(discoveryId: string): boolean {
+    return this.cancellationFlags.get(discoveryId) === true;
+  }
+
+  /**
+   * Clear cancellation flag
+   */
+  private clearCancellation(discoveryId: string): void {
+    this.cancellationFlags.delete(discoveryId);
   }
 
   /**
@@ -45,8 +67,11 @@ export class ScanService {
    */
   async discoverPages(
     options: ScanOptions,
-    onProgress?: (progress: ScanProgress) => void
+    onProgress?: (progress: ScanProgress) => void,
+    discoveryId?: string
   ): Promise<string[]> {
+    const id = discoveryId || `discovery-${Date.now()}`;
+    this.clearCancellation(id); // Clear any previous cancellation
     try {
       const puppeteerModule = await getPuppeteer();
       // Use system Chromium on Railway/Linux (from nixpacks) or @sparticuz/chromium fallback
@@ -72,7 +97,13 @@ export class ScanService {
         message: 'Discovering pages to scan...'
       });
 
-      const urls = await this.crawlWebsite(options, onProgress);
+      const urls = await this.crawlWebsite(options, onProgress, id);
+      
+      // Check if cancelled before returning
+      if (this.isCancelled(id)) {
+        this.clearCancellation(id);
+        throw new Error('Discovery cancelled by user');
+      }
       
       onProgress?.({
         currentPage: urls.length,
@@ -82,9 +113,11 @@ export class ScanService {
         message: `Discovered ${urls.length} pages`
       });
 
+      this.clearCancellation(id);
       return urls;
     } catch (error) {
       console.error('Page discovery failed:', error);
+      this.clearCancellation(id);
       throw error;
     } finally {
       if (this.browser) {
@@ -210,7 +243,8 @@ export class ScanService {
 
   private async crawlWebsite(
     options: ScanOptions,
-    onProgress?: (progress: ScanProgress) => void
+    onProgress?: (progress: ScanProgress) => void,
+    discoveryId?: string
   ): Promise<string[]> {
     if (!this.browser) {
       throw new Error('Browser not initialized');
@@ -243,6 +277,19 @@ export class ScanService {
     let lastProgressUpdate = 0;
 
     while (toVisit.length > 0 && discoveredUrls.length < options.maxPages) {
+      // Check for cancellation
+      if (discoveryId && this.isCancelled(discoveryId)) {
+        console.log('🛑 Discovery cancelled by user');
+        onProgress?.({
+          currentPage: discoveredUrls.length,
+          totalPages: options.maxPages,
+          currentUrl: '',
+          status: 'cancelled',
+          message: 'Discovery cancelled'
+        });
+        break;
+      }
+
       const currentUrl = toVisit.shift()!;
       const normalizedUrl = this.normalizeUrl(currentUrl);
       

@@ -19,9 +19,16 @@ export async function GET(request: NextRequest) {
         COUNT(CASE WHEN i.status = 'resolved' THEN 1 END) as status_resolved,
         COUNT(CASE WHEN i.status = 'closed' THEN 1 END) as status_closed
       FROM issues i
-      INNER JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+      LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
       LEFT JOIN sprint_issues si ON i.id = si.issue_id
-      WHERE sh.user_id = $1
+      WHERE (
+        (sh.id IS NOT NULL AND sh.user_id = $1)
+        OR
+        (sh.id IS NULL AND EXISTS (
+          SELECT 1 FROM scan_history sh2 
+          WHERE sh2.id = i.first_seen_scan_id AND sh2.user_id = $1
+        ))
+      )
     `, [user.userId])
 
     // DEBUG: First check if there are ANY issues for this user
@@ -33,12 +40,41 @@ export async function GET(request: NextRequest) {
         i.first_seen_scan_id,
         i.status,
         sh.id as scan_history_id,
-        sh.user_id as scan_user_id
+        sh.user_id as scan_user_id,
+        sh.scan_type,
+        sh.url,
+        sh.file_name
       FROM issues i
       LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
-      WHERE sh.user_id = $1 OR (sh.user_id IS NULL AND EXISTS (SELECT 1 FROM scan_history WHERE user_id = $1))
+      WHERE EXISTS (
+        SELECT 1 FROM scan_history sh2 
+        WHERE sh2.id = i.first_seen_scan_id AND sh2.user_id = $1
+      ) OR sh.user_id = $1
       LIMIT 10
     `, [user.userId])
+    
+    // Also check if scan_history records exist for the first_seen_scan_ids
+    if (debugIssues.rows.length > 0) {
+      const scanIds = debugIssues.rows.map(r => r.first_seen_scan_id).filter(Boolean)
+      if (scanIds.length > 0) {
+        const scanHistoryCheck = await pool.query(`
+          SELECT id, user_id, scan_type, url, file_name, created_at
+          FROM scan_history
+          WHERE id = ANY($1::uuid[])
+        `, [scanIds])
+        console.log('🔍 Scan history check:', {
+          requestedScanIds: scanIds.length,
+          foundScanHistory: scanHistoryCheck.rows.length,
+          matches: scanHistoryCheck.rows.map(r => ({
+            id: r.id,
+            user_id: r.user_id,
+            scan_type: r.scan_type,
+            url: r.url,
+            file_name: r.file_name
+          }))
+        })
+      }
+    }
     
     console.log('🔍 DEBUG: Issues found for user:', {
       totalIssues: debugIssues.rows.length,
@@ -56,6 +92,7 @@ export async function GET(request: NextRequest) {
     // Get ALL issues for the backlog, excluding those already in sprints
     // Include all statuses (backlog, open, in_progress, resolved, etc.) - don't filter by status
     // NO LIMIT - return all issues
+    // Use LEFT JOIN and EXISTS to find issues even if scan_history is missing or doesn't match initially
     const result = await pool.query(`
       SELECT 
         i.id,
@@ -86,10 +123,19 @@ export async function GET(request: NextRequest) {
         sh.scan_type,
         sh.scan_results
       FROM issues i
-      INNER JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+      LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
       LEFT JOIN sprint_issues si ON i.id = si.issue_id
-      WHERE sh.user_id = $1 
-        AND si.id IS NULL
+      WHERE (
+        -- Issue belongs to user if scan_history exists and matches user_id
+        (sh.id IS NOT NULL AND sh.user_id = $1)
+        OR
+        -- Or if scan_history doesn't exist in the JOIN but EXISTS check confirms ownership
+        (sh.id IS NULL AND EXISTS (
+          SELECT 1 FROM scan_history sh2 
+          WHERE sh2.id = i.first_seen_scan_id AND sh2.user_id = $1
+        ))
+      )
+      AND si.id IS NULL
       ORDER BY 
         CASE WHEN i.rank IS NOT NULL THEN i.rank ELSE 999999 END ASC,
         i.created_at ASC,

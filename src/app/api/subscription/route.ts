@@ -1,7 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
-import { queryOne } from '@/lib/database'
+import { query, queryOne } from '@/lib/database'
 import { getStripe } from '@/lib/stripe-config'
+
+function getPlanNameFromPriceId(priceId: string): string {
+  // Map price IDs to plan names
+  const planNames: Record<string, string> = {
+    'price_1StEUBRYsgNlHbsUvQSjyHmc': 'Unlimited Access Monthly',
+    'price_1StEV9RYsgNlHbsUKYgQYc9Y': 'Unlimited Access Yearly',
+    'price_1StELRRYsgNlHbsUNKrVhV17': 'Starter Pack',
+    'price_1StEMlRYsgNlHbsUuG03eTvT': 'Professional Pack',
+    'price_1StENrRYsgNlHbsUhxHMd8pf': 'Business Pack',
+    'price_1StEOSRYsgNlHbsU5jXg5PWx': 'Enterprise Pack',
+  }
+  
+  // Add per-user pricing (organization seats) - check environment variables
+  const perUserMonthlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID
+  const perUserYearlyPriceId = process.env.STRIPE_PER_USER_PRICE_ID_YEARLY
+  
+  if (perUserMonthlyPriceId && priceId === perUserMonthlyPriceId) {
+    return 'Per User Seat (Monthly)'
+  }
+  
+  if (perUserYearlyPriceId && priceId === perUserYearlyPriceId) {
+    return 'Per User Seat (Yearly)'
+  }
+  
+  return planNames[priceId] || 'Unknown Plan'
+}
 
 /**
  * GET /api/subscription
@@ -23,7 +49,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // If user has no subscription, return null
+    // If user has no subscription ID in database, return null
     if (!userData.stripe_subscription_id) {
       return NextResponse.json({
         success: true,
@@ -37,11 +63,62 @@ export async function GET(request: NextRequest) {
       const price = subscription.items.data[0]?.price
       const billingPeriod = price?.recurring?.interval === 'month' ? 'monthly' : 'yearly'
       
+      // Get plan name and amount from price
+      const planName = price?.id ? getPlanNameFromPriceId(price.id) : 'Unknown Plan'
+      const amount = price?.unit_amount ? `£${(price.unit_amount / 100).toFixed(2)}` : 'N/A'
+      
+      // Fix plan_type if it's wrong (e.g., set to 'free' when subscription is still active)
+      // Subscription is still active if status is 'active' or 'trialing', even if cancel_at_period_end is true
+      const isActuallyEnded = subscription.status === 'canceled' || 
+                              subscription.status === 'unpaid' || 
+                              subscription.status === 'past_due' ||
+                              subscription.status === 'incomplete_expired'
+      const shouldBeCompleteAccess = !isActuallyEnded
+      
+      if (shouldBeCompleteAccess && userData.plan_type !== 'complete_access') {
+        console.log(`⚠️ Fixing plan_type: user has active subscription but plan_type is '${userData.plan_type}', updating to 'complete_access'`)
+        await queryOne(
+          `UPDATE users SET plan_type = 'complete_access', updated_at = NOW() WHERE id = $1`,
+          [user.userId]
+        )
+        userData.plan_type = 'complete_access'
+      } else if (!shouldBeCompleteAccess && userData.plan_type === 'complete_access') {
+        console.log(`⚠️ Fixing plan_type: subscription is ended but plan_type is 'complete_access', updating to 'free'`)
+        await queryOne(
+          `UPDATE users SET plan_type = 'free', updated_at = NOW() WHERE id = $1`,
+          [user.userId]
+        )
+        userData.plan_type = 'free'
+      }
+      
+      console.log(`📋 Subscription API: Found subscription ${subscription.id}, status: ${subscription.status}, cancel_at_period_end: ${subscription.cancel_at_period_end}, planName: ${planName}, plan_type: ${userData.plan_type}`)
+      
+      // Calculate next billing date (same as current period end if not cancelled)
+      const nextBillingDate = subscription.cancel_at_period_end 
+        ? null 
+        : ((subscription as any).current_period_end 
+          ? new Date((subscription as any).current_period_end * 1000).toISOString() 
+          : null)
+      
+      // Calculate access end date (current period end if cancelled, null if active)
+      const accessEndDate = subscription.cancel_at_period_end 
+        ? ((subscription as any).current_period_end 
+          ? new Date((subscription as any).current_period_end * 1000).toISOString() 
+          : null)
+        : null
+      
       const subscriptionData = {
         id: subscription.id,
         status: subscription.status,
+        planName,
+        amount,
         billingPeriod,
+        nextBillingDate,
+        accessEndDate,
         cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+        currentPeriodStart: (subscription as any).current_period_start
+          ? new Date((subscription as any).current_period_start * 1000).toISOString()
+          : null,
         currentPeriodEnd: (subscription as any).current_period_end
           ? new Date((subscription as any).current_period_end * 1000).toISOString()
           : null,

@@ -339,7 +339,8 @@ export async function sendSubscriptionPaymentEmail(data: SubscriptionPaymentData
           </div>
 
           <div class="footer">
-            <p class="footer-text">
+            ${getEmailManageLinksFooterHtml(customerEmail)}
+            <p class="footer-text" style="margin-top: 12px;">
               Need help? <a href="${process.env.NEXT_PUBLIC_BASE_URL}/settings" class="footer-link">Contact Support</a>
             </p>
             <p class="footer-text" style="margin-bottom: 0;">
@@ -367,6 +368,8 @@ export async function sendSubscriptionPaymentEmail(data: SubscriptionPaymentData
 
       Dashboard: ${process.env.NEXT_PUBLIC_BASE_URL}/dashboard
       Support: ${process.env.NEXT_PUBLIC_BASE_URL}/settings
+
+      ${getEmailManageLinksFooterText(customerEmail)}
 
       This is an automated payment confirmation. Please keep this email for your records.
     `
@@ -763,6 +766,9 @@ export async function sendAccountDeletedEmail(data: AccountDeletedData) {
     const { customerEmail, customerName } = data
 
     const subject = `Sorry to see you go - A11ytest.ai`
+    
+    // Use logo URL
+    const logoUrl = getLogoUrl()
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -774,22 +780,28 @@ export async function sendAccountDeletedEmail(data: AccountDeletedData) {
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; background-color: #f3f4f6; padding: 40px 20px; margin: 0; }
           .email-wrapper { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-          .header { padding: 40px 30px; text-align: center; border-bottom: 2px solid #e5e7eb; }
-          .header-title { font-size: 28px; font-weight: 700; color: #0B1220; margin-bottom: 8px; }
+          .header { padding: 40px 30px; text-align: center; border-bottom: 2px solid #e5e7eb; background: #ffffff; }
+          .logo-container { margin-bottom: 20px; background: #ffffff; padding: 20px; border-radius: 8px; }
+          .logo-img { max-width: 180px; height: auto; display: block; margin: 0 auto; background: #ffffff; }
+          .header-title { font-size: 28px; font-weight: 700; color: #0B1220; margin-bottom: 8px; margin-top: 20px; }
           .header-subtitle { color: #6b7280; font-size: 16px; }
           .content { padding: 40px 30px; }
           .greeting { font-size: 18px; color: #1f2937; margin-bottom: 20px; font-weight: 500; }
           .message { font-size: 16px; color: #374151; line-height: 1.8; margin-bottom: 24px; }
           .note { background: #fef2f2; border-left: 4px solid #dc2626; padding: 16px; border-radius: 4px; font-size: 14px; color: #991b1b; margin-bottom: 24px; }
-          .footer { padding: 24px 30px; text-align: center; background: #f9fafb; font-size: 14px; color: #6b7280; }
-          .footer a { color: #2563eb; text-decoration: none; }
+          .footer { padding: 24px 30px; text-align: center; background: #f9fafb; font-size: 14px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+          .footer a { color: #06B6D4; text-decoration: none; font-weight: 500; }
+          .footer a:hover { text-decoration: underline; }
         </style>
       </head>
       <body>
         <div class="email-wrapper">
           <div class="header">
-            <div class="header-title">A11ytest.ai</div>
-            <div class="header-subtitle">Sorry to see you go</div>
+            <div class="logo-container">
+              <img src="${logoUrl}" alt="a11ytest.ai" class="logo-img" />
+            </div>
+            <div class="header-title">Sorry to see you go</div>
+            <div class="header-subtitle">Account Deleted</div>
           </div>
           <div class="content">
             <div class="greeting">${customerName ? `Hello ${customerName},` : 'Hello,'}</div>
@@ -801,7 +813,8 @@ export async function sendAccountDeletedEmail(data: AccountDeletedData) {
             </div>
           </div>
           <div class="footer">
-            <p>Thank you for using A11ytest.ai.</p>
+            ${getEmailManageLinksFooterHtml(customerEmail)}
+            <p style="margin-top: 12px;">Thank you for using A11ytest.ai.</p>
           </div>
         </div>
       </body>
@@ -816,6 +829,8 @@ ${customerName ? `Hello ${customerName},` : 'Hello,'}
 Your account has been permanently deleted. We're sorry to see you go.
 
 You have forfeited the remainder of your subscription and any unused credits. This action cannot be undone.
+
+${getEmailManageLinksFooterText(customerEmail)}
 
 Thank you for using A11ytest.ai.
     `.trim()

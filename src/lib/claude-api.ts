@@ -351,7 +351,7 @@ Can this be automatically fixed? What will be changed?`;
    */
   private async callClaudeAPI(messages: ClaudeMessage[], systemPrompt?: string): Promise<string> {
     const requestBody: ClaudeRequest = {
-      model: 'claude-3-7-sonnet-20250219', // Use Claude 3.7 Sonnet (available in your account)
+      model: 'claude-sonnet-4-20250514', // Use Claude Sonnet 4.6 (upgraded from deprecated 3.7)
       messages,
       max_tokens: 1000, // Limit response length to control costs
       temperature: 0.3 // Lower temperature for more consistent, focused responses
@@ -603,7 +603,7 @@ Return ONLY valid JSON:
       // Anthropic API format for vision: content array with text and image
       const response = await this.makeRateLimitedRequest(async () => {
         const requestBody: any = {
-          model: 'claude-3-7-sonnet-20250219',
+          model: 'claude-sonnet-4-20250514', // Claude Sonnet 4.6 - verify exact model ID in Anthropic docs
           messages: [{
             role: 'user',
             content: [
@@ -645,6 +645,22 @@ Return ONLY valid JSON:
     } catch (error) {
       console.error('Error generating text with vision:', error);
       return '';
+    }
+  }
+
+  /**
+   * Public method for AI-powered accessibility checks
+   * Allows external services to call Claude with custom prompts
+   */
+  async analyzeAccessibilityCheck(userPrompt: string, systemPrompt: string): Promise<string> {
+    try {
+      const response = await this.makeRateLimitedRequest(() =>
+        this.callClaudeAPI([{ role: 'user', content: userPrompt }], systemPrompt)
+      );
+      return response;
+    } catch (error) {
+      console.error('Error in accessibility check analysis:', error);
+      throw error;
     }
   }
 }

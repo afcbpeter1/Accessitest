@@ -19,8 +19,25 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
   const reopenedItems = []
   const skippedItems = []
 
+  console.log(`🎫 Starting backlog auto-creation for user ${userId}, scanHistoryId: ${scanHistoryId}, results count: ${scanResults.length}`)
+
+  if (!scanResults || scanResults.length === 0) {
+    console.warn('⚠️ No scan results provided to autoCreateBacklogItemsWithHistoryId')
+    return
+  }
+
+  if (!scanHistoryId) {
+    console.error('❌ No scanHistoryId provided to autoCreateBacklogItemsWithHistoryId')
+    return
+  }
+
   for (const result of scanResults) {
-    if (!result.issues) continue
+    if (!result.issues || result.issues.length === 0) {
+      console.log(`ℹ️ No issues found in result for URL: ${result.url}`)
+      continue
+    }
+    
+    console.log(`📋 Processing ${result.issues.length} issues for URL: ${result.url}`)
     
     for (const issue of result.issues) {
       try {
@@ -29,28 +46,62 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
         const elementSelector = issue.nodes?.[0]?.target?.[0] || ''
         const issueId = generateIssueId(issue.id, elementSelector, result.url)
 
-        // Check if this EXACT issue already exists using issue_key (not just rule_name)
-        // This ensures each unique occurrence gets its own backlog item
+        // Check if this EXACT issue already exists using issue_key (globally unique)
+        // First check if the issue_key exists at all (since it's globally unique)
         const existingItem = await queryOne(`
-          SELECT i.id, i.status, i.created_at, i.updated_at 
+          SELECT i.id, i.status, i.created_at, i.updated_at, sh.user_id as scan_user_id
           FROM issues i
+          LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
           WHERE i.issue_key = $1
         `, [issueId])
 
         if (existingItem) {
-          // Update the existing issue's occurrence count and timestamp
+          // Verify this issue belongs to the current user
+          if (existingItem.scan_user_id !== userId) {
+            console.error(`❌ Issue ${issue.id} with issue_key ${issueId} exists but belongs to different user (${existingItem.scan_user_id} vs ${userId}). Skipping.`)
+            skippedItems.push({
+              issueId: issue.id,
+              ruleName: issue.id,
+              reason: `Issue exists but belongs to different user`
+            })
+            continue
+          }
+
+          // If issue was closed or resolved, reopen it to backlog
+          const shouldReopen = existingItem.status === 'closed' || existingItem.status === 'resolved'
+          
+          console.log(`⚠️ Issue ${issue.id} already exists with issue_key ${issueId} for user ${userId}, updating occurrence count and affected pages${shouldReopen ? ' (reopening from ' + existingItem.status + ' to backlog)' : ''}`)
+          
+          // Update the existing issue's occurrence count, timestamp, add URL to affected_pages, and reopen if closed
           await query(`
             UPDATE issues 
             SET updated_at = NOW(),
-                total_occurrences = total_occurrences + 1
+                total_occurrences = total_occurrences + 1,
+                affected_pages = CASE 
+                  WHEN $2 = ANY(affected_pages) THEN affected_pages
+                  ELSE array_append(affected_pages, $2)
+                END,
+                status = CASE 
+                  WHEN $3 THEN 'backlog'
+                  ELSE status
+                END
             WHERE id = $1
-          `, [existingItem.id])
+          `, [existingItem.id, result.url, shouldReopen])
 
-          skippedItems.push({
-            issueId: issue.id,
-            ruleName: issue.id,
-            reason: 'Exact duplicate (same rule + element + URL)'
-          })
+          if (shouldReopen) {
+            reopenedItems.push({
+              id: existingItem.id,
+              issueId: issueId,
+              ruleName: issue.id,
+              impact: issue.impact
+            })
+          } else {
+            skippedItems.push({
+              issueId: issue.id,
+              ruleName: issue.id,
+              reason: `Exact duplicate (same rule + element + URL) - updated existing issue ID: ${existingItem.id}`
+            })
+          }
           continue
         }
 
@@ -94,6 +145,8 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
           new Date().toISOString()
         ])
 
+        console.log(`✅ Created backlog item: ${newItem.id} for issue ${issue.id} (${issueId})`)
+
         addedItems.push({
           id: newItem.id,
           issueId: issueId,
@@ -101,22 +154,31 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
           impact: issue.impact
         })
       } catch (error) {
-        console.error(`Error processing issue ${issue.id}:`, error)
+        console.error(`❌ Error processing issue ${issue.id}:`, error)
+        console.error(`   Issue details:`, { id: issue.id, description: issue.description, url: result.url })
         skippedItems.push({
           issueId: issue.id,
           ruleName: issue.id,
-          reason: 'Error processing issue'
+          reason: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
         })
       }
     }
   }
 
+  const totalIssues = scanResults.reduce((sum, result) => sum + (result.issues?.length || 0), 0)
   console.log('✅ Backlog auto-creation result:', {
-    total: scanResults.reduce((sum, result) => sum + (result.issues?.length || 0), 0),
+    total: totalIssues,
     added: addedItems.length,
     reopened: reopenedItems.length,
-    skipped: skippedItems.length
+    skipped: skippedItems.length,
+    scanHistoryId: scanHistoryId,
+    skippedReasons: skippedItems.map(s => s.reason).filter((v, i, a) => a.indexOf(v) === i) // Unique reasons
   })
+  
+  if (addedItems.length === 0 && totalIssues > 0) {
+    console.warn('⚠️ No items were added to backlog despite having issues. Check skipped items for reasons.')
+    console.warn('📋 Skipped items details:', JSON.stringify(skippedItems, null, 2))
+  }
 }
 
 // Auto-create backlog items for unique issues (legacy function)
@@ -632,6 +694,14 @@ export async function POST(request: NextRequest) {
              if (scanHistoryId) {
                try {
                  console.log('🎫 Auto-creating backlog items for unique issues...')
+                 console.log('📊 Final results structure:', {
+                   hasResults: !!finalResults.results,
+                   resultsType: Array.isArray(finalResults.results) ? 'array' : typeof finalResults.results,
+                   resultsLength: Array.isArray(finalResults.results) ? finalResults.results.length : 'N/A',
+                   firstResultSample: Array.isArray(finalResults.results) && finalResults.results.length > 0 
+                     ? { url: finalResults.results[0].url, hasIssues: !!finalResults.results[0].issues, issuesCount: finalResults.results[0].issues?.length || 0 }
+                     : 'N/A'
+                 })
                  await autoCreateBacklogItemsWithHistoryId(user.userId, finalResults.results, scanHistoryId)
                  
                  // Auto-sync to Jira if enabled (AFTER backlog items are created)

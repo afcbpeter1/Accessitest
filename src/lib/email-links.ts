@@ -37,15 +37,15 @@ export function getManageBillingUrl(recipientEmail?: string): string {
 export function getEmailManageLinksFooterHtml(recipientEmail: string): string {
   const base = getAppBaseUrl()
   const profileUrl = getProfileUrl()
-  const billingUrl = getManageBillingUrl()
+  const billingUrl = getManageBillingUrl(recipientEmail)
   return `
     <div style="text-align: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid #eee; color: #666; font-size: 14px;">
       <p style="margin: 0 0 8px 0;">
         <a href="${profileUrl}" style="color: #06B6D4; text-decoration: none;">Update profile</a>
         &nbsp;·&nbsp;
-        <a href="${billingUrl}" style="color: #06B6D4; text-decoration: none;">Manage subscription & billing</a>
+        <a href="${billingUrl}" style="color: #06B6D4; text-decoration: none;">Manage subscription & billing (Stripe)</a>
       </p>
-      <p style="margin: 0; font-size: 12px;">You can update your details, payment method, or cancel your subscription from the links above.</p>
+      <p style="margin: 0; font-size: 12px;">You can update your details, payment method, view invoices, or cancel your subscription from the links above.</p>
       <p style="margin: 12px 0 0 0;">This email was sent to ${recipientEmail}</p>
     </div>`
 }
