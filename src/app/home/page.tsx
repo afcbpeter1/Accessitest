@@ -440,9 +440,12 @@ export default function HomePage() {
       {/* Hero Section */}
       <main id="main-content" className="py-20 bg-gradient-to-br from-[#06B6D4] to-[#0B1220] text-white" role="main">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl font-bold mb-6">
+          <h1 className="text-5xl font-bold mb-4">
             Professional Accessibility Testing Platform
           </h1>
+          <p className="text-2xl font-semibold mb-6 text-white/90">
+            No more hiding from accessibility.
+          </p>
           <p className="text-xl mb-8 max-w-3xl mx-auto">
             A11ytest.ai is the leading accessibility testing platform that ensures your documents and websites meet <strong>ADA compliance</strong>, federal Section 508 requirements, and international WCAG 2.2 AA standards. Our AI-powered technology provides comprehensive accessibility audits for PDFs and websites, helping organizations achieve full legal compliance and create inclusive digital experiences for all users.
           </p>
@@ -540,14 +543,14 @@ export default function HomePage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="text-center">
-              <div className="text-4xl font-bold text-[#0B1220] mb-2">16</div>
-              <div className="text-gray-600">Section 508 Standards</div>
+              <div className="text-4xl font-bold text-[#0B1220] mb-2">Section 508</div>
+              <div className="text-gray-600">Compliance Testing</div>
               <p className="text-sm text-gray-500 mt-2">Complete federal compliance testing coverage</p>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-[#0B1220] mb-2">8+</div>
+              <div className="text-4xl font-bold text-[#0B1220] mb-2">2</div>
               <div className="text-gray-600">File Formats Supported</div>
-              <p className="text-sm text-gray-500 mt-2">PDF + Live websites</p>
+              <p className="text-sm text-gray-500 mt-2">PDF + Word documents</p>
             </div>
             <div className="text-center">
               <div className="text-4xl font-bold text-[#0B1220] mb-2">WCAG 2.2</div>
@@ -571,6 +574,9 @@ export default function HomePage() {
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
                 Free Website Accessibility Scan
               </h2>
+              <p className="text-2xl font-semibold text-gray-900 mb-4">
+                Instant actionable Accessibility
+              </p>
               <p className="text-lg text-gray-600 max-w-3xl mx-auto">
                 Get a quick accessibility assessment of your website's homepage. See what issues we find, then sign up for detailed recommendations and remediation steps.
               </p>
