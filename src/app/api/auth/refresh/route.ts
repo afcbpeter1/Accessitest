@@ -33,13 +33,13 @@ export async function POST(request: NextRequest) {
         lastActivity: Date.now()  // Update last activity timestamp
       },
       JWT_SECRET,
-      { expiresIn: '15m' }  // Fresh 15 minutes
+      { expiresIn: '3h' }  // Fresh 3 hours
     )
 
     return NextResponse.json({
       success: true,
       token: newToken,
-      expiresIn: 15 * 60 * 1000, // 15 minutes in milliseconds
+      expiresIn: 3 * 60 * 60 * 1000, // 3 hours in milliseconds
       message: 'Token refreshed successfully'
     })
 

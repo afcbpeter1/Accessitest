@@ -126,7 +126,7 @@ async function handleLogin(email: string, password: string) {
         lastActivity: Date.now()  // Track last activity for sliding expiration
       },
       JWT_SECRET,
-      { expiresIn: '15m' }  // 15 minutes of inactivity
+      { expiresIn: '3h' }  // 3 hours - extended session timeout
     )
 
     return NextResponse.json({

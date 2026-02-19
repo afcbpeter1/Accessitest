@@ -20,15 +20,25 @@ interface ClaudeResponse {
   }>;
 }
 
+// Global rate limiting state (shared across all ClaudeAPI instances)
+// This ensures all users share the same rate limit pool
+const globalRateLimitState = {
+  tokenUsageWindow: [] as Array<{ tokens: number; timestamp: number }>,
+  lastRequestTime: 0,
+  activeRequests: 0,
+  requestQueue: [] as Array<() => Promise<any>>,
+  isProcessingQueue: false,
+  MAX_TOKENS_PER_MINUTE: 25000, // Use 25k to leave buffer (30k limit)
+  TOKEN_WINDOW_MS: 60 * 1000, // 1 minute window
+  MIN_REQUEST_INTERVAL: 5000, // 5 seconds between requests
+  MAX_CONCURRENT_REQUESTS: 1 // Only one request at a time globally
+};
+
 export class ClaudeAPI {
   private apiUrl: string;
   private apiKey: string;
   private requestQueue: Array<() => Promise<any>> = [];
   private isProcessingQueue = false;
-  private lastRequestTime = 0;
-  private minRequestInterval = 3000; // 3 seconds between requests (very conservative)
-  private maxConcurrentRequests = 1; // Only one request at a time
-  private activeRequests = 0;
 
   constructor() {
     // Use Anthropic's official API instead of RapidAPI
@@ -49,37 +59,108 @@ export class ClaudeAPI {
   }
 
   /**
-   * Rate-limited request method with strict controls
+   * Estimate token count from text (rough approximation: ~4 chars per token)
    */
-  private async makeRateLimitedRequest<T>(requestFn: () => Promise<T>): Promise<T> {
+  private estimateTokens(text: string): number {
+    return Math.ceil(text.length / 4);
+  }
+
+  /**
+   * Check if we can make a request without exceeding token limits (GLOBAL check)
+   */
+  private canMakeRequest(estimatedTokens: number): { canMake: boolean; waitTime: number } {
+    const now = Date.now();
+    
+    // Clean up old entries outside the window (GLOBAL state)
+    globalRateLimitState.tokenUsageWindow = globalRateLimitState.tokenUsageWindow.filter(
+      entry => now - entry.timestamp < globalRateLimitState.TOKEN_WINDOW_MS
+    );
+    
+    // Calculate current token usage in the window (GLOBAL across all users)
+    const currentTokens = globalRateLimitState.tokenUsageWindow.reduce((sum, entry) => sum + entry.tokens, 0);
+    
+    // Check if adding this request would exceed the limit
+    if (currentTokens + estimatedTokens > globalRateLimitState.MAX_TOKENS_PER_MINUTE) {
+      // Calculate how long to wait until we can make the request
+      if (globalRateLimitState.tokenUsageWindow.length > 0) {
+        const oldestEntry = globalRateLimitState.tokenUsageWindow[0];
+        const timeUntilOldestExpires = globalRateLimitState.TOKEN_WINDOW_MS - (now - oldestEntry.timestamp);
+        return { canMake: false, waitTime: Math.max(timeUntilOldestExpires, 1000) };
+      }
+      return { canMake: false, waitTime: 60000 }; // Wait 1 minute if no history
+    }
+    
+    return { canMake: true, waitTime: 0 };
+  }
+
+  /**
+   * Record token usage for rate limiting (GLOBAL state)
+   */
+  private recordTokenUsage(tokens: number) {
+    const now = Date.now();
+    globalRateLimitState.tokenUsageWindow.push({ tokens, timestamp: now });
+    
+    // Clean up old entries
+    globalRateLimitState.tokenUsageWindow = globalRateLimitState.tokenUsageWindow.filter(
+      entry => now - entry.timestamp < globalRateLimitState.TOKEN_WINDOW_MS
+    );
+  }
+
+  /**
+   * Rate-limited request method with strict controls (time + token based)
+   */
+  private async makeRateLimitedRequest<T>(requestFn: () => Promise<T>, estimatedTokens?: number): Promise<T> {
     return new Promise((resolve, reject) => {
       this.requestQueue.push(async () => {
         try {
-          // Wait for any active requests to complete
-          while (this.activeRequests >= this.maxConcurrentRequests) {
-            console.log('⏳ Waiting for active request to complete...');
+          // Wait for any active requests to complete (GLOBAL check)
+          while (globalRateLimitState.activeRequests >= globalRateLimitState.MAX_CONCURRENT_REQUESTS) {
+            console.log('⏳ Waiting for active request to complete (global queue)...');
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
           
-          // Ensure minimum interval between requests
+          // Check token-based rate limiting (GLOBAL across all users)
+          if (estimatedTokens) {
+            const tokenCheck = this.canMakeRequest(estimatedTokens);
+            if (!tokenCheck.canMake) {
+              console.log(`⏳ Global token rate limit: waiting ${Math.ceil(tokenCheck.waitTime / 1000)}s (${estimatedTokens} tokens would exceed ${globalRateLimitState.MAX_TOKENS_PER_MINUTE}/min limit shared across all users)`);
+              await new Promise(resolve => setTimeout(resolve, tokenCheck.waitTime));
+            }
+          }
+          
+          // Ensure minimum interval between requests (GLOBAL)
           const now = Date.now();
-          const timeSinceLastRequest = now - this.lastRequestTime;
-          if (timeSinceLastRequest < this.minRequestInterval) {
-            const waitTime = this.minRequestInterval - timeSinceLastRequest;
-            console.log(`⏳ Rate limiting: waiting ${waitTime}ms before next request`);
+          const timeSinceLastRequest = now - globalRateLimitState.lastRequestTime;
+          if (timeSinceLastRequest < globalRateLimitState.MIN_REQUEST_INTERVAL) {
+            const waitTime = globalRateLimitState.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+            console.log(`⏳ Global rate limiting: waiting ${waitTime}ms before next request`);
             await new Promise(resolve => setTimeout(resolve, waitTime));
           }
           
-          this.activeRequests++;
-          this.lastRequestTime = Date.now();
+          globalRateLimitState.activeRequests++;
+          globalRateLimitState.lastRequestTime = Date.now();
           
           try {
             const result = await requestFn();
+            
+            // Record token usage if we have an estimate (GLOBAL)
+            if (estimatedTokens) {
+              this.recordTokenUsage(estimatedTokens);
+            }
+            
             resolve(result);
           } finally {
-            this.activeRequests--;
+            globalRateLimitState.activeRequests--;
           }
-        } catch (error) {
+        } catch (error: any) {
+          // If we hit a rate limit, wait longer before retrying
+          if (error?.message?.includes('rate_limit') || error?.message?.includes('429')) {
+            console.log('⏳ Rate limit hit, waiting 60s before retry...');
+            await new Promise(resolve => setTimeout(resolve, 60000));
+            // Record a large token usage to prevent immediate retry (GLOBAL)
+            this.recordTokenUsage(globalRateLimitState.MAX_TOKENS_PER_MINUTE * 0.8);
+          }
+          globalRateLimitState.activeRequests--;
           reject(error);
         }
       });
@@ -156,10 +237,12 @@ Problem: ${failureSummary}
 Provide a specific, actionable fix for this exact element.`;
 
       console.log('📤 Claude API: Sending request...');
+      const estimatedTokens = this.estimateTokens(systemPrompt + userPrompt);
       const response = await this.makeRateLimitedRequest(() => 
         this.callClaudeAPI([
           { role: 'user', content: userPrompt }
-        ], systemPrompt)
+        ], systemPrompt),
+        estimatedTokens
       );
 
       console.log('📥 Claude API: Received response, length:', response.length);
@@ -654,8 +737,10 @@ Return ONLY valid JSON:
    */
   async analyzeAccessibilityCheck(userPrompt: string, systemPrompt: string): Promise<string> {
     try {
+      const estimatedTokens = this.estimateTokens(systemPrompt + userPrompt);
       const response = await this.makeRateLimitedRequest(() =>
-        this.callClaudeAPI([{ role: 'user', content: userPrompt }], systemPrompt)
+        this.callClaudeAPI([{ role: 'user', content: userPrompt }], systemPrompt),
+        estimatedTokens
       );
       return response;
     } catch (error) {

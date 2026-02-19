@@ -16,8 +16,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Create scan options for discovery only
-    // Enforce maximum of 200 pages for web crawling (free service)
-    const requestedMaxPages = maxPages ?? 50
+    // Default to 100 pages (will be deduplicated to remove template duplicates)
+    // Max 200 for large sites
+    const requestedMaxPages = maxPages ?? 100
     const enforcedMaxPages = Math.min(requestedMaxPages, 200)
     
     const scanOptions: ScanOptions = {

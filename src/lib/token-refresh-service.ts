@@ -5,7 +5,7 @@ class TokenRefreshService {
   private isRefreshing = false
   private refreshPromise: Promise<string | null> | null = null
   private lastActivityTime: number = Date.now()
-  private readonly INACTIVITY_TIMEOUT = 15 * 60 * 1000 // 15 minutes in milliseconds
+  private readonly INACTIVITY_TIMEOUT = 3 * 60 * 60 * 1000 // 3 hours in milliseconds
   private initialized: boolean = false
 
   constructor() {
@@ -43,6 +43,31 @@ class TokenRefreshService {
     events.forEach(event => {
       document.addEventListener(event, this.handleUserActivity.bind(this), true)
     })
+
+    // Track page navigation (Next.js router events and browser navigation)
+    if (typeof window !== 'undefined') {
+      // Track browser navigation (back/forward buttons)
+      window.addEventListener('popstate', this.handleUserActivity.bind(this))
+      
+      // Track Next.js router navigation (if using Next.js router)
+      // This will catch programmatic navigation via router.push(), etc.
+      if (typeof window !== 'undefined' && (window as any).next?.router) {
+        const router = (window as any).next.router
+        router.events?.on('routeChangeStart', this.handleUserActivity.bind(this))
+        router.events?.on('routeChangeComplete', this.handleUserActivity.bind(this))
+      }
+      
+      // Also track hash changes (single-page app navigation)
+      window.addEventListener('hashchange', this.handleUserActivity.bind(this))
+      
+      // Track visibility changes (user switching tabs/windows)
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          // User returned to the tab - count as activity
+          this.handleUserActivity()
+        }
+      })
+    }
 
     // Check token expiry every 5 minutes (for active users)
     this.refreshTimer = setInterval(() => {

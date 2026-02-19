@@ -264,8 +264,10 @@ export class AccessibilityScanner {
         }))
       }));
 
-      // Run AI-powered checks (manual-test-like analysis)
+      // AI-powered checks (DISABLED - commented out for now to reduce token usage)
+      // TODO: Re-enable when token usage is optimized or rate limits are increased
       let aiIssues: AccessibilityIssue[] = [];
+      /*
       try {
         console.log('🤖 Running AI-powered accessibility checks...');
         aiIssues = await this.aiChecks.runAIChecks(page);
@@ -274,8 +276,9 @@ export class AccessibilityScanner {
         console.error('⚠️ AI checks failed, continuing with axe results only:', error);
         // Don't fail the entire scan if AI checks fail
       }
+      */
 
-      // Combine axe and AI issues
+      // Combine axe and AI issues (currently only axe issues)
       const issues = [...axeIssues, ...aiIssues];
 
       // Calculate summary
@@ -323,11 +326,34 @@ export class AccessibilityScanner {
           for (const node of issue.nodes || []) {
             const selector = node.target?.[0];
             if (selector) {
-
               try {
                 // Try to find and screenshot the element
                 const element = await page.$(selector);
                 if (element) {
+                  // Check if element is visible and has dimensions before screenshotting
+                  const boundingBox = await element.boundingBox();
+                  if (!boundingBox || boundingBox.width === 0 || boundingBox.height === 0) {
+                    // Element is hidden or has no dimensions - skip screenshot silently
+                    continue;
+                  }
+
+                  // Check if element is actually visible in the DOM
+                  const isVisible = await element.evaluate((el: Element) => {
+                    const rect = el.getBoundingClientRect();
+                    const style = window.getComputedStyle(el);
+                    return (
+                      rect.width > 0 &&
+                      rect.height > 0 &&
+                      style.display !== 'none' &&
+                      style.visibility !== 'hidden' &&
+                      style.opacity !== '0'
+                    );
+                  });
+
+                  if (!isVisible) {
+                    // Element is not visible - skip screenshot silently
+                    continue;
+                  }
 
                   const elementScreenshot = await element.screenshot({
                     encoding: 'base64',
@@ -340,14 +366,17 @@ export class AccessibilityScanner {
                     issueId: issue.id,
                     severity: issue.impact,
                     screenshot: elementScreenshot,
-                    boundingBox: await element.boundingBox()
+                    boundingBox: boundingBox
                   });
-
-                } else {
-
                 }
-              } catch (elementError) {
-                console.warn(`Failed to screenshot element ${selector}:`, elementError);
+              } catch (elementError: any) {
+                // Silently skip elements that can't be screenshotted (hidden, zero width, lazy-loaded, etc.)
+                // Only log unexpected errors
+                if (!elementError?.message?.includes('0 width') && 
+                    !elementError?.message?.includes('not visible') &&
+                    !elementError?.message?.includes('Node')) {
+                  console.warn(`Failed to screenshot element ${selector}:`, elementError.message);
+                }
               }
             }
           }

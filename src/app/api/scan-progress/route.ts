@@ -490,8 +490,20 @@ export async function POST(request: NextRequest) {
         
          // Helper function to send progress updates
          const sendProgress = async (progress: any) => {
-           const data = `data: ${JSON.stringify(progress)}\n\n`
-           controller.enqueue(encoder.encode(data))
+           try {
+             // Check if controller is still open before sending
+             if (controller.desiredSize === null) {
+               // Controller is closed, skip sending
+               return
+             }
+             const data = `data: ${JSON.stringify(progress)}\n\n`
+             controller.enqueue(encoder.encode(data))
+           } catch (error: any) {
+             // Silently ignore errors if controller is closed
+             if (error?.code !== 'ERR_INVALID_STATE') {
+               console.error('Error sending progress:', error)
+             }
+           }
            
            // Update scan state in database (with error handling)
            try {

@@ -36,6 +36,7 @@ export class ScanService {
   private scanner: AccessibilityScanner;
   private browser: any = null;
   private cancellationFlags: Map<string, boolean> = new Map();
+  private activeDiscoveryId: string | null = null;
 
   constructor() {
     this.scanner = new AccessibilityScanner();
@@ -46,6 +47,14 @@ export class ScanService {
    */
   cancelDiscovery(discoveryId: string): void {
     this.cancellationFlags.set(discoveryId, true);
+    // Immediately close browser if it's the active discovery
+    if (this.activeDiscoveryId === discoveryId && this.browser) {
+      console.log('🛑 Force closing browser due to cancellation');
+      this.browser.close().catch(() => {
+        // Ignore errors when closing
+      });
+      this.browser = null;
+    }
   }
 
   /**
@@ -97,7 +106,9 @@ export class ScanService {
         message: 'Discovering pages to scan...'
       });
 
+      this.activeDiscoveryId = id;
       const urls = await this.crawlWebsite(options, onProgress, id);
+      this.activeDiscoveryId = null;
       
       // Check if cancelled before returning
       if (this.isCancelled(id)) {
@@ -118,11 +129,16 @@ export class ScanService {
     } catch (error) {
       console.error('Page discovery failed:', error);
       this.clearCancellation(id);
+      this.activeDiscoveryId = null;
       throw error;
     } finally {
       if (this.browser) {
-        await this.browser.close();
+        await this.browser.close().catch(() => {
+          // Ignore errors when closing
+        });
+        this.browser = null;
       }
+      this.activeDiscoveryId = null;
     }
   }
 
@@ -213,9 +229,15 @@ export class ScanService {
       const urlObj = new URL(urlWithProtocol);
       // Remove hash fragments (anchors)
       urlObj.hash = '';
+      // Remove query parameters to avoid duplicates (e.g., ?page=1, ?page=2, etc.)
+      urlObj.search = '';
       // Remove trailing slash for root paths
       if (urlObj.pathname === '/' && urlWithProtocol.endsWith('/')) {
         urlObj.pathname = '';
+      }
+      // Normalize pathname (remove trailing slashes except root)
+      if (urlObj.pathname.length > 1 && urlObj.pathname.endsWith('/')) {
+        urlObj.pathname = urlObj.pathname.slice(0, -1);
       }
       return urlObj.href;
     } catch (error) {
@@ -238,7 +260,7 @@ export class ScanService {
    * Short delay so the page main frame is ready (avoids "Requesting main frame too early!" in Docker/Railway).
    */
   private async waitForPageReady(): Promise<void> {
-    await new Promise((r) => setTimeout(r, 800));
+    await new Promise((r) => setTimeout(r, 300)); // Reduced from 800ms to 300ms
   }
 
   private async crawlWebsite(
@@ -257,6 +279,10 @@ export class ScanService {
     const discoveredUrls: string[] = [];
     const retryCount = new Map<string, number>(); // one retry per URL when goto fails
     const startTime = Date.now();
+    const MAX_DISCOVERY_TIME = 2 * 60 * 1000; // 2 minutes maximum (reduced from 5 for faster UX)
+    const MAX_QUEUE_SIZE = 500; // Maximum URLs in queue to prevent infinite growth
+    const QUICK_DISCOVERY_LIMIT = 30; // Stop early if we find enough important pages
+    const QUICK_DISCOVERY_TIME = 30 * 1000; // 30 seconds for quick discovery mode
 
     // Set user agent to avoid being blocked
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
@@ -275,6 +301,25 @@ export class ScanService {
 
     let tipIndex = 0;
     let lastProgressUpdate = 0;
+    let highPriorityCount = 0; // Track high-priority pages found
+
+    // Prioritize URLs - put homepage and important pages first
+    const prioritizeUrl = (url: string): number => {
+      try {
+        const urlObj = new URL(url);
+        const path = urlObj.pathname.toLowerCase();
+        if (path === '/' || path === '/home' || path === '/index' || path === '') return 0; // Homepage first
+        if (path.includes('/contact') || path.includes('/form') || path.includes('/signup') || path.includes('/login')) return 1; // Forms
+        if (path.includes('/about') || path.includes('/services') || path.includes('/products')) return 2; // Important content
+        if (path.includes('/blog') || path.includes('/news') || path.includes('/article')) return 3; // Blog
+        return 4; // Everything else
+      } catch {
+        return 4; // Default priority if URL parsing fails
+      }
+    };
+
+    // Sort initial queue by priority
+    toVisit.sort((a, b) => prioritizeUrl(a) - prioritizeUrl(b));
 
     while (toVisit.length > 0 && discoveredUrls.length < options.maxPages) {
       // Check for cancellation
@@ -288,6 +333,42 @@ export class ScanService {
           message: 'Discovery cancelled'
         });
         break;
+      }
+
+      // Quick discovery mode: stop early if we've found enough important pages quickly
+      const elapsed = Date.now() - startTime;
+      if (elapsed > QUICK_DISCOVERY_TIME && highPriorityCount >= QUICK_DISCOVERY_LIMIT && discoveredUrls.length >= 20) {
+        console.log('⚡ Quick discovery complete - found enough important pages');
+        onProgress?.({
+          currentPage: discoveredUrls.length,
+          totalPages: options.maxPages,
+          currentUrl: '',
+          status: 'complete',
+          message: `Quick discovery complete. Found ${discoveredUrls.length} important pages.`
+        });
+        break;
+      }
+
+      // Check maximum time limit
+      if (elapsed > MAX_DISCOVERY_TIME) {
+        console.log('⏱️ Discovery time limit reached (2 minutes)');
+        onProgress?.({
+          currentPage: discoveredUrls.length,
+          totalPages: options.maxPages,
+          currentUrl: '',
+          status: 'complete',
+          message: `Time limit reached. Found ${discoveredUrls.length} pages.`
+        });
+        break;
+      }
+
+      // Limit queue size to prevent infinite growth
+      if (toVisit.length > MAX_QUEUE_SIZE) {
+        console.log(`⚠️ Queue size limit reached (${MAX_QUEUE_SIZE}). Stopping discovery of new links.`);
+        // Process remaining queue but don't add more links
+        const remainingUrls = toVisit.splice(0, options.maxPages - discoveredUrls.length);
+        toVisit.length = 0;
+        toVisit.push(...remainingUrls);
       }
 
       const currentUrl = toVisit.shift()!;
@@ -304,12 +385,16 @@ export class ScanService {
         const remainingPages = Math.min(options.maxPages - discoveredUrls.length, toVisit.length);
         const estimatedTimeRemaining = Math.floor(avgTimePerPage * remainingPages);
         
+        // Calculate how many unique pages are likely to be found (accounting for filtering)
+        // Most URLs in queue will be processed, but some will be filtered or duplicates
+        const likelyUniqueRemaining = Math.min(remainingPages, toVisit.length);
+        
         onProgress?.({
           currentPage: discoveredUrls.length,
           totalPages: options.maxPages,
           currentUrl: currentUrl,
           status: 'crawling',
-          message: `${discoveryTips[tipIndex % discoveryTips.length]} Found ${discoveredUrls.length} pages so far. ${toVisit.length} more to check. ${estimatedTimeRemaining > 0 ? `Est. ${estimatedTimeRemaining}s remaining.` : ''}`
+          message: `${discoveryTips[tipIndex % discoveryTips.length]} Found ${discoveredUrls.length} pages so far. ${toVisit.length > 0 ? `${toVisit.length} URLs in queue` : 'Processing...'} ${estimatedTimeRemaining > 0 ? `Est. ${estimatedTimeRemaining}s remaining.` : ''}`
         });
         
         lastProgressUpdate = now;
@@ -317,28 +402,71 @@ export class ScanService {
       }
 
       try {
-        // Navigate to the page (use domcontentloaded first to avoid "main frame too early" in containers)
+        // Check cancellation before navigation
+        if (discoveryId && this.isCancelled(discoveryId)) {
+          console.log('🛑 Discovery cancelled - stopping navigation');
+          break;
+        }
+
+        // Navigate to the page - use domcontentloaded for faster discovery (we don't need full page load)
         await page.goto(currentUrl, {
-          waitUntil: ['domcontentloaded', 'networkidle2'],
-          timeout: 30000
+          waitUntil: 'domcontentloaded', // Faster than networkidle2 - we just need links, not full page load
+          timeout: 0 // No timeout - let it take as long as needed
         });
+
+        // Check cancellation after navigation
+        if (discoveryId && this.isCancelled(discoveryId)) {
+          console.log('🛑 Discovery cancelled - stopping after navigation');
+          break;
+        }
 
         // Add to discovered URLs (use normalized URL)
         discoveredUrls.push(normalizedUrl);
+        
+        // Track high-priority pages
+        const path = new URL(normalizedUrl).pathname.toLowerCase();
+        if (path === '/' || path.includes('/contact') || path.includes('/form') || 
+            path.includes('/about') || path.includes('/services') || path.includes('/products')) {
+          highPriorityCount++;
+        }
 
         // If deep crawl is enabled, discover more links
         if (options.deepCrawl) {
-          // Brief delay so JS-rendered links (SPAs, lazy nav) are in the DOM
-          await new Promise((r) => setTimeout(r, 1500));
+          // Check cancellation before processing links
+          if (discoveryId && this.isCancelled(discoveryId)) {
+            console.log('🛑 Discovery cancelled - stopping link discovery');
+            break;
+          }
+
+          // Brief delay so JS-rendered links (SPAs, lazy nav) are in the DOM - reduced for speed
+          await new Promise((r) => setTimeout(r, 300)); // Reduced from 500ms to 300ms for faster discovery
+          
+          // Check cancellation again after delay
+          if (discoveryId && this.isCancelled(discoveryId)) {
+            console.log('🛑 Discovery cancelled - stopping link discovery');
+            break;
+          }
+
           const links = await page.evaluate(() => {
             const anchors = document.querySelectorAll('a[href]');
             return Array.from(anchors).map(a => a.getAttribute('href')).filter(Boolean) as string[];
           });
 
-          // Process discovered links
+          // Process discovered links with smart filtering
           for (const link of links) {
             try {
               const absoluteUrl = new URL(link, currentUrl).href;
+              
+              // Skip if queue is too large
+              if (toVisit.length >= MAX_QUEUE_SIZE) {
+                break;
+              }
+              
+              // Filter out problematic URLs that cause infinite crawling
+              if (this.shouldSkipUrl(absoluteUrl, currentUrl)) {
+                continue;
+              }
+              
               const normalizedLinkUrl = this.normalizeUrl(absoluteUrl);
               
               // Check if URL is within the same domain
@@ -354,7 +482,15 @@ export class ScanService {
               
               if (isSameDomain || isSubdomain) {
                 if (!visited.has(normalizedLinkUrl) && !toVisit.includes(normalizedLinkUrl)) {
-                  toVisit.push(normalizedLinkUrl);
+                  // Insert based on priority (important pages first)
+                  const priority = prioritizeUrl(absoluteUrl);
+                  if (priority <= 2) {
+                    // High priority - add to front
+                    toVisit.unshift(absoluteUrl);
+                  } else {
+                    // Lower priority - add to back
+                    toVisit.push(absoluteUrl);
+                  }
                 }
               }
             } catch (error) {
@@ -364,8 +500,8 @@ export class ScanService {
           }
         }
 
-        // Small delay to be respectful
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Small delay to be respectful - reduced for faster discovery
+        await new Promise(resolve => setTimeout(resolve, 100)); // Reduced from 200ms to 100ms for faster discovery
 
       } catch (error) {
         console.error(`Failed to crawl ${currentUrl}:`, error);
@@ -396,9 +532,217 @@ export class ScanService {
     
     // Final deduplication to ensure no duplicates remain
     const uniqueUrls = Array.from(new Set(discoveredUrls));
-    console.log(`🔍 Page discovery completed: ${discoveredUrls.length} URLs found, ${uniqueUrls.length} unique after deduplication`);
     
-    return uniqueUrls;
+    // Remove template duplicates - keep only one representative per template pattern
+    const deduplicatedUrls = this.removeTemplateDuplicates(uniqueUrls);
+    
+    console.log(`🔍 Page discovery completed: ${discoveredUrls.length} URLs found, ${uniqueUrls.length} unique, ${deduplicatedUrls.length} after template deduplication`);
+    
+    return deduplicatedUrls;
+  }
+
+  /**
+   * Remove template duplicates - pages that use the same template (e.g., article pages)
+   * Only keeps one representative page per template pattern
+   */
+  private removeTemplateDuplicates(urls: string[]): string[] {
+    const templateGroups = new Map<string, string[]>();
+    const result: string[] = [];
+    
+    for (const url of urls) {
+      try {
+        const urlObj = new URL(url);
+        const path = urlObj.pathname;
+        
+        // Extract template pattern from path
+        // Examples:
+        // /article/123 -> /article/*
+        // /blog/2024/post-name -> /blog/*
+        // /news/123/title -> /news/*
+        // /products/123 -> /products/*
+        const templatePattern = this.extractTemplatePattern(path);
+        
+        if (!templateGroups.has(templatePattern)) {
+          templateGroups.set(templatePattern, []);
+        }
+        templateGroups.get(templatePattern)!.push(url);
+      } catch (error) {
+        // If URL parsing fails, keep it as-is
+        result.push(url);
+      }
+    }
+    
+    // For each template group, keep only the first one (or a representative)
+    for (const [pattern, groupUrls] of templateGroups.entries()) {
+      if (groupUrls.length === 1) {
+        // Only one URL in this pattern, keep it
+        result.push(groupUrls[0]);
+      } else {
+        // Multiple URLs with same template - keep only the first one
+        // Prefer shorter URLs (often the first/example article)
+        const sorted = groupUrls.sort((a, b) => {
+          const aPath = new URL(a).pathname;
+          const bPath = new URL(b).pathname;
+          // Prefer shorter paths, or if same length, alphabetical
+          if (aPath.length !== bPath.length) {
+            return aPath.length - bPath.length;
+          }
+          return aPath.localeCompare(bPath);
+        });
+        result.push(sorted[0]);
+        console.log(`📄 Template pattern "${pattern}": found ${groupUrls.length} pages, keeping 1 representative`);
+      }
+    }
+    
+    return result;
+  }
+
+  /**
+   * Extract template pattern from a URL path
+   * Identifies pages that likely use the same template
+   */
+  private extractTemplatePattern(path: string): string {
+    // Remove leading/trailing slashes and split
+    const parts = path.split('/').filter(p => p.length > 0);
+    
+    if (parts.length === 0) {
+      return '/'; // Homepage
+    }
+    
+    // Common template patterns to detect:
+    const templatePatterns = [
+      /^\/article\//i,           // /article/*
+      /^\/articles\//i,          // /articles/*
+      /^\/blog\//i,              // /blog/*
+      /^\/blogs\//i,             // /blogs/*
+      /^\/news\//i,              // /news/*
+      /^\/post\//i,              // /post/*
+      /^\/posts\//i,             // /posts/*
+      /^\/story\//i,             // /story/*
+      /^\/stories\//i,           // /stories/*
+      /^\/product\//i,           // /product/*
+      /^\/products\//i,          // /products/*
+      /^\/item\//i,              // /item/*
+      /^\/items\//i,             // /items/*
+      /^\/event\//i,             // /event/*
+      /^\/events\//i,            // /events/*
+      /^\/job\//i,               // /job/*
+      /^\/jobs\//i,              // /jobs/*
+      /^\/case-study\//i,        // /case-study/*
+      /^\/case-studies\//i,      // /case-studies/*
+    ];
+    
+    // Check if path matches a known template pattern
+    for (const pattern of templatePatterns) {
+      if (pattern.test(path)) {
+        // Extract the base pattern (e.g., /article/*)
+        const match = path.match(/^(\/[^\/]+)/);
+        if (match) {
+          return match[1] + '/*';
+        }
+      }
+    }
+    
+    // Check for numeric IDs or slugs in path (common in article/blog URLs)
+    // Pattern: /category/numeric-id or /category/slug
+    if (parts.length >= 2) {
+      const lastPart = parts[parts.length - 1];
+      // If last part looks like an ID (numeric) or slug (alphanumeric with dashes)
+      if (/^\d+$/.test(lastPart) || /^[a-z0-9-]+$/i.test(lastPart)) {
+        // Return pattern like /category/*
+        return '/' + parts.slice(0, -1).join('/') + '/*';
+      }
+    }
+    
+    // Check for date-based patterns (e.g., /2024/01/article-name)
+    if (parts.length >= 3 && /^\d{4}$/.test(parts[0]) && /^\d{1,2}$/.test(parts[1])) {
+      // Year/month pattern - return /YYYY/MM/*
+      return '/' + parts[0] + '/' + parts[1] + '/*';
+    }
+    
+    // If no template pattern detected, return the full path as unique
+    return path;
+  }
+
+  /**
+   * Check if a URL should be skipped to prevent infinite crawling
+   */
+  private shouldSkipUrl(url: string, currentUrl: string): boolean {
+    try {
+      const urlObj = new URL(url);
+      const path = urlObj.pathname.toLowerCase();
+      
+      // Skip common patterns that create infinite pages
+      const skipPatterns = [
+        /\/page\/\d+/,           // Pagination: /page/1, /page/2, etc.
+        /\/p\/\d+/,              // Pagination: /p/1, /p/2
+        /\/\d+$/,                // Numeric endings that might be pagination
+        /\/search/,              // Search pages
+        /\/filter/,              // Filter pages
+        /\/sort/,                // Sort pages
+        /\/archive/,             // Archive pages (often infinite)
+        /\/tag\//,               // Tag pages (often many)
+        /\/category\//,          // Category pages (often many)
+        /\/author\//,            // Author pages
+        /\/feed/,                // RSS feeds
+        /\/rss/,                 // RSS feeds
+        /\/xml/,                 // XML files
+        /\/json/,                // JSON files
+        /\.(pdf|doc|docx|xls|xlsx|zip|rar)$/i, // File downloads
+        /\/print/,               // Print versions
+        /\/amp$/,                // AMP pages
+        /\/amp\//,               // AMP pages
+        /\/mobile/,              // Mobile versions
+        /\/m\//,                 // Mobile versions
+        /\/api\//,               // API endpoints
+        /\/ajax\//,              // AJAX endpoints
+        /\/wp-json/,             // WordPress API
+        /\/wp-admin/,            // WordPress admin
+        /\/wp-content/,          // WordPress content
+        /\/admin/,               // Admin pages
+        /\/login/,               // Login pages
+        /\/logout/,              // Logout pages
+        /\/register/,           // Registration pages
+        /\/cart/,                // Shopping cart
+        /\/checkout/,            // Checkout
+        /\/account/,            // Account pages
+        /\/profile/,             // Profile pages
+        /\/settings/,            // Settings pages
+      ];
+
+      // Check if path matches any skip pattern
+      if (skipPatterns.some(pattern => pattern.test(path))) {
+        return true;
+      }
+
+      // Skip URLs with query parameters (often create infinite variations)
+      // But allow specific important query params
+      const allowedParams = ['id', 'slug', 'name'];
+      const params = new URLSearchParams(urlObj.search);
+      const paramKeys = Array.from(params.keys());
+      const hasOnlyAllowedParams = paramKeys.every(key => allowedParams.includes(key.toLowerCase()));
+      
+      if (urlObj.search && !hasOnlyAllowedParams && paramKeys.length > 2) {
+        // Skip if has many query params (likely filters/pagination)
+        return true;
+      }
+
+      // Skip very deep paths (more than 4 levels)
+      const pathDepth = path.split('/').filter(p => p.length > 0).length;
+      if (pathDepth > 4) {
+        return true;
+      }
+
+      // Skip if path is too long (likely dynamic/generated)
+      if (path.length > 200) {
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      // If URL parsing fails, skip it
+      return true;
+    }
   }
 
   /**
@@ -432,7 +776,7 @@ export class ScanService {
       // Navigate to the page (domcontentloaded first avoids "main frame too early" in containers)
       await page.goto(url, {
         waitUntil: ['domcontentloaded', 'networkidle2'],
-        timeout: 30000
+        timeout: 0 // No timeout
       });
       console.log(`✅ Page loaded successfully`)
 

@@ -85,7 +85,74 @@ function NewScanContent() {
     }
     // Load previous scans history
     loadPreviousScans()
+    // Restore discovered pages from localStorage if available
+    restoreDiscoveredPagesFromStorage()
   }, [searchParams])
+
+  // Restore discovered pages from localStorage
+  const restoreDiscoveredPagesFromStorage = () => {
+    try {
+      const saved = localStorage.getItem('discoveredPages')
+      if (saved) {
+        const data = JSON.parse(saved)
+        // Check if the saved data is recent (within 7 days) and matches current URL if set
+        if (data.timestamp && Date.now() - data.timestamp < 7 * 24 * 60 * 60 * 1000) {
+          if (!url || data.url === url) {
+            if (data.discoveredPages && data.discoveredPages.length > 0) {
+              setDiscoveredPages(data.discoveredPages)
+              // Restore selected pages if available
+              if (data.selectedPages) {
+                setSelectedPages(data.selectedPages)
+              }
+              // Set URL if it was saved
+              if (data.url && !url) {
+                setUrl(data.url)
+              }
+              console.log('✅ Restored discovered pages from localStorage:', data.discoveredPages.length, 'pages')
+            }
+          }
+        } else {
+          // Clear old data
+          localStorage.removeItem('discoveredPages')
+        }
+      }
+    } catch (error) {
+      console.error('Error restoring discovered pages from localStorage:', error)
+    }
+  }
+
+  // Save discovered pages to localStorage
+  const saveDiscoveredPagesToStorage = (pages: DiscoveredPage[], selected: string[] = []) => {
+    try {
+      const data = {
+        url: url,
+        discoveredPages: pages,
+        selectedPages: selected.length > 0 ? selected : selectedPages, // Use current selectedPages if not provided
+        timestamp: Date.now()
+      }
+      localStorage.setItem('discoveredPages', JSON.stringify(data))
+    } catch (error) {
+      console.error('Error saving discovered pages to localStorage:', error)
+    }
+  }
+
+  // Auto-save to localStorage whenever discovered pages or selected pages change
+  useEffect(() => {
+    if (discoveredPages.length > 0 && url) {
+      const data = {
+        url: url,
+        discoveredPages: discoveredPages,
+        selectedPages: selectedPages,
+        timestamp: Date.now()
+      }
+      try {
+        localStorage.setItem('discoveredPages', JSON.stringify(data))
+      } catch (error) {
+        console.error('Error auto-saving discovered pages to localStorage:', error)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discoveredPages.length, selectedPages.length, url])
 
   const loadPreviousScans = async () => {
     try {
@@ -423,6 +490,8 @@ function NewScanContent() {
     setRemediationReport([])
     setScanError(null)
     setDiscoveryLog([])
+    // Clear localStorage when URL changes
+    localStorage.removeItem('discoveredPages')
   }
 
   // Update progress and add to log
@@ -443,8 +512,9 @@ function NewScanContent() {
   const discoverPages = async () => {
     setIsScanning(true)
     setScanError(null)
-    setDiscoveredPages([])
-    setSelectedPages([])
+    // Don't clear discovered pages immediately - keep them until new discovery completes
+    // setDiscoveredPages([])
+    // setSelectedPages([])
     
     // Create a new scan in global state
     const scanId = `web-discovery-${Date.now()}`
@@ -534,7 +604,7 @@ function NewScanContent() {
         const tip = discoveryTips[tipIndex % discoveryTips.length]
         updateScan(scanId, {
           status: 'crawling',
-          message: `${tip} Checking your website...`
+          message: tip
         })
         tipIndex++
       }, 3000) // Rotate tips every 3 seconds
@@ -552,7 +622,7 @@ function NewScanContent() {
           url: normalizedUrl,
           includeSubdomains,
           deepCrawl: true,
-          maxPages: 200,
+          maxPages: 100, // Default to 100 (will be deduplicated to remove template duplicates)
           discoveryId: id
         })
       })
@@ -585,6 +655,9 @@ function NewScanContent() {
         .filter((page: DiscoveredPage) => page.priority === 'high')
         .map((page: DiscoveredPage) => page.url)
       setSelectedPages(highPriorityUrls)
+      
+      // Save to localStorage for persistence (survives logout/login)
+      saveDiscoveredPagesToStorage(result.discoveredPages, highPriorityUrls)
       
       // Update progress to complete
       updateScan(scanId, {
@@ -1215,7 +1288,24 @@ function NewScanContent() {
                      </div>
 
                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
-                       <span className="text-sm text-gray-600">{selectedPages.length} of {discoveredPages.length} pages selected</span>
+                       <div className="flex items-center space-x-4">
+                         <span className="text-sm text-gray-600">{selectedPages.length} of {discoveredPages.length} pages selected</span>
+                         <button
+                           type="button"
+                           onClick={() => {
+                             if (selectedPages.length === discoveredPages.length) {
+                               // If all selected, clear all
+                               setSelectedPages([])
+                             } else {
+                               // Select all
+                               setSelectedPages(discoveredPages.map(page => page.url))
+                             }
+                           }}
+                           className="text-sm text-blue-600 hover:text-blue-800 font-medium px-3 py-1 border border-blue-300 rounded hover:bg-blue-50 transition-colors"
+                         >
+                           {selectedPages.length === discoveredPages.length ? 'Clear All' : 'Select All'}
+                         </button>
+                       </div>
                        <button
                          type="button"
                          onClick={scanSelectedPages}

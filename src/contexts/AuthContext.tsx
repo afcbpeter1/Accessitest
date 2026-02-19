@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { isAuthenticated, getCurrentUser, clearAuthData, showLogoutNotification } from '@/lib/auth-utils'
 import { tokenRefreshService } from '@/lib/token-refresh-service'
 
@@ -78,6 +79,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('storage', handleStorageChange)
     }
   }, [])
+
+  // Track page navigation as activity (using Next.js usePathname)
+  const pathname = usePathname()
+  useEffect(() => {
+    if (user && pathname) {
+      // User navigated to a new page - reset inactivity timer
+      tokenRefreshService.resetInactivityTimer()
+    }
+  }, [pathname, user])
 
   const value: AuthContextType = {
     user,

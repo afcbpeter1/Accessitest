@@ -280,17 +280,50 @@ export class AIAccessibilityChecks {
         };
       });
 
+      // Truncate HTML in all arrays to reduce token usage
+      const truncateHTML = (html: string, maxLength: number = 200) => {
+        return html.length > maxLength ? html.substring(0, maxLength) + '...' : html;
+      };
+
       return {
-        html: html.substring(0, 500000), // Limit HTML size
-        tabOrder,
-        semanticElements: semanticData,
-        forms,
-        modals,
-        skipLinks,
-        landmarks,
-        headings,
-        links,
-        liveRegions
+        html: html.substring(0, 10000), // Reduced from 50k to 10k (was 500k originally)
+        tabOrder: tabOrder.slice(0, 50).map(item => ({
+          ...item,
+          html: truncateHTML(item.html, 150) // Truncate each element's HTML
+        })),
+        semanticElements: semanticData.slice(0, 30).map(item => ({
+          ...item,
+          html: truncateHTML(item.html, 150) // Truncate each element's HTML
+        })),
+        forms: forms.slice(0, 10).map(form => ({
+          ...form,
+          html: truncateHTML(form.html, 300), // Forms can be larger
+          fields: form.fields.slice(0, 10) // Limit fields per form
+        })),
+        modals: modals.slice(0, 5).map(modal => ({
+          ...modal,
+          html: truncateHTML(modal.html, 300)
+        })),
+        skipLinks: skipLinks.slice(0, 5).map(link => ({
+          ...link,
+          html: truncateHTML(link.html, 200)
+        })),
+        landmarks: landmarks.slice(0, 20).map(landmark => ({
+          ...landmark,
+          html: truncateHTML(landmark.html, 200)
+        })),
+        headings: headings.slice(0, 30).map(heading => ({
+          ...heading,
+          html: truncateHTML(heading.html, 100) // Headings are usually small
+        })),
+        links: links.slice(0, 30).map(link => ({
+          ...link,
+          html: truncateHTML(link.html, 100) // Links are usually small
+        })),
+        liveRegions: liveRegions.slice(0, 10).map(region => ({
+          ...region,
+          html: truncateHTML(region.html, 200)
+        }))
       };
     });
 
@@ -367,8 +400,8 @@ Return ONLY valid JSON array, no markdown, no code blocks.`;
 
       const userPrompt = `Analyze these semantic HTML elements for ARIA issues:
 
-Semantic Elements:
-${JSON.stringify(pageData.semanticElements.slice(0, 100), null, 2)}
+Semantic Elements (limited sample):
+${JSON.stringify(pageData.semanticElements.slice(0, 15), null, 2)}
 
 Find all instances where semantic HTML is being hidden from screen readers.`;
 
@@ -407,8 +440,8 @@ Look for:
 
       const userPrompt = `Compare tab order to visual positions:
 
-Tab Order (sequence of focusable elements):
-${JSON.stringify(pageData.tabOrder, null, 2)}
+Tab Order (sequence of focusable elements, limited to first 30):
+${JSON.stringify(pageData.tabOrder.slice(0, 30), null, 2)}
 
 Identify where tab order doesn't match visual/logical order.`;
 
@@ -780,7 +813,7 @@ Look for:
       const userPrompt = `Analyze these links for context issues:
 
 Links:
-${JSON.stringify(pageData.links.slice(0, 100), null, 2)}
+${JSON.stringify(pageData.links.slice(0, 20), null, 2)}
 
 Find all links that don't make sense out of context or have poor descriptive text.`;
 
@@ -872,7 +905,7 @@ Page HTML (first 20000 chars):
 ${pageData.html.substring(0, 20000)}
 
 Semantic Elements:
-${JSON.stringify(pageData.semanticElements.slice(0, 50), null, 2)}
+${JSON.stringify(pageData.semanticElements.slice(0, 20), null, 2)}
 
 Find structural and semantic HTML issues that could impact accessibility.`;
 
