@@ -363,41 +363,24 @@ function NewScanContent() {
         "📊 Categorizing discovered pages..."
       ]
       
-      // Initialize scan state first
+      // Initialize scan state - show loading state without fake counter
       updateScan(scanId, {
         currentPage: 0,
-        totalPages: 200,
+        totalPages: 0, // Set to 0 to show "checking..." instead of "0 / 200"
         status: 'crawling',
         message: 'Discovering pages on website...'
       })
       
+      // Show rotating tips while waiting (no fake counter)
       let tipIndex = 0
-      let pageCount = 0
-      
-      // Start progress updates - use scanId directly instead of activeScanId
-      const progressInterval = setInterval(() => {
-        pageCount += Math.floor(Math.random() * 5) + 1
+      const tipInterval = setInterval(() => {
         const tip = discoveryTips[tipIndex % discoveryTips.length]
-        
-        // Update scan directly using scanId to avoid timing issues with activeScanId state
         updateScan(scanId, {
-          currentPage: pageCount,
-          totalPages: 200,
           status: 'crawling',
-          message: `${tip} Found ${pageCount} pages so far. Est. ${Math.max(0, 30 - Math.floor(pageCount / 10))}s remaining.`
+          message: `${tip} Checking your website...`
         })
-        
-        // Also add to discovery log
-        const logMessage = `${tip} Found ${pageCount} pages so far. Est. ${Math.max(0, 30 - Math.floor(pageCount / 10))}s remaining.`
-        setDiscoveryLog(prev => {
-          if (!prev.includes(logMessage)) {
-            return [...prev, logMessage]
-          }
-          return prev
-        })
-        
         tipIndex++
-      }, 2000)
+      }, 3000) // Rotate tips every 3 seconds
 
       const response = await authenticatedFetch('/api/discover', {
         method: 'POST',
@@ -409,8 +392,8 @@ function NewScanContent() {
         })
       })
 
-      // Clear the progress interval
-      clearInterval(progressInterval)
+      // Clear the tip rotation interval
+      clearInterval(tipInterval)
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -1316,7 +1299,9 @@ function NewScanContent() {
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-blue-800 font-semibold">🔍 Live Discovery Progress</span>
                           <span className="text-blue-600 font-medium">
-                            {scanProgress.currentPage} / {scanProgress.totalPages > 0 ? scanProgress.totalPages : '∞'}
+                            {scanProgress.totalPages > 0 
+                            ? `${scanProgress.currentPage} / ${scanProgress.totalPages}` 
+                            : 'Checking...'}
                           </span>
                         </div>
                         <div className="bg-white rounded-lg p-3 border border-blue-100">
