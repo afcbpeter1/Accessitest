@@ -40,6 +40,7 @@ export default function Pricing() {
       features: [
         'Unlimited website scans',
         'Unlimited document scans',
+        '200 pages per month (fair usage policy)',
         'Comprehensive ISO 14289-1 (PDF/UA) compliance testing for PDFs',
         'WCAG 2.2 + Section 508 compliance for websites',
         'AI-powered recommendations',

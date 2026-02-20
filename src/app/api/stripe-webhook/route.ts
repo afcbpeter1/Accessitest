@@ -993,6 +993,18 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
           console.log(`✅ Sent billing confirmation email to ${owner.email} for ${quantity} user seat(s)`)
         }
         
+        // Reset page counter for organization on subscription renewal
+        if (invoice.billing_reason === 'subscription_cycle') {
+          try {
+            const { resetPageCounter } = await import('@/lib/page-tracking-service')
+            await resetPageCounter(org.id)
+            console.log(`🔄 Reset page counter for organization ${org.id} (subscription renewal)`)
+          } catch (error) {
+            console.error('❌ Error resetting page counter for organization:', error)
+            // Don't fail the webhook if page reset fails
+          }
+        }
+        
         // Return early - don't process as user subscription
         return
       }
@@ -1109,6 +1121,18 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
       }
     } else {
       console.log(`⚠️ Skipping subscription activation - billing_reason: ${invoice.billing_reason}, userId: ${userId}, planType: ${planType}`)
+    }
+    
+    // Reset page counter on subscription renewal (monthly/yearly payment)
+    if (invoice.billing_reason === 'subscription_cycle' && userId) {
+      try {
+        const { resetPageCounterForUser } = await import('@/lib/page-tracking-service')
+        await resetPageCounterForUser(userId)
+        console.log(`🔄 Reset page counter for user ${userId} (subscription renewal)`)
+      } catch (error) {
+        console.error('❌ Error resetting page counter:', error)
+        // Don't fail the webhook if page reset fails
+      }
     }
     
     // Get customer email for payment email

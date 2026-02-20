@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react'
 interface ScanProgress {
   scanId: string
   type: 'web' | 'document'
-  status: 'crawling' | 'scanning' | 'analyzing' | 'complete' | 'error'
+  status: 'crawling' | 'scanning' | 'analyzing' | 'complete' | 'error' | 'cancelled'
   currentPage: number
   totalPages: number
   startTime: number

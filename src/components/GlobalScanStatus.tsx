@@ -33,6 +33,8 @@ export default function GlobalScanStatus() {
               return <CheckCircle className="h-4 w-4 text-green-600" />
             case 'error':
               return <AlertTriangle className="h-4 w-4 text-red-600" />
+            case 'cancelled':
+              return <X className="h-4 w-4 text-gray-600" />
             default:
               return <Clock className="h-4 w-4 text-gray-600" />
           }
@@ -40,6 +42,8 @@ export default function GlobalScanStatus() {
 
         const getStatusText = () => {
           switch (scan.status) {
+            case 'cancelled':
+              return 'Cancelled'
             case 'crawling':
               return 'Discovering Pages'
             case 'scanning':
@@ -56,7 +60,7 @@ export default function GlobalScanStatus() {
         }
 
         const getProgressText = () => {
-          if (scan.status === 'complete' || scan.status === 'error') {
+          if (scan.status === 'complete' || scan.status === 'error' || scan.status === 'cancelled') {
             return scan.message || 'All done!'
           }
           

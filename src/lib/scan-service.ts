@@ -28,7 +28,7 @@ export interface ScanProgress {
   currentPage: number;
   totalPages: number;
   currentUrl: string;
-  status: 'crawling' | 'scanning' | 'analyzing' | 'complete' | 'error';
+  status: 'crawling' | 'scanning' | 'analyzing' | 'complete' | 'error' | 'cancelled';
   message: string;
 }
 

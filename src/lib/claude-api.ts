@@ -28,7 +28,7 @@ const globalRateLimitState = {
   activeRequests: 0,
   requestQueue: [] as Array<() => Promise<any>>,
   isProcessingQueue: false,
-  MAX_TOKENS_PER_MINUTE: 25000, // Use 25k to leave buffer (30k limit)
+  MAX_TOKENS_PER_MINUTE: 35000, // Use 35k to leave buffer (37k limit)
   TOKEN_WINDOW_MS: 60 * 1000, // 1 minute window
   MIN_REQUEST_INTERVAL: 5000, // 5 seconds between requests
   MAX_CONCURRENT_REQUESTS: 1 // Only one request at a time globally

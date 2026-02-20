@@ -453,6 +453,34 @@ export async function POST(request: NextRequest) {
     
     // Check if user has unlimited credits
     if (creditData.unlimited_credits) {
+      // Unlimited user - check page limit before scanning
+      const { canScanPages, deductPages } = await import('@/lib/page-tracking-service')
+      
+      // Check if they can scan the requested number of pages
+      const pageCheck = await canScanPages(user.userId, pagesToScan.length)
+      if (!pageCheck.canScan) {
+        return new Response(JSON.stringify({ 
+          error: pageCheck.error || 'Monthly page limit reached', 
+          canScan: false,
+          pagesRemaining: pageCheck.pagesRemaining
+        }), {
+          status: 402,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      }
+      
+      // Deduct pages upfront (will be refunded if scan fails, but easier to deduct upfront)
+      const pageDeductResult = await deductPages(user.userId, pagesToScan.length, `Web scan: ${url}`)
+      if (!pageDeductResult.success) {
+        return new Response(JSON.stringify({ 
+          error: pageDeductResult.error || 'Failed to deduct pages', 
+          canScan: false 
+        }), {
+          status: 402,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      }
+      
       // Unlimited user - deductCredits will log but not deduct
       await deductCredits(user.userId, 0, `Web scan: ${url}`)
     } else {
@@ -496,8 +524,8 @@ export async function POST(request: NextRequest) {
                // Controller is closed, skip sending
                return
              }
-             const data = `data: ${JSON.stringify(progress)}\n\n`
-             controller.enqueue(encoder.encode(data))
+           const data = `data: ${JSON.stringify(progress)}\n\n`
+           controller.enqueue(encoder.encode(data))
            } catch (error: any) {
              // Silently ignore errors if controller is closed
              if (error?.code !== 'ERR_INVALID_STATE') {

@@ -4,20 +4,13 @@ import { AccessibilityIssue } from './accessibility-scanner';
 interface PageData {
   html: string;
   url: string;
-  tabOrder: Array<{
-    selector: string;
-    html: string;
-    position: { x: number; y: number; width: number; height: number };
-    tagName: string;
-    accessibleName: string;
-  }>;
-  semanticElements: Array<{
+  landmarks: Array<{
     selector: string;
     html: string;
     tagName: string;
-    ariaAttributes: Record<string, string>;
-    accessibleName: string;
-    role: string | null;
+    role: string;
+    ariaLabel: string;
+    ariaLabelledBy: string;
   }>;
   forms: Array<{
     selector: string;
@@ -28,24 +21,6 @@ interface PageData {
       errorMessages: string[];
       ariaDescribedBy: string[];
     }>;
-  }>;
-  modals: Array<{
-    selector: string;
-    html: string;
-    focusableElements: string[];
-  }>;
-  skipLinks: Array<{
-    selector: string;
-    html: string;
-    target: string;
-  }>;
-  landmarks: Array<{
-    selector: string;
-    html: string;
-    tagName: string;
-    role: string;
-    ariaLabel: string;
-    ariaLabelledBy: string;
   }>;
   headings: Array<{
     selector: string;
@@ -61,12 +36,12 @@ interface PageData {
     ariaLabel: string;
     title: string;
   }>;
-  liveRegions: Array<{
+  images: Array<{
     selector: string;
     html: string;
-    ariaLive: string;
-    ariaAtomic: string;
-    ariaRelevant: string;
+    alt: string;
+    src: string;
+    title: string;
   }>;
 }
 
@@ -90,87 +65,35 @@ export class AIAccessibilityChecks {
   }
 
   /**
-   * Extract comprehensive page data for AI analysis
+   * Extract page data needed for the 4 focused AI checks
    */
   async extractPageData(page: any): Promise<PageData> {
     const url = await page.url();
     
     const pageData = await page.evaluate(() => {
-      // Get full HTML
       const html = document.documentElement.outerHTML;
 
-      // Get tab order (all focusable elements in DOM order)
-      const focusableSelectors = [
-        'a[href]',
-        'button:not([disabled])',
-        'input:not([disabled])',
-        'select:not([disabled])',
-        'textarea:not([disabled])',
-        '[tabindex]:not([tabindex="-1"])',
-        '[contenteditable="true"]'
-      ].join(', ');
-
-      const focusableElements = Array.from(document.querySelectorAll(focusableSelectors));
-      const tabOrder = focusableElements.map((el: Element, index: number) => {
-        const rect = (el as HTMLElement).getBoundingClientRect();
+      // Get landmarks
+      const landmarks = Array.from(document.querySelectorAll('nav, main, aside, header, footer, [role="banner"], [role="navigation"], [role="main"], [role="complementary"], [role="contentinfo"], [role="search"], [role="form"]')).map((el: Element) => {
+        const role = el.getAttribute('role') || el.tagName.toLowerCase();
         return {
-          selector: `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${el.className ? `.${Array.from(el.classList).join('.')}` : ''}`,
-          html: (el as HTMLElement).outerHTML.substring(0, 500),
-          position: {
-            x: rect.x,
-            y: rect.y,
-            width: rect.width,
-            height: rect.height
-          },
+          selector: `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}`,
+          html: (el as HTMLElement).outerHTML.substring(0, 150),
           tagName: el.tagName.toLowerCase(),
-          accessibleName: (el as HTMLElement).textContent?.trim().substring(0, 100) || ''
+          role: role,
+          ariaLabel: el.getAttribute('aria-label') || '',
+          ariaLabelledBy: el.getAttribute('aria-labelledby') || ''
         };
       });
 
-      // Get semantic elements (headings, paragraphs, lists)
-      const semanticSelectors = 'h1, h2, h3, h4, h5, h6, p, ul, ol, li, article, section, nav, main, aside, header, footer';
-      const semanticElements = Array.from(document.querySelectorAll(semanticSelectors));
-      const semanticData = semanticElements.map((el: Element) => {
-        const ariaAttrs: Record<string, string> = {};
-        Array.from(el.attributes).forEach(attr => {
-          if (attr.name.startsWith('aria-')) {
-            ariaAttrs[attr.name] = attr.value;
-          }
-        });
-
-        // Get computed accessible name and role
-        let accessibleName = '';
-        let role = el.getAttribute('role');
-        
-        try {
-          // Try to get accessible name from various sources
-          const label = el.getAttribute('aria-label') || 
-                       el.getAttribute('aria-labelledby') ||
-                       (el as HTMLElement).textContent?.trim().substring(0, 100) || '';
-          accessibleName = label;
-        } catch (e) {
-          accessibleName = '';
-        }
-
-        return {
-          selector: `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${el.className ? `.${Array.from(el.classList).join('.')}` : ''}`,
-          html: (el as HTMLElement).outerHTML.substring(0, 500),
-          tagName: el.tagName.toLowerCase(),
-          ariaAttributes: ariaAttrs,
-          accessibleName: accessibleName,
-          role: role
-        };
-      });
-
-      // Get forms and their error associations
+      // Get forms and their fields
       const forms = Array.from(document.querySelectorAll('form')).map((form: HTMLFormElement) => {
-        const fields = Array.from(form.querySelectorAll('input, select, textarea')).map((field: Element) => {
+        const fields = Array.from(form.querySelectorAll('input, select, textarea, button')).map((field: Element) => {
           const fieldEl = field as HTMLElement;
           const id = fieldEl.id;
           const ariaDescribedBy = fieldEl.getAttribute('aria-describedby')?.split(/\s+/) || [];
           const errorMessages: string[] = [];
           
-          // Find associated error messages
           ariaDescribedBy.forEach(descId => {
             const descEl = document.getElementById(descId);
             if (descEl && (descEl.getAttribute('role') === 'alert' || descEl.className.toLowerCase().includes('error'))) {
@@ -178,7 +101,6 @@ export class AIAccessibilityChecks {
             }
           });
 
-          // Find label
           let label = '';
           if (id) {
             const labelEl = document.querySelector(`label[for="${id}"]`);
@@ -199,69 +121,28 @@ export class AIAccessibilityChecks {
 
         return {
           selector: `form${form.id ? `#${form.id}` : ''}`,
-          html: form.outerHTML.substring(0, 1000),
-          fields: fields
+          html: form.outerHTML.substring(0, 300), // Reduced to 300 chars
+          fields: fields.slice(0, 2) // Limit to 2 fields per form
         };
       });
 
-      // Get modals/dialogs
-      const modals = Array.from(document.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog')).map((modal: Element) => {
-        const modalEl = modal as HTMLElement;
-        const focusableSelectors = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-        const focusableElements = Array.from(modalEl.querySelectorAll(focusableSelectors));
-        
-        return {
-          selector: `${modal.tagName.toLowerCase()}${modal.id ? `#${modal.id}` : ''}`,
-          html: modalEl.outerHTML.substring(0, 1000),
-          focusableElements: focusableElements.map((el: Element) => {
-            return `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}`;
-          })
-        };
-      });
-
-      // Get skip links
-      const skipLinks = Array.from(document.querySelectorAll('a[href^="#"]')).filter((link: Element) => {
-        const href = link.getAttribute('href');
-        const text = link.textContent?.toLowerCase().trim() || '';
-        return href && (text.includes('skip') || text.includes('jump') || link.className.toLowerCase().includes('skip'));
-      }).map((link: Element) => {
-        return {
-          selector: `a${link.id ? `#${link.id}` : ''}`,
-          html: (link as HTMLElement).outerHTML,
-          target: link.getAttribute('href') || ''
-        };
-      });
-
-      // Get landmarks
-      const landmarks = Array.from(document.querySelectorAll('nav, main, aside, header, footer, [role="banner"], [role="navigation"], [role="main"], [role="complementary"], [role="contentinfo"], [role="search"], [role="form"]')).map((el: Element) => {
-        const role = el.getAttribute('role') || el.tagName.toLowerCase();
-        return {
-          selector: `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${el.className ? `.${Array.from(el.classList).join('.')}` : ''}`,
-          html: (el as HTMLElement).outerHTML.substring(0, 500),
-          tagName: el.tagName.toLowerCase(),
-          role: role,
-          ariaLabel: el.getAttribute('aria-label') || '',
-          ariaLabelledBy: el.getAttribute('aria-labelledby') || ''
-        };
-      });
-
-      // Get headings for hierarchy check
+      // Get headings
       const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6')).map((el: Element) => {
         const level = parseInt(el.tagName.charAt(1));
         return {
           selector: `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}`,
-          html: (el as HTMLElement).outerHTML.substring(0, 200),
+          html: (el as HTMLElement).outerHTML.substring(0, 150),
           level: level,
           text: (el as HTMLElement).textContent?.trim().substring(0, 100) || ''
         };
       });
 
-      // Get links for context check
+      // Get links
       const links = Array.from(document.querySelectorAll('a[href]')).map((link: Element) => {
         const linkEl = link as HTMLAnchorElement;
         return {
           selector: `a${link.id ? `#${link.id}` : ''}`,
-          html: linkEl.outerHTML.substring(0, 300),
+          html: linkEl.outerHTML.substring(0, 100),
           text: linkEl.textContent?.trim() || '',
           href: linkEl.getAttribute('href') || '',
           ariaLabel: linkEl.getAttribute('aria-label') || '',
@@ -269,61 +150,26 @@ export class AIAccessibilityChecks {
         };
       });
 
-      // Get ARIA live regions
-      const liveRegions = Array.from(document.querySelectorAll('[aria-live], [aria-atomic], [aria-relevant]')).map((el: Element) => {
+      // Get images (for advertisement detection)
+      const images = Array.from(document.querySelectorAll('img')).map((img: Element) => {
+        const imgEl = img as HTMLImageElement;
         return {
-          selector: `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}`,
-          html: (el as HTMLElement).outerHTML.substring(0, 500),
-          ariaLive: el.getAttribute('aria-live') || '',
-          ariaAtomic: el.getAttribute('aria-atomic') || '',
-          ariaRelevant: el.getAttribute('aria-relevant') || ''
+          selector: `img${img.id ? `#${img.id}` : ''}`,
+          html: imgEl.outerHTML.substring(0, 150),
+          alt: imgEl.getAttribute('alt') || '',
+          src: imgEl.getAttribute('src') || '',
+          title: imgEl.getAttribute('title') || ''
         };
       });
 
-      // Truncate HTML in all arrays to reduce token usage
-      const truncateHTML = (html: string, maxLength: number = 200) => {
-        return html.length > maxLength ? html.substring(0, maxLength) + '...' : html;
-      };
-
+      // Don't include full HTML - we'll only send structured data
       return {
-        html: html.substring(0, 10000), // Reduced from 50k to 10k (was 500k originally)
-        tabOrder: tabOrder.slice(0, 50).map(item => ({
-          ...item,
-          html: truncateHTML(item.html, 150) // Truncate each element's HTML
-        })),
-        semanticElements: semanticData.slice(0, 30).map(item => ({
-          ...item,
-          html: truncateHTML(item.html, 150) // Truncate each element's HTML
-        })),
-        forms: forms.slice(0, 10).map(form => ({
-          ...form,
-          html: truncateHTML(form.html, 300), // Forms can be larger
-          fields: form.fields.slice(0, 10) // Limit fields per form
-        })),
-        modals: modals.slice(0, 5).map(modal => ({
-          ...modal,
-          html: truncateHTML(modal.html, 300)
-        })),
-        skipLinks: skipLinks.slice(0, 5).map(link => ({
-          ...link,
-          html: truncateHTML(link.html, 200)
-        })),
-        landmarks: landmarks.slice(0, 20).map(landmark => ({
-          ...landmark,
-          html: truncateHTML(landmark.html, 200)
-        })),
-        headings: headings.slice(0, 30).map(heading => ({
-          ...heading,
-          html: truncateHTML(heading.html, 100) // Headings are usually small
-        })),
-        links: links.slice(0, 30).map(link => ({
-          ...link,
-          html: truncateHTML(link.html, 100) // Links are usually small
-        })),
-        liveRegions: liveRegions.slice(0, 10).map(region => ({
-          ...region,
-          html: truncateHTML(region.html, 200)
-        }))
+        html: '', // Not needed - we send structured data only
+        landmarks: landmarks.slice(0, 8), // Reduced to 8
+        forms: forms.slice(0, 2), // Reduced to 2 forms max
+        headings: headings.slice(0, 12), // Reduced to 12
+        links: links.slice(0, 15), // Reduced to 15
+        images: images.slice(0, 15) // Reduced to 15
       };
     });
 
@@ -334,33 +180,37 @@ export class AIAccessibilityChecks {
   }
 
   /**
-   * Run all AI-powered accessibility checks
+   * Run the 4 focused AI-powered accessibility checks
    */
   async runAIChecks(page: any): Promise<AccessibilityIssue[]> {
     try {
-      console.log('🤖 Starting AI-powered accessibility checks...');
+      console.log('🤖 Starting focused AI-powered accessibility checks...');
       
       // Extract page data
       const pageData = await this.extractPageData(page);
-      console.log(`📊 Extracted page data: ${pageData.tabOrder.length} focusable elements, ${pageData.semanticElements.length} semantic elements`);
+      console.log(`📊 Extracted page data: ${pageData.landmarks.length} landmarks, ${pageData.forms.length} forms, ${pageData.images.length} images`);
 
-      // Run checks in parallel where possible
-      const checkPromises = [
-        this.checkSemanticHTMLHidden(pageData),
-        this.checkTabOrderVsVisual(pageData),
-        this.checkFormErrorAssociations(pageData),
-        this.checkModalFocusManagement(pageData),
-        this.checkSkipLinkFunctionality(pageData),
-        this.checkKeyboardTraps(pageData),
-        this.checkColorOnlyInformation(pageData),
-        this.checkLandmarkUsage(pageData),
-        this.checkHeadingHierarchy(pageData),
-        this.checkLinkContext(pageData),
-        this.checkAriaLiveRegions(pageData),
-        this.checkContentStructure(pageData)
-      ];
-
-      const results = await Promise.all(checkPromises);
+      // Run the 4 focused checks sequentially to better manage rate limits
+      // This also allows us to skip checks if no relevant content exists
+      const results: AccessibilityIssue[][] = [];
+      
+      // Check 1: Landmarks (always run if landmarks exist)
+      if (pageData.landmarks.length > 0) {
+        results.push(await this.checkLandmarkCorrectness(pageData));
+      }
+      
+      // Check 2: Forms (only if forms exist)
+      if (pageData.forms.length > 0) {
+        results.push(await this.checkFormStructure(pageData));
+      }
+      
+      // Check 3: Advertisements (always run - can identify from images/links)
+      results.push(await this.checkAdvertisementAccessibility(pageData));
+      
+      // Check 4: Contextual validation (only if we have landmarks/headings/forms)
+      if (pageData.landmarks.length > 0 || pageData.headings.length > 0 || pageData.forms.length > 0) {
+        results.push(await this.checkContextualValidation(pageData));
+      }
       const allIssues = results.flat().filter(Boolean) as AccessibilityIssue[];
 
       console.log(`✅ AI checks complete: ${allIssues.length} issues found`);
@@ -373,292 +223,199 @@ export class AIAccessibilityChecks {
   }
 
   /**
-   * Check for semantic HTML being hidden by ARIA (Clare's issue)
+   * Check 1: Landmark correctness - verify landmarks are semantically appropriate and used correctly
    */
-  private async checkSemanticHTMLHidden(pageData: PageData): Promise<AccessibilityIssue[]> {
+  private async checkLandmarkCorrectness(pageData: PageData): Promise<AccessibilityIssue[]> {
     try {
-      const systemPrompt = `You are an expert accessibility auditor. Analyze HTML and identify instances where semantic HTML elements (headings, paragraphs, lists) are being hidden from screen readers due to incorrect ARIA usage.
+      const systemPrompt = `You are an expert accessibility auditor. Analyze landmarks (ARIA landmarks and semantic HTML) for semantic correctness and proper usage.
 
 Return findings as a JSON array. Each finding should have:
-- checkType: "semantic-html-hidden-by-aria"
+- checkType: "landmark-correctness"
 - description: Brief description of the issue
 - severity: "critical" | "serious" | "moderate" | "minor"
-- wcagLevel: "A" | "AA" | "AAA"
-- selector: CSS selector for the element
-- html: The HTML of the offending element
-- explanation: Why this is a problem (2-3 sentences)
-- recommendation: How to fix it (1-2 sentences)
+- wcagLevel: "A" | "AA"
+- selector: CSS selector for the landmark
+- html: The HTML of the landmark (truncated to 500 chars)
+- explanation: Why the landmark usage is incorrect or semantically inappropriate (2-3 sentences)
+- recommendation: How to fix it with specific code example (1-2 sentences)
 - occurrences: Number of similar issues found
 
 Look for:
-1. Semantic elements (h1-h6, p, ul, ol, li) with aria-hidden="true"
-2. Semantic elements with role="presentation" or role="none"
-3. Semantic elements with incorrect role attributes that override semantics
-4. Elements that should be in accessibility tree but aren't
+1. Landmarks used incorrectly (e.g., role="main" on navigation, role="navigation" on main content)
+2. Missing semantic landmarks where they should exist (e.g., no <nav> for navigation, no <main> for main content)
+3. Landmarks without accessible names when they should have them (e.g., multiple navs without labels)
+4. Landmarks nested incorrectly (e.g., main inside another main)
+5. Using divs with roles instead of semantic HTML when semantic HTML would be better
+6. Landmarks that don't match their content (e.g., complementary used for main content)
+7. Missing landmarks for major page sections
 
 Return ONLY valid JSON array, no markdown, no code blocks.`;
 
-      const userPrompt = `Analyze these semantic HTML elements for ARIA issues:
+      const userPrompt = `Analyze these landmarks for semantic correctness and proper usage:
 
-Semantic Elements (limited sample):
-${JSON.stringify(pageData.semanticElements.slice(0, 15), null, 2)}
+Landmarks:
+${JSON.stringify(pageData.landmarks, null, 2)}
 
-Find all instances where semantic HTML is being hidden from screen readers.`;
+Find all instances where landmarks are not semantically appropriate or used incorrectly.`;
 
       const response = await this.claudeAPI.analyzeAccessibilityCheck(userPrompt, systemPrompt);
-
-      const issues = this.parseAIResponse(response, 'semantic-html-hidden-by-aria');
+      const issues = this.parseAIResponse(response, 'landmark-correctness');
       return this.convertToAccessibilityIssues(issues, pageData.url);
     } catch (error) {
-      console.error('Error in semantic HTML check:', error);
+      console.error('Error in landmark correctness check:', error);
       return [];
     }
   }
 
   /**
-   * Check tab order vs visual/logical order
+   * Check 2: Form structure - check that proper form elements are used, not divs styled as inputs
    */
-  private async checkTabOrderVsVisual(pageData: PageData): Promise<AccessibilityIssue[]> {
+  private async checkFormStructure(pageData: PageData): Promise<AccessibilityIssue[]> {
     try {
-      const systemPrompt = `You are an expert accessibility auditor. Compare tab order to visual layout order and identify issues.
+      if (pageData.forms.length === 0) return [];
+
+      const systemPrompt = `You are an expert accessibility auditor. Analyze forms to ensure proper semantic form elements are used, not divs styled as inputs.
 
 Return findings as a JSON array. Each finding should have:
-- checkType: "tab-order-vs-visual-order"
-- description: Brief description
+- checkType: "form-structure"
+- description: Brief description of the issue
 - severity: "critical" | "serious" | "moderate" | "minor"
 - wcagLevel: "A" | "AA"
-- selector: CSS selector
-- html: HTML of the element
-- explanation: Why tab order doesn't match visual order
-- recommendation: How to fix
-- occurrences: Number
+- selector: CSS selector for the problematic element
+- html: The HTML of the element (truncated to 500 chars)
+- explanation: Why using divs instead of proper form elements is a problem (2-3 sentences)
+- recommendation: How to fix it with specific code example showing proper form element (1-2 sentences)
+- occurrences: Number of similar issues found
 
 Look for:
-1. Tab order that doesn't match top-to-bottom, left-to-right visual flow
-2. Focus jumping around illogically
-3. Important elements being skipped in tab order`;
+1. Form fields created with <div> or <span> instead of <input>, <select>, <textarea>
+2. Buttons created with <div> or <span> instead of <button> or <input type="button">
+3. Form controls without proper form structure (not inside <form> element)
+4. Custom form controls that don't properly implement ARIA form control patterns
+5. Form fields that should use native HTML5 input types but use generic inputs
+6. Missing form labels or improper label associations
+7. Form structure that breaks keyboard navigation
 
-      const userPrompt = `Compare tab order to visual positions:
+Return ONLY valid JSON array, no markdown, no code blocks.`;
 
-Tab Order (sequence of focusable elements, limited to first 30):
-${JSON.stringify(pageData.tabOrder.slice(0, 30), null, 2)}
-
-Identify where tab order doesn't match visual/logical order.`;
-
-      const response = await this.claudeAPI.analyzeAccessibilityCheck(userPrompt, systemPrompt);
-
-      const issues = this.parseAIResponse(response, 'tab-order-vs-visual-order');
-      return this.convertToAccessibilityIssues(issues, pageData.url);
-    } catch (error) {
-      console.error('Error in tab order check:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Check form error associations
-   */
-  private async checkFormErrorAssociations(pageData: PageData): Promise<AccessibilityIssue[]> {
-    try {
-      const systemPrompt = `You are an expert accessibility auditor. Analyze forms for proper error message associations.
-
-Return findings as a JSON array. Each finding should have:
-- checkType: "form-error-associations"
-- description: Brief description
-- severity: "critical" | "serious" | "moderate" | "minor"
-- wcagLevel: "A" | "AA"
-- selector: CSS selector
-- html: HTML of the form/field
-- explanation: Why error association is missing/incorrect
-- recommendation: How to fix
-- occurrences: Number
-
-Look for:
-1. Form fields without associated error messages (aria-describedby, aria-errormessage)
-2. Error messages not in aria-live regions
-3. Errors not programmatically linked to fields`;
-
-      const userPrompt = `Analyze these forms for error message associations:
+      const userPrompt = `Analyze these forms for proper form element usage:
 
 Forms:
 ${JSON.stringify(pageData.forms, null, 2)}
 
-Find all form fields that lack proper error message associations.`;
+Find all instances where divs or other non-semantic elements are used instead of proper form elements (input, select, textarea, button).`;
 
       const response = await this.claudeAPI.analyzeAccessibilityCheck(userPrompt, systemPrompt);
-
-      const issues = this.parseAIResponse(response, 'form-error-associations');
+      const issues = this.parseAIResponse(response, 'form-structure');
       return this.convertToAccessibilityIssues(issues, pageData.url);
     } catch (error) {
-      console.error('Error in form error check:', error);
+      console.error('Error in form structure check:', error);
       return [];
     }
   }
 
   /**
-   * Check modal focus management
+   * Check 3: Advertisement identification - identify ads and ensure they have appropriate titles, alt text, and link text
    */
-  private async checkModalFocusManagement(pageData: PageData): Promise<AccessibilityIssue[]> {
+  private async checkAdvertisementAccessibility(pageData: PageData): Promise<AccessibilityIssue[]> {
     try {
-      if (pageData.modals.length === 0) return [];
-
-      const systemPrompt = `You are an expert accessibility auditor. Analyze modals for proper focus management.
+      const systemPrompt = `You are an expert accessibility auditor. Identify advertisements on the page and check if they have appropriate accessibility attributes.
 
 Return findings as a JSON array. Each finding should have:
-- checkType: "modal-focus-management"
-- description: Brief description
-- severity: "critical" | "serious" | "moderate" | "minor"
+- checkType: "advertisement-accessibility"
+- description: Brief description of the issue (e.g., "Advertisement image missing alt text")
+- severity: "serious" | "moderate" | "minor"
 - wcagLevel: "A" | "AA"
-- selector: CSS selector
-- html: HTML of the modal
-- explanation: Why focus management is incorrect
-- recommendation: How to fix
-- occurrences: Number
+- selector: CSS selector for the advertisement element
+- html: The HTML of the advertisement (truncated to 500 chars)
+- explanation: Why the advertisement needs better accessibility attributes (2-3 sentences)
+- recommendation: How to fix it with specific code example (1-2 sentences)
+- occurrences: Number of similar issues found
 
 Look for:
-1. Modals without focusable elements (can't trap focus)
-2. Modals that don't return focus on close
-3. Modals without initial focus`;
+1. Advertisement images without alt text or with empty alt text
+2. Advertisement links without descriptive link text (e.g., "click here", "ad", just URLs)
+3. Advertisement images without title attributes when they should have them
+4. Advertisement containers without proper ARIA labels
+5. Advertisements that are not properly marked (should use role="complementary" or similar)
+6. Advertisement links that don't indicate they're external/sponsored
+7. Advertisements that break keyboard navigation
 
-      const userPrompt = `Analyze these modals for focus management:
+Identify advertisements by looking for:
+- Common ad class names (ad, advertisement, sponsor, sponsored, etc.)
+- Common ad container patterns
+- Images/links in likely ad positions (sidebars, headers, between content)
+- External links that appear to be advertisements
 
-Modals:
-${JSON.stringify(pageData.modals, null, 2)}
+Return ONLY valid JSON array, no markdown, no code blocks.`;
 
-Find all modals with focus management issues.`;
+      const userPrompt = `Identify advertisements on this page and check their accessibility. Look for common ad patterns (class names like "ad", "advertisement", "sponsor", sidebar/header positions, external links).
+
+Images:
+${JSON.stringify(pageData.images, null, 2)}
+
+Links:
+${JSON.stringify(pageData.links, null, 2)}
+
+Find all advertisements and check if they have appropriate titles, alt text, and link text.`;
 
       const response = await this.claudeAPI.analyzeAccessibilityCheck(userPrompt, systemPrompt);
-
-      const issues = this.parseAIResponse(response, 'modal-focus-management');
+      const issues = this.parseAIResponse(response, 'advertisement-accessibility');
       return this.convertToAccessibilityIssues(issues, pageData.url);
     } catch (error) {
-      console.error('Error in modal focus check:', error);
+      console.error('Error in advertisement accessibility check:', error);
       return [];
     }
   }
 
   /**
-   * Check skip link functionality
+   * Check 4: Contextual validation - check that landmarks, headings, and forms make sense in context
    */
-  private async checkSkipLinkFunctionality(pageData: PageData): Promise<AccessibilityIssue[]> {
+  private async checkContextualValidation(pageData: PageData): Promise<AccessibilityIssue[]> {
     try {
-      if (pageData.skipLinks.length === 0) return [];
-
-      const systemPrompt = `You are an expert accessibility auditor. Analyze skip links for proper functionality.
+      const systemPrompt = `You are an expert accessibility auditor. Analyze the page structure to ensure landmarks, headings, and forms make semantic sense in context.
 
 Return findings as a JSON array. Each finding should have:
-- checkType: "skip-link-functionality"
-- description: Brief description
+- checkType: "contextual-validation"
+- description: Brief description of the issue
 - severity: "serious" | "moderate" | "minor"
-- wcagLevel: "A"
-- selector: CSS selector
-- html: HTML of the skip link
-- explanation: Why skip link doesn't work properly
-- recommendation: How to fix
-- occurrences: Number
+- wcagLevel: "A" | "AA"
+- selector: CSS selector for the problematic element
+- html: The HTML of the element (truncated to 500 chars)
+- explanation: Why the element doesn't make sense in context (2-3 sentences)
+- recommendation: How to fix it to make it contextually appropriate (1-2 sentences)
+- occurrences: Number of similar issues found
 
 Look for:
-1. Skip links without valid targets
-2. Skip links that aren't visible on focus
-3. Skip links that don't move focus to target`;
+1. Headings that don't match their content or context (e.g., h1 for a sidebar widget)
+2. Landmarks that contain inappropriate content (e.g., main containing navigation)
+3. Forms that are in wrong landmarks (e.g., search form not in search landmark)
+4. Heading hierarchy that doesn't match content structure
+5. Missing landmarks for major content sections
+6. Landmarks that should be nested but aren't, or vice versa
+7. Forms that should be in specific contexts but aren't properly placed
+8. Content structure that doesn't follow logical semantic flow
 
-      const userPrompt = `Analyze these skip links:
+Return ONLY valid JSON array, no markdown, no code blocks.`;
 
-Skip Links:
-${JSON.stringify(pageData.skipLinks, null, 2)}
+      const userPrompt = `Analyze this page structure for contextual validation:
 
-Find all skip links with functionality issues.`;
+Landmarks:
+${JSON.stringify(pageData.landmarks, null, 2)}
 
-      const response = await this.claudeAPI.analyzeAccessibilityCheck(userPrompt, systemPrompt);
+Headings:
+${JSON.stringify(pageData.headings, null, 2)}
 
-      const issues = this.parseAIResponse(response, 'skip-link-functionality');
-      return this.convertToAccessibilityIssues(issues, pageData.url);
-    } catch (error) {
-      console.error('Error in skip link check:', error);
-      return [];
-    }
-  }
+Forms:
+${JSON.stringify(pageData.forms, null, 2)}
 
-  /**
-   * Check for keyboard traps
-   */
-  private async checkKeyboardTraps(pageData: PageData): Promise<AccessibilityIssue[]> {
-    try {
-      const systemPrompt = `You are an expert accessibility auditor. Analyze page for potential keyboard traps.
-
-Return findings as a JSON array. Each finding should have:
-- checkType: "keyboard-traps"
-- description: Brief description
-- severity: "critical" | "serious" | "moderate" | "minor"
-- wcagLevel: "A"
-- selector: CSS selector
-- html: HTML of the problematic area
-- explanation: Why this might be a keyboard trap
-- recommendation: How to fix
-- occurrences: Number
-
-Look for:
-1. Areas where focus might get stuck
-2. Infinite focus loops
-3. Elements that can't be escaped with keyboard`;
-
-      const userPrompt = `Analyze this page for potential keyboard traps:
-
-Tab Order:
-${JSON.stringify(pageData.tabOrder, null, 2)}
-
-HTML Structure:
-${pageData.html.substring(0, 10000)}
-
-Find potential keyboard traps.`;
+Find all instances where landmarks, headings, or forms don't make semantic sense in their context.`;
 
       const response = await this.claudeAPI.analyzeAccessibilityCheck(userPrompt, systemPrompt);
-
-      const issues = this.parseAIResponse(response, 'keyboard-traps');
+      const issues = this.parseAIResponse(response, 'contextual-validation');
       return this.convertToAccessibilityIssues(issues, pageData.url);
     } catch (error) {
-      console.error('Error in keyboard trap check:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Check for color-only information
-   */
-  private async checkColorOnlyInformation(pageData: PageData): Promise<AccessibilityIssue[]> {
-    try {
-      const systemPrompt = `You are an expert accessibility auditor. Analyze page for information conveyed only by color.
-
-Return findings as a JSON array. Each finding should have:
-- checkType: "color-only-information"
-- description: Brief description
-- severity: "serious" | "moderate" | "minor"
-- wcagLevel: "AA"
-- selector: CSS selector
-- html: HTML of the element
-- explanation: Why color-only information is a problem
-- recommendation: How to fix (add icons, text, patterns)
-- occurrences: Number
-
-Look for:
-1. Error states indicated only by color
-2. Required fields indicated only by color
-3. Links distinguished only by color
-4. Status indicators using only color`;
-
-      const userPrompt = `Analyze this page for color-only information:
-
-HTML:
-${pageData.html.substring(0, 50000)}
-
-Find all instances where information is conveyed only by color without additional indicators.`;
-
-      const response = await this.claudeAPI.analyzeAccessibilityCheck(userPrompt, systemPrompt);
-
-      const issues = this.parseAIResponse(response, 'color-only-information');
-      return this.convertToAccessibilityIssues(issues, pageData.url);
-    } catch (error) {
-      console.error('Error in color-only check:', error);
+      console.error('Error in contextual validation check:', error);
       return [];
     }
   }
@@ -695,231 +452,7 @@ Find all instances where information is conveyed only by color without additiona
   }
 
   /**
-   * Check landmark usage and correctness
-   */
-  private async checkLandmarkUsage(pageData: PageData): Promise<AccessibilityIssue[]> {
-    try {
-      const systemPrompt = `You are an expert accessibility auditor. Analyze landmarks (ARIA landmarks and semantic HTML) for proper usage and correctness.
-
-Return findings as a JSON array. Each finding should have:
-- checkType: "landmark-usage"
-- description: Brief description of the issue
-- severity: "critical" | "serious" | "moderate" | "minor"
-- wcagLevel: "A" | "AA"
-- selector: CSS selector
-- html: HTML of the landmark
-- explanation: Why the landmark usage is incorrect (2-3 sentences)
-- recommendation: How to fix it (1-2 sentences)
-- occurrences: Number
-
-Look for:
-1. Missing main landmark
-2. Multiple main landmarks (should only be one)
-3. Landmarks without accessible names (when needed)
-4. Incorrect landmark roles (e.g., using role="main" on nav)
-5. Landmarks nested incorrectly
-6. Missing navigation landmarks
-7. Duplicate landmarks without distinguishing labels
-8. Landmarks that should be top-level but aren't`;
-
-      const userPrompt = `Analyze these landmarks for proper usage:
-
-Landmarks:
-${JSON.stringify(pageData.landmarks, null, 2)}
-
-Find all landmark usage issues.`;
-
-      const response = await this.claudeAPI.analyzeAccessibilityCheck(userPrompt, systemPrompt);
-      const issues = this.parseAIResponse(response, 'landmark-usage');
-      return this.convertToAccessibilityIssues(issues, pageData.url);
-    } catch (error) {
-      console.error('Error in landmark usage check:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Check heading hierarchy
-   */
-  private async checkHeadingHierarchy(pageData: PageData): Promise<AccessibilityIssue[]> {
-    try {
-      if (pageData.headings.length === 0) return [];
-
-      const systemPrompt = `You are an expert accessibility auditor. Analyze heading hierarchy for proper structure.
-
-Return findings as a JSON array. Each finding should have:
-- checkType: "heading-hierarchy"
-- description: Brief description
-- severity: "serious" | "moderate" | "minor"
-- wcagLevel: "A" | "AA"
-- selector: CSS selector
-- html: HTML of the heading
-- explanation: Why the hierarchy is incorrect
-- recommendation: How to fix (correct heading level)
-- occurrences: Number
-
-Look for:
-1. Missing h1 (should have exactly one)
-2. Heading level gaps (e.g., h1 → h3, skipping h2)
-3. Headings that skip levels going down
-4. Headings that increase by more than one level
-5. Multiple h1 elements (should typically be one)
-6. Headings used for styling instead of structure`;
-
-      const userPrompt = `Analyze this heading hierarchy:
-
-Headings (in document order):
-${JSON.stringify(pageData.headings, null, 2)}
-
-Find all heading hierarchy issues. Check for gaps, skips, and structural problems.`;
-
-      const response = await this.claudeAPI.analyzeAccessibilityCheck(userPrompt, systemPrompt);
-      const issues = this.parseAIResponse(response, 'heading-hierarchy');
-      return this.convertToAccessibilityIssues(issues, pageData.url);
-    } catch (error) {
-      console.error('Error in heading hierarchy check:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Check link context (whether links make sense out of context)
-   */
-  private async checkLinkContext(pageData: PageData): Promise<AccessibilityIssue[]> {
-    try {
-      if (pageData.links.length === 0) return [];
-
-      const systemPrompt = `You are an expert accessibility auditor. Analyze links to ensure they make sense when read out of context.
-
-Return findings as a JSON array. Each finding should have:
-- checkType: "link-context"
-- description: Brief description
-- severity: "serious" | "moderate" | "minor"
-- wcagLevel: "A" | "AA"
-- selector: CSS selector
-- html: HTML of the link
-- explanation: Why the link text lacks context
-- recommendation: How to improve link text
-- occurrences: Number
-
-Look for:
-1. Links with generic text like "click here", "read more", "link"
-2. Links that only contain images without alt text
-3. Links that rely on surrounding context to be understood
-4. Multiple links with identical text pointing to different destinations
-5. Links with only URLs as text
-6. Links that don't describe their purpose`;
-
-      const userPrompt = `Analyze these links for context issues:
-
-Links:
-${JSON.stringify(pageData.links.slice(0, 20), null, 2)}
-
-Find all links that don't make sense out of context or have poor descriptive text.`;
-
-      const response = await this.claudeAPI.analyzeAccessibilityCheck(userPrompt, systemPrompt);
-      const issues = this.parseAIResponse(response, 'link-context');
-      return this.convertToAccessibilityIssues(issues, pageData.url);
-    } catch (error) {
-      console.error('Error in link context check:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Check ARIA live region usage
-   */
-  private async checkAriaLiveRegions(pageData: PageData): Promise<AccessibilityIssue[]> {
-    try {
-      if (pageData.liveRegions.length === 0) return [];
-
-      const systemPrompt = `You are an expert accessibility auditor. Analyze ARIA live regions for proper configuration and usage.
-
-Return findings as a JSON array. Each finding should have:
-- checkType: "aria-live-regions"
-- description: Brief description
-- severity: "serious" | "moderate" | "minor"
-- wcagLevel: "A" | "AA"
-- selector: CSS selector
-- html: HTML of the live region
-- explanation: Why the live region is misconfigured
-- recommendation: How to fix it
-- occurrences: Number
-
-Look for:
-1. Live regions with incorrect aria-live values (should be "polite" or "assertive")
-2. Live regions that should be used but aren't (for dynamic content)
-3. Live regions with aria-atomic="true" when it should be "false"
-4. Live regions that are too aggressive (assertive when polite would work)
-5. Missing live regions for important dynamic updates
-6. Live regions that aren't properly associated with dynamic content`;
-
-      const userPrompt = `Analyze these ARIA live regions:
-
-Live Regions:
-${JSON.stringify(pageData.liveRegions, null, 2)}
-
-Find all live region configuration issues.`;
-
-      const response = await this.claudeAPI.analyzeAccessibilityCheck(userPrompt, systemPrompt);
-      const issues = this.parseAIResponse(response, 'aria-live-regions');
-      return this.convertToAccessibilityIssues(issues, pageData.url);
-    } catch (error) {
-      console.error('Error in ARIA live region check:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Check overall content structure and semantics
-   */
-  private async checkContentStructure(pageData: PageData): Promise<AccessibilityIssue[]> {
-    try {
-      const systemPrompt = `You are an expert accessibility auditor. Analyze overall page structure and semantic HTML usage.
-
-Return findings as a JSON array. Each finding should have:
-- checkType: "content-structure"
-- description: Brief description
-- severity: "serious" | "moderate" | "minor"
-- wcagLevel: "A" | "AA"
-- selector: CSS selector or "page-level"
-- html: HTML of the element or "N/A"
-- explanation: Why the structure is problematic
-- recommendation: How to improve structure
-- occurrences: Number
-
-Look for:
-1. Missing document language attribute
-2. Poor semantic structure (div soup instead of semantic elements)
-3. Lists not using proper list elements (ul/ol)
-4. Tables without proper headers
-5. Missing page title or poor title structure
-6. Content that should be in landmarks but isn't
-7. Incorrect use of semantic elements (e.g., using p for headings)
-8. Missing skip links for main content
-9. Poor content organization`;
-
-      const userPrompt = `Analyze this page's overall structure:
-
-Page HTML (first 20000 chars):
-${pageData.html.substring(0, 20000)}
-
-Semantic Elements:
-${JSON.stringify(pageData.semanticElements.slice(0, 20), null, 2)}
-
-Find structural and semantic HTML issues that could impact accessibility.`;
-
-      const response = await this.claudeAPI.analyzeAccessibilityCheck(userPrompt, systemPrompt);
-      const issues = this.parseAIResponse(response, 'content-structure');
-      return this.convertToAccessibilityIssues(issues, pageData.url);
-    } catch (error) {
-      console.error('Error in content structure check:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Convert AI check results to AccessibilityIssue format
+   * Convert AI check results to AccessibilityIssue format (same format as axe issues)
    */
   private convertToAccessibilityIssues(issues: AICheckResult[], url: string): AccessibilityIssue[] {
     return issues.map(issue => {
@@ -960,4 +493,3 @@ Find structural and semantic HTML issues that could impact accessibility.`;
     });
   }
 }
-

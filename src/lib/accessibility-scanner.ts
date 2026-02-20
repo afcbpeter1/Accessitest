@@ -264,21 +264,18 @@ export class AccessibilityScanner {
         }))
       }));
 
-      // AI-powered checks (DISABLED - commented out for now to reduce token usage)
-      // TODO: Re-enable when token usage is optimized or rate limits are increased
+      // Run focused AI-powered checks (4 specific checks: landmarks, forms, ads, contextual)
       let aiIssues: AccessibilityIssue[] = [];
-      /*
       try {
-        console.log('🤖 Running AI-powered accessibility checks...');
+        console.log('🤖 Running focused AI-powered accessibility checks...');
         aiIssues = await this.aiChecks.runAIChecks(page);
         console.log(`✅ AI checks found ${aiIssues.length} additional issues`);
       } catch (error) {
         console.error('⚠️ AI checks failed, continuing with axe results only:', error);
         // Don't fail the entire scan if AI checks fail
       }
-      */
 
-      // Combine axe and AI issues (currently only axe issues)
+      // Combine axe and AI issues
       const issues = [...axeIssues, ...aiIssues];
 
       // Calculate summary

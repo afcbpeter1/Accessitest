@@ -16,7 +16,7 @@ interface ScanProgress {
   currentPage: number;
   totalPages: number;
   url?: string;
-  status: 'crawling' | 'scanning' | 'analyzing' | 'complete' | 'error';
+  status: 'crawling' | 'scanning' | 'analyzing' | 'complete' | 'error' | 'cancelled';
   message: string;
 }
 
@@ -1289,7 +1289,7 @@ function NewScanContent() {
 
                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
                        <div className="flex items-center space-x-4">
-                         <span className="text-sm text-gray-600">{selectedPages.length} of {discoveredPages.length} pages selected</span>
+                       <span className="text-sm text-gray-600">{selectedPages.length} of {discoveredPages.length} pages selected</span>
                          <button
                            type="button"
                            onClick={() => {
