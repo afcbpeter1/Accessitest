@@ -573,7 +573,7 @@ export class ScanService {
     }
     
     // For each template group, keep only the first one (or a representative)
-    for (const [pattern, groupUrls] of templateGroups.entries()) {
+    templateGroups.forEach((groupUrls, pattern) => {
       if (groupUrls.length === 1) {
         // Only one URL in this pattern, keep it
         result.push(groupUrls[0]);
@@ -592,7 +592,7 @@ export class ScanService {
         result.push(sorted[0]);
         console.log(`📄 Template pattern "${pattern}": found ${groupUrls.length} pages, keeping 1 representative`);
       }
-    }
+    });
     
     return result;
   }
