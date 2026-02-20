@@ -25,6 +25,20 @@ export interface ActiveScan {
   completedAt?: Date
 }
 
+/** Parse progress from DB: pg returns JSONB as object in some setups, or as string */
+function parseProgress(progress: unknown): ScanProgress | null {
+  if (progress == null) return null
+  if (typeof progress === 'object') return progress as ScanProgress
+  if (typeof progress === 'string') {
+    try {
+      return JSON.parse(progress) as ScanProgress
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
 export class ScanStateService {
   // Register a new scan
   static async registerScan(
@@ -140,7 +154,7 @@ export class ScanStateService {
       url: row.url,
       fileName: row.file_name,
       status: row.status,
-      progress: row.progress ? JSON.parse(row.progress) : null,
+      progress: parseProgress(row.progress),
       totalPages: row.total_pages,
       currentPage: row.current_page,
       startedAt: row.started_at,
@@ -165,7 +179,7 @@ export class ScanStateService {
       url: result.url,
       fileName: result.file_name,
       status: result.status,
-      progress: result.progress ? JSON.parse(result.progress) : null,
+      progress: parseProgress(result.progress),
       totalPages: result.total_pages,
       currentPage: result.current_page,
       startedAt: result.started_at,
