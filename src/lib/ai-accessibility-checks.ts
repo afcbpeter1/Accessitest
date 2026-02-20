@@ -421,32 +421,34 @@ Find all instances where landmarks, headings, or forms don't make semantic sense
   }
 
   /**
-   * Parse AI response and extract issues
+   * Parse AI response and extract issues.
+   * Handles empty/truncated/invalid responses without throwing.
    */
   private parseAIResponse(response: string, checkType: string): AICheckResult[] {
     try {
-      // Try to extract JSON from response (might be wrapped in markdown)
+      if (!response || typeof response !== 'string') return [];
       let jsonStr = response.trim();
-      
+      if (!jsonStr) return [];
+
       // Remove markdown code blocks if present
       jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      
-      // Try to find JSON array
-      const jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[0];
-      }
 
-      const issues = JSON.parse(jsonStr) as AICheckResult[];
-      
+      // Extract JSON array only (avoids parsing truncated or non-JSON text)
+      const jsonMatch = jsonStr.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) return [];
+
+      jsonStr = jsonMatch[0];
+      const parsed = JSON.parse(jsonStr);
+
+      if (!Array.isArray(parsed)) return [];
+
       // Ensure all issues have the checkType
-      return issues.map(issue => ({
+      return parsed.map((issue: AICheckResult) => ({
         ...issue,
         checkType: issue.checkType || checkType
       }));
     } catch (error) {
-      console.error(`Error parsing AI response for ${checkType}:`, error);
-      console.error('Response:', response.substring(0, 500));
+      console.warn(`AI response parse failed for ${checkType} (returning no issues):`, error instanceof Error ? error.message : error);
       return [];
     }
   }

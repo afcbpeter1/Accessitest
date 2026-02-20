@@ -264,18 +264,18 @@ export class AccessibilityScanner {
         }))
       }));
 
+      // AI-powered checks disabled for faster scans (axe + remediation only)
       // Run focused AI-powered checks (4 specific checks: landmarks, forms, ads, contextual)
-      let aiIssues: AccessibilityIssue[] = [];
-      try {
-        console.log('🤖 Running focused AI-powered accessibility checks...');
-        aiIssues = await this.aiChecks.runAIChecks(page);
-        console.log(`✅ AI checks found ${aiIssues.length} additional issues`);
-      } catch (error) {
-        console.error('⚠️ AI checks failed, continuing with axe results only:', error);
-        // Don't fail the entire scan if AI checks fail
-      }
+      const aiIssues: AccessibilityIssue[] = [];
+      // try {
+      //   console.log('🤖 Running focused AI-powered accessibility checks...');
+      //   aiIssues = await this.aiChecks.runAIChecks(page);
+      //   console.log(`✅ AI checks found ${aiIssues.length} additional issues`);
+      // } catch (error) {
+      //   console.error('⚠️ AI checks failed, continuing with axe results only:', error);
+      // }
 
-      // Combine axe and AI issues
+      // Combine axe and AI issues (AI disabled, so axe only)
       const issues = [...axeIssues, ...aiIssues];
 
       // Calculate summary
