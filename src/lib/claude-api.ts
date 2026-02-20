@@ -53,8 +53,8 @@ export class ClaudeAPI {
       apiUrl: this.apiUrl,
       apiKey: this.apiKey ? '***' + this.apiKey.slice(-4) : 'MISSING',
       provider: 'Anthropic Official API',
-      rateLimit: `${this.minRequestInterval}ms between requests`,
-      maxConcurrent: this.maxConcurrentRequests
+      rateLimit: `${globalRateLimitState.MIN_REQUEST_INTERVAL}ms between requests`,
+      maxConcurrent: globalRateLimitState.MAX_CONCURRENT_REQUESTS
     });
   }
 
@@ -191,8 +191,8 @@ export class ClaudeAPI {
       
       // Always wait between requests to prevent any rate limiting
       if (this.requestQueue.length > 0) {
-        console.log(`⏳ Queue processing: waiting ${this.minRequestInterval}ms before next request`);
-        await new Promise(resolve => setTimeout(resolve, this.minRequestInterval));
+        console.log(`⏳ Queue processing: waiting ${globalRateLimitState.MIN_REQUEST_INTERVAL}ms before next request`);
+        await new Promise(resolve => setTimeout(resolve, globalRateLimitState.MIN_REQUEST_INTERVAL));
       }
     }
     
