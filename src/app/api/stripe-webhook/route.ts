@@ -594,7 +594,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
         let accessEndDate: string
         try {
           const stripe = getStripe()
-          const fullSubscription = await stripe.subscriptions.retrieve(subscription.id)
+          const fullSubscription = await stripe.subscriptions.retrieve(subscription.id) as Stripe.Subscription
           const periodEnd = fullSubscription.current_period_end
           if (periodEnd && fullSubscription.current_period_start && periodEnd > fullSubscription.current_period_start) {
             accessEndDate = formatAccessEndDateUTC(periodEnd)
