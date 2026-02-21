@@ -443,6 +443,16 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   }
 }
 
+/** Format Stripe current_period_end (Unix s) as "19 March 2026" in UTC so email matches settings page */
+function formatAccessEndDateUTC(currentPeriodEnd: number): string {
+  const d = new Date(currentPeriodEnd * 1000)
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  const day = d.getUTCDate()
+  const month = months[d.getUTCMonth()]
+  const year = d.getUTCFullYear()
+  return `${day} ${month} ${year}`
+}
+
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   console.log('Processing subscription updated:', subscription.id)
   
@@ -574,58 +584,42 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
       }
       
       if (userEmail) {
-        const cancellationDate = new Date().toLocaleDateString('en-US', {
+        const cancellationDate = new Date().toLocaleDateString('en-GB', {
           year: 'numeric',
           month: 'long',
           day: 'numeric'
         })
-        
-        // Calculate access end date - should be end of current billing period
+
+        // Use subscription from Stripe so access end date matches settings page (same source as /api/subscription)
         let accessEndDate: string
-        if ((subscription as any).current_period_end && (subscription as any).current_period_end > (subscription as any).current_period_start) {
-          // Use the period end from Stripe (this should be one month/year after start)
-          accessEndDate = new Date((subscription as any).current_period_end * 1000).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })
-          console.log(`📅 Using Stripe current_period_end: ${accessEndDate}`)
-        } else {
-          // If period_end is missing or same as start, calculate based on billing interval
-          console.log('⚠️ current_period_end is missing or invalid, calculating from billing interval')
-          const periodStart = (subscription as any).current_period_start ? new Date((subscription as any).current_period_start * 1000) : new Date()
-          const billingInterval = subscription.items?.data[0]?.price?.recurring?.interval || 'month'
-          const intervalCount = subscription.items?.data[0]?.price?.recurring?.interval_count || 1
-          
-          const periodEnd = new Date(periodStart)
-          if (billingInterval === 'month') {
-            periodEnd.setMonth(periodEnd.getMonth() + intervalCount)
-          } else if (billingInterval === 'year') {
-            periodEnd.setFullYear(periodEnd.getFullYear() + intervalCount)
-          } else if (billingInterval === 'day') {
-            periodEnd.setDate(periodEnd.getDate() + intervalCount)
-          } else if (billingInterval === 'week') {
-            periodEnd.setDate(periodEnd.getDate() + (intervalCount * 7))
+        try {
+          const stripe = getStripe()
+          const fullSubscription = await stripe.subscriptions.retrieve(subscription.id)
+          const periodEnd = fullSubscription.current_period_end
+          if (periodEnd && fullSubscription.current_period_start && periodEnd > fullSubscription.current_period_start) {
+            accessEndDate = formatAccessEndDateUTC(periodEnd)
+            console.log(`📅 Using Stripe current_period_end (UTC): ${accessEndDate}`)
+          } else {
+            accessEndDate = formatAccessEndDateUTC(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60) // fallback ~1 month
+            console.log('⚠️ current_period_end missing/invalid, using fallback:', accessEndDate)
           }
-          
-          accessEndDate = periodEnd.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })
-          console.log(`📅 Calculated access end date: ${accessEndDate} (from ${billingInterval} interval, period start: ${periodStart.toLocaleDateString()})`)
+        } catch (retrieveErr) {
+          console.warn('⚠️ Could not retrieve subscription from Stripe, using event object:', retrieveErr)
+          if ((subscription as any).current_period_end) {
+            accessEndDate = formatAccessEndDateUTC((subscription as any).current_period_end)
+          } else {
+            accessEndDate = formatAccessEndDateUTC(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60)
+          }
         }
-        
+
         console.log('📧 Sending subscription cancellation email:', {
           to: userEmail,
           plan: planName,
           cancellationDate,
           accessEndDate,
-          savedCredits,
-          current_period_start: (subscription as any).current_period_start ? new Date((subscription as any).current_period_start * 1000).toLocaleDateString() : 'N/A',
-          current_period_end: (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000).toLocaleDateString() : 'N/A'
+          savedCredits
         })
-        
+
         await sendSubscriptionCancellationEmail({
           customerEmail: userEmail,
           customerName: userName || undefined,
@@ -738,58 +732,30 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       
       // Send cancellation email (skip if account was deleted - they get account-deleted email instead)
       if (userEmail && !isAccountDeletion) {
-        const cancellationDate = new Date().toLocaleDateString('en-US', {
+        const cancellationDate = new Date().toLocaleDateString('en-GB', {
           year: 'numeric',
           month: 'long',
           day: 'numeric'
         })
-        
-        // Calculate access end date - should be end of current billing period
+
+        // Use same UTC formatting as settings so email matches (subscription deleted = use event object)
         let accessEndDate: string
-        if ((subscription as any).current_period_end && (subscription as any).current_period_end > (subscription as any).current_period_start) {
-          // Use the period end from Stripe (this should be one month/year after start)
-          accessEndDate = new Date((subscription as any).current_period_end * 1000).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })
-          console.log(`📅 Using Stripe current_period_end: ${accessEndDate}`)
+        if ((subscription as any).current_period_end && (subscription as any).current_period_start && (subscription as any).current_period_end > (subscription as any).current_period_start) {
+          accessEndDate = formatAccessEndDateUTC((subscription as any).current_period_end)
+          console.log(`📅 Using Stripe current_period_end (UTC): ${accessEndDate}`)
         } else {
-          // If period_end is missing or same as start, calculate based on billing interval
-          console.log('⚠️ current_period_end is missing or invalid, calculating from billing interval')
-          const periodStart = (subscription as any).current_period_start ? new Date((subscription as any).current_period_start * 1000) : new Date()
-          const billingInterval = subscription.items?.data[0]?.price?.recurring?.interval || 'month'
-          const intervalCount = subscription.items?.data[0]?.price?.recurring?.interval_count || 1
-          
-          const periodEnd = new Date(periodStart)
-          if (billingInterval === 'month') {
-            periodEnd.setMonth(periodEnd.getMonth() + intervalCount)
-          } else if (billingInterval === 'year') {
-            periodEnd.setFullYear(periodEnd.getFullYear() + intervalCount)
-          } else if (billingInterval === 'day') {
-            periodEnd.setDate(periodEnd.getDate() + intervalCount)
-          } else if (billingInterval === 'week') {
-            periodEnd.setDate(periodEnd.getDate() + (intervalCount * 7))
-          }
-          
-          accessEndDate = periodEnd.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })
-          console.log(`📅 Calculated access end date: ${accessEndDate} (from ${billingInterval} interval, period start: ${periodStart.toLocaleDateString()})`)
+          accessEndDate = formatAccessEndDateUTC(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60)
+          console.log('⚠️ current_period_end missing/invalid, using fallback:', accessEndDate)
         }
-        
+
         console.log('📧 Sending subscription cancellation email (from deleted handler):', {
           to: userEmail,
           plan: planName,
           cancellationDate,
           accessEndDate,
-          savedCredits,
-          current_period_start: (subscription as any).current_period_start ? new Date((subscription as any).current_period_start * 1000).toLocaleDateString() : 'N/A',
-          current_period_end: (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000).toLocaleDateString() : 'N/A'
+          savedCredits
         })
-        
+
         await sendSubscriptionCancellationEmail({
           customerEmail: userEmail,
           customerName: userName || undefined,
