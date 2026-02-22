@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { query, queryOne } from '@/lib/database'
 import { getStripe } from '@/lib/stripe-config'
+import { sendSubscriptionReactivationEmail } from '@/lib/subscription-email-service'
 
 function getPlanNameFromPriceId(priceId: string): string {
   // Map price IDs to plan names
@@ -243,6 +244,41 @@ export async function POST(request: NextRequest) {
     const subscription = await getStripe().subscriptions.update(userData.stripe_subscription_id, {
       cancel_at_period_end: false
     })
+
+    // Send reactivation confirmation email (fire-and-forget; don't fail the request)
+    const userDetails = await queryOne(
+      `SELECT email, first_name, last_name FROM users WHERE id = $1`,
+      [user.userId]
+    )
+    if (userDetails?.email) {
+      const price = subscription.items.data[0]?.price
+      const planName = price?.id ? getPlanNameFromPriceId(price.id) : 'Unlimited Access'
+      const billingPeriod = price?.recurring?.interval === 'year' ? 'Yearly' : 'Monthly'
+      const reactivationDate = new Date().toLocaleDateString('en-GB', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+      const sub = subscription as { current_period_end?: number }
+      const nextBillingDate = sub.current_period_end
+        ? (() => {
+            const d = new Date(sub.current_period_end * 1000)
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+            return `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+          })()
+        : undefined
+      const firstName = userDetails.first_name || ''
+      const lastName = userDetails.last_name || ''
+      const customerName = `${firstName} ${lastName}`.trim() || undefined
+      sendSubscriptionReactivationEmail({
+        customerEmail: userDetails.email,
+        customerName,
+        planName,
+        reactivationDate,
+        nextBillingDate,
+        billingPeriod
+      }).catch((err) => console.error('Failed to send reactivation email:', err))
+    }
 
     return NextResponse.json({
       success: true,
