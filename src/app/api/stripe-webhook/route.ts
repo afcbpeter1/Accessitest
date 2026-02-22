@@ -18,14 +18,6 @@ export const dynamic = 'force-dynamic'
 // Important: Don't parse the body as JSON - we need the raw string
 export async function POST(request: NextRequest) {
   try {
-    // Log immediately - this confirms the endpoint was hit
-    console.log('='.repeat(80))
-    console.log('🔔 WEBHOOK ENDPOINT HIT!')
-    console.log('⏰ Timestamp:', new Date().toISOString())
-    console.log('📍 URL:', request.url)
-    console.log('📋 Method:', request.method)
-    console.log('='.repeat(80))
-    
     // Check webhook secret exists
     if (!webhookSecret) {
       console.error('❌ STRIPE_WEBHOOK_SECRET is not configured')
@@ -42,17 +34,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing signature header' }, { status: 400 })
     }
 
-    console.log('📝 Body length:', body.length)
-    console.log('🔐 Signature header present:', !!signature)
-    console.log('🔑 Webhook secret configured:', !!webhookSecret)
-    console.log('🔑 Webhook secret length:', webhookSecret.length)
-    console.log('🔑 Webhook secret first 10 chars:', webhookSecret.substring(0, 10))
-    console.log('🔑 Webhook secret last 10 chars:', webhookSecret.substring(webhookSecret.length - 10))
-    console.log('🔑 Expected from CLI starts with: whsec_4a2b...')
-    console.log('🔑 Expected from CLI ends with: ...73aa49')
-    console.log('🔑 Secret matches CLI start?', webhookSecret.startsWith('whsec_4a2b'))
-    console.log('🔑 Secret matches CLI end?', webhookSecret.endsWith('73aa49'))
-    
     // Check for whitespace issues
     const trimmedSecret = webhookSecret.trim()
     if (trimmedSecret !== webhookSecret) {
@@ -64,7 +45,6 @@ export async function POST(request: NextRequest) {
 
     try {
       event = getStripe().webhooks.constructEvent(body, signature, webhookSecret)
-      console.log('✅ Webhook signature verified successfully')
     } catch (err: any) {
       console.error('❌ Webhook signature verification failed')
       console.error('Error type:', err.type)
@@ -89,25 +69,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    console.log('🔔 Received webhook event:', event.type, event.id)
-    console.log('📋 Event object type:', typeof event.data.object)
-    if (event.type === 'customer.subscription.updated') {
-      const sub = event.data.object as Stripe.Subscription
-      console.log('📋 Subscription ID:', sub.id, 'Status:', sub.status, 'Items:', sub.items.data.length)
-    }
-
     switch (event.type) {
       case 'checkout.session.completed':
         const session = event.data.object as Stripe.Checkout.Session
-        console.log('📦 Event contains session object:', {
-          id: session.id,
-          status: session.status,
-          payment_status: session.payment_status,
-          metadata: session.metadata,
-          hasMetadata: !!session.metadata && Object.keys(session.metadata).length > 0,
-          customer_email: session.customer_email,
-          subscription: session.subscription
-        })
         await handleCheckoutSessionCompleted(session)
         // Also check if this is an organization subscription and handle it
         await handleOrganizationCheckoutCompleted(session)
@@ -141,22 +105,15 @@ export async function POST(request: NextRequest) {
         break
 
       case 'charge.succeeded':
-        // Log but don't process - checkout.session.completed handles all checkout payments
-        // and payment_intent.succeeded handles direct API payments
-        console.log('📋 Charge succeeded:', (event.data.object as Stripe.Charge).id, '- already handled by checkout.session.completed or payment_intent.succeeded')
         break
 
       case 'charge.updated':
-        // Log but don't process - this is just a status update
-        console.log('📋 Charge updated:', (event.data.object as Stripe.Charge).id, 'Status:', (event.data.object as Stripe.Charge).status)
         break
 
       default:
-        console.log(`Unhandled event type: ${event.type}`)
+        break
     }
 
-    console.log('✅ Webhook processed successfully')
-    console.log('='.repeat(80))
     return NextResponse.json({ received: true })
 
   } catch (error) {
@@ -594,31 +551,21 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
         let accessEndDate: string
         try {
           const stripe = getStripe()
-          const fullSubscription = await stripe.subscriptions.retrieve(subscription.id) as Stripe.Subscription
-          const periodEnd = fullSubscription.current_period_end
-          if (periodEnd && fullSubscription.current_period_start && periodEnd > fullSubscription.current_period_start) {
+          const fullSubscription = await stripe.subscriptions.retrieve(subscription.id)
+          const periodEnd = (fullSubscription as { current_period_end?: number }).current_period_end
+          const periodStart = (fullSubscription as { current_period_start?: number }).current_period_start
+          if (periodEnd && periodStart && periodEnd > periodStart) {
             accessEndDate = formatAccessEndDateUTC(periodEnd)
-            console.log(`📅 Using Stripe current_period_end (UTC): ${accessEndDate}`)
           } else {
             accessEndDate = formatAccessEndDateUTC(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60) // fallback ~1 month
-            console.log('⚠️ current_period_end missing/invalid, using fallback:', accessEndDate)
           }
-        } catch (retrieveErr) {
-          console.warn('⚠️ Could not retrieve subscription from Stripe, using event object:', retrieveErr)
-          if ((subscription as any).current_period_end) {
-            accessEndDate = formatAccessEndDateUTC((subscription as any).current_period_end)
+        } catch {
+          if ((subscription as unknown as { current_period_end?: number }).current_period_end) {
+            accessEndDate = formatAccessEndDateUTC((subscription as unknown as { current_period_end: number }).current_period_end)
           } else {
             accessEndDate = formatAccessEndDateUTC(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60)
           }
         }
-
-        console.log('📧 Sending subscription cancellation email:', {
-          to: userEmail,
-          plan: planName,
-          cancellationDate,
-          accessEndDate,
-          savedCredits
-        })
 
         await sendSubscriptionCancellationEmail({
           customerEmail: userEmail,
@@ -628,8 +575,6 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
           accessEndDate,
           savedCredits: savedCredits > 0 ? savedCredits : undefined
         })
-        
-        console.log('✅ Subscription cancellation email sent successfully')
       } else {
         console.error('❌ No user email found - cannot send cancellation email')
       }
@@ -740,21 +685,13 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
         // Use same UTC formatting as settings so email matches (subscription deleted = use event object)
         let accessEndDate: string
-        if ((subscription as any).current_period_end && (subscription as any).current_period_start && (subscription as any).current_period_end > (subscription as any).current_period_start) {
-          accessEndDate = formatAccessEndDateUTC((subscription as any).current_period_end)
-          console.log(`📅 Using Stripe current_period_end (UTC): ${accessEndDate}`)
+        const subPeriodEnd = (subscription as unknown as { current_period_end?: number }).current_period_end
+        const subPeriodStart = (subscription as unknown as { current_period_start?: number }).current_period_start
+        if (subPeriodEnd && subPeriodStart && subPeriodEnd > subPeriodStart) {
+          accessEndDate = formatAccessEndDateUTC(subPeriodEnd)
         } else {
           accessEndDate = formatAccessEndDateUTC(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60)
-          console.log('⚠️ current_period_end missing/invalid, using fallback:', accessEndDate)
         }
-
-        console.log('📧 Sending subscription cancellation email (from deleted handler):', {
-          to: userEmail,
-          plan: planName,
-          cancellationDate,
-          accessEndDate,
-          savedCredits
-        })
 
         await sendSubscriptionCancellationEmail({
           customerEmail: userEmail,
