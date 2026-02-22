@@ -1170,55 +1170,33 @@ export default function SettingsPage() {
                             )}
 
                             <div className="space-y-3 pt-4 border-t border-gray-200">
+                              {/* One clear date line: next renewal (active) or access ends (cancelling) - same Stripe date for monthly/yearly */}
+                              {subscription.currentPeriodEnd && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-600">
+                                    {subscription.cancelAtPeriodEnd ? 'Access ends:' : 'Next renewal:'}
+                                  </span>
+                                  <span className={`font-medium ${subscription.cancelAtPeriodEnd ? 'text-amber-700' : 'text-gray-900'}`}>
+                                    {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-GB', {
+                                      day: 'numeric',
+                                      month: 'long',
+                                      year: 'numeric'
+                                    })}
+                                  </span>
+                                </div>
+                              )}
                               <div className="flex justify-between text-sm">
                                 <span className="text-gray-600">Billing Period:</span>
                                 <span className="font-medium capitalize">{subscription.billingPeriod}</span>
                               </div>
-                              
-                              {/* Current Period - Show as date range like Stripe */}
-                              {subscription.currentPeriodStart && subscription.currentPeriodEnd ? (
+                              {subscription.currentPeriodStart && subscription.currentPeriodEnd && (
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Current Period:</span>
+                                  <span className="text-gray-600">Current period:</span>
                                   <span className="font-medium text-gray-900">
-                                    {new Date(subscription.currentPeriodStart).toLocaleDateString('en-GB', {
-                                      day: 'numeric',
-                                      month: 'short'
-                                    })} to {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-GB', {
-                                      day: 'numeric',
-                                      month: 'short'
-                                    })}
-                                  </span>
-                                </div>
-                              ) : null}
-                              
-                              {/* Next Payment Due - Only show if subscription is active and not cancelled */}
-                              {!subscription.cancelAtPeriodEnd && subscription.currentPeriodEnd && (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Next Payment Due:</span>
-                                  <span className="font-medium text-gray-900">
-                                    {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'long',
-                                      day: 'numeric'
-                                    })}
+                                    {new Date(subscription.currentPeriodStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                                   </span>
                                 </div>
                               )}
-                              
-                              {/* Subscription Ends - Only show if cancelled */}
-                              {subscription.cancelAtPeriodEnd && subscription.accessEndDate && (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-gray-600">Subscription Ends:</span>
-                                  <span className="font-medium text-amber-700">
-                                    {new Date(subscription.accessEndDate).toLocaleDateString('en-US', {
-                                      year: 'numeric',
-                                      month: 'long',
-                                      day: 'numeric'
-                                    })}
-                                  </span>
-                                </div>
-                              )}
-                              
                               <div className="flex justify-between text-sm">
                                 <span className="text-gray-600">Status:</span>
                                 <span className="font-medium capitalize">{subscription.status}</span>
