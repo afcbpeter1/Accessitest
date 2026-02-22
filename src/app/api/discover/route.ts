@@ -107,17 +107,18 @@ export async function POST(request: NextRequest) {
               WHERE id = $3
             `, [scanSettings, categorizedPages.length, existing.id])
           } else {
-            // Insert new record
+            // Insert new record (discovery has no accessibility results yet; scan_results NOT NULL so use empty object)
             await queryOne(`
               INSERT INTO scan_history (
                 user_id, scan_type, scan_title, url,
-                scan_settings, pages_scanned, created_at
-              ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                scan_results, scan_settings, pages_scanned, created_at, updated_at
+              ) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, NOW(), NOW())
             `, [
               user.userId,
               'web',
               `Page Discovery: ${url}`,
               url,
+              '{}',
               scanSettings,
               categorizedPages.length
             ])

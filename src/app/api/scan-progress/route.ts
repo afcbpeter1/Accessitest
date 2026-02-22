@@ -46,33 +46,21 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
         const elementSelector = issue.nodes?.[0]?.target?.[0] || ''
         const issueId = generateIssueId(issue.id, elementSelector, result.url)
 
-        // Check if this EXACT issue already exists using issue_key (globally unique)
-        // First check if the issue_key exists at all (since it's globally unique)
-        const existingItem = await queryOne(`
+        // Check if this user already has this exact issue (same issue_key, from their scan)
+        // Agency-friendly: same issue can exist for multiple users/teams so everyone sees it until it's fixed
+        const existingForUser = await queryOne(`
           SELECT i.id, i.status, i.created_at, i.updated_at, sh.user_id as scan_user_id
           FROM issues i
           LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
-          WHERE i.issue_key = $1
-        `, [issueId])
+          WHERE i.issue_key = $1 AND sh.user_id = $2
+        `, [issueId, userId])
 
-        if (existingItem) {
-          // Verify this issue belongs to the current user
-          if (existingItem.scan_user_id !== userId) {
-            console.error(`❌ Issue ${issue.id} with issue_key ${issueId} exists but belongs to different user (${existingItem.scan_user_id} vs ${userId}). Skipping.`)
-            skippedItems.push({
-              issueId: issue.id,
-              ruleName: issue.id,
-              reason: `Issue exists but belongs to different user`
-            })
-            continue
-          }
-
-          // If issue was closed or resolved, reopen it to backlog
-          const shouldReopen = existingItem.status === 'closed' || existingItem.status === 'resolved'
+        if (existingForUser) {
+          // Current user already has this issue – update occurrence count and reopen if closed
+          const shouldReopen = existingForUser.status === 'closed' || existingForUser.status === 'resolved'
           
-          console.log(`⚠️ Issue ${issue.id} already exists with issue_key ${issueId} for user ${userId}, updating occurrence count and affected pages${shouldReopen ? ' (reopening from ' + existingItem.status + ' to backlog)' : ''}`)
+          console.log(`⚠️ Issue ${issue.id} already exists with issue_key ${issueId} for user ${userId}, updating occurrence count and affected pages${shouldReopen ? ' (reopening from ' + existingForUser.status + ' to backlog)' : ''}`)
           
-          // Update the existing issue's occurrence count, timestamp, add URL to affected_pages, and reopen if closed
           await query(`
             UPDATE issues 
             SET updated_at = NOW(),
@@ -86,11 +74,11 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
                   ELSE status
                 END
             WHERE id = $1
-          `, [existingItem.id, result.url, shouldReopen])
+          `, [existingForUser.id, result.url, shouldReopen])
 
           if (shouldReopen) {
             reopenedItems.push({
-              id: existingItem.id,
+              id: existingForUser.id,
               issueId: issueId,
               ruleName: issue.id,
               impact: issue.impact
@@ -99,11 +87,14 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
             skippedItems.push({
               issueId: issue.id,
               ruleName: issue.id,
-              reason: `Exact duplicate (same rule + element + URL) - updated existing issue ID: ${existingItem.id}`
+              reason: `Exact duplicate (same rule + element + URL) - updated existing issue ID: ${existingForUser.id}`
             })
           }
           continue
         }
+
+        // Issue exists for another user/team but not for this user – add it for this user too
+        // so multiple teams can see and track the same site issue (agency / multi-team use case)
 
         // Get the next priority rank
         const maxRank = await queryOne(`

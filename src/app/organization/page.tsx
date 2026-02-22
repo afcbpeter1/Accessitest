@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import { 
@@ -54,12 +54,29 @@ export default function OrganizationPage() {
   const router = useRouter()
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
+  const currentOrgIdRef = useRef<string | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'teams' | 'billing' | 'integrations'>('overview')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null)
   const [userRole, setUserRole] = useState<'owner' | 'admin' | 'user' | null>(null)
   
+  // Keep ref in sync so refetches (e.g. on tab focus) can preserve selected org
+  useEffect(() => {
+    currentOrgIdRef.current = currentOrg?.id ?? null
+  }, [currentOrg])
+
+  // Refetch org list when user returns to the tab (e.g. after an invitee signs up)
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadOrganizations()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
   // Auto-dismiss messages after 5 seconds
   useEffect(() => {
     if (message) {
@@ -208,9 +225,13 @@ export default function OrganizationPage() {
       const data = await response.json()
       if (data.success && data.organizations.length > 0) {
         setOrganizations(data.organizations)
-        setCurrentOrg(data.organizations[0]) // Set first org as current
-        if (data.organizations[0]) {
-          loadTeams(data.organizations[0].id)
+        const preserveId = currentOrgIdRef.current
+        const nextOrg = preserveId
+          ? data.organizations.find((o: Organization) => o.id === preserveId) ?? data.organizations[0]
+          : data.organizations[0]
+        setCurrentOrg(nextOrg)
+        if (nextOrg) {
+          loadTeams(nextOrg.id)
         }
       }
     } catch (error) {

@@ -97,6 +97,7 @@ export async function createOrganization(userId: string, name: string): Promise<
  * Get user's organizations with their roles
  */
 export async function getUserOrganizations(userId: string): Promise<OrganizationWithMembers[]> {
+  // Order so the org the user OWNS comes first (avoids "no permission to invite" when they have multiple orgs)
   const orgs = await queryMany(
     `SELECT DISTINCT
       o.*,
@@ -106,7 +107,7 @@ export async function getUserOrganizations(userId: string): Promise<Organization
      FROM organizations o
      INNER JOIN organization_members om ON o.id = om.organization_id
      WHERE om.user_id = $1 AND om.is_active = true
-     ORDER BY o.created_at DESC`,
+     ORDER BY CASE WHEN om.role = 'owner' THEN 0 WHEN om.role = 'admin' THEN 1 ELSE 2 END, o.created_at DESC`,
     [userId]
   )
   

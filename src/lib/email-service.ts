@@ -189,7 +189,9 @@ export class EmailService {
         ? `${baseUrl}/accept-invitation?token=${invitationToken}`
         : `${baseUrl}/organization`
 
-      const logoUrl = getLogoUrl()
+      // Use Cloudinary URL for logo (reliable in email clients; many block data URIs from getLogoUrl())
+      const logoUrl = 'https://res.cloudinary.com/dyzzpsxov/image/upload/v1764106136/allytest_vmuws6.png'
+      const footerHtml = getEmailManageLinksFooterHtml(email)
       
       const result = await resend.emails.send({
         from: FROM_EMAIL,
@@ -197,83 +199,138 @@ export class EmailService {
         subject: `You've been invited to join ${organizationName} on A11ytest.ai`,
         html: `
           <!DOCTYPE html>
-          <html>
+          <html lang="en">
           <head>
-            <meta charset="utf-8">
+            <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Organization Invitation</title>
+            <title>Organization Invitation - A11ytest.ai</title>
             <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { background: #06B6D4; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-              .logo-container { margin-bottom: 15px; }
-              .logo-img { max-width: 180px; height: auto; display: block; margin: 0 auto; background: white; padding: 10px; border-radius: 8px; }
-              .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-              .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
-              .button { display: inline-block; background: #06B6D4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                line-height: 1.6;
+                color: #1f2937;
+                background-color: #f3f4f6;
+                padding: 40px 20px;
+              }
+              .email-wrapper { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+              .header {
+                background: #ffffff;
+                padding: 40px 30px;
+                text-align: center;
+                border-bottom: 2px solid #e5e7eb;
+              }
+              .logo-container { margin-bottom: 20px; background: #ffffff; padding: 20px; border-radius: 8px; }
+              .logo-img { max-width: 180px; height: auto; display: block; margin: 0 auto; background: #ffffff; }
+              .header-title { font-size: 28px; font-weight: 700; color: #0B1220; margin-bottom: 8px; letter-spacing: -0.5px; }
+              .header-subtitle { color: #6b7280; font-size: 16px; font-weight: 400; }
+              .content { padding: 40px 30px; }
+              .greeting { font-size: 18px; color: #1f2937; margin-bottom: 24px; font-weight: 500; }
+              .invite-card {
+                background: linear-gradient(to bottom, #f9fafb 0%, #ffffff 100%);
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+                padding: 24px;
+                margin: 24px 0;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+              }
+              .invite-card strong { color: #0B1220; }
+              .invite-list { margin: 16px 0 0 20px; color: #374151; }
+              .invite-list li { margin-bottom: 8px; }
+              .cta-section { margin: 28px 0; }
+              .cta-section-title { font-size: 15px; font-weight: 600; color: #374151; margin-bottom: 12px; }
+              .cta-button {
+                display: inline-block;
+                background: #0B1220;
+                color: #ffffff !important;
+                padding: 14px 28px;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 16px;
+                box-shadow: 0 4px 6px rgba(11, 18, 32, 0.2);
+              }
+              .cta-button:hover { opacity: 0.95; }
+              .footer {
+                background-color: #f9fafb;
+                padding: 30px;
+                text-align: center;
+                border-top: 1px solid #e5e7eb;
+              }
+              .footer-text { color: #6b7280; font-size: 14px; line-height: 1.6; margin-top: 12px; }
+              .footer-link { color: #0B1220; text-decoration: none; font-weight: 500; }
             </style>
           </head>
           <body>
-            <div class="header">
-              <div class="logo-container">
-                <img src="${logoUrl}" alt="a11ytest.ai" class="logo-img" />
+            <div class="email-wrapper">
+              <div class="header">
+                <div class="logo-container">
+                  <img src="${logoUrl}" alt="A11ytest.ai" class="logo-img" />
+                </div>
+                <div class="header-title">Organization Invitation</div>
+                <div class="header-subtitle">You've been invited to join a team on A11ytest.ai</div>
               </div>
-              <h1>Organization Invitation</h1>
-            </div>
-            <div class="content">
-              <h2>Hi there,</h2>
-              <p><strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> on A11ytest.ai.</p>
-              
-              <p>You can access the organization's shared resources, including:</p>
-              <ul>
-                <li>Shared credit pool</li>
-                <li>Team integrations</li>
-                <li>Collaborative issue tracking</li>
-              </ul>
-              
-              ${invitationToken ? `
-                <p><strong>Don't have an account yet?</strong></p>
-                <p><a href="${signupUrl}" class="button">Sign Up & Accept Invitation</a></p>
-                
-                <p><strong>Already have an account?</strong></p>
-                <p><a href="${acceptUrl}" class="button">Accept Invitation</a></p>
-              ` : `
-                <p><a href="${baseUrl}/organization" class="button">View Organization</a></p>
-              `}
-              
-              <p>Best regards,<br>The A11ytest.ai Team</p>
-            </div>
-            <div class="footer">
-              <p>A11ytest.ai - Professional Accessibility Testing</p>
-              <p>This email was sent to ${email}</p>
+              <div class="content">
+                <div class="greeting">Hi there,</div>
+                <p style="font-size: 16px; color: #1f2937; margin-bottom: 16px;">
+                  <strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> on A11ytest.ai.
+                </p>
+                <div class="invite-card">
+                  <p style="font-size: 15px; color: #374151; margin-bottom: 8px;">You'll get access to:</p>
+                  <ul class="invite-list">
+                    <li>Shared credit pool</li>
+                    <li>Team integrations (Jira, Azure DevOps)</li>
+                    <li>Collaborative issue tracking</li>
+                  </ul>
+                </div>
+                ${invitationToken ? `
+                  <div class="cta-section">
+                    <p class="cta-section-title">Don't have an account yet?</p>
+                    <p><a href="${signupUrl}" class="cta-button">Sign Up & Accept Invitation</a></p>
+                  </div>
+                  <div class="cta-section">
+                    <p class="cta-section-title">Already have an account?</p>
+                    <p><a href="${acceptUrl}" class="cta-button">Accept Invitation</a></p>
+                  </div>
+                ` : `
+                  <div class="cta-section">
+                    <p><a href="${baseUrl}/organization" class="cta-button">View Organization</a></p>
+                  </div>
+                `}
+              </div>
+              <div class="footer">
+                ${footerHtml}
+                <p class="footer-text">This invitation was sent to ${email}. A11ytest.ai – Professional Accessibility Testing</p>
+              </div>
             </div>
           </body>
           </html>
         `,
         text: `
-          Organization Invitation
-          
+          Organization Invitation - A11ytest.ai
+
           Hi there,
-          
+
           ${inviterName} has invited you to join ${organizationName} on A11ytest.ai.
-          
-          You can access the organization's shared resources, including:
+
+          You'll get access to:
           - Shared credit pool
-          - Team integrations
+          - Team integrations (Jira, Azure DevOps)
           - Collaborative issue tracking
-          
+
           ${invitationToken ? `
           Don't have an account yet? Sign up here: ${signupUrl}
-          
+
           Already have an account? Accept invitation here: ${acceptUrl}
           ` : `
           View organization: ${baseUrl}/organization
           `}
-          
+
           Best regards,
           The A11ytest.ai Team
-          
-          A11ytest.ai - Professional Accessibility Testing
-          This email was sent to ${email}
+
+          This invitation was sent to ${email}.
+          A11ytest.ai – Professional Accessibility Testing
         `
       })
 
