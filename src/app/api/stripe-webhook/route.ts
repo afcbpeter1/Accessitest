@@ -400,14 +400,21 @@ async function handleSubscriptionCreated(subscription: Stripe.Subscription) {
   }
 }
 
-/** Format Stripe current_period_end (Unix s) as "19 March 2026" in UTC so email matches settings page */
-function formatAccessEndDateUTC(currentPeriodEnd: number): string {
-  const d = new Date(currentPeriodEnd * 1000)
+/** Format Stripe timestamp (Unix s) as "19 March 2026" in UTC so email matches Stripe portal / settings */
+function formatAccessEndDateUTC(timestamp: number): string {
+  const d = new Date(timestamp * 1000)
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
   const day = d.getUTCDate()
   const month = months[d.getUTCMonth()]
   const year = d.getUTCFullYear()
   return `${day} ${month} ${year}`
+}
+
+/** Get the access end timestamp from a Stripe subscription: prefer cancel_at (portal "Cancels" date), then current_period_end. */
+function getSubscriptionAccessEndTimestamp(sub: { cancel_at?: number | null; current_period_end?: number }): number | null {
+  if (sub.cancel_at != null && sub.cancel_at > 0) return sub.cancel_at
+  if (sub.current_period_end != null && sub.current_period_end > 0) return sub.current_period_end
+  return null
 }
 
 async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
@@ -547,25 +554,18 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
           day: 'numeric'
         })
 
-        // Use subscription from Stripe so access end date matches settings page (same source as /api/subscription)
+        // Use only Stripe's exact date (portal "Cancels 19 Mar"): prefer cancel_at, then current_period_end. No fallback.
         let accessEndDate: string
+        let endTs: number | null = null
         try {
           const stripe = getStripe()
-          const fullSubscription = await stripe.subscriptions.retrieve(subscription.id)
-          const periodEnd = (fullSubscription as { current_period_end?: number }).current_period_end
-          const periodStart = (fullSubscription as { current_period_start?: number }).current_period_start
-          if (periodEnd && periodStart && periodEnd > periodStart) {
-            accessEndDate = formatAccessEndDateUTC(periodEnd)
-          } else {
-            accessEndDate = formatAccessEndDateUTC(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60) // fallback ~1 month
-          }
+          const fullSubscription = await stripe.subscriptions.retrieve(subscription.id) as { cancel_at?: number | null; current_period_end?: number }
+          endTs = getSubscriptionAccessEndTimestamp(fullSubscription)
         } catch {
-          if ((subscription as unknown as { current_period_end?: number }).current_period_end) {
-            accessEndDate = formatAccessEndDateUTC((subscription as unknown as { current_period_end: number }).current_period_end)
-          } else {
-            accessEndDate = formatAccessEndDateUTC(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60)
-          }
+          const eventSub = subscription as unknown as { cancel_at?: number | null; current_period_end?: number }
+          endTs = getSubscriptionAccessEndTimestamp(eventSub)
         }
+        accessEndDate = endTs != null ? formatAccessEndDateUTC(endTs) : ''
 
         await sendSubscriptionCancellationEmail({
           customerEmail: userEmail,
@@ -683,15 +683,18 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
           day: 'numeric'
         })
 
-        // Use same UTC formatting as settings so email matches (subscription deleted = use event object)
+        // Use only Stripe's exact end date: prefer cancel_at, then current_period_end. No fallback.
         let accessEndDate: string
-        const subPeriodEnd = (subscription as unknown as { current_period_end?: number }).current_period_end
-        const subPeriodStart = (subscription as unknown as { current_period_start?: number }).current_period_start
-        if (subPeriodEnd && subPeriodStart && subPeriodEnd > subPeriodStart) {
-          accessEndDate = formatAccessEndDateUTC(subPeriodEnd)
-        } else {
-          accessEndDate = formatAccessEndDateUTC(Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60)
+        let endTs: number | null = null
+        try {
+          const stripe = getStripe()
+          const fullSubscription = await stripe.subscriptions.retrieve(subscription.id) as { cancel_at?: number | null; current_period_end?: number }
+          endTs = getSubscriptionAccessEndTimestamp(fullSubscription)
+        } catch {
+          const eventSub = subscription as unknown as { cancel_at?: number | null; current_period_end?: number }
+          endTs = getSubscriptionAccessEndTimestamp(eventSub)
         }
+        accessEndDate = endTs != null ? formatAccessEndDateUTC(endTs) : ''
 
         await sendSubscriptionCancellationEmail({
           customerEmail: userEmail,

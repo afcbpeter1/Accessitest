@@ -658,7 +658,7 @@ export async function sendSubscriptionCancellationEmail(data: SubscriptionCancel
               </div>
               <div class="detail-row">
                 <span class="detail-label">Access Ends</span>
-                <span class="detail-value">${accessEndDate}</span>
+                <span class="detail-value">${accessEndDate || 'See your billing portal for the exact date'}</span>
               </div>
             </div>
 
@@ -675,7 +675,7 @@ export async function sendSubscriptionCancellationEmail(data: SubscriptionCancel
             <div class="info-box">
               <div class="info-box-title">What Happens Next?</div>
               <ul class="info-box-list">
-                <li>Your subscription will remain active until ${accessEndDate}</li>
+                <li>Your subscription will remain active until ${accessEndDate || 'the end of your billing period (see your billing portal for the exact date)'}</li>
                 <li>You'll continue to have unlimited access until then</li>
                 ${savedCredits && savedCredits > 0 ? `<li>After that, you can use your ${savedCredits} saved credits</li>` : ''}
                 <li>You can resubscribe anytime from your dashboard</li>
@@ -705,11 +705,11 @@ export async function sendSubscriptionCancellationEmail(data: SubscriptionCancel
 
       Plan: ${planName}
       Cancellation Date: ${cancellationDate}
-      Access Ends: ${accessEndDate}
+      Access Ends: ${accessEndDate || 'See your billing portal for the exact date'}
       ${savedCredits && savedCredits > 0 ? `Saved Credits: ${savedCredits}` : ''}
 
       What Happens Next?
-      - Your subscription will remain active until ${accessEndDate}
+      - Your subscription will remain active until ${accessEndDate || 'the end of your billing period (see your billing portal for the exact date)'}
       - You'll continue to have unlimited access until then
       ${savedCredits && savedCredits > 0 ? `- After that, you can use your ${savedCredits} saved credits` : ''}
       - You can resubscribe anytime from your dashboard
