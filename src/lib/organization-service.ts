@@ -98,16 +98,21 @@ export async function createOrganization(userId: string, name: string): Promise<
  */
 export async function getUserOrganizations(userId: string): Promise<OrganizationWithMembers[]> {
   // Order so the org the user OWNS comes first (avoids "no permission to invite" when they have multiple orgs)
+  // PostgreSQL: with DISTINCT ON, ORDER BY must start with DISTINCT ON columns; then we sort the result set in a subquery
   const orgs = await queryMany(
-    `SELECT DISTINCT
-      o.*,
-      om.role,
-      om.team_id,
-      om.is_active as member_is_active
-     FROM organizations o
-     INNER JOIN organization_members om ON o.id = om.organization_id
-     WHERE om.user_id = $1 AND om.is_active = true
-     ORDER BY CASE WHEN om.role = 'owner' THEN 0 WHEN om.role = 'admin' THEN 1 ELSE 2 END, o.created_at DESC`,
+    `SELECT sub.* FROM (
+       SELECT DISTINCT ON (o.id)
+         o.*,
+         om.role,
+         om.team_id,
+         om.is_active as member_is_active,
+         CASE WHEN om.role = 'owner' THEN 0 WHEN om.role = 'admin' THEN 1 ELSE 2 END AS role_sort
+       FROM organizations o
+       INNER JOIN organization_members om ON o.id = om.organization_id
+       WHERE om.user_id = $1 AND om.is_active = true
+       ORDER BY o.id, role_sort ASC
+     ) sub
+     ORDER BY role_sort ASC, created_at DESC`,
     [userId]
   )
   

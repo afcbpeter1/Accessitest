@@ -23,11 +23,11 @@ export async function GET(request: NextRequest) {
       LEFT JOIN sprint_issues si ON i.id = si.issue_id
       WHERE (
         (sh.id IS NOT NULL AND sh.user_id = $1)
-        OR
-        (sh.id IS NULL AND EXISTS (
+        OR (sh.id IS NULL AND EXISTS (
           SELECT 1 FROM scan_history sh2 
           WHERE sh2.id = i.first_seen_scan_id AND sh2.user_id = $1
         ))
+        OR i.id IN (SELECT issue_id FROM user_issues WHERE user_id = $1)
       )
     `, [user.userId])
 
@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
         SELECT 1 FROM scan_history sh2 
         WHERE sh2.id = i.first_seen_scan_id AND sh2.user_id = $1
       ) OR sh.user_id = $1
+         OR i.id IN (SELECT issue_id FROM user_issues WHERE user_id = $1)
       LIMIT 10
     `, [user.userId])
     
@@ -126,14 +127,12 @@ export async function GET(request: NextRequest) {
       LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
       LEFT JOIN sprint_issues si ON i.id = si.issue_id
       WHERE (
-        -- Issue belongs to user if scan_history exists and matches user_id
         (sh.id IS NOT NULL AND sh.user_id = $1)
-        OR
-        -- Or if scan_history doesn't exist in the JOIN but EXISTS check confirms ownership
-        (sh.id IS NULL AND EXISTS (
+        OR (sh.id IS NULL AND EXISTS (
           SELECT 1 FROM scan_history sh2 
           WHERE sh2.id = i.first_seen_scan_id AND sh2.user_id = $1
         ))
+        OR i.id IN (SELECT issue_id FROM user_issues WHERE user_id = $1)
       )
       AND si.id IS NULL
       ORDER BY 

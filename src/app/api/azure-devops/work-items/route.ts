@@ -27,8 +27,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Get issue context (team/organization)
-    const issueContext = await getIssueContext(issueId)
-    
+    let issueContext = await getIssueContext(issueId)
+
+    // If issue has no team, use the user's team so team members can add to their team's backlog
+    if (!issueContext?.teamId) {
+      const userTeam = await queryOne(
+        `SELECT om.team_id, om.organization_id
+         FROM organization_members om
+         INNER JOIN teams t ON om.team_id = t.id
+         INNER JOIN azure_devops_integrations adi ON adi.team_id = t.id AND adi.is_active = true
+         WHERE om.user_id = $1 AND om.is_active = true AND om.team_id IS NOT NULL
+         ORDER BY om.joined_at DESC
+         LIMIT 1`,
+        [user.userId]
+      )
+      if (userTeam?.team_id) {
+        await query(
+          `UPDATE issues SET team_id = $1, organization_id = $2 WHERE id = $3`,
+          [userTeam.team_id, userTeam.organization_id, issueId]
+        )
+        issueContext = { teamId: userTeam.team_id, organizationId: userTeam.organization_id }
+      }
+    }
+
     // Get the appropriate Azure DevOps integration (team > org > personal)
     const integration = await getAzureDevOpsIntegration(
       user.userId,
@@ -40,7 +61,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Azure DevOps integration not configured. Please set up Azure DevOps in settings first.'
+          error: "Your team hasn't connected Azure DevOps yet. Ask your admin to set it up in Organization settings."
         },
         { status: 404 }
       )

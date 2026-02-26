@@ -110,17 +110,15 @@ export default function ProductBacklog() {
     }
   }, [showIntegrationMenu])
 
+  // Use "effective" settings so team members see Add to Jira/ADO when their admin configured it for their team
   const checkJiraIntegration = async () => {
     try {
       const token = localStorage.getItem('accessToken')
       if (!token) return
 
-      const response = await fetch('/api/jira/settings', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetch('/api/jira/settings/effective', {
+        headers: { 'Authorization': `Bearer ${token}` }
       })
-
       const data = await response.json()
       if (data.success && data.integration) {
         setJiraIntegration(data.integration)
@@ -135,12 +133,9 @@ export default function ProductBacklog() {
       const token = localStorage.getItem('accessToken')
       if (!token) return
 
-      const response = await fetch('/api/azure-devops/settings', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const response = await fetch('/api/azure-devops/settings/effective', {
+        headers: { 'Authorization': `Bearer ${token}` }
       })
-
       const data = await response.json()
       if (data.success && data.integration) {
         setAzureDevOpsIntegration(data.integration)
@@ -809,10 +804,9 @@ ${item.element_html || 'N/A'}
                                                 </button>
                                               ) : (
                                                 <div className="px-3 py-2 text-xs text-gray-500">
-                                                  <div>Jira not configured</div>
-                                                  <a href="/settings?tab=integrations" className="text-blue-600 hover:underline">
-                                                    Set up in settings
-                                                  </a>
+                                                  <span>Add to Jira</span>
+                                                  <p className="mt-1 text-gray-400">Ask your admin to connect Jira in Organization settings.</p>
+                                                  <a href="/organization" className="text-blue-600 hover:underline mt-1 inline-block">Organization settings</a>
                                                 </div>
                                               )}
                                               {azureDevOpsIntegration ? (
@@ -829,10 +823,9 @@ ${item.element_html || 'N/A'}
                                                 </button>
                                               ) : (
                                                 <div className="px-3 py-2 text-xs text-gray-500 border-t border-gray-100">
-                                                  <div>Azure DevOps not configured</div>
-                                                  <a href="/settings?tab=integrations" className="text-blue-600 hover:underline">
-                                                    Set up in settings
-                                                  </a>
+                                                  <span>Add to Azure DevOps</span>
+                                                  <p className="mt-1 text-gray-400">Ask your admin to connect Azure DevOps in Organization settings.</p>
+                                                  <a href="/organization" className="text-blue-600 hover:underline mt-1 inline-block">Organization settings</a>
                                                 </div>
                                               )}
                                             </div>

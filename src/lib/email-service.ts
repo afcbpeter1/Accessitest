@@ -57,6 +57,11 @@ export interface BillingConfirmationData {
   }
 }
 
+export interface PasswordResetData {
+  email: string
+  resetLink: string
+  firstName?: string
+}
 
 export class EmailService {
   static async sendVerificationEmail(data: EmailVerificationData): Promise<boolean> {
@@ -175,6 +180,89 @@ export class EmailService {
   static generateVerificationCode(): string {
     // Generate a 6-digit verification code
     return Math.floor(100000 + Math.random() * 900000).toString()
+  }
+
+  static async sendPasswordResetEmail(data: PasswordResetData): Promise<boolean> {
+    try {
+      const { email, resetLink, firstName = 'User' } = data
+
+      const apiKey = process.env.RESEND_API_KEY?.trim()
+      const hasValidKey = !!apiKey && apiKey !== 'dummy-key-for-development'
+
+      if (!hasValidKey) {
+        console.warn('⚠️ RESEND_API_KEY not set or dummy – password reset email skipped.')
+        console.warn(`   TEST MODE: Reset link for ${email}: ${resetLink}`)
+        return true
+      }
+
+      const logoUrl = 'https://res.cloudinary.com/dyzzpsxov/image/upload/v1764106136/allytest_vmuws6.png'
+
+      const result = await resend.emails.send({
+        from: FROM_EMAIL,
+        to: [email],
+        subject: 'Reset your A11ytest.ai password',
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Reset your password - A11ytest.ai</title>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background: #06B6D4; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+              .logo-container { margin-bottom: 15px; background: white; padding: 15px; border-radius: 8px; display: inline-block; }
+              .logo-img { max-width: 180px; height: auto; display: block; margin: 0 auto; }
+              .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+              .button { display: inline-block; background: #06B6D4; color: white !important; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; margin: 20px 0; }
+              .footer { text-align: center; margin-top: 30px; color: #666; font-size: 14px; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div class="logo-container">
+                <img src="${logoUrl}" alt="A11ytest.ai" class="logo-img" />
+              </div>
+              <h1>Reset your password</h1>
+            </div>
+            <div class="content">
+              <h2>Hi ${firstName},</h2>
+              <p>We received a request to reset the password for your A11ytest.ai account.</p>
+              <p><a href="${resetLink}" class="button">Reset password</a></p>
+              <p>This link expires in 1 hour. If you didn't request a reset, you can ignore this email.</p>
+              <p>Best regards,<br>The A11ytest.ai Team</p>
+            </div>
+            <div class="footer">
+              <p>This email was sent to ${email}</p>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `
+          Hi ${firstName},
+
+          We received a request to reset the password for your A11ytest.ai account.
+
+          Reset your password: ${resetLink}
+
+          This link expires in 1 hour. If you didn't request a reset, you can ignore this email.
+
+          Best regards,
+          The A11ytest.ai Team
+
+          This email was sent to ${email}
+        `
+      })
+
+      if (result.error) {
+        console.error('❌ Resend password reset email failed:', JSON.stringify(result.error, null, 2))
+        return false
+      }
+      return true
+    } catch (error) {
+      console.error('❌ Exception sending password reset email:', error)
+      return false
+    }
   }
 
   static async sendOrganizationInvitation(data: OrganizationInvitationData): Promise<boolean> {

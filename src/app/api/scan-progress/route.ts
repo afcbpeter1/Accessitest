@@ -93,10 +93,41 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
           continue
         }
 
-        // Issue exists for another user/team but not for this user – add it for this user too
-        // so multiple teams can see and track the same site issue (agency / multi-team use case)
+        // Issue exists for another user/team but not for this user – link it so they see it too
+        // (issue_key is globally unique, so we cannot INSERT a second row; we use user_issues)
+        const existingIssue = await queryOne(
+          'SELECT id FROM issues WHERE issue_key = $1',
+          [issueId]
+        )
 
-        // Get the next priority rank
+        if (existingIssue) {
+          // Link this user to the existing issue (idempotent)
+          await query(
+            `INSERT INTO user_issues (user_id, issue_id) VALUES ($1, $2)
+             ON CONFLICT (user_id, issue_id) DO NOTHING`,
+            [userId, existingIssue.id]
+          )
+          // Update occurrence count and affected pages on the shared issue
+          await query(`
+            UPDATE issues
+            SET updated_at = NOW(),
+                total_occurrences = total_occurrences + 1,
+                affected_pages = CASE
+                  WHEN $2 = ANY(affected_pages) THEN affected_pages
+                  ELSE array_append(affected_pages, $2)
+                END
+            WHERE id = $1
+          `, [existingIssue.id, result.url])
+          addedItems.push({
+            id: existingIssue.id,
+            issueId: issueId,
+            ruleName: issue.id,
+            impact: issue.impact
+          })
+          continue
+        }
+
+        // No existing issue with this key – insert new issue for this user
         const maxRank = await queryOne(`
           SELECT COALESCE(MAX(rank), 0) as max_rank 
           FROM issues 
@@ -107,7 +138,6 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
 
         const nextRank = (maxRank?.max_rank || 0) + 1
 
-        // Insert new issue using the provided scan history ID
         const newItem = await queryOne(`
           INSERT INTO issues (
             issue_key, rule_id, rule_name, description, impact, wcag_level,
@@ -118,25 +148,23 @@ async function autoCreateBacklogItemsWithHistoryId(userId: string, scanResults: 
           RETURNING *
         `, [
           issueId,
-          issue.id, // rule_id
-          issue.id, 
-          issue.description, 
-          issue.impact, 
+          issue.id,
+          issue.id,
+          issue.description,
+          issue.impact,
           issue.tags?.find((tag: string) => tag.startsWith('wcag')) || 'AA',
-          issue.nodes?.length || 1, 
-          [result.url], 
-          issue.nodes?.[0]?.failureSummary || '', 
-          'backlog', 
-          'medium', 
-          nextRank, 
-          1, 
-          1, 
-          scanHistoryId, 
-          new Date().toISOString(), 
+          issue.nodes?.length || 1,
+          [result.url],
+          issue.nodes?.[0]?.failureSummary || '',
+          'backlog',
+          'medium',
+          nextRank,
+          1,
+          1,
+          scanHistoryId,
+          new Date().toISOString(),
           new Date().toISOString()
         ])
-
-        console.log(`✅ Created backlog item: ${newItem.id} for issue ${issue.id} (${issueId})`)
 
         addedItems.push({
           id: newItem.id,

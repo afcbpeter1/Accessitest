@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Jira integration not configured. Please set up Jira in settings first.'
+          error: "Your team hasn't connected Jira yet. Ask your admin to set it up in Organization settings."
         },
         { status: 404 }
       )

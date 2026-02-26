@@ -103,26 +103,37 @@ export async function DELETE(
 
     const issueId = params.id
 
-    // First, check if the issue exists and belongs to the user
-    const checkResult = await pool.query(`
-      SELECT i.id 
+    // Check if user owns the issue (their scan) or has it linked via user_issues
+    const ownership = await pool.query(`
+      SELECT i.id,
+             (sh.user_id = $2) AS owned_by_user,
+             EXISTS (SELECT 1 FROM user_issues ui WHERE ui.issue_id = i.id AND ui.user_id = $2) AS linked
       FROM issues i
-      JOIN scan_history sh ON i.first_seen_scan_id = sh.id
-      WHERE i.id = $1 AND sh.user_id = $2
+      LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+      WHERE i.id = $1
+        AND (sh.user_id = $2 OR EXISTS (SELECT 1 FROM user_issues ui WHERE ui.issue_id = i.id AND ui.user_id = $2))
     `, [issueId, user.userId])
 
-    if (checkResult.rows.length === 0) {
+    if (ownership.rows.length === 0) {
       return NextResponse.json(
         { error: 'Issue not found or access denied' },
         { status: 404 }
       )
     }
 
-    // Delete the issue from the issues table
-    const deleteResult = await pool.query(`
-      DELETE FROM issues 
-      WHERE id = $1
-    `, [issueId])
+    const { owned_by_user } = ownership.rows[0]
+
+    let deleteResult
+    if (owned_by_user) {
+      // User created the issue – delete the issue row (cascade removes user_issues links)
+      deleteResult = await pool.query(`DELETE FROM issues WHERE id = $1`, [issueId])
+    } else {
+      // User only has link (shared issue) – remove from their backlog only
+      deleteResult = await pool.query(
+        `DELETE FROM user_issues WHERE user_id = $1 AND issue_id = $2`,
+        [user.userId, issueId]
+      )
+    }
 
     if (deleteResult.rowCount === 0) {
       return NextResponse.json(
@@ -133,7 +144,7 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: 'Issue deleted successfully'
+      message: owned_by_user ? 'Issue deleted successfully' : 'Issue removed from your backlog'
     })
 
   } catch (error: any) {
