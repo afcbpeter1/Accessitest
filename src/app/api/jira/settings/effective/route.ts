@@ -5,8 +5,7 @@ import { queryOne } from '@/lib/database'
 /**
  * GET /api/jira/settings/effective
  * Returns the Jira integration this user would use when adding an issue to Jira.
- * Priority: 1) user's assigned team's Jira, 2) any team in user's org with Jira, 3) personal.
- * So if the admin set up Jira for Team Bravo and the user is in that org, they see "Add to Jira".
+ * Priority: 1) user's team Jira, 2) any team in org with Jira, 3) org admin/owner's personal Jira (members adopt admin's), 4) personal.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -34,7 +33,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // 2. Any team in the user's organization has Jira (admin may have set up for e.g. Team Bravo)
+    // 2. Any team in the user's organization has Jira
     if (!integration) {
       const orgWithJira = await queryOne(
         `SELECT ji.id, ji.user_id, ji.team_id, ji.jira_url, ji.jira_email, ji.project_key, ji.issue_type,
@@ -49,7 +48,22 @@ export async function GET(request: NextRequest) {
       if (orgWithJira) integration = orgWithJira
     }
 
-    // 3. Personal integration
+    // 3. Org admin/owner's personal Jira – members adopt the integration of the admin who added them
+    if (!integration) {
+      const adminJira = await queryOne(
+        `SELECT ji.id, ji.user_id, ji.team_id, ji.jira_url, ji.jira_email, ji.project_key, ji.issue_type,
+                ji.auto_sync_enabled, ji.is_active, ji.last_verified_at, ji.created_at, ji.updated_at
+         FROM jira_integrations ji
+         INNER JOIN organization_members om ON om.user_id = ji.user_id AND om.is_active = true AND om.role IN ('owner', 'admin')
+         INNER JOIN organization_members me ON me.organization_id = om.organization_id AND me.user_id = $1 AND me.is_active = true
+         WHERE ji.team_id IS NULL AND ji.is_active = true
+         LIMIT 1`,
+        [user.userId]
+      )
+      if (adminJira) integration = adminJira
+    }
+
+    // 4. Current user's personal integration
     if (!integration) {
       integration = await queryOne(
         `SELECT id, user_id, team_id, jira_url, jira_email, project_key, issue_type,

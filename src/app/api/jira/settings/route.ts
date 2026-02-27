@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
-import { query, queryOne } from '@/lib/database'
+import { query, queryOne, queryMany } from '@/lib/database'
 import { encryptTokenForStorage, decryptTokenFromStorage } from '@/lib/jira-encryption-service'
 import { JiraClient } from '@/lib/jira-client'
 import { checkPermission } from '@/lib/role-service'
@@ -241,6 +241,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // When admin/owner saves a personal integration, treat it as the organization's: apply to all teams so all members see it
+    if (!teamId) {
+      const orgAsAdmin = await queryOne(
+        `SELECT organization_id FROM organization_members
+         WHERE user_id = $1 AND role IN ('owner', 'admin') AND is_active = true
+         LIMIT 1`,
+        [user.userId]
+      )
+      if (orgAsAdmin?.organization_id) {
+        const teams = await queryMany(
+          `SELECT id FROM teams WHERE organization_id = $1`,
+          [orgAsAdmin.organization_id]
+        )
+        for (const row of teams) {
+          const tid = row.id
+          const teamExisting = await queryOne('SELECT id FROM jira_integrations WHERE team_id = $1', [tid])
+          if (teamExisting) {
+            await query(
+              `UPDATE jira_integrations SET jira_url = $1, jira_email = $2, encrypted_api_token = $3,
+                project_key = $4, issue_type = $5, auto_sync_enabled = $6, is_active = true, updated_at = NOW()
+               WHERE team_id = $7`,
+              [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false, tid]
+            )
+          } else {
+            await query(
+              `INSERT INTO jira_integrations (user_id, team_id, jira_url, jira_email, encrypted_api_token, project_key, issue_type, auto_sync_enabled, is_active)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
+              [user.userId, tid, jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false]
+            )
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Jira integration saved successfully'
@@ -302,6 +336,21 @@ export async function DELETE(request: NextRequest) {
         'UPDATE jira_integrations SET is_active = false, updated_at = NOW() WHERE user_id = $1 AND team_id IS NULL',
         [user.userId]
       )
+      // Admin's personal integration is the org's: also remove from all teams in their org
+      const orgAsAdmin = await queryOne(
+        `SELECT organization_id FROM organization_members
+         WHERE user_id = $1 AND role IN ('owner', 'admin') AND is_active = true LIMIT 1`,
+        [user.userId]
+      )
+      if (orgAsAdmin?.organization_id) {
+        const teams = await queryMany(`SELECT id FROM teams WHERE organization_id = $1`, [orgAsAdmin.organization_id])
+        for (const row of teams) {
+          await query(
+            'UPDATE jira_integrations SET is_active = false, updated_at = NOW() WHERE team_id = $1',
+            [row.id]
+          )
+        }
+      }
     }
 
     return NextResponse.json({

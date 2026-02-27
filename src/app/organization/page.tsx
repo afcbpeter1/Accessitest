@@ -189,15 +189,16 @@ export default function OrganizationPage() {
     }
   }, [activeTab, jiraIntegration, azureDevOpsIntegration])
 
-  // Load integrations when integrations tab is active
+  // Load integrations when integrations tab is active (use org team context so members see Add to Jira)
   useEffect(() => {
     if (activeTab === 'integrations') {
-      loadJiraIntegration()
+      const teamIdForOrg = currentOrg && teams.length > 0 ? teams[0].id : undefined
+      loadJiraIntegration(teamIdForOrg)
       if (integrationSubTab === 'azure') {
-        loadAzureDevOpsIntegration()
+        loadAzureDevOpsIntegration(teamIdForOrg)
       }
     }
-  }, [activeTab, integrationSubTab])
+  }, [activeTab, integrationSubTab, currentOrg?.id, teams])
 
   const loadOrganizations = async () => {
     try {
@@ -457,15 +458,18 @@ export default function OrganizationPage() {
     }
   }
 
-  // Integration functions
-  const loadJiraIntegration = async () => {
+  // Integration functions (when teamId is provided we're in Org context: load team integration so all members get Add to Jira)
+  const loadJiraIntegration = async (teamId?: string) => {
     try {
       const token = localStorage.getItem('accessToken')
       if (!token) {
         return
       }
 
-      const response = await fetch('/api/jira/settings', {
+      const url = teamId
+        ? `/api/jira/settings?team_id=${encodeURIComponent(teamId)}`
+        : '/api/jira/settings'
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -580,30 +584,61 @@ export default function OrganizationPage() {
 
     try {
       const token = localStorage.getItem('accessToken')
-      
+      if (!token) return
+
       const saveData: any = { ...jiraForm }
       if (!saveData.apiToken && jiraIntegration) {
         saveData.apiToken = undefined
       }
-      
-      const response = await fetch('/api/jira/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(saveData)
-      })
 
-      const data = await response.json()
-      if (data.success) {
-        setMessage({ type: 'success', text: 'Jira integration saved successfully' })
-        setJiraForm(prev => ({ ...prev, apiToken: '' }))
-        await loadJiraIntegration()
-        setJiraStep('credentials')
-        loadAvailableProjects()
+      // When on Organization Integrations and org has teams, save to all teams so every member sees "Add to Jira"
+      if (currentOrg && teams.length > 0) {
+        let allOk = true
+        let lastError: string | null = null
+        for (const team of teams) {
+          const response = await fetch('/api/jira/settings', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ ...saveData, teamId: team.id })
+          })
+          const data = await response.json()
+          if (!data.success) {
+            allOk = false
+            lastError = data.error || 'Failed to save'
+          }
+        }
+        if (allOk) {
+          setMessage({ type: 'success', text: 'Jira integration saved for all teams. Members can now add backlog items to Jira.' })
+          setJiraForm(prev => ({ ...prev, apiToken: '' }))
+          const teamIdForOrg = teams[0]?.id
+          await loadJiraIntegration(teamIdForOrg)
+          setJiraStep('credentials')
+          loadAvailableProjects()
+        } else {
+          setMessage({ type: 'error', text: lastError || 'Failed to save Jira integration for some teams' })
+        }
       } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to save Jira integration' })
+        const response = await fetch('/api/jira/settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(saveData)
+        })
+        const data = await response.json()
+        if (data.success) {
+          setMessage({ type: 'success', text: 'Jira integration saved successfully' })
+          setJiraForm(prev => ({ ...prev, apiToken: '' }))
+          await loadJiraIntegration()
+          setJiraStep('credentials')
+          loadAvailableProjects()
+        } else {
+          setMessage({ type: 'error', text: data.error || 'Failed to save Jira integration' })
+        }
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to save Jira integration' })
@@ -618,28 +653,55 @@ export default function OrganizationPage() {
 
     try {
       const token = localStorage.getItem('accessToken')
-      const response = await fetch('/api/jira/settings', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      if (!token) return
 
-      const data = await response.json()
-      if (data.success) {
-        setMessage({ type: 'success', text: 'Jira integration disconnected' })
-        setJiraIntegration(null)
-        setJiraForm({
-          jiraUrl: '',
-          email: '',
-          apiToken: '',
-          projectKey: '',
-          issueType: 'Bug',
-          autoSyncEnabled: false
-        })
-        setJiraStep('credentials')
+      // When on Organization Integrations and org has teams, disconnect from all teams
+      if (currentOrg && teams.length > 0) {
+        let allOk = true
+        for (const team of teams) {
+          const response = await fetch(`/api/jira/settings?team_id=${encodeURIComponent(team.id)}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+          const data = await response.json()
+          if (!data.success) allOk = false
+        }
+        if (allOk) {
+          setMessage({ type: 'success', text: 'Jira integration disconnected for all teams' })
+          setJiraIntegration(null)
+          setJiraForm({
+            jiraUrl: '',
+            email: '',
+            apiToken: '',
+            projectKey: '',
+            issueType: 'Bug',
+            autoSyncEnabled: false
+          })
+          setJiraStep('credentials')
+        } else {
+          setMessage({ type: 'error', text: 'Failed to disconnect Jira integration for some teams' })
+        }
       } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to disconnect Jira integration' })
+        const response = await fetch('/api/jira/settings', {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const data = await response.json()
+        if (data.success) {
+          setMessage({ type: 'success', text: 'Jira integration disconnected' })
+          setJiraIntegration(null)
+          setJiraForm({
+            jiraUrl: '',
+            email: '',
+            apiToken: '',
+            projectKey: '',
+            issueType: 'Bug',
+            autoSyncEnabled: false
+          })
+          setJiraStep('credentials')
+        } else {
+          setMessage({ type: 'error', text: data.error || 'Failed to disconnect Jira integration' })
+        }
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to disconnect Jira integration' })
@@ -648,14 +710,17 @@ export default function OrganizationPage() {
     }
   }
 
-  const loadAzureDevOpsIntegration = async () => {
+  const loadAzureDevOpsIntegration = async (teamId?: string) => {
     try {
       const token = localStorage.getItem('accessToken')
       if (!token) {
         return
       }
 
-      const response = await fetch('/api/azure-devops/settings', {
+      const url = teamId
+        ? `/api/azure-devops/settings?team_id=${encodeURIComponent(teamId)}`
+        : '/api/azure-devops/settings'
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -875,29 +940,59 @@ export default function OrganizationPage() {
 
     try {
       const token = localStorage.getItem('accessToken')
-      
+      if (!token) return
+
       const saveData: any = { ...azureDevOpsForm }
       if (!saveData.pat && azureDevOpsIntegration) {
         saveData.pat = undefined
       }
-      
-      const response = await fetch('/api/azure-devops/settings', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(saveData)
-      })
 
-      const data = await response.json()
-      if (data.success) {
-        setMessage({ type: 'success', text: 'Azure DevOps integration saved successfully' })
-        setAzureDevOpsForm(prev => ({ ...prev, pat: '' }))
-        await loadAzureDevOpsIntegration()
-        loadAvailableProjects()
+      // When on Organization Integrations and org has teams, save to all teams so every member sees "Add to Azure DevOps"
+      if (currentOrg && teams.length > 0) {
+        let allOk = true
+        let lastError: string | null = null
+        for (const team of teams) {
+          const response = await fetch('/api/azure-devops/settings', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ ...saveData, teamId: team.id })
+          })
+          const data = await response.json()
+          if (!data.success) {
+            allOk = false
+            lastError = data.error || 'Failed to save'
+          }
+        }
+        if (allOk) {
+          setMessage({ type: 'success', text: 'Azure DevOps integration saved for all teams. Members can now add backlog items to Azure DevOps.' })
+          setAzureDevOpsForm(prev => ({ ...prev, pat: '' }))
+          const teamIdForOrg = teams[0]?.id
+          await loadAzureDevOpsIntegration(teamIdForOrg)
+          loadAvailableProjects()
+        } else {
+          setMessage({ type: 'error', text: lastError || 'Failed to save Azure DevOps integration for some teams' })
+        }
       } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to save Azure DevOps integration' })
+        const response = await fetch('/api/azure-devops/settings', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(saveData)
+        })
+        const data = await response.json()
+        if (data.success) {
+          setMessage({ type: 'success', text: 'Azure DevOps integration saved successfully' })
+          setAzureDevOpsForm(prev => ({ ...prev, pat: '' }))
+          await loadAzureDevOpsIntegration()
+          loadAvailableProjects()
+        } else {
+          setMessage({ type: 'error', text: data.error || 'Failed to save Azure DevOps integration' })
+        }
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to save Azure DevOps integration' })
@@ -912,29 +1007,57 @@ export default function OrganizationPage() {
 
     try {
       const token = localStorage.getItem('accessToken')
-      const response = await fetch('/api/azure-devops/settings', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      if (!token) return
 
-      const data = await response.json()
-      if (data.success) {
-        setMessage({ type: 'success', text: 'Azure DevOps integration disconnected' })
-        setAzureDevOpsIntegration(null)
-        setAzureDevOpsForm({
-          organization: '',
-          project: '',
-          pat: '',
-          workItemType: 'Bug',
-          areaPath: '',
-          iterationPath: '',
-          autoSyncEnabled: false
-        })
-        loadAvailableProjects()
+      // When on Organization Integrations and org has teams, disconnect from all teams
+      if (currentOrg && teams.length > 0) {
+        let allOk = true
+        for (const team of teams) {
+          const response = await fetch(`/api/azure-devops/settings?team_id=${encodeURIComponent(team.id)}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+          const data = await response.json()
+          if (!data.success) allOk = false
+        }
+        if (allOk) {
+          setMessage({ type: 'success', text: 'Azure DevOps integration disconnected for all teams' })
+          setAzureDevOpsIntegration(null)
+          setAzureDevOpsForm({
+            organization: '',
+            project: '',
+            pat: '',
+            workItemType: 'Bug',
+            areaPath: '',
+            iterationPath: '',
+            autoSyncEnabled: false
+          })
+          loadAvailableProjects()
+        } else {
+          setMessage({ type: 'error', text: 'Failed to disconnect Azure DevOps integration for some teams' })
+        }
       } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to disconnect Azure DevOps integration' })
+        const response = await fetch('/api/azure-devops/settings', {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const data = await response.json()
+        if (data.success) {
+          setMessage({ type: 'success', text: 'Azure DevOps integration disconnected' })
+          setAzureDevOpsIntegration(null)
+          setAzureDevOpsForm({
+            organization: '',
+            project: '',
+            pat: '',
+            workItemType: 'Bug',
+            areaPath: '',
+            iterationPath: '',
+            autoSyncEnabled: false
+          })
+          loadAvailableProjects()
+        } else {
+          setMessage({ type: 'error', text: data.error || 'Failed to disconnect Azure DevOps integration' })
+        }
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to disconnect Azure DevOps integration' })

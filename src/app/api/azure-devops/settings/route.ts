@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
-import { query, queryOne } from '@/lib/database'
+import { query, queryOne, queryMany } from '@/lib/database'
 import { encryptTokenForStorage, decryptTokenFromStorage } from '@/lib/jira-encryption-service'
 import { AzureDevOpsClient } from '@/lib/azure-devops-client'
 import { checkPermission } from '@/lib/role-service'
@@ -254,6 +254,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // When admin/owner saves a personal integration, treat it as the organization's: apply to all teams so all members see it
+    if (!teamId) {
+      const orgAsAdmin = await queryOne(
+        `SELECT organization_id FROM organization_members
+         WHERE user_id = $1 AND role IN ('owner', 'admin') AND is_active = true
+         LIMIT 1`,
+        [user.userId]
+      )
+      if (orgAsAdmin?.organization_id) {
+        const teams = await queryMany(
+          `SELECT id FROM teams WHERE organization_id = $1`,
+          [orgAsAdmin.organization_id]
+        )
+        for (const row of teams) {
+          const tid = row.id
+          const teamExisting = await queryOne('SELECT id FROM azure_devops_integrations WHERE team_id = $1', [tid])
+          if (teamExisting) {
+            await query(
+              `UPDATE azure_devops_integrations SET organization = $1, project = $2, encrypted_pat = $3,
+                work_item_type = $4, area_path = $5, iteration_path = $6, auto_sync_enabled = $7, is_active = true, updated_at = NOW()
+               WHERE team_id = $8`,
+              [organization, project, encryptedPat, workItemType || 'Bug', areaPath || null, iterationPath || null, autoSyncEnabled ?? false, tid]
+            )
+          } else {
+            await query(
+              `INSERT INTO azure_devops_integrations (user_id, team_id, organization, project, encrypted_pat, work_item_type, area_path, iteration_path, auto_sync_enabled, is_active)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)`,
+              [user.userId, tid, organization, project, encryptedPat, workItemType || 'Bug', areaPath || null, iterationPath || null, autoSyncEnabled ?? false]
+            )
+          }
+        }
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Azure DevOps integration saved successfully'
@@ -315,6 +349,21 @@ export async function DELETE(request: NextRequest) {
         'UPDATE azure_devops_integrations SET is_active = false, updated_at = NOW() WHERE user_id = $1 AND team_id IS NULL',
         [user.userId]
       )
+      // Admin's personal integration is the org's: also remove from all teams in their org
+      const orgAsAdmin = await queryOne(
+        `SELECT organization_id FROM organization_members
+         WHERE user_id = $1 AND role IN ('owner', 'admin') AND is_active = true LIMIT 1`,
+        [user.userId]
+      )
+      if (orgAsAdmin?.organization_id) {
+        const teams = await queryMany(`SELECT id FROM teams WHERE organization_id = $1`, [orgAsAdmin.organization_id])
+        for (const row of teams) {
+          await query(
+            'UPDATE azure_devops_integrations SET is_active = false, updated_at = NOW() WHERE team_id = $1',
+            [row.id]
+          )
+        }
+      }
     }
 
     return NextResponse.json({
