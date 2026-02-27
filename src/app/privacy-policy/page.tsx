@@ -67,7 +67,7 @@ export default function PrivacyPolicyPage() {
                     When you perform accessibility scans, we store:
                   </p>
                   <ul className="list-disc list-inside text-gray-700 space-y-1">
-                    <li>Scan metadata (scan type, date, duration, pages analyzed)</li>
+                    <li>Scan metadata (scan type, date, duration, pages analysed)</li>
                     <li>Accessibility issues found (descriptions, locations, recommendations)</li>
                     <li>Compliance scores and summaries</li>
                     <li>File metadata (filename, file type, file size) - <strong>NOT the actual file content</strong></li>
@@ -146,7 +146,7 @@ export default function PrivacyPolicyPage() {
                 <li><strong>Account Management:</strong> To manage your account, process payments, and provide customer support</li>
                 <li><strong>Communication:</strong> To send you verification emails, notifications, and important service updates</li>
                 <li><strong>Security:</strong> To detect, prevent, and address security issues and fraudulent activity</li>
-                <li><strong>Analytics:</strong> To analyze usage patterns and improve our platform's performance and features</li>
+                <li><strong>Analytics:</strong> To analyse usage patterns and improve our platform's performance and features</li>
                 <li><strong>Compliance:</strong> To comply with legal obligations and enforce our Terms of Service</li>
               </ul>
             </section>

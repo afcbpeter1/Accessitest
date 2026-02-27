@@ -1449,7 +1449,7 @@ export default function SettingsPage() {
                   <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
                       <strong>Note:</strong> This is your personal Jira integration. To configure team-specific integrations, 
-                      go to the Organization page and set them up there. Team integrations will be available when syncing issues.
+                      go to the Organisation page and set them up there. Team integrations will be available when syncing issues.
                     </p>
                   </div>
 
@@ -1910,13 +1910,13 @@ export default function SettingsPage() {
                   <div className="card">
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">Azure DevOps Integration</h2>
                     <p className="text-sm text-gray-600 mb-6">
-                      Connect your Azure DevOps organization to create work items from accessibility scan results.
+                      Connect your Azure DevOps organisation to create work items from accessibility scan results.
                     </p>
 
                     <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-sm text-blue-800">
                         <strong>Note:</strong> This is your personal Azure DevOps integration. To configure team-specific integrations, 
-                        go to the Organization page and set them up there. Team integrations will be available when syncing issues.
+                        go to the Organisation page and set them up there. Team integrations will be available when syncing issues.
                       </p>
                     </div>
 
@@ -1930,7 +1930,7 @@ export default function SettingsPage() {
                             </div>
                             <div className="space-y-1 text-sm text-green-800">
                               <p>
-                                <span className="font-medium">Organization:</span> {azureDevOpsIntegration.organization || 'Not set'}
+                                <span className="font-medium">Organisation:</span> {azureDevOpsIntegration.organization || 'Not set'}
                               </p>
                               <p>
                                 <span className="font-medium">Project:</span> {azureDevOpsIntegration.project || 'Not set'} | 
@@ -1957,7 +1957,7 @@ export default function SettingsPage() {
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Organization
+                          Organisation
                         </label>
                         <input
                           type="text"
@@ -1967,7 +1967,7 @@ export default function SettingsPage() {
                           onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, organization: e.target.value })}
                         />
                         <p className="text-xs text-gray-500 mt-1">
-                          Your Azure DevOps organization name (e.g., "a11ytest" from https://dev.azure.com/a11ytest)
+                          Your Azure DevOps organisation name (e.g., "a11ytest" from https://dev.azure.com/a11ytest)
                         </p>
                       </div>
                       <div>

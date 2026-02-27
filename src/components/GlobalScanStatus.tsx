@@ -49,7 +49,7 @@ export default function GlobalScanStatus() {
             case 'scanning':
               return 'Scanning Pages'
             case 'analyzing':
-              return 'Analyzing Results'
+              return 'Analysing Results'
             case 'complete':
               return 'Scan Complete'
             case 'error':

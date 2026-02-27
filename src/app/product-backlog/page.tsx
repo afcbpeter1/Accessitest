@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { Plus, MessageSquare, Copy, Trash2, Edit3, CheckCircle, Clock, XCircle, MoreHorizontal, ChevronDown, ExternalLink, CheckSquare } from 'lucide-react'
+import { Plus, MessageSquare, Copy, Trash2, Edit3, CheckCircle, Clock, XCircle, MoreHorizontal, ChevronDown, ExternalLink, CheckSquare, Loader2 } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import IssueDetailModal from '@/components/IssueDetailModal'
@@ -89,6 +89,7 @@ export default function ProductBacklog() {
   const [syncingToJira, setSyncingToJira] = useState<string | null>(null)
   const [azureDevOpsIntegration, setAzureDevOpsIntegration] = useState<any>(null)
   const [syncingToAzureDevOps, setSyncingToAzureDevOps] = useState<string | null>(null)
+  const [syncingBulkIntegration, setSyncingBulkIntegration] = useState<'jira' | 'azure' | null>(null)
   const { showToast, ToastContainer } = useToast()
 
   useEffect(() => {
@@ -247,6 +248,92 @@ export default function ProductBacklog() {
     } finally {
       setSyncingToAzureDevOps(null)
     }
+  }
+
+  const handleAddSelectedToJira = async () => {
+    const items = backlogItems.filter((item) => selectedItems.has(item.id) && item.issue_id)
+    if (items.length === 0) {
+      showToast('No selected items with valid issue IDs', 'error')
+      return
+    }
+    setSyncingBulkIntegration('jira')
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      showToast('Authentication required', 'error')
+      setSyncingBulkIntegration(null)
+      return
+    }
+    let added = 0
+    let alreadyInJira = 0
+    let failed = 0
+    for (let i = 0; i < items.length; i++) {
+      try {
+        const response = await fetch('/api/jira/tickets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ issueId: items[i].issue_id })
+        })
+        const data = await response.json()
+        if (data.success) {
+          if (data.existing) alreadyInJira++
+          else added++
+        } else {
+          failed++
+        }
+      } catch {
+        failed++
+      }
+    }
+    setSyncingBulkIntegration(null)
+    fetchBacklogItems()
+    const parts = []
+    if (added) parts.push(`${added} added`)
+    if (alreadyInJira) parts.push(`${alreadyInJira} already in Jira`)
+    if (failed) parts.push(`${failed} failed`)
+    if (parts.length) showToast(parts.join(', '), failed === items.length ? 'error' : 'success')
+  }
+
+  const handleAddSelectedToAzureDevOps = async () => {
+    const items = backlogItems.filter((item) => selectedItems.has(item.id) && item.issue_id)
+    if (items.length === 0) {
+      showToast('No selected items with valid issue IDs', 'error')
+      return
+    }
+    setSyncingBulkIntegration('azure')
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      showToast('Authentication required', 'error')
+      setSyncingBulkIntegration(null)
+      return
+    }
+    let added = 0
+    let alreadyInAdo = 0
+    let failed = 0
+    for (let i = 0; i < items.length; i++) {
+      try {
+        const response = await fetch('/api/azure-devops/work-items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ issueId: items[i].issue_id })
+        })
+        const data = await response.json()
+        if (data.success) {
+          if (data.existing) alreadyInAdo++
+          else added++
+        } else {
+          failed++
+        }
+      } catch {
+        failed++
+      }
+    }
+    setSyncingBulkIntegration(null)
+    fetchBacklogItems()
+    const parts = []
+    if (added) parts.push(`${added} added`)
+    if (alreadyInAdo) parts.push(`${alreadyInAdo} already in Azure DevOps`)
+    if (failed) parts.push(`${failed} failed`)
+    if (parts.length) showToast(parts.join(', '), failed === items.length ? 'error' : 'success')
   }
 
   // Close dropdown when clicking outside
@@ -636,13 +723,53 @@ ${item.element_html || 'N/A'}
                       )}
                     </div>
                     {selectedItems.size > 0 && (
-                      <button
-                        onClick={() => setShowBulkDeleteConfirm(true)}
-                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center gap-2"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete Selected ({selectedItems.size})
-                      </button>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {jiraIntegration && (
+                          <button
+                            onClick={handleAddSelectedToJira}
+                            disabled={!!syncingBulkIntegration}
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-2 disabled:opacity-50"
+                          >
+                            {syncingBulkIntegration === 'jira' ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Adding to Jira...
+                              </>
+                            ) : (
+                              <>
+                                <ExternalLink className="h-4 w-4" />
+                                Add selected to Jira ({selectedItems.size})
+                              </>
+                            )}
+                          </button>
+                        )}
+                        {azureDevOpsIntegration && (
+                          <button
+                            onClick={handleAddSelectedToAzureDevOps}
+                            disabled={!!syncingBulkIntegration}
+                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-2 disabled:opacity-50"
+                          >
+                            {syncingBulkIntegration === 'azure' ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Adding to Azure DevOps...
+                              </>
+                            ) : (
+                              <>
+                                <ExternalLink className="h-4 w-4" />
+                                Add selected to Azure DevOps ({selectedItems.size})
+                              </>
+                            )}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setShowBulkDeleteConfirm(true)}
+                          className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center gap-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete Selected ({selectedItems.size})
+                        </button>
+                      </div>
                     )}
                   </div>
                   
@@ -819,7 +946,7 @@ ${item.element_html || 'N/A'}
                                               ) : (
                                                 <div className="px-3 py-2 text-xs text-gray-500">
                                                   <span>Add to Jira</span>
-                                                  <p className="mt-1 text-gray-400">Ask your admin to connect Jira in Organization settings.</p>
+                                                  <p className="mt-1 text-gray-400">Ask your admin to connect Jira in Organisation settings.</p>
                                                   <a href="/organization" className="text-blue-600 hover:underline mt-1 inline-block">Organization settings</a>
                                                 </div>
                                               )}
@@ -838,7 +965,7 @@ ${item.element_html || 'N/A'}
                                               ) : (
                                                 <div className="px-3 py-2 text-xs text-gray-500 border-t border-gray-100">
                                                   <span>Add to Azure DevOps</span>
-                                                  <p className="mt-1 text-gray-400">Ask your admin to connect Azure DevOps in Organization settings.</p>
+                                                  <p className="mt-1 text-gray-400">Ask your admin to connect Azure DevOps in Organisation settings.</p>
                                                   <a href="/organization" className="text-blue-600 hover:underline mt-1 inline-block">Organization settings</a>
                                                 </div>
                                               )}

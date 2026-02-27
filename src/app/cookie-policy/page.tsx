@@ -36,7 +36,7 @@ export default function CookiePolicyPage() {
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">How We Use Cookies</h2>
               <p className="text-gray-700 leading-relaxed mb-4">
                 A11ytest.ai uses cookies and similar technologies to enhance your browsing experience, 
-                analyze site traffic, personalize content, and improve our services. We only use cookies 
+                analyse site traffic, personalise content, and improve our services. We only use cookies 
                 that are necessary for the website to function properly and to provide you with the best 
                 possible experience.
               </p>
@@ -80,7 +80,7 @@ export default function CookiePolicyPage() {
                       <ul className="list-disc list-inside text-gray-700 space-y-1">
                         <li>Track page views and user interactions</li>
                         <li>Analyze site performance and identify issues</li>
-                        <li>Understand user behavior to improve our services</li>
+                        <li>Understand user behaviour to improve our services</li>
                       </ul>
                       <p className="text-sm text-gray-600 mt-3 italic">
                         These cookies are optional and can be disabled in your cookie preferences.

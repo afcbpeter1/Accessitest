@@ -240,7 +240,7 @@ function getContrastDescription(ratio: number, level: string): { description: st
   
   const recommendations = {
     AAA: 'This color combination provides excellent accessibility for all users.',
-    AA: 'This color combination meets standard accessibility requirements.',
+    AA: 'This colour combination meets standard accessibility requirements.',
     'AA Large': 'Consider using this combination only for large text or increase contrast for smaller text.',
     Fail: 'Consider using colors with higher contrast or use this combination only for decorative elements.'
   }
@@ -397,7 +397,7 @@ export async function POST(request: NextRequest) {
     console.error('Logo contrast check error:', error)
     return NextResponse.json({ 
       success: false, 
-      error: 'Failed to analyze image. Please try again.' 
+      error: 'Failed to analyse image. Please try again.' 
     }, { status: 500 })
   }
 }

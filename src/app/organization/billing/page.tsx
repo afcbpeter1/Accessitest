@@ -25,7 +25,7 @@ function BillingPageContent() {
       }, 3000)
     } else if (canceled === 'true') {
       setStatus('error')
-      setMessage('Payment was canceled. No charges were made.')
+      setMessage('Payment was cancelled. No charges were made.')
       
       // Redirect to organization page after 3 seconds
       setTimeout(() => {
@@ -60,7 +60,7 @@ function BillingPageContent() {
           {status === 'error' && (
             <>
               <AlertCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Canceled</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Cancelled</h2>
               <p className="text-gray-600 mb-4">{message}</p>
               <p className="text-sm text-gray-500">Redirecting to organization page...</p>
             </>

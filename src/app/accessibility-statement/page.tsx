@@ -76,10 +76,10 @@ export default function AccessibilityStatementPage() {
                     <div>
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">Visual Accessibility</h3>
                       <ul className="list-disc list-inside text-gray-700 space-y-1">
-                        <li>Sufficient color contrast ratios (WCAG AA compliant)</li>
+                        <li>Sufficient colour contrast ratios (WCAG AA compliant)</li>
                         <li>Text can be resized up to 200% without loss of functionality</li>
                         <li>High contrast mode support</li>
-                        <li>Grayscale mode for color vision deficiencies</li>
+                        <li>Grayscale mode for colour vision deficiencies</li>
                         <li>Alternative text for images and icons</li>
                       </ul>
                     </div>
@@ -167,7 +167,7 @@ export default function AccessibilityStatementPage() {
                 <li>Automated testing using axe-core accessibility testing engine</li>
                 <li>Manual testing with keyboard-only navigation</li>
                 <li>Screen reader testing with NVDA and JAWS</li>
-                <li>Color contrast analysis</li>
+                <li>Colour contrast analysis</li>
                 <li>User feedback and testing</li>
               </ul>
             </section>

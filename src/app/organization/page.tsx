@@ -163,7 +163,7 @@ export default function OrganizationPage() {
     }
     
     if (canceled === 'true') {
-      setMessage({ type: 'error', text: 'Payment canceled. No charge was made.' })
+      setMessage({ type: 'error', text: 'Payment cancelled. No charge was made.' })
       if (typeof window !== 'undefined' && window.history.replaceState) {
         const u = new URL(window.location.href)
         u.searchParams.delete('canceled')
@@ -1309,7 +1309,7 @@ export default function OrganizationPage() {
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Organization</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Organisation</h1>
               <p className="text-gray-600 mt-1">Manage your teams, members, and billing</p>
             </div>
           </div>
@@ -1334,8 +1334,8 @@ export default function OrganizationPage() {
           {organizations.length === 0 ? (
             <div className="text-center py-12 bg-white rounded-lg shadow">
               <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Loading organization...</h3>
-              <p className="text-gray-600">Your organization should be created automatically</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Loading organisation...</h3>
+              <p className="text-gray-600">Your organisation should be created automatically</p>
             </div>
           ) : (
             <div>
@@ -1347,10 +1347,10 @@ export default function OrganizationPage() {
                       <nav className="flex space-x-8 px-6">
                         {[
                           { id: 'overview', name: 'Overview', icon: Building2, roles: ['owner', 'admin', 'user'] },
-                          { id: 'members', name: 'Members', icon: Users, roles: ['owner', 'admin', 'user'] },
-                          { id: 'teams', name: 'Teams', icon: Users, roles: ['owner', 'admin'] },
+                          { id: 'billing', name: 'Billing', icon: CreditCard, roles: ['owner', 'admin'] },
                           { id: 'integrations', name: 'Integrations', icon: Settings, roles: ['owner', 'admin'] },
-                          { id: 'billing', name: 'Billing', icon: CreditCard, roles: ['owner', 'admin'] }
+                          { id: 'teams', name: 'Teams', icon: Users, roles: ['owner', 'admin'] },
+                          { id: 'members', name: 'Members', icon: Users, roles: ['owner', 'admin', 'user'] }
                         ]
                         .filter((tab) => {
                           // Hide tabs that user doesn't have access to
@@ -2206,7 +2206,7 @@ export default function OrganizationPage() {
                             <div className="card">
                               <h2 className="text-lg font-semibold text-gray-900 mb-4">Azure DevOps Integration</h2>
                               <p className="text-sm text-gray-600 mb-6">
-                                Connect your Azure DevOps organization to create work items from accessibility scan results.
+                                Connect your Azure DevOps organisation to create work items from accessibility scan results.
                               </p>
 
                               {azureDevOpsIntegration && (
@@ -2219,7 +2219,7 @@ export default function OrganizationPage() {
                                       </div>
                                       <div className="space-y-1 text-sm text-green-800">
                                         <p>
-                                          <span className="font-medium">Organization:</span> {azureDevOpsIntegration.organization || 'Not set'}
+                                          <span className="font-medium">Organisation:</span> {azureDevOpsIntegration.organization || 'Not set'}
                                         </p>
                                         <p>
                                           <span className="font-medium">Project:</span> {azureDevOpsIntegration.project || 'Not set'} | 
@@ -2246,7 +2246,7 @@ export default function OrganizationPage() {
                               <div className="space-y-4">
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Organization
+                                    Organisation
                                   </label>
                                   <input
                                     type="text"
@@ -2256,7 +2256,7 @@ export default function OrganizationPage() {
                                     onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, organization: e.target.value })}
                                   />
                                   <p className="text-xs text-gray-500 mt-1">
-                                    Your Azure DevOps organization name (e.g., "a11ytest" from https://dev.azure.com/a11ytest)
+                                    Your Azure DevOps organisation name (e.g., "a11ytest" from https://dev.azure.com/a11ytest)
                                   </p>
                                 </div>
                                 <div>

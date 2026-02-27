@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Azure DevOps organization and PAT are required. Please configure Azure DevOps in settings or provide them in the request.'
+          error: 'Azure DevOps organisation and PAT are required. Please configure Azure DevOps in settings or provide them in the request.'
         },
         { status: 400 }
       )

@@ -380,7 +380,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     { tag: '1194.22b', name: 'Media Alternatives', description: 'Video and audio must have captions or alternatives' },
     { tag: '1194.22c', name: 'Information Relationships', description: 'Document structure must preserve information relationships' },
     { tag: '1194.22d', name: 'Meaningful Sequence', description: 'Content must be presented in a meaningful sequence' },
-    { tag: '1194.22e', name: 'Color Usage', description: 'Information must not be conveyed by color alone' },
+    { tag: '1194.22e', name: 'Colour Usage', description: 'Information must not be conveyed by colour alone' },
     { tag: '1194.22f', name: 'Contrast', description: 'Text must have sufficient contrast ratio' },
     { tag: '1194.22g', name: 'Visual Presentation', description: 'Visual presentation must not interfere with readability' },
     { tag: '1194.22h', name: 'Keyboard Accessibility', description: 'All functionality must be keyboard accessible' },
@@ -1205,7 +1205,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     )
 
     addScanLog('🔍 Starting document accessibility scan...')
-    addScanLog('🤖 AI will analyze issues and provide suggestions')
+    addScanLog('🤖 AI will analyse issues and provide suggestions')
     
     // Track scan started (only if analytics enabled)
     const scanStartTime = Date.now()

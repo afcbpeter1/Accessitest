@@ -36,7 +36,7 @@ const navigation = [
   { name: 'Product Backlog', href: '/product-backlog', icon: AlertTriangle, current: false },
   { name: 'Sprint Board', href: '/sprint-board', icon: Target, current: false },
   { name: 'Scan History', href: '/scan-history', icon: History, current: false },
-  { name: 'Organizations', href: '/organization', icon: Building2, current: false },
+  { name: 'Organisations', href: '/organization', icon: Building2, current: false },
   { name: 'Pricing', href: '/pricing', icon: DollarSign, current: false },
   { name: 'Settings', href: '/settings', icon: Settings, current: false },
 ]
@@ -471,7 +471,7 @@ export default function Sidebar({ children }: SidebarProps) {
             {navigation
               .filter((item) => {
                 // Hide Organizations tab for regular users (only show for owner/admin)
-                if (item.name === 'Organizations') {
+                if (item.name === 'Organisations') {
                   return user?.organizationRole === 'owner' || user?.organizationRole === 'admin'
                 }
                 return true

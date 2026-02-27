@@ -85,7 +85,7 @@ function buildRemediationSteps(issue: LocalIssue): string {
         sections.push(`<li>Review the issue description and apply appropriate fixes</li>`)
       }
       sections.push(`<li>Test the changes using browser developer tools</li>`)
-      sections.push(`<li>Verify color contrast meets WCAG ${issue.wcag_level || 'AA'} standards</li>`)
+      sections.push(`<li>Verify colour contrast meets WCAG ${issue.wcag_level || 'AA'} standards</li>`)
       sections.push(`<li>Test with screen readers and accessibility tools</li>`)
       sections.push(`<li>Re-scan the page to confirm the issue is resolved</li>`)
       sections.push(`</ol>`)
@@ -324,7 +324,7 @@ function buildDescription(issue: LocalIssue, includeRemediationSteps: boolean = 
           'Review the affected elements listed below',
           'Apply the CSS fixes provided in the code examples',
           'Test the changes using browser developer tools',
-          'Verify color contrast meets WCAG standards',
+          'Verify colour contrast meets WCAG standards',
           'Test with screen readers and accessibility tools',
           'Re-scan the page to confirm the issue is resolved'
         ]

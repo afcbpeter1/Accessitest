@@ -22,15 +22,15 @@ interface AccessibilityIssue {
 const initialIssues: AccessibilityIssue[] = [
   {
     id: 'color-contrast-1',
-    title: 'Insufficient Color Contrast',
-    description: 'Text color is too light against the background',
+    title: 'Insufficient Colour Contrast',
+    description: 'Text colour is too light against the background',
     wcagLevel: 'AA',
     impact: 'serious',
     category: 'color',
     html: '<p style="color: #999999; background: white;">This text has poor contrast</p>',
     fixedHtml: '<p style="color: #000000; background: white;">This text has good contrast</p>',
     explanation: 'Text must have a contrast ratio of at least 4.5:1 for normal text and 3:1 for large text to meet WCAG AA standards. Black (#000000) on white provides 21:1 contrast ratio.',
-    hint: 'Try changing the text color to black (#000000) or another dark color',
+    hint: 'Try changing the text colour to black (#000000) or another dark colour',
     isFixed: false
   },
   {
@@ -204,7 +204,7 @@ const initialIssues: AccessibilityIssue[] = [
   },
   {
     id: 'insufficient-color-contrast-2',
-    title: 'Insufficient Color Contrast (Link)',
+    title: 'Insufficient Colour Contrast (Link)',
     description: 'Link text has poor contrast against background',
     wcagLevel: 'AA',
     impact: 'serious',
@@ -212,7 +212,7 @@ const initialIssues: AccessibilityIssue[] = [
     html: '<a href="#" style="color: #999999; background: white;">Visit our website</a>',
     fixedHtml: '<a href="#" style="color: #0066cc; background: white;">Visit our website</a>',
     explanation: 'Link text must have sufficient contrast ratio (4.5:1) for normal text to meet WCAG AA standards.',
-    hint: 'Change the link color to a darker shade like #0066cc',
+    hint: 'Change the link colour to a darker shade like #0066cc',
     isFixed: false
   },
   {
@@ -270,7 +270,7 @@ export default function AccessibilityPlayground() {
     switch (selectedIssue.id) {
       case 'color-contrast-1':
         // Check for dark colors that meet WCAG AA contrast (4.5:1 ratio)
-        // Black (#000000), dark gray (#333333), etc. on white background
+        // Black (#000000), dark grey (#333333), etc. on white background
         isCorrect = userCode.includes('#000000') || 
                    userCode.includes('#333333') || 
                    userCode.includes('#222222') ||

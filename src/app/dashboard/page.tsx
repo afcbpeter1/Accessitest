@@ -277,7 +277,7 @@ function DashboardContent() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Accessibility Dashboard</h1>
-            <p className="text-sm sm:text-base text-gray-600">Track and analyze your website accessibility over time</p>
+            <p className="text-sm sm:text-base text-gray-600">Track and analyse your website accessibility over time</p>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4">
             <button
@@ -448,7 +448,7 @@ function DashboardContent() {
                             </div>
                             {data.pagesAnalyzed > 1 && (
                               <div className="text-xs text-gray-500 mt-1">
-                                {data.pagesAnalyzed} page{data.pagesAnalyzed !== 1 ? 's' : ''} analyzed
+                                {data.pagesAnalyzed} page{data.pagesAnalyzed !== 1 ? 's' : ''} analysed
                               </div>
                             )}
                           </div>

@@ -206,7 +206,7 @@ export async function PUT(request: NextRequest) {
           return NextResponse.json(
             {
               success: false,
-              error: 'You must have an active monthly or yearly subscription before you can add users to your organization. Please subscribe first.'
+              error: 'You must have an active monthly or yearly subscription before you can add users to your organisation. Please subscribe first.'
             },
             { status: 400 }
           )

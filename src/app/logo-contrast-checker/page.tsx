@@ -49,7 +49,7 @@ export default function LogoContrastChecker() {
   
   // Screen reader announcements
   useScreenReaderAnnounce(error || '', 'assertive')
-  useScreenReaderAnnounce(isAnalyzing ? 'Analyzing logo contrast...' : '', 'polite')
+  useScreenReaderAnnounce(isAnalyzing ? 'Analysing logo contrast…' : '', 'polite')
 
   // Helper functions for contrast calculation
   const hexToRgb = (hex: string): [number, number, number] => {
@@ -93,7 +93,7 @@ export default function LogoContrastChecker() {
     }
     
     const recommendations = {
-      AAA: 'This color combination provides excellent accessibility for all users.',
+      AAA: 'This colour combination provides excellent accessibility for all users.',
       AA: 'This color combination meets standard accessibility requirements.',
       'AA Large': 'Consider using this combination only for large text or increase contrast for smaller text.',
       Fail: 'Consider using colors with higher contrast or use this combination only for decorative elements.'
@@ -242,7 +242,7 @@ export default function LogoContrastChecker() {
           console.log('Debug info:', data.debug)
         }
       } else {
-        setError(data.error || 'Failed to analyze image')
+        setError(data.error || 'Failed to analyse image')
       }
     } catch (error) {
       console.error('Image analysis error:', error)

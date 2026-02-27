@@ -136,7 +136,7 @@ export default function AAAComplianceExample() {
                 </div>
                 <p className="text-sm text-gray-600">Enhanced accessibility standards</p>
                 <ul className="text-xs text-gray-500 mt-2 space-y-1">
-                  <li>• Color contrast (4.5:1)</li>
+                  <li>• Colour contrast (4.5:1)</li>
                   <li>• Alt text for images</li>
                   <li>• Form labels</li>
                 </ul>
@@ -227,7 +227,7 @@ export default function AAAComplianceExample() {
                     <Info className="h-5 w-5 text-blue-600 mt-0.5" />
                     <div>
                       <p className="text-sm font-medium text-gray-900">Enhance for AAA Compliance</p>
-                      <p className="text-sm text-gray-600">Improve color contrast, focus indicators, and keyboard navigation for AAA standards.</p>
+                      <p className="text-sm text-gray-600">Improve colour contrast, focus indicators, and keyboard navigation for AAA standards.</p>
                     </div>
                   </div>
                 )}

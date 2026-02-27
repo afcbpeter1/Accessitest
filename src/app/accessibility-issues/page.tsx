@@ -249,7 +249,7 @@ export default function AccessibilityIssuesPage() {
           </div>
         </article>
 
-        {/* Issue 2: Color Contrast - Comprehensive Blog Post */}
+        {/* Issue 2: Colour Contrast - Comprehensive Blog Post */}
         <article className="mb-16">
           <div className="bg-white rounded-lg shadow-sm border p-8">
             <div className="flex items-start space-x-4 mb-6">
@@ -259,7 +259,7 @@ export default function AccessibilityIssuesPage() {
                 </div>
               </div>
               <div className="flex-1">
-                <h2 className="text-3xl font-bold text-gray-900 mb-3">2. Color Contrast: The Foundation of Readable Design</h2>
+                <h2 className="text-3xl font-bold text-gray-900 mb-3">2. Colour Contrast: The Foundation of Readable Design</h2>
                 <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4">
                   <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full">Critical Issue</span>
                   <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full">WCAG 2.2 AA</span>
@@ -270,11 +270,11 @@ export default function AccessibilityIssuesPage() {
             
             <div className="prose prose-lg max-w-none mb-8">
               <p className="text-lg text-gray-700 leading-relaxed mb-6">
-                Color contrast is the difference in light between text (or graphics) and their background colors. It's measured as a ratio ranging from 1:1 (no contrast) to 21:1 (maximum contrast). This seemingly simple concept is actually one of the most critical aspects of web accessibility, affecting millions of users worldwide.
+                Colour contrast is the difference in light between text (or graphics) and their background colours. It's measured as a ratio ranging from 1:1 (no contrast) to 21:1 (maximum contrast). This seemingly simple concept is actually one of the most critical aspects of web accessibility, affecting millions of users worldwide.
               </p>
 
               <p className="text-gray-700 leading-relaxed mb-6">
-                Why does color contrast matter so much? Consider that approximately 8% of men and 0.5% of women have some form of color vision deficiency. Additionally, many users experience temporary or permanent visual impairments due to aging, eye strain, or medical conditions. Poor contrast doesn't just make text harder to read—it can make it completely unreadable, effectively excluding users from your content.
+                Why does colour contrast matter so much? Consider that approximately 8% of men and 0.5% of women have some form of colour vision deficiency. Additionally, many users experience temporary or permanent visual impairments due to aging, eye strain, or medical conditions. Poor contrast doesn't just make text harder to read—it can make it completely unreadable, effectively excluding users from your content.
               </p>
 
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Understanding Contrast Ratios</h3>
@@ -308,14 +308,14 @@ export default function AccessibilityIssuesPage() {
               <h3 className="text-2xl font-bold text-gray-900 mb-4">The Real-World Impact of Poor Contrast</h3>
               
               <p className="text-gray-700 leading-relaxed mb-6">
-                Imagine trying to read important information on a website with light gray text on a white background. For users with visual impairments, this isn't just inconvenient—it's impossible. Consider these scenarios:
+                Imagine trying to read important information on a website with light grey text on a white background. For users with visual impairments, this isn't just inconvenient—it's impossible. Consider these scenarios:
               </p>
 
               <div className="bg-red-50 border-l-4 border-red-400 p-6 mb-6">
                 <h4 className="text-lg font-semibold text-red-800 mb-3">❌ Common Contrast Failures:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
-                    <p className="text-gray-400 text-lg mb-2">This light gray text on white background is nearly invisible</p>
+                    <p className="text-gray-400 text-lg mb-2">This light grey text on white background is nearly invisible</p>
                     <p className="text-sm text-red-600">Contrast ratio: 1.2:1 (fails AA by 275%)</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-2 rounded">color: #999999; background: #ffffff;</code>
                     <p className="text-sm text-red-600 mt-2">Impact: Users with visual impairments cannot read this text at all</p>
@@ -332,7 +332,7 @@ export default function AccessibilityIssuesPage() {
                     <p className="text-red-400 text-lg mb-2">Light red text on white background</p>
                     <p className="text-sm text-red-600">Contrast ratio: 2.1:1 (fails AA by 114%)</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-2 rounded">color: #ff9999; background: #ffffff;</code>
-                    <p className="text-sm text-red-600 mt-2">Impact: Particularly problematic for users with red-green color blindness</p>
+                    <p className="text-sm text-red-600 mt-2">Impact: Particularly problematic for users with red-green colour blindness</p>
                   </div>
                 </div>
               </div>
@@ -340,14 +340,14 @@ export default function AccessibilityIssuesPage() {
               <h3 className="text-2xl font-bold text-gray-900 mb-4">The Solution: Proper Contrast Implementation</h3>
               
               <p className="text-gray-700 leading-relaxed mb-6">
-                Achieving proper contrast doesn't mean sacrificing your design aesthetic. With careful color selection and testing, you can create beautiful, accessible designs that work for everyone. The key is understanding how to measure and implement contrast effectively.
+                Achieving proper contrast doesn't mean sacrificing your design aesthetic. With careful colour selection and testing, you can create beautiful, accessible designs that work for everyone. The key is understanding how to measure and implement contrast effectively.
               </p>
 
               <div className="bg-green-50 border-l-4 border-green-400 p-6 mb-6">
                 <h4 className="text-lg font-semibold text-green-800 mb-3">✅ Proper Contrast Examples:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
-                    <p className="text-gray-900 text-lg mb-2">Dark gray text on white background</p>
+                    <p className="text-gray-900 text-lg mb-2">Dark grey text on white background</p>
                     <p className="text-sm text-green-600">Contrast ratio: 21:1 (exceeds AAA by 200%)</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-2 rounded">color: #000000; background: #ffffff;</code>
                     <p className="text-sm text-green-600 mt-2">Impact: Excellent readability for all users</p>
@@ -392,7 +392,7 @@ export default function AccessibilityIssuesPage() {
                   </li>
                   <li className="flex items-start">
                     <span className="font-semibold mr-2">•</span>
-                    <span><strong>Color-only information:</strong> Never rely solely on color to convey information</span>
+                    <span><strong>Colour-only information:</strong> Never rely solely on colour to convey information</span>
                   </li>
                 </ul>
             </div>
@@ -408,7 +408,7 @@ export default function AccessibilityIssuesPage() {
                 <ul className="space-y-3 text-blue-800">
                   <li className="flex items-start">
                     <span className="font-semibold mr-2">•</span>
-                    <span><strong>WebAIM Contrast Checker:</strong> Free online tool for testing color combinations</span>
+                    <span><strong>WebAIM Contrast Checker:</strong> Free online tool for testing colour combinations</span>
                   </li>
                   <li className="flex items-start">
                     <span className="font-semibold mr-2">•</span>
@@ -416,7 +416,7 @@ export default function AccessibilityIssuesPage() {
                   </li>
                   <li className="flex items-start">
                     <span className="font-semibold mr-2">•</span>
-                    <span><strong>Color Oracle:</strong> Simulates different types of color vision deficiency</span>
+                    <span><strong>Colour Oracle:</strong> Simulates different types of colour vision deficiency</span>
                   </li>
                   <li className="flex items-start">
                     <span className="font-semibold mr-2">•</span>
@@ -430,7 +430,7 @@ export default function AccessibilityIssuesPage() {
             </div>
 
               <p className="text-gray-700 leading-relaxed mb-6">
-                Remember, color contrast isn't just about compliance—it's about creating inclusive experiences. When you design with proper contrast, you're ensuring that your content is accessible to users with visual impairments, those using devices in bright sunlight, and anyone experiencing temporary vision difficulties. This isn't just good accessibility practice; it's good design practice that benefits all users.
+                Remember, colour contrast isn't just about compliance—it's about creating inclusive experiences. When you design with proper contrast, you're ensuring that your content is accessible to users with visual impairments, those using devices in bright sunlight, and anyone experiencing temporary vision difficulties. This isn't just good accessibility practice; it's good design practice that benefits all users.
               </p>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
@@ -474,7 +474,7 @@ export default function AccessibilityIssuesPage() {
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Understanding the Problem</h3>
               
               <p className="text-gray-700 leading-relaxed mb-6">
-                When a screen reader encounters an unlabeled form field, it has no way to communicate the field's purpose to the user. This creates a fundamental barrier to completing any form-based task, from simple contact forms to complex multi-step registration processes. The user is left guessing what information to enter, leading to frustration and abandonment.
+                When a screen reader encounters an unlabelled form field, it has no way to communicate the field's purpose to the user. This creates a fundamental barrier to completing any form-based task, from simple contact forms to complex multi-step registration processes. The user is left guessing what information to enter, leading to frustration and abandonment.
               </p>
 
               <div className="bg-red-50 border-l-4 border-red-400 p-6 mb-6">
@@ -664,7 +664,7 @@ export default function AccessibilityIssuesPage() {
 
             <div className="prose prose-lg max-w-none mb-8">
               <p className="text-lg text-gray-700 leading-relaxed mb-6">
-                Heading structure is the invisible skeleton that gives your content meaning and organization. Just as a book has chapters, sections, and subsections, web content needs a logical hierarchy that screen readers and other assistive technologies can understand and navigate. When this structure is broken or inconsistent, users lose their way in your content.
+                Heading structure is the invisible skeleton that gives your content meaning and organisation. Just as a book has chapters, sections, and subsections, web content needs a logical hierarchy that screen readers and other assistive technologies can understand and navigate. When this structure is broken or inconsistent, users lose their way in your content.
               </p>
 
               <p className="text-gray-700 leading-relaxed mb-6">
@@ -740,7 +740,7 @@ export default function AccessibilityIssuesPage() {
               <h3 className="text-2xl font-bold text-gray-900 mb-4">The Solution: Proper Heading Implementation</h3>
               
               <p className="text-gray-700 leading-relaxed mb-6">
-                Creating proper heading structure is about understanding your content's logical organization and expressing that hierarchy through semantic HTML. The goal is to create a clear, navigable structure that works for all users.
+                Creating proper heading structure is about understanding your content's logical organisation and expressing that hierarchy through semantic HTML. The goal is to create a clear, navigable structure that works for all users.
               </p>
 
               <div className="bg-green-50 border-l-4 border-green-400 p-6 mb-6">
@@ -750,9 +750,9 @@ export default function AccessibilityIssuesPage() {
                     <h1 className="text-2xl font-bold mb-2">Web Accessibility Guide</h1>
                     <h2 className="text-xl font-semibold mb-2">Understanding WCAG Guidelines</h2>
                     <h3 className="text-lg font-semibold mb-2">Level A Requirements</h3>
-                    <h4 className="text-base font-semibold mb-2">Color Contrast Standards</h4>
+                    <h4 className="text-base font-semibold mb-2">Colour Contrast Standards</h4>
                     <p className="text-sm font-medium text-gray-900 mb-1">Logical hierarchy with proper progression</p>
-                    <code className="text-xs bg-gray-100 p-2 block rounded">&lt;h1&gt;Web Accessibility Guide&lt;/h1&gt;<br/>&lt;h2&gt;Understanding WCAG Guidelines&lt;/h2&gt;<br/>&lt;h3&gt;Level A Requirements&lt;/h3&gt;<br/>&lt;h4&gt;Color Contrast Standards&lt;/h4&gt;</code>
+                    <code className="text-xs bg-gray-100 p-2 block rounded">&lt;h1&gt;Web Accessibility Guide&lt;/h1&gt;<br/>&lt;h2&gt;Understanding WCAG Guidelines&lt;/h2&gt;<br/>&lt;h3&gt;Level A Requirements&lt;/h3&gt;<br/>&lt;h4&gt;Colour Contrast Standards&lt;/h4&gt;</code>
                     <p className="text-sm text-green-600 mt-2">Screen reader can navigate: h1 → h2 → h3 → h4</p>
                   </div>
                   
@@ -792,7 +792,7 @@ export default function AccessibilityIssuesPage() {
                   </li>
                   <li className="flex items-start">
                     <span className="font-semibold mr-2">•</span>
-                    <span><strong>Content organization:</strong> Group related content under appropriate heading levels</span>
+                    <span><strong>Content organisation:</strong> Group related content under appropriate heading levels</span>
                   </li>
                 </ul>
             </div>
@@ -836,7 +836,7 @@ export default function AccessibilityIssuesPage() {
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
                 <h4 className="text-lg font-semibold text-yellow-800 mb-2">💡 Pro Tip:</h4>
                 <p className="text-yellow-700">
-                  Think of your headings as a table of contents. If you can create a meaningful outline from your headings alone, your structure is likely good. If your outline doesn't make sense or is confusing, your heading structure needs improvement. The goal is to make your content's organization immediately clear to all users.
+                  Think of your headings as a table of contents. If you can create a meaningful outline from your headings alone, your structure is likely good. If your outline doesn't make sense or is confusing, your heading structure needs improvement. The goal is to make your content's organisation immediately clear to all users.
                 </p>
           </div>
             </div>
@@ -912,7 +912,7 @@ export default function AccessibilityIssuesPage() {
               <h4 className="font-semibold text-blue-900 mb-2">How to Fix:</h4>
               <p className="text-blue-800 text-sm">
                 Provide visible focus indicators for all interactive elements. Use CSS :focus pseudo-class with outline, border, or box-shadow. 
-                Focus indicators should have at least 2px thickness and sufficient color contrast.
+                Focus indicators should have at least 2px thickness and sufficient colour contrast.
               </p>
             </div>
           </div>
@@ -1171,7 +1171,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <p className="text-gray-700 leading-relaxed mb-6">
-                The impact of improper list structure extends beyond just screen reader users. Lists also benefit users with cognitive disabilities who rely on clear organization, users with motor impairments who use voice recognition software, and all users who benefit from well-structured, scannable content.
+                The impact of improper list structure extends beyond just screen reader users. Lists also benefit users with cognitive disabilities who rely on clear organisation, users with motor impairments who use voice recognition software, and all users who benefit from well-structured, scannable content.
               </p>
 
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Understanding List Semantics</h3>
@@ -1211,7 +1211,7 @@ export default function AccessibilityIssuesPage() {
                     <p className="text-gray-700 mb-2">Common accessibility issues:</p>
                     <div className="text-gray-700">
                       • Missing alternative text for images<br/>
-                      • Poor color contrast ratios<br/>
+                      • Poor colour contrast ratios<br/>
                       • Missing form labels<br/>
                       • Inaccessible keyboard navigation<br/>
                       • Missing heading structure
@@ -1258,7 +1258,7 @@ export default function AccessibilityIssuesPage() {
                     <p className="text-gray-700 mb-2">Common accessibility issues:</p>
                     <ul className="list-disc list-inside text-gray-700 space-y-1">
                       <li>Missing alternative text for images</li>
-                      <li>Poor color contrast ratios</li>
+                      <li>Poor colour contrast ratios</li>
                       <li>Missing form labels</li>
                       <li>Inaccessible keyboard navigation</li>
                       <li>Missing heading structure</li>

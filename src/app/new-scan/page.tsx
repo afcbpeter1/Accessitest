@@ -1459,7 +1459,7 @@ function NewScanContent() {
                               <div className="flex-1 space-y-1">
                                 <div className="flex items-start">
                                   <span className="mr-1">•</span>
-                                  <span>Color contrast</span>
+                                  <span>Colour contrast</span>
                                 </div>
                                 <div className="flex items-start">
                                   <span className="mr-1">•</span>
@@ -1616,14 +1616,14 @@ function NewScanContent() {
                             {!scanProgress && isScanning && 'Scan in Progress'}
                             {scanProgress?.status === 'crawling' && 'Discovering Pages'}
                             {scanProgress?.status === 'scanning' && 'Scanning Pages'}
-                            {scanProgress?.status === 'analyzing' && 'Analyzing Results'}
+                            {scanProgress?.status === 'analyzing' && 'Analysing Results'}
                             {scanProgress?.status === 'complete' && 'Scan Complete'}
                           </h3>
                           <p className="text-sm text-gray-600">
                             {!scanProgress && isScanning && 'Your scan is running in the background. Progress will appear here shortly.'}
                             {scanProgress?.status === 'crawling' && 'Finding all pages on your website...'}
                             {scanProgress?.status === 'scanning' && 'Checking accessibility compliance...'}
-                            {scanProgress?.status === 'analyzing' && 'Generating detailed report...'}
+                            {scanProgress?.status === 'analyzing' && 'Generating detailed report…'}
                             {scanProgress?.status === 'complete' && 'All done! Check results below.'}
                           </p>
                         </div>
@@ -1821,7 +1821,7 @@ function NewScanContent() {
                 <div className="flex items-start space-x-3">
                   <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Color Contrast</p>
+                    <p className="text-sm font-medium text-gray-900">Colour Contrast</p>
                     <p className="text-xs text-gray-500">Text readability</p>
                   </div>
                 </div>

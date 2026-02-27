@@ -340,7 +340,7 @@ export default function HomePage() {
     {
       icon: Contrast,
       title: 'Logo Contrast Checker',
-      description: 'Free tool to check color contrast ratios in your logos against WCAG accessibility standards',
+      description: 'Free tool to check colour contrast ratios in your logos against WCAG accessibility standards',
       color: 'text-[#06B6D4]',
       bgColor: 'bg-[#06B6D4]/10',
       link: '/logo-contrast-checker'
@@ -918,7 +918,7 @@ export default function HomePage() {
             <div id="overview-panel" role="tabpanel" aria-labelledby="overview-tab" className="space-y-12">
               <div className="text-center">
                 <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                  Comprehensive Accessibility Testing for Modern Organizations
+                  Comprehensive Accessibility Testing for Modern Organisations
                 </h2>
                 <p className="text-lg text-gray-600 max-w-4xl mx-auto mb-8">
                   A11ytest.ai revolutionizes accessibility compliance by combining advanced artificial intelligence with comprehensive testing methodologies. Our platform addresses the critical need for organizations to ensure their digital content is accessible to all users, including those with disabilities. Whether you're a government agency requiring Section 508 compliance, a business seeking WCAG 2.2 AA certification, or an educational institution needing accessible document standards, A11ytest.ai provides the tools and expertise to achieve full accessibility compliance.

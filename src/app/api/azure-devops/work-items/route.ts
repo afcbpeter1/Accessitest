@@ -26,62 +26,67 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get issue context (team/organization)
-    let issueContext = await getIssueContext(issueId)
+    // Prefer the current user's assigned team (Members tab) for which ADO backlog to use, so tickets go to the right team's backlog
+    const userAssignedTeam = await queryOne(
+      `SELECT om.team_id, om.organization_id
+       FROM organization_members om
+       INNER JOIN teams t ON om.team_id = t.id
+       WHERE om.user_id = $1 AND om.is_active = true AND om.team_id IS NOT NULL
+       LIMIT 1`,
+      [user.userId]
+    )
+    const userTeamId = userAssignedTeam?.team_id
+    const userOrgId = userAssignedTeam?.organization_id
 
-    // If issue has no team, use the user's team so team members can add to their team's backlog
-    if (!issueContext?.teamId) {
-      const userTeam = await queryOne(
-        `SELECT om.team_id, om.organization_id
-         FROM organization_members om
-         INNER JOIN teams t ON om.team_id = t.id
-         INNER JOIN azure_devops_integrations adi ON adi.team_id = t.id AND adi.is_active = true
-         WHERE om.user_id = $1 AND om.is_active = true AND om.team_id IS NOT NULL
-         ORDER BY om.joined_at DESC
-         LIMIT 1`,
-        [user.userId]
-      )
-      if (userTeam?.team_id) {
+    // If user has an assigned team with ADO, use it for integration + project + work item type; otherwise use issue context
+    let contextTeamId: string | undefined = userTeamId
+    let contextOrgId: string | undefined = userOrgId
+    if (!userTeamId) {
+      const issueContext = await getIssueContext(issueId)
+      contextTeamId = issueContext?.teamId
+      contextOrgId = issueContext?.organizationId
+    } else {
+      const issueContext = await getIssueContext(issueId)
+      if (!issueContext?.teamId) {
         await query(
           `UPDATE issues SET team_id = $1, organization_id = $2 WHERE id = $3`,
-          [userTeam.team_id, userTeam.organization_id, issueId]
+          [userTeamId, userOrgId, issueId]
         )
-        issueContext = { teamId: userTeam.team_id, organizationId: userTeam.organization_id }
       }
     }
 
-    // Get the appropriate Azure DevOps integration (team > org > personal)
+    // Get the appropriate Azure DevOps integration using the context we chose (user's team or issue's team)
     const integration = await getAzureDevOpsIntegration(
       user.userId,
-      issueContext?.teamId,
-      issueContext?.organizationId
+      contextTeamId,
+      contextOrgId
     )
 
     if (!integration) {
       return NextResponse.json(
         {
           success: false,
-          error: "Your team hasn't connected Azure DevOps yet. Ask your admin to set it up in Organization settings."
+          error: "Your team hasn't connected Azure DevOps yet. Ask your admin to set it up in Organisation settings."
         },
         { status: 404 }
       )
     }
 
-    // Determine which project and work item type to use: team-assigned takes priority
+    // Determine which project and work item type: use the context team's settings (user's assigned team so tickets go to the right backlog)
     let projectToUse = integration.project
     let workItemTypeToUse = integration.work_item_type || 'Bug'
-    if (issueContext?.teamId) {
+    if (contextTeamId) {
       const team = await queryOne(
         `SELECT azure_devops_project, azure_devops_work_item_type FROM teams WHERE id = $1`,
-        [issueContext.teamId]
+        [contextTeamId]
       )
       if (team?.azure_devops_project) {
         projectToUse = team.azure_devops_project
-        console.log(`Using team-assigned project: ${projectToUse} (instead of integration project: ${integration.project})`)
+        console.log(`Using team-assigned project: ${projectToUse} (team ${contextTeamId})`)
       }
       if (team?.azure_devops_work_item_type) {
         workItemTypeToUse = team.azure_devops_work_item_type
-        console.log(`Using team-assigned work item type: ${workItemTypeToUse} (instead of integration work item type: ${integration.work_item_type || 'Bug'})`)
+        console.log(`Using team-assigned work item type: ${workItemTypeToUse} (team ${contextTeamId})`)
       }
     }
 
@@ -103,8 +108,8 @@ export async function POST(request: NextRequest) {
           encryptedPat: integration.encrypted_pat
         })
         // Use team project if available, otherwise use integration project
-        const projectForCheck = issueContext?.teamId 
-          ? (await queryOne(`SELECT azure_devops_project FROM teams WHERE id = $1`, [issueContext.teamId]))?.azure_devops_project || integration.project
+        const projectForCheck = contextTeamId
+          ? (await queryOne(`SELECT azure_devops_project FROM teams WHERE id = $1`, [contextTeamId]))?.azure_devops_project || integration.project
           : integration.project
         const existingWorkItem = await tempClient.getWorkItem(projectForCheck, existingMapping.work_item_id)
         
@@ -404,7 +409,7 @@ export async function POST(request: NextRequest) {
           availableTypes.some(w => w.name.toLowerCase() === name.toLowerCase())
         ) || availableTypes[0]?.name
         if (!fallbackType) {
-          const errorMessage = `Work item type "${workItemTypeToUse}" doesn't exist in this project. Ask your admin to set the correct type (e.g. "Issue" for Basic process) in Organization → Integrations → Azure DevOps.`
+          const errorMessage = `Work item type "${workItemTypeToUse}" doesn't exist in this project. Ask your admin to set the correct type (e.g. "Issue" for Basic process) in Organisation → Integrations → Azure DevOps.`
           await query(
             `UPDATE issues SET azure_devops_sync_error = $1 WHERE id = $2`,
             [errorMessage, issueId]
@@ -436,7 +441,7 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               success: false,
-              error: `Work item type "${workItemTypeToUse}" isn't available in this project. Try setting the type in Organization → Integrations → Azure DevOps (e.g. "Issue" for Basic process). ${errorMessage}`
+              error: `Work item type "${workItemTypeToUse}" isn't available in this project. Try setting the type in Organisation → Integrations → Azure DevOps (e.g. "Issue" for Basic process). ${errorMessage}`
             },
             { status: 400 }
           )
