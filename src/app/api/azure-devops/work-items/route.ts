@@ -145,14 +145,14 @@ export async function POST(request: NextRequest) {
       console.log(`No existing mapping found for issue ${issueId}, will create new work item`)
     }
 
-    // Get issue details with scan results for full remediation data
+    // Get issue details with scan results for full remediation data (LEFT JOIN so we still get the issue if scan is missing/deleted)
     const issue = await queryOne(
       `SELECT 
         i.id, i.issue_key, i.rule_id, i.rule_name, i.description, i.impact, i.wcag_level,
         i.priority, i.total_occurrences, i.affected_pages, i.help_url, i.help_text, i.notes,
         sh.scan_results, sh.scan_type, sh.file_name, sh.url as scan_url
       FROM issues i
-      JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+      LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
       WHERE i.id = $1`,
       [issueId]
     )
@@ -370,32 +370,78 @@ export async function POST(request: NextRequest) {
       }
     }
 
-      // Create work item in Azure DevOps
+      // Create work item in Azure DevOps (with fallback if project doesn't have configured type, e.g. Basic process uses "Issue" not "Bug")
       let createdWorkItem
+      const isWorkItemTypeNotFound = (e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e)
+        return /Work item type .* does not exist|WorkItemTypeNotFoundException/i.test(msg)
+      }
       try {
-        console.log(`Creating Azure DevOps work item for issue ${issueId}`)
+        console.log(`Creating Azure DevOps work item for issue ${issueId} (type: ${workItemTypeToUse})`)
         createdWorkItem = await client.createWorkItem(
           projectToUse,
           workItemTypeToUse,
           patches
         )
-      console.log(`✅ Successfully created Azure DevOps work item: ${createdWorkItem.id}`)
-    } catch (error) {
-      // Update issue with error
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create Azure DevOps work item'
-      await query(
-        `UPDATE issues SET azure_devops_sync_error = $1 WHERE id = $2`,
-        [errorMessage, issueId]
-      )
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: errorMessage
-        },
-        { status: 400 }
-      )
-    }
+        console.log(`✅ Successfully created Azure DevOps work item: ${createdWorkItem.id}`)
+      } catch (firstError) {
+        if (!isWorkItemTypeNotFound(firstError)) {
+          const errorMessage = firstError instanceof Error ? firstError.message : 'Failed to create Azure DevOps work item'
+          await query(
+            `UPDATE issues SET azure_devops_sync_error = $1 WHERE id = $2`,
+            [errorMessage, issueId]
+          )
+          return NextResponse.json(
+            { success: false, error: errorMessage },
+            { status: 400 }
+          )
+        }
+        // Configured type (e.g. Bug) doesn't exist in this project (e.g. Basic process has Issue/Task)
+        console.log(`Work item type "${workItemTypeToUse}" not found in project, fetching available types and retrying with fallback...`)
+        const availableTypes = await client.getWorkItemTypesForProject(projectToUse)
+        const preferredOrder = ['Issue', 'Task', 'Bug', 'User Story', 'Story']
+        const fallbackType = preferredOrder.find(name =>
+          availableTypes.some(w => w.name.toLowerCase() === name.toLowerCase())
+        ) || availableTypes[0]?.name
+        if (!fallbackType) {
+          const errorMessage = `Work item type "${workItemTypeToUse}" doesn't exist in this project. Ask your admin to set the correct type (e.g. "Issue" for Basic process) in Organization → Integrations → Azure DevOps.`
+          await query(
+            `UPDATE issues SET azure_devops_sync_error = $1 WHERE id = $2`,
+            [errorMessage, issueId]
+          )
+          return NextResponse.json(
+            { success: false, error: errorMessage },
+            { status: 400 }
+          )
+        }
+        const fallbackPatches = mapIssueToAzureDevOps(
+          issueData,
+          fallbackType,
+          integration.area_path,
+          integration.iteration_path
+        )
+        try {
+          createdWorkItem = await client.createWorkItem(
+            projectToUse,
+            fallbackType,
+            fallbackPatches
+          )
+          console.log(`✅ Created Azure DevOps work item with fallback type "${fallbackType}": ${createdWorkItem.id}`)
+        } catch (retryError) {
+          const errorMessage = retryError instanceof Error ? retryError.message : 'Failed to create Azure DevOps work item'
+          await query(
+            `UPDATE issues SET azure_devops_sync_error = $1 WHERE id = $2`,
+            [errorMessage, issueId]
+          )
+          return NextResponse.json(
+            {
+              success: false,
+              error: `Work item type "${workItemTypeToUse}" isn't available in this project. Try setting the type in Organization → Integrations → Azure DevOps (e.g. "Issue" for Basic process). ${errorMessage}`
+            },
+            { status: 400 }
+          )
+        }
+      }
 
     // Build work item URL
     const workItemUrl = client.getWorkItemUrl(projectToUse, createdWorkItem.id)

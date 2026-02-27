@@ -98,6 +98,18 @@ export default function ProductBacklog() {
     checkAzureDevOpsIntegration()
   }, [])
 
+  // Refetch effective integrations when tab becomes visible (e.g. admin removed integration in another tab)
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkJiraIntegration()
+        checkAzureDevOpsIntegration()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
+
   // Close integration menu when clicking outside
   useEffect(() => {
     const handleClickOutside = () => {
@@ -117,11 +129,12 @@ export default function ProductBacklog() {
       if (!token) return
 
       const response = await fetch('/api/jira/settings/effective', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        cache: 'no-store'
       })
       const data = await response.json()
-      if (data.success && data.integration) {
-        setJiraIntegration(data.integration)
+      if (data.success) {
+        setJiraIntegration(data.integration || null)
       }
     } catch (error) {
       console.error('Failed to check Jira integration:', error)
@@ -134,11 +147,12 @@ export default function ProductBacklog() {
       if (!token) return
 
       const response = await fetch('/api/azure-devops/settings/effective', {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        cache: 'no-store'
       })
       const data = await response.json()
-      if (data.success && data.integration) {
-        setAzureDevOpsIntegration(data.integration)
+      if (data.success) {
+        setAzureDevOpsIntegration(data.integration || null)
       }
     } catch (error) {
       console.error('Failed to check Azure DevOps integration:', error)

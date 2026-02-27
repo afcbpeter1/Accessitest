@@ -1700,21 +1700,6 @@ function NewScanContent() {
                         </div>
                       </div>
                     )}
-                    
-                    {/* Current Status */}
-                    {scanProgress && (
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-gray-700">{scanProgress.message}</p>
-                        {scanProgress.url && (
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                            <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                              {scanProgress.url}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
 

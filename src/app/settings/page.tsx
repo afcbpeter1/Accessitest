@@ -1481,7 +1481,7 @@ export default function SettingsPage() {
                         </div>
                         <button
                           onClick={handleJiraDisconnect}
-                          className="ml-4 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-md border border-red-200"
+                          className="ml-4 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md border border-red-700"
                           disabled={saving}
                         >
                           Disconnect
@@ -1683,6 +1683,14 @@ export default function SettingsPage() {
                             )}
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={handleJiraDisconnect}
+                          className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md border border-red-700 disabled:opacity-50 disabled:cursor-default"
+                          disabled={saving}
+                        >
+                          Remove integration
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1884,6 +1892,14 @@ export default function SettingsPage() {
                             )}
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={handleJiraDisconnect}
+                          className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md border border-red-700 disabled:opacity-50 disabled:cursor-default"
+                          disabled={saving}
+                        >
+                          Remove integration
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1929,7 +1945,7 @@ export default function SettingsPage() {
                           </div>
                           <button
                             onClick={handleAzureDevOpsDisconnect}
-                            className="ml-4 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-md border border-red-200"
+                            className="ml-4 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md border border-red-700"
                             disabled={saving}
                           >
                             Disconnect
@@ -1973,7 +1989,7 @@ export default function SettingsPage() {
                             <>
                               {' '}
                               <a
-                                href={`https://dev.azure.com/${azureDevOpsForm.organization || 'your-org'}/_usersSettings/tokens`}
+                                href={`https://dev.azure.com/${(azureDevOpsForm.organization || 'your-org').replace(/^https?:\/\/dev\.azure\.com\/?/i, '').split('/')[0]}/_usersSettings/tokens`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:underline"
@@ -2139,6 +2155,14 @@ export default function SettingsPage() {
                             )}
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={handleAzureDevOpsDisconnect}
+                          className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md border border-red-700 disabled:opacity-50 disabled:cursor-default"
+                          disabled={saving}
+                        >
+                          Remove integration
+                        </button>
                       </div>
                     </div>
                   </div>

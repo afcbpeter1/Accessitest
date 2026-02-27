@@ -655,53 +655,31 @@ export default function OrganizationPage() {
       const token = localStorage.getItem('accessToken')
       if (!token) return
 
-      // When on Organization Integrations and org has teams, disconnect from all teams
-      if (currentOrg && teams.length > 0) {
-        let allOk = true
-        for (const team of teams) {
-          const response = await fetch(`/api/jira/settings?team_id=${encodeURIComponent(team.id)}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
-          const data = await response.json()
-          if (!data.success) allOk = false
-        }
-        if (allOk) {
-          setMessage({ type: 'success', text: 'Jira integration disconnected for all teams' })
-          setJiraIntegration(null)
-          setJiraForm({
-            jiraUrl: '',
-            email: '',
-            apiToken: '',
-            projectKey: '',
-            issueType: 'Bug',
-            autoSyncEnabled: false
-          })
-          setJiraStep('credentials')
-        } else {
-          setMessage({ type: 'error', text: 'Failed to disconnect Jira integration for some teams' })
-        }
-      } else {
-        const response = await fetch('/api/jira/settings', {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
+      // DELETE without team_id: backend removes admin's personal integration AND all team integrations in their org, so users no longer see any integration
+      const response = await fetch('/api/jira/settings', {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      if (data.success) {
+        setMessage({
+          type: 'success',
+          text: currentOrg && teams.length > 0
+            ? 'Jira integration disconnected for you and all teams. Users will no longer see Add to Jira.'
+            : 'Jira integration disconnected'
         })
-        const data = await response.json()
-        if (data.success) {
-          setMessage({ type: 'success', text: 'Jira integration disconnected' })
-          setJiraIntegration(null)
-          setJiraForm({
-            jiraUrl: '',
-            email: '',
-            apiToken: '',
-            projectKey: '',
-            issueType: 'Bug',
-            autoSyncEnabled: false
-          })
-          setJiraStep('credentials')
-        } else {
-          setMessage({ type: 'error', text: data.error || 'Failed to disconnect Jira integration' })
-        }
+        setJiraIntegration(null)
+        setJiraForm({
+          jiraUrl: '',
+          email: '',
+          apiToken: '',
+          projectKey: '',
+          issueType: 'Bug',
+          autoSyncEnabled: false
+        })
+        setJiraStep('credentials')
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to disconnect Jira integration' })
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to disconnect Jira integration' })
@@ -1009,55 +987,32 @@ export default function OrganizationPage() {
       const token = localStorage.getItem('accessToken')
       if (!token) return
 
-      // When on Organization Integrations and org has teams, disconnect from all teams
-      if (currentOrg && teams.length > 0) {
-        let allOk = true
-        for (const team of teams) {
-          const response = await fetch(`/api/azure-devops/settings?team_id=${encodeURIComponent(team.id)}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
-          const data = await response.json()
-          if (!data.success) allOk = false
-        }
-        if (allOk) {
-          setMessage({ type: 'success', text: 'Azure DevOps integration disconnected for all teams' })
-          setAzureDevOpsIntegration(null)
-          setAzureDevOpsForm({
-            organization: '',
-            project: '',
-            pat: '',
-            workItemType: 'Bug',
-            areaPath: '',
-            iterationPath: '',
-            autoSyncEnabled: false
-          })
-          loadAvailableProjects()
-        } else {
-          setMessage({ type: 'error', text: 'Failed to disconnect Azure DevOps integration for some teams' })
-        }
-      } else {
-        const response = await fetch('/api/azure-devops/settings', {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
+      // DELETE without team_id: backend removes admin's personal integration AND all team integrations in their org, so users no longer see any integration
+      const response = await fetch('/api/azure-devops/settings', {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      if (data.success) {
+        setMessage({
+          type: 'success',
+          text: currentOrg && teams.length > 0
+            ? 'Azure DevOps integration disconnected for you and all teams. Users will no longer see Add to Azure DevOps.'
+            : 'Azure DevOps integration disconnected'
         })
-        const data = await response.json()
-        if (data.success) {
-          setMessage({ type: 'success', text: 'Azure DevOps integration disconnected' })
-          setAzureDevOpsIntegration(null)
-          setAzureDevOpsForm({
-            organization: '',
-            project: '',
-            pat: '',
-            workItemType: 'Bug',
-            areaPath: '',
-            iterationPath: '',
-            autoSyncEnabled: false
-          })
-          loadAvailableProjects()
-        } else {
-          setMessage({ type: 'error', text: data.error || 'Failed to disconnect Azure DevOps integration' })
-        }
+        setAzureDevOpsIntegration(null)
+        setAzureDevOpsForm({
+          organization: '',
+          project: '',
+          pat: '',
+          workItemType: 'Bug',
+          areaPath: '',
+          iterationPath: '',
+          autoSyncEnabled: false
+        })
+        loadAvailableProjects()
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to disconnect Azure DevOps integration' })
       }
     } catch (error) {
       setMessage({ type: 'error', text: 'Failed to disconnect Azure DevOps integration' })
@@ -1823,7 +1778,7 @@ export default function OrganizationPage() {
                                     </div>
                                     <button
                                       onClick={handleJiraDisconnect}
-                                      className="ml-4 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-md border border-red-200"
+                                      className="ml-4 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md border border-red-700"
                                       disabled={saving}
                                     >
                                       Disconnect
@@ -2026,6 +1981,14 @@ export default function OrganizationPage() {
                                         )}
                                       </button>
                                     )}
+                                    <button
+                                      type="button"
+                                      onClick={handleJiraDisconnect}
+                                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md border border-red-700 disabled:opacity-50 disabled:cursor-default"
+                                      disabled={saving}
+                                    >
+                                      Remove integration
+                                    </button>
                                   </div>
                                 </div>
                               )}
@@ -2225,6 +2188,14 @@ export default function OrganizationPage() {
                                         )}
                                       </button>
                                     )}
+                                    <button
+                                      type="button"
+                                      onClick={handleJiraDisconnect}
+                                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md border border-red-700 disabled:opacity-50 disabled:cursor-default"
+                                      disabled={saving}
+                                    >
+                                      Remove integration
+                                    </button>
                                   </div>
                                 </div>
                               )}
@@ -2263,7 +2234,7 @@ export default function OrganizationPage() {
                                     </div>
                                     <button
                                       onClick={handleAzureDevOpsDisconnect}
-                                      className="ml-4 px-4 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-md border border-red-200"
+                                      className="ml-4 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md border border-red-700"
                                       disabled={saving}
                                     >
                                       Disconnect
@@ -2307,7 +2278,7 @@ export default function OrganizationPage() {
                                       <>
                                         {' '}
                                         <a
-                                          href={`https://dev.azure.com/${azureDevOpsForm.organization || 'your-org'}/_usersSettings/tokens`}
+                                          href={`https://dev.azure.com/${(azureDevOpsForm.organization || 'your-org').replace(/^https?:\/\/dev\.azure\.com\/?/i, '').split('/')[0]}/_usersSettings/tokens`}
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           className="text-blue-600 hover:underline"
@@ -2460,6 +2431,14 @@ export default function OrganizationPage() {
                                       )}
                                     </button>
                                   )}
+                                  <button
+                                    type="button"
+                                    onClick={handleAzureDevOpsDisconnect}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md border border-red-700 disabled:opacity-50 disabled:cursor-default"
+                                    disabled={saving}
+                                  >
+                                    Remove integration
+                                  </button>
                                 </div>
                               </div>
                             </div>

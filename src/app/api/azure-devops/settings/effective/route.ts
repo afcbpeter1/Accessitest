@@ -76,27 +76,33 @@ export async function GET(request: NextRequest) {
     }
 
     if (!integration) {
-      return NextResponse.json({ success: true, integration: null })
+      return NextResponse.json(
+        { success: true, integration: null },
+        { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      integration: {
-        id: integration.id,
-        userId: integration.user_id,
-        teamId: integration.team_id,
-        organization: integration.organization,
-        project: integration.project,
-        workItemType: integration.work_item_type,
-        areaPath: integration.area_path,
-        iterationPath: integration.iteration_path,
-        autoSyncEnabled: integration.auto_sync_enabled,
-        isActive: integration.is_active,
-        lastVerifiedAt: integration.last_verified_at,
-        createdAt: integration.created_at,
-        updatedAt: integration.updated_at
-      }
-    })
+    return NextResponse.json(
+      {
+        success: true,
+        integration: {
+          id: integration.id,
+          userId: integration.user_id,
+          teamId: integration.team_id,
+          organization: integration.organization,
+          project: integration.project,
+          workItemType: integration.work_item_type,
+          areaPath: integration.area_path,
+          iterationPath: integration.iteration_path,
+          autoSyncEnabled: integration.auto_sync_enabled,
+          isActive: integration.is_active,
+          lastVerifiedAt: integration.last_verified_at,
+          createdAt: integration.created_at,
+          updatedAt: integration.updated_at
+        }
+      },
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+    )
   } catch (error) {
     console.error('Error fetching effective Azure DevOps settings:', error)
     return NextResponse.json(
