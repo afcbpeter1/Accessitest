@@ -14,35 +14,35 @@ export function getStripe(): Stripe {
   return _stripe
 }
 
-// Stripe configuration and price mappings (TEST MODE)
+// Stripe configuration and price mappings (LIVE)
 export const STRIPE_PRICE_IDS = {
   // Subscription Plans
   subscriptions: {
-    unlimitedMonthly: 'price_1StEUBRYsgNlHbsUvQSjyHmc',   // Unlimited Access Monthly (GBP)
-    unlimitedYearly: 'price_1StEV9RYsgNlHbsUKYgQYc9Y',    // Unlimited Access Yearly (GBP, ~20% discount)
+    unlimitedMonthly: 'price_1T5pQuRYsgNlHbsUQz4p4qJz',   // Unlimited Access Monthly (GBP)
+    unlimitedYearly: 'price_1T5pQsRYsgNlHbsUi8XaD85w',    // Unlimited Access Yearly (GBP, ~20% discount)
   },
-  
+
   // Credit Packages
   credits: {
-    starterPack: 'price_1StELRRYsgNlHbsUNKrVhV17',        // Starter Pack (5 credits)
-    professionalPack: 'price_1StEMlRYsgNlHbsUuG03eTvT',   // Professional Pack (7 credits)
-    businessPack: 'price_1StENrRYsgNlHbsUhxHMd8pf',       // Business Pack (9 credits)
-    enterprisePack: 'price_1StEOSRYsgNlHbsU5jXg5PWx',     // Enterprise Pack (11 credits)
+    starterPack: 'price_1T5pRARYsgNlHbsUHh5ztgdp',        // Starter Pack (5 credits)
+    professionalPack: 'price_1T5pR7RYsgNlHbsUPdOzxgML',   // Professional Pack (7 credits)
+    businessPack: 'price_1T5pR4RYsgNlHbsUKUY8GcNu',       // Business Pack (9 credits)
+    enterprisePack: 'price_1T5pQzRYsgNlHbsUnOui6tlG',    // Enterprise Pack (11 credits)
   }
 }
 
 // Plan type mappings for database storage
 export const PLAN_TYPES = {
-  'price_1StEUBRYsgNlHbsUvQSjyHmc': 'complete_access',
-  'price_1StEV9RYsgNlHbsUKYgQYc9Y': 'complete_access',
+  'price_1T5pQuRYsgNlHbsUQz4p4qJz': 'complete_access',
+  'price_1T5pQsRYsgNlHbsUi8XaD85w': 'complete_access',
 }
 
 // Credit amounts for credit packages
 export const CREDIT_AMOUNTS = {
-  'price_1StELRRYsgNlHbsUNKrVhV17': 5,     // Starter Pack
-  'price_1StEMlRYsgNlHbsUuG03eTvT': 7,     // Professional Pack
-  'price_1StENrRYsgNlHbsUhxHMd8pf': 9,     // Business Pack
-  'price_1StEOSRYsgNlHbsU5jXg5PWx': 11,    // Enterprise Pack
+  'price_1T5pRARYsgNlHbsUHh5ztgdp': 5,     // Starter Pack
+  'price_1T5pR7RYsgNlHbsUPdOzxgML': 7,     // Professional Pack
+  'price_1T5pR4RYsgNlHbsUKUY8GcNu': 9,     // Business Pack
+  'price_1T5pQzRYsgNlHbsUnOui6tlG': 11,    // Enterprise Pack
 }
 
 // Helper function to get plan type from price ID
