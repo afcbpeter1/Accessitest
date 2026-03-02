@@ -548,9 +548,9 @@ export default function HomePage() {
               <p className="text-sm text-gray-500 mt-2">Complete federal compliance testing coverage</p>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-[#0B1220] mb-2">2</div>
-              <div className="text-gray-600">File Formats Supported</div>
-              <p className="text-sm text-gray-500 mt-2">PDF + Word documents</p>
+              <div className="text-4xl font-bold text-[#0B1220] mb-2">1</div>
+              <div className="text-gray-600">File Format Supported</div>
+              <p className="text-sm text-gray-500 mt-2">PDF documents</p>
             </div>
             <div className="text-center">
               <div className="text-4xl font-bold text-[#0B1220] mb-2">WCAG 2.2</div>

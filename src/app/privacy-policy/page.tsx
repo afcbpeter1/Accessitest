@@ -122,7 +122,7 @@ export default function PrivacyPolicyPage() {
                   Data We Never Collect or Store
                 </h3>
                 <ul className="list-disc list-inside text-gray-700 space-y-2">
-                  <li><strong>Document Content:</strong> We do NOT store the actual content of PDFs, Word documents, 
+                  <li><strong>Document Content:</strong> We do NOT store the actual content of PDFs
                     or other files you upload. Only metadata (filename, type, size) and scan results are stored.</li>
                   <li><strong>Payment Card Details:</strong> We never see or store credit card numbers, CVV codes, 
                     or expiration dates. All payment processing is handled by Stripe.</li>

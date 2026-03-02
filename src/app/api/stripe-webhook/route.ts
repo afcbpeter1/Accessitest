@@ -15,6 +15,15 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim() || ''
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+/** GET: allow health check so you can verify the endpoint is reachable (e.g. browser or curl). Stripe only sends POST. */
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: 'Stripe webhook endpoint. Stripe sends POST here; GET is for verification only.',
+    endpoint: '/api/stripe-webhook',
+  })
+}
+
 // Important: Don't parse the body as JSON - we need the raw string
 export async function POST(request: NextRequest) {
   try {

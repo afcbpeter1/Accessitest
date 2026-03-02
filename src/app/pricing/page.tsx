@@ -418,7 +418,7 @@ export default function Pricing() {
               <ul className="space-y-2 text-gray-700">
                 <li>• Comprehensive ISO 14289-1 (PDF/UA) compliance testing for PDFs</li>
                 <li>• Section 508 compliance testing</li>
-                <li>• PDF, Word, PowerPoint support</li>
+                <li>• PDF support</li>
                 <li>• AI-powered recommendations</li>
                 <li>• Detailed accessibility scores</li>
                 <li>• Issue categorization & prioritization</li>

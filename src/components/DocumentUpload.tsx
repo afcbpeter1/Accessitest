@@ -1013,9 +1013,9 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
   // Note: fixPDF function removed - PDFs are already auto-tagged during the scan process
   // The scan workflow: Auto-tag → Check accessibility → AI remediation → Download tagged PDF
 
-  // Download fixed document function (PDF or Word)
+  // Download fixed document (PDF)
   const downloadTaggedPDF = (uploadedDoc: UploadedDocument) => {
-    // Check for fixed document (Word) first, then tagged PDF
+    // Check for fixed document first, then tagged PDF
     const fixedDoc = (uploadedDoc.scanResults as any)?.fixedDocument
     const taggedPdfBase64 = uploadedDoc.taggedPdfBase64 || uploadedDoc.scanResults?.taggedPdfBase64
     const taggedPdfFileName = uploadedDoc.taggedPdfFileName || uploadedDoc.scanResults?.taggedPdfFileName
@@ -1053,7 +1053,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         documentKeys: Object.keys(uploadedDoc),
         scanResultsKeys: uploadedDoc.scanResults ? Object.keys(uploadedDoc.scanResults) : 'no scanResults'
       })
-      showToast(isWordDoc ? 'Document not available for download' : 'PDF not available for download', 'error')
+      showToast('PDF not available for download', 'error')
       return
     }
     
@@ -1094,7 +1094,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         URL.revokeObjectURL(url)
       }, 100)
 
-      showToast(isWordDoc ? 'Fixed Word document downloaded successfully!' : 'Tagged PDF downloaded successfully!', 'success')
+      showToast('Tagged PDF downloaded successfully!', 'success')
     } catch (error) {
       console.error('❌ Error downloading document:', error)
       console.error('Error details:', {
@@ -1103,7 +1103,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         base64Length: base64?.length,
         fileName
       })
-      showToast(`Failed to download ${isWordDoc ? 'Word document' : 'PDF'}: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
+      showToast(`Failed to download PDF: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error')
     }
   }
 
@@ -1902,18 +1902,14 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                           onClick={() => downloadTaggedPDF(document)}
                           className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
                           title={(document.scanResults as any)?.autoFixed || (document.scanResults as any)?.fixedDocument
-                            ? (document.type?.includes('word') || document.type?.includes('document')
-                              ? "Download the automatically fixed Word document with AI-generated alt text and table summaries"
-                              : "Download the automatically fixed PDF with AI-generated alt text and table summaries")
+                            ? "Download the automatically fixed PDF with AI-generated alt text and table summaries"
                             : (document.taggedPdfBase64 || document.scanResults?.taggedPdfBase64)
                             ? "Download the automatically tagged PDF with improved accessibility structure"
                             : "Download the original PDF"}
                         >
                           <Download className="h-4 w-4" />
                           <span>{(document.scanResults as any)?.autoFixed || (document.scanResults as any)?.fixedDocument
-                            ? (document.type?.includes('word') || document.type?.includes('document')
-                              ? "Download Auto-Fixed Word Document"
-                              : "Download Auto-Fixed PDF")
+                            ? "Download Auto-Fixed PDF"
                             : (document.taggedPdfBase64 || document.scanResults?.taggedPdfBase64)
                             ? "Download Fixed PDF (Auto-Tagged)"
                             : "Download PDF"}</span>
@@ -1921,12 +1917,6 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                         {(document.scanResults as any)?.autoFixed ? (
                           <p className="text-xs text-gray-500 mt-1">
                             Layout preserved - accessibility fixes applied: structure tags, metadata, content linking, color contrast, and text sizing improvements
-                          </p>
-                        ) : (document.type?.includes('word') || document.type?.includes('document') || 
-                             document.name?.toLowerCase().endsWith('.docx') || 
-                             document.name?.toLowerCase().endsWith('.doc')) ? (
-                          <p className="text-xs text-gray-500 mt-1">
-                            This Word document has been automatically fixed for accessibility
                           </p>
                         ) : (
                           <p className="text-xs text-gray-500 mt-1">

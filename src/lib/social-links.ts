@@ -4,8 +4,8 @@
  */
 
 export const socialLinks = {
-  twitter: 'https://twitter.com/a11ytestai',
-  linkedin: 'https://www.linkedin.com/company/a11ytestai',
+  twitter: 'https://x.com/A11ytestAI',
+  linkedin: 'https://www.linkedin.com/company/a11ytest-ai',
   github: 'https://github.com/a11ytestai',
   email: 'mailto:hello@a11ytest.ai',
 } as const
