@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Check, CreditCard, Zap, Shield, FileText, Globe } from 'lucide-react'
+import { Check, CreditCard, Zap, Shield, FileText, Globe, Layers, Image, MessageSquare, Keyboard } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import { STRIPE_PRICE_IDS } from '@/lib/stripe-config'
 import { useAuth } from '@/contexts/AuthContext'
@@ -267,6 +267,44 @@ export default function Pricing() {
           </p>
         </div>
 
+        {/* Testing capabilities included in all plans */}
+        <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4 text-center">Testing capabilities included in every plan</h2>
+          <p className="text-center text-gray-600 mb-6 max-w-3xl mx-auto text-sm">
+            Whether you subscribe or buy credits, every scan uses the same engine. Here’s what you get:
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+            <div className="flex items-start gap-3 bg-white p-4 rounded-lg border border-gray-200">
+              <Layers className="h-5 w-5 text-primary-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium text-gray-900">Markup & structure violations</h3>
+                <p className="text-sm text-gray-700 mt-0.5">Website scans use axe-core in a real browser (Puppeteer) with WCAG 2.2, Section 508, and EN 301-549. Full page context for accurate results.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 bg-white p-4 rounded-lg border border-gray-200">
+              <Image className="h-5 w-5 text-primary-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium text-gray-900">Alt text (presence & support)</h3>
+                <p className="text-sm text-gray-700 mt-0.5">axe rules (image-alt, image-redundant-alt) on websites; document scanner checks for missing/empty alt in PDFs. AI-generated alt text for documents where applicable.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 bg-white p-4 rounded-lg border border-gray-200">
+              <MessageSquare className="h-5 w-5 text-primary-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium text-gray-900">Error messages (presence & structure)</h3>
+                <p className="text-sm text-gray-700 mt-0.5">PDF scanner includes WCAG 3.3.1 Error Identification for form error messages. Websites: form structure and aria-describedby/error elements are analysed.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 bg-white p-4 rounded-lg border border-gray-200">
+              <Keyboard className="h-5 w-5 text-primary-600 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium text-gray-900">Focus trap & keyboard (documents)</h3>
+                <p className="text-sm text-gray-700 mt-0.5">In PDFs we check for keyboard trap and navigation issues (e.g. no way to exit with keyboard). Document-level guidance so users can navigate with keyboard.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Billing Toggle */}
         <div className="flex justify-center">
           <div className="bg-gray-100 rounded-lg p-1">
@@ -356,9 +394,12 @@ export default function Pricing() {
         {/* Credit-Based Scanning */}
         <div id="credit-packages">
           <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Credit Packages</h2>
-          <p className="text-center text-gray-700 mb-8 max-w-2xl mx-auto">
+          <p className="text-center text-gray-700 mb-2 max-w-2xl mx-auto">
             Don't need unlimited access? Buy credits and scan only when you need to. 
             Each scan costs £1.50 regardless of document size or complexity (tax excluded).
+          </p>
+          <p className="text-center text-gray-600 mb-8 max-w-2xl mx-auto text-sm">
+            Every credit scan includes the same testing capabilities above (markup & structure, alt text, error messages, focus trap & keyboard for documents).
           </p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -396,6 +437,9 @@ export default function Pricing() {
         {/* Features Comparison */}
         <div>
           <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">What's Included</h2>
+          <p className="text-center text-gray-600 mb-6 max-w-2xl mx-auto text-sm">
+            All plans include the testing capabilities listed at the top (markup & structure, alt text, error messages, focus trap & keyboard for documents). Plus:
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="bg-white rounded-lg p-6 border border-gray-200">
               <div className="flex items-center mb-4">
@@ -403,11 +447,11 @@ export default function Pricing() {
                 <h3 className="text-lg font-semibold text-gray-900">Website Scans</h3>
               </div>
               <ul className="space-y-2 text-gray-700">
+                <li>• Markup & structure (axe-core, WCAG 2.2, Section 508, EN 301-549)</li>
+                <li>• Alt text presence checks</li>
+                <li>• Form and error message structure</li>
                 <li>• WCAG 2.2 Level AA compliance</li>
-                <li>• Automated accessibility testing</li>
-                <li>• Detailed issue reports</li>
-                <li>• AI-powered recommendations</li>
-                <li>• Multi-page scanning</li>
+                <li>• AI-powered recommendations & multi-page scanning</li>
               </ul>
             </div>
 
@@ -415,14 +459,13 @@ export default function Pricing() {
               <div className="flex items-center mb-4">
                 <FileText className="h-6 w-6 text-green-600 mr-3" />
                 <h3 className="text-lg font-semibold text-gray-900">Document Scans</h3>
-                </div>
+              </div>
               <ul className="space-y-2 text-gray-700">
-                <li>• Comprehensive ISO 14289-1 (PDF/UA) compliance testing for PDFs</li>
-                <li>• Section 508 compliance testing</li>
-                <li>• PDF support</li>
-                <li>• AI-powered recommendations</li>
-                <li>• Detailed accessibility scores</li>
-                <li>• Issue categorization & prioritization</li>
+                <li>• ISO 14289-1 (PDF/UA) & Section 508 compliance</li>
+                <li>• Alt text presence; AI-generated alt where applicable</li>
+                <li>• WCAG 3.3.1 error identification for forms</li>
+                <li>• Focus trap & keyboard navigation checks (PDFs)</li>
+                <li>• Detailed scores, prioritization & AI recommendations</li>
               </ul>
             </div>
           </div>

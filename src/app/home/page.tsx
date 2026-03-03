@@ -888,7 +888,8 @@ export default function HomePage() {
             {[
               { id: 'overview', label: 'Overview' },
               { id: 'features', label: 'Features' },
-              { id: 'compliance', label: 'Compliance' }
+              { id: 'compliance', label: 'Compliance' },
+              { id: 'pricing', label: 'Pricing' }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -1156,6 +1157,76 @@ export default function HomePage() {
                     </div>
                   )
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* Pricing Tab - overview only, no pay buttons; single Sign up CTA */}
+          {activeTab === 'pricing' && (
+            <div id="pricing-panel" role="tabpanel" aria-labelledby="pricing-tab" className="space-y-12">
+              <div className="text-center">
+                <h2 className="text-3xl font-bold text-gray-900 mb-4">Simple, Transparent Pricing</h2>
+                <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+                  One subscription for unlimited web and document scanning, or buy credits when you need them. All plans include the same testing capabilities.
+                </p>
+              </div>
+
+              {/* What we check - professional summary */}
+              <div className="max-w-4xl mx-auto">
+                <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">What we check</h3>
+                  <p className="text-gray-700 mb-4">
+                    Every scan uses <strong className="text-gray-900">axe-core</strong> in a real browser for WCAG 2.2, Section 508, and EN 301-549. That covers markup, ARIA, colour contrast, labels, headings, landmarks, forms, and skip links.
+                  </p>
+                  <p className="text-gray-700">
+                    On top of that we run <strong className="text-gray-900">Puppeteer-driven checks</strong>: modal focus traps and keyboard navigation (simulated Tab and Escape), focus visibility, error message and alt text quality, content readability, ARIA hiding or stripping semantic content, landmark correctness, form structure (native controls vs. divs), and ad/sponsor container accessibility. When we find an issue, we suggest a fix with code.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                {/* Subscription overview - no button */}
+                <div className="bg-white rounded-lg border-2 border-[#0B1220] p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold text-gray-900">Unlimited Access</h3>
+                    <span className="bg-[#0B1220] text-white px-3 py-1 rounded-full text-sm font-medium">Most Popular</span>
+                  </div>
+                  <p className="text-gray-600 text-sm mb-4">Web + document scanning (prices in GBP, tax excluded)</p>
+                  <div className="mb-4">
+                    <span className="text-3xl font-bold text-gray-900">£19.99</span>
+                    <span className="text-gray-600">/month</span>
+                    <span className="text-sm text-gray-500 ml-2">(or £191.90/year, save 20%)</span>
+                  </div>
+                  <ul className="space-y-2 text-gray-700 text-sm">
+                    <li className="flex items-start gap-2"><CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" /> Unlimited website & document scans</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" /> 200 pages/month (fair usage)</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" /> WCAG 2.2 + Section 508 + PDF/UA</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" /> AI-powered recommendations & Jira/ADO integration</li>
+                  </ul>
+                </div>
+
+                {/* Credit packages overview - no buttons */}
+                <div className="bg-white rounded-lg border border-gray-200 p-6">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Credit Packages</h3>
+                  <p className="text-gray-600 text-sm mb-4">Pay per scan. £1.50 per credit (tax excluded). Same testing as subscription.</p>
+                  <ul className="space-y-2 text-gray-700 text-sm">
+                    <li className="flex items-center justify-between"><span>Starter (5 credits)</span><span className="font-medium">£7.50</span></li>
+                    <li className="flex items-center justify-between"><span>Professional (7 credits)</span><span className="font-medium">£10.50</span></li>
+                    <li className="flex items-center justify-between"><span>Business (9 credits)</span><span className="font-medium">£13.50</span></li>
+                    <li className="flex items-center justify-between"><span>Enterprise (11 credits)</span><span className="font-medium">£16.50</span></li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="text-center pt-4">
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center px-8 py-4 bg-[#0B1220] text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+                >
+                  Sign up
+                  <ArrowRight className="h-5 w-5 ml-2" />
+                </Link>
+                <p className="text-sm text-gray-500 mt-3">Create an account to choose a plan or buy credits</p>
               </div>
             </div>
           )}

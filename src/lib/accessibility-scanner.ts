@@ -4,6 +4,7 @@ import { axeConfig, wcag22Rules } from './axe-config';
 import { ClaudeAPI } from './claude-api';
 import { CloudinaryService } from './cloudinary-service';
 import { AIAccessibilityChecks } from './ai-accessibility-checks';
+import { runExtendedAccessibilityChecks } from './extended-accessibility-checks';
 
 export interface AccessibilityIssue {
   id: string;
@@ -265,18 +266,18 @@ export class AccessibilityScanner {
       }));
 
       // AI-powered checks disabled for faster scans (axe + remediation only)
-      // Run focused AI-powered checks (4 specific checks: landmarks, forms, ads, contextual)
       const aiIssues: AccessibilityIssue[] = [];
-      // try {
-      //   console.log('🤖 Running focused AI-powered accessibility checks...');
-      //   aiIssues = await this.aiChecks.runAIChecks(page);
-      //   console.log(`✅ AI checks found ${aiIssues.length} additional issues`);
-      // } catch (error) {
-      //   console.error('⚠️ AI checks failed, continuing with axe results only:', error);
-      // }
 
-      // Combine axe and AI issues (AI disabled, so axe only)
-      const issues = [...axeIssues, ...aiIssues];
+      // Extended checks: focus trap, keyboard nav, error message clarity, alt quality, readability (detection only; AI remediates)
+      let extendedIssues: AccessibilityIssue[] = [];
+      try {
+        extendedIssues = await runExtendedAccessibilityChecks(page);
+      } catch (error) {
+        console.warn('⚠️ Extended accessibility checks failed, continuing with axe results:', error);
+      }
+
+      // Combine axe, AI, and extended issues
+      const issues = [...axeIssues, ...aiIssues, ...extendedIssues];
 
       // Calculate summary
       const summary = {
@@ -624,6 +625,84 @@ export class AccessibilityScanner {
         description: 'List items must be properly contained',
         wcag22Level: 'A',
         help: 'Ensure list items are direct children of list elements'
+      },
+      'modal-focus-escape': {
+        name: 'Modal Focus Trap',
+        description: 'Focus should stay inside modal until closed',
+        wcag22Level: 'A',
+        help: 'Trap focus inside the dialog; allow exit via Escape or Close button (WCAG 2.1.2)'
+      },
+      'modal-keyboard-trap': {
+        name: 'No Keyboard Trap',
+        description: 'Users must be able to leave the modal with keyboard',
+        wcag22Level: 'A',
+        help: 'Ensure Escape closes the modal and returns focus (WCAG 2.1.2)'
+      },
+      'keyboard-focus-visible': {
+        name: 'Focus Visible',
+        description: 'Focused elements must have a visible focus indicator',
+        wcag22Level: 'A',
+        help: 'Use outline or box-shadow on :focus / :focus-visible'
+      },
+      'keyboard-tabindex-order': {
+        name: 'Tab Order',
+        description: 'Avoid positive tabindex; use natural DOM order',
+        wcag22Level: 'A',
+        help: 'Remove tabindex > 0; use skip links if needed (WCAG 2.4.3)'
+      },
+      'error-message-clarity': {
+        name: 'Error Identification',
+        description: 'Form errors must be clear and specific',
+        wcag22Level: 'A',
+        help: 'Use aria-describedby and specific error text (WCAG 3.3.1)'
+      },
+      'alt-text-quality': {
+        name: 'Alt Text Quality',
+        description: 'Alternative text must be descriptive, not generic',
+        wcag22Level: 'A',
+        help: 'Avoid "image" or "picture of"; describe content or purpose'
+      },
+      'content-readability': {
+        name: 'Content Readability',
+        description: 'Content should be readable (grade level)',
+        wcag22Level: 'AAA',
+        help: 'Use shorter sentences and simpler words where possible'
+      },
+      'aria-hidden-content': {
+        name: 'ARIA Hidden Content',
+        description: 'Main content must not be hidden from screen readers',
+        wcag22Level: 'A',
+        help: 'Do not use aria-hidden="true" on containers that hold headings, paragraphs, or article/section content'
+      },
+      'aria-role-strips-semantics': {
+        name: 'ARIA Role Strips Semantics',
+        description: 'Headings and paragraphs must be announced by screen readers',
+        wcag22Level: 'A',
+        help: 'Do not use role="presentation" or role="none" on article, section, h1–h6, or p'
+      },
+      'landmark-wrong-role': {
+        name: 'Landmark Correctness',
+        description: 'Landmark role must match the element (e.g. use <main> for main content)',
+        wcag22Level: 'A',
+        help: 'Use semantic elements that match the landmark (main, nav, aside, header, footer)'
+      },
+      'landmark-multiple-no-name': {
+        name: 'Landmark Accessible Name',
+        description: 'Multiple landmarks of the same type need accessible names',
+        wcag22Level: 'A',
+        help: 'Add aria-label or aria-labelledby to distinguish multiple nav/region landmarks'
+      },
+      'form-structure': {
+        name: 'Form Structure',
+        description: 'Use native form elements instead of div/span with roles',
+        wcag22Level: 'A',
+        help: 'Use <input>, <select>, <textarea>, <button> for keyboard and screen reader support'
+      },
+      'ad-container-accessibility': {
+        name: 'Ad Container Accessibility',
+        description: 'Ad or sponsor areas must have alt text and descriptive link text',
+        wcag22Level: 'A',
+        help: 'Add alt to images and descriptive link text in ad/sponsor containers'
       }
     };
 
@@ -1310,6 +1389,76 @@ ${html}`,
         return `<!-- Add required ARIA attributes -->
 <div role="combobox" aria-expanded="false" aria-haspopup="listbox">
   <input type="text" />
+</div>`;
+      case 'modal-focus-escape':
+      case 'modal-keyboard-trap':
+        return `<!-- Trap focus in modal and close on Escape (WCAG 2.1.2) -->
+<div role="dialog" aria-modal="true" aria-labelledby="dialog-title"
+     onKeyDown={(e) => e.key === 'Escape' && closeModal()}>
+  <h2 id="dialog-title">Title</h2>
+  <button onClick={closeModal} aria-label="Close">Close</button>
+  <!-- Focus first focusable on open; restore focus to trigger on close -->
+</div>`;
+      case 'keyboard-focus-visible':
+        return `/* Visible focus ring */
+:focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+/* Or for elements that need custom focus */
+.my-button:focus {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #0066cc;
+}`;
+      case 'keyboard-tabindex-order':
+        return `<!-- Remove positive tabindex; use DOM order or skip links -->
+<a href="#main">Skip to content</a>
+<nav>...</nav>
+<main id="main">...</main>`;
+      case 'error-message-clarity':
+        return `<!-- Clear, specific error (WCAG 3.3.1) -->
+<label for="email">Email</label>
+<input id="email" type="email" aria-describedby="email-error" aria-invalid="true" />
+<span id="email-error" role="alert">Enter a valid email address (e.g. name@example.com).</span>`;
+      case 'alt-text-quality':
+        return `<!-- Descriptive alt text -->
+<img src="chart.png" alt="Bar chart showing Q3 sales: Product A 45%, B 30%, C 25%." />`;
+      case 'content-readability':
+        return `<!-- Shorter sentences and simpler words -->
+<p>Use short sentences. Avoid jargon. One idea per paragraph.</p>`;
+      case 'aria-hidden-content':
+        return `<!-- Remove aria-hidden from main content containers -->
+<div>  <!-- do not use aria-hidden="true" here if it contains article/headings/paragraphs -->
+  <article><h2>Title</h2><p>Content...</p></article>
+</div>`;
+      case 'aria-role-strips-semantics':
+        return `<!-- Do not strip semantics from headings/paragraphs/article -->
+<article>  <!-- remove role="presentation" or role="none" -->
+  <h2>Section</h2>
+  <p>Paragraph text.</p>
+</article>`;
+      case 'landmark-wrong-role':
+        return `<!-- Use semantic elements that match the landmark -->
+<main>
+  <h1>Page title</h1>
+  <p>Content...</p>
+</main>
+<nav aria-label="Main navigation">...</nav>`;
+      case 'landmark-multiple-no-name':
+        return `<!-- Name multiple landmarks -->
+<nav aria-label="Main navigation">...</nav>
+<nav aria-label="Footer links">...</nav>`;
+      case 'form-structure':
+        return `<!-- Use native form elements -->
+<form>
+  <label for="email">Email</label>
+  <input type="email" id="email" />
+  <button type="submit">Submit</button>
+</form>`;
+      case 'ad-container-accessibility':
+        return `<!-- Ad container: descriptive alt and link text -->
+<div class="ad-slot" aria-label="Advertisement">
+  <img src="ad.png" alt="Promotion: 20% off until Friday" />
+  <a href="...">View offer details</a>
 </div>`;
       default:
         return `<!-- Fix the accessibility issue in this element -->
