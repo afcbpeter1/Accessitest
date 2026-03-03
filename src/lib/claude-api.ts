@@ -200,41 +200,43 @@ export class ClaudeAPI {
   }
 
   /**
-   * Generate AI-powered accessibility suggestions for an offending element
+   * Generate AI-powered accessibility suggestions for an offending element.
+   * Works for both axe-core rule IDs and extended-check IDs (e.g. alt-text-quality, landmark-multiple-no-name).
    */
   async generateAccessibilitySuggestion(
-    html: string, 
-    issueType: string, 
-    failureSummary: string, 
-    cssSelector: string
+    html: string,
+    issueType: string,
+    failureSummary: string,
+    cssSelector: string,
+    issueDescription?: string,
+    help?: string
   ): Promise<string> {
     try {
       console.log('🚀 Claude API: Starting request for', issueType);
       console.log('📝 Claude API: HTML length:', html.length);
       console.log('🎯 Claude API: CSS Selector:', cssSelector);
-      
+
       const systemPrompt = `You are an expert web accessibility consultant. Provide concise, actionable fixes for accessibility issues.
 
-Guidelines:
-- Keep responses under 200 words
-- Provide ONE specific code example that fixes the exact issue
-- Focus on the most practical solution
-- Be direct and clear
-- No lengthy explanations or multiple alternatives
+CRITICAL:
+- You MUST include a concrete code fix. Wrap the fixed HTML or CSS in a markdown code block exactly like this:
+  \`\`\`html
+  <your fixed code here>
+  \`\`\`
+  Use \`\`\`css for CSS-only fixes.
+- The code block must be the actual fix for the element provided, not a generic example.
+- Keep total response under 200 words: brief explanation, then the code block, then one sentence on why it helps.`;
 
-Format your response as:
-1. Brief issue explanation (1-2 sentences)
-2. Specific code fix with exact HTML/CSS
-3. Why this improves accessibility (1 sentence)`;
+      const descPart = issueDescription ? `\nIssue (what was found): ${issueDescription}` : '';
+      const helpPart = help ? `\nWCAG / fix guidance: ${help}` : '';
+      const userPrompt = `Fix this accessibility issue.
 
-      const userPrompt = `Analyze this accessibility issue and provide a specific fix:
+Rule/check: ${issueType}
+Element (current code): ${html}
+Selector: ${cssSelector}
+Problem with this element: ${failureSummary}${descPart}${helpPart}
 
-Issue Type: ${issueType}
-HTML Element: ${html}
-CSS Selector: ${cssSelector}
-Problem: ${failureSummary}
-
-Provide a specific, actionable fix for this exact element.`;
+Provide a brief explanation, then your fixed code in a \`\`\`html or \`\`\`css code block, then one sentence on why it improves accessibility.`;
 
       console.log('📤 Claude API: Sending request...');
       const estimatedTokens = this.estimateTokens(systemPrompt + userPrompt);

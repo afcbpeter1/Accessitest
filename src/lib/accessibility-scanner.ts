@@ -13,6 +13,7 @@ export interface AccessibilityIssue {
   description: string;
   help: string;
   helpUrl: string;
+  wcag22Level?: string;
   nodes: Array<{
     html: string;
     target: string[];
@@ -276,8 +277,12 @@ export class AccessibilityScanner {
         console.warn('⚠️ Extended accessibility checks failed, continuing with axe results:', error);
       }
 
-      // Combine axe, AI, and extended issues
-      const issues = [...axeIssues, ...aiIssues, ...extendedIssues];
+      // Combine axe, AI, and extended issues; add WCAG 2.2 level per issue for correct display
+      const rawIssues = [...axeIssues, ...aiIssues, ...extendedIssues];
+      const issues = rawIssues.map(issue => ({
+        ...issue,
+        wcag22Level: this.getWCAG22RuleInfo(issue.id).wcag22Level
+      })) as AccessibilityIssue[];
 
       // Calculate summary
       const summary = {
@@ -641,8 +646,8 @@ export class AccessibilityScanner {
       'keyboard-focus-visible': {
         name: 'Focus Visible',
         description: 'Focused elements must have a visible focus indicator',
-        wcag22Level: 'A',
-        help: 'Use outline or box-shadow on :focus / :focus-visible'
+        wcag22Level: 'AA',
+        help: 'Use outline or box-shadow on :focus / :focus-visible (WCAG 2.4.7)'
       },
       'keyboard-tabindex-order': {
         name: 'Tab Order',
@@ -683,13 +688,13 @@ export class AccessibilityScanner {
       'landmark-wrong-role': {
         name: 'Landmark Correctness',
         description: 'Landmark role must match the element (e.g. use <main> for main content)',
-        wcag22Level: 'A',
+        wcag22Level: 'AA',
         help: 'Use semantic elements that match the landmark (main, nav, aside, header, footer)'
       },
       'landmark-multiple-no-name': {
         name: 'Landmark Accessible Name',
         description: 'Multiple landmarks of the same type need accessible names',
-        wcag22Level: 'A',
+        wcag22Level: 'AA',
         help: 'Add aria-label or aria-labelledby to distinguish multiple nav/region landmarks'
       },
       'form-structure': {
@@ -794,7 +799,9 @@ export class AccessibilityScanner {
         html,
         issue.id,
         failureSummary,
-        target
+        target,
+        issue.description,
+        issue.help
       );
 
       // Cache the response for future use

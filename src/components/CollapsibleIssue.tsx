@@ -394,8 +394,15 @@ Affected URLs: ${affectedUrls.join(', ')}`
                             )}
                           </div>
                         ) : (
-                          <div className="text-xs text-gray-600">
-                            {element.url}
+                          <div className="space-y-1 min-w-0">
+                            {element.url && (
+                              <div className="text-xs text-gray-600">Page: {element.url}</div>
+                            )}
+                            {element.target && element.target.length > 0 && (
+                              <div className="text-xs font-medium text-gray-800 font-mono">
+                                Element: {element.target.join(' ')}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -404,7 +411,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
                       </span>
                     </div>
                     {element.failureSummary && (
-                      <div className="mt-3">
+                      <div className="mt-2">
                         <div className="text-sm text-gray-700 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                           {scanType === 'document' ? (
                             <div className="text-gray-800">{element.failureSummary}</div>
@@ -414,9 +421,12 @@ Affected URLs: ${affectedUrls.join(', ')}`
                         </div>
                       </div>
                     )}
-                    {element.html && scanType === 'document' && (
-                      <div className="mt-2 text-xs text-gray-600 italic">
-                        {element.html}
+                    {(element.html || (element as any).html) && (
+                      <div className="mt-2">
+                        <div className="text-xs font-medium text-gray-700 mb-1">Code / snippet</div>
+                        <pre className="text-xs bg-gray-800 text-gray-100 p-3 rounded-lg overflow-x-auto max-h-40 overflow-y-auto border border-gray-700">
+                          <code className="whitespace-pre-wrap break-all">{(element.html || (element as any).html || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code>
+                        </pre>
                       </div>
                     )}
                   </div>

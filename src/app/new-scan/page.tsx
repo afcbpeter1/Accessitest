@@ -1330,12 +1330,12 @@ function NewScanContent() {
 
                  {/* ADA & WCAG 2.2 Compliance Level */}
                  <div className={`${discoveredPages.length === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
-                   <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                   <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                      <div className="flex items-center space-x-2">
-                       <CheckCircle className="h-5 w-5 text-green-600" />
+                       <CheckCircle className="h-5 w-5 text-blue-700" />
                        <div>
-                         <p className="text-sm font-medium text-green-800">ADA Compliant Scans</p>
-                         <p className="text-xs text-green-600">Meets Americans with Disabilities Act requirements through WCAG 2.2 AA compliance</p>
+                         <p className="text-sm font-medium text-blue-800">ADA Compliant Scans</p>
+                         <p className="text-xs text-blue-700">Meets Americans with Disabilities Act requirements through WCAG 2.2 AA compliance</p>
                        </div>
                      </div>
                    </div>
@@ -1591,8 +1591,8 @@ function NewScanContent() {
                             </div>
                           )}
                           {scanProgress?.status === 'scanning' && (
-                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                              <CheckCircle className="h-4 w-4 text-green-600 animate-pulse" />
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                              <CheckCircle className="h-4 w-4 text-blue-700 animate-pulse" />
                             </div>
                           )}
                           {scanProgress?.status === 'analyzing' && (
@@ -1601,8 +1601,8 @@ function NewScanContent() {
                             </div>
                           )}
                           {scanProgress?.status === 'complete' && (
-                            <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                              <CheckCircle className="h-4 w-4 text-blue-700" />
                             </div>
                           )}
                           {!scanProgress && isScanning && (
@@ -1677,25 +1677,25 @@ function NewScanContent() {
 
                     {/* Scanning Progress Details */}
                     {scanProgress && (scanProgress.status === 'scanning' || scanProgress.status === 'analyzing') && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                      <div className="bg-slate-50 border-l-4 border-green-600 border border-slate-200 rounded-lg p-4 mb-4">
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-green-800 font-semibold">🔍 Live Scanning Progress</span>
-                          <span className="text-green-600 font-medium">
+                          <span className="text-slate-900 font-semibold">🔍 Live Scanning Progress</span>
+                          <span className="text-slate-700 font-medium">
                             {scanProgress.currentPage} / {scanProgress.totalPages}
                           </span>
                         </div>
-                        <div className="bg-white rounded-lg p-3 border border-green-100">
-                          <div className="text-sm text-green-800 font-medium mb-1">Current Activity:</div>
-                          <div className="text-sm text-green-700 leading-relaxed">
+                        <div className="bg-white rounded-lg p-3 border border-slate-200">
+                          <div className="text-sm text-slate-600 font-medium mb-1">Current Activity:</div>
+                          <div className="text-sm text-slate-900 leading-relaxed">
                             {scanProgress.message}
                           </div>
                           {scanProgress.url && (
-                            <div className="text-xs text-green-600 mt-2">
+                            <div className="text-xs text-slate-600 mt-2">
                               📄 Scanning: {scanProgress.url}
                             </div>
                           )}
                         </div>
-                        <div className="mt-3 text-xs text-green-600">
+                        <div className="mt-3 text-xs text-slate-600">
                           💡 The system is actively scanning each page for accessibility issues. This may take a few minutes.
                         </div>
                       </div>
@@ -1706,11 +1706,11 @@ function NewScanContent() {
                 {/* Success Notification */}
                 {showSuccessNotification && (
                   <div className="fixed top-4 right-4 z-50 max-w-md">
-                    <div className="bg-white border border-green-200 rounded-xl shadow-lg p-6 transform transition-all duration-300 ease-out">
+                    <div className="bg-white border border-blue-200 rounded-xl shadow-lg p-6 transform transition-all duration-300 ease-out">
                       <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0">
-                          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                            <CheckCircle className="h-6 w-6 text-green-600" />
+                          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <CheckCircle className="h-6 w-6 text-blue-700" />
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1798,28 +1798,28 @@ function NewScanContent() {
               <h3 className="text-lg font-medium text-gray-900 mb-3">What We Scan</h3>
               <div className="space-y-3">
                                  <div className="flex items-start space-x-3">
-                   <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                   <CheckCircle className="h-5 w-5 text-blue-700 mt-0.5" />
                    <div>
                      <p className="text-sm font-medium text-gray-900">WCAG 2.2 Compliance</p>
                     <p className="text-xs text-gray-500">Level {wcagLevel} standards selected</p>
                    </div>
                  </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  <CheckCircle className="h-5 w-5 text-blue-700 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Screen Reader Support</p>
                     <p className="text-xs text-gray-500">Alt text, ARIA labels</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  <CheckCircle className="h-5 w-5 text-blue-700 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Keyboard Navigation</p>
                     <p className="text-xs text-gray-500">Tab order, focus indicators</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  <CheckCircle className="h-5 w-5 text-blue-700 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Colour Contrast</p>
                     <p className="text-xs text-gray-500">Text readability</p>
@@ -1880,28 +1880,28 @@ function NewScanContent() {
               <h3 className="text-lg font-medium text-gray-900 mb-3">Professional & Safe</h3>
               <div className="space-y-3">
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  <CheckCircle className="h-5 w-5 text-blue-700 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Respects robots.txt</p>
                     <p className="text-xs text-gray-500">Follows site crawling policies</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  <CheckCircle className="h-5 w-5 text-blue-700 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Rate Limited</p>
                     <p className="text-xs text-gray-500">Safe request speeds (5-20/min)</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  <CheckCircle className="h-5 w-5 text-blue-700 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Professional Headers</p>
                     <p className="text-xs text-gray-500">Looks like legitimate traffic</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                  <CheckCircle className="h-5 w-5 text-blue-700 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">User Agent Rotation</p>
                     <p className="text-xs text-gray-500">Multiple browser signatures</p>
@@ -2067,7 +2067,7 @@ function NewScanContent() {
 
                     {result.issues.length === 0 ? (
                       <div className="text-center py-8">
-                        <CheckCircle className="mx-auto h-12 w-12 text-green-600 mb-4" />
+                        <CheckCircle className="mx-auto h-12 w-12 text-blue-700 mb-4" />
                         <p className="text-gray-500">No accessibility issues found on this page!</p>
                       </div>
                     ) : (
@@ -2084,7 +2084,7 @@ function NewScanContent() {
                             ruleName: issue.description,
                             description: issue.description,
                             impact: issue.impact,
-                            wcag22Level: 'A', // Default, could be enhanced
+                            wcag22Level: (issue as any).wcag22Level || 'A',
                             help: issue.help,
                             helpUrl: issue.helpUrl,
                             totalOccurrences: issue.nodes.length,

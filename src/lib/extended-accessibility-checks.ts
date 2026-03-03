@@ -26,6 +26,23 @@ function emptyNode(html: string, target: string[], failureSummary: string, impac
   };
 }
 
+// WCAG 2.2 tags per extended rule for correct level display (A, AA, AAA)
+const EXTENDED_RULE_TAGS: Record<string, string[]> = {
+  'modal-focus-escape': ['wcag2a', 'wcag21a'],
+  'modal-keyboard-trap': ['wcag2a', 'wcag21a'],
+  'keyboard-focus-visible': ['wcag2aa', 'wcag21aa'],
+  'keyboard-tabindex-order': ['wcag2a', 'wcag21a'],
+  'error-message-clarity': ['wcag2a', 'wcag21a'],
+  'alt-text-quality': ['wcag2a', 'wcag21a'],
+  'content-readability': ['wcag2aaa', 'wcag22aaa'],
+  'aria-hidden-content': ['wcag2a', 'wcag21a'],
+  'aria-role-strips-semantics': ['wcag2a', 'wcag21a'],
+  'landmark-wrong-role': ['wcag2aa', 'wcag21aa'],
+  'landmark-multiple-no-name': ['wcag2aa', 'wcag21aa'],
+  'form-structure': ['wcag2a', 'wcag21a'],
+  'ad-container-accessibility': ['wcag2a', 'wcag21a']
+};
+
 function toIssue(
   id: string,
   impact: 'critical' | 'serious' | 'moderate' | 'minor',
@@ -35,10 +52,11 @@ function toIssue(
   selector: string,
   failureSummary: string
 ): AccessibilityIssue {
+  const tags = EXTENDED_RULE_TAGS[id] || ['best-practice', 'wcag2a'];
   return {
     id,
     impact,
-    tags: ['best-practice', 'wcag2a'],
+    tags,
     description,
     help,
     helpUrl: 'https://www.w3.org/WAI/WCAG21/Understanding/',

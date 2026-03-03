@@ -504,33 +504,41 @@ function ScanDetailsContent() {
               <div className="p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-6">Accessibility Issues</h3>
                 {(() => {
-                  // Handle different data structures for scan results
-                  let issues = []
-                  
+                  // Handle different data structures and deduplicate so we show each unique issue once (like product backlog)
+                  let rawIssues: any[] = []
+
                   if (scan.scanResults) {
                     if (scan.scanType === 'document') {
-                      // For document scans, get issues directly from scanResults.issues
                       if (scan.scanResults.issues && Array.isArray(scan.scanResults.issues)) {
-                        issues = scan.scanResults.issues
+                        rawIssues = scan.scanResults.issues
                       }
                     } else {
-                      // For web scans, process results as before
-                      let scanResults = []
+                      let scanResults: any[] = []
                       if (Array.isArray(scan.scanResults)) {
                         scanResults = scan.scanResults
                       } else if (scan.scanResults.results && Array.isArray(scan.scanResults.results)) {
                         scanResults = scan.scanResults.results
                       }
-                      
-                      // Extract issues from web scan results
+                      // Deduplicate: merge by issue.id so same issue from multiple pages appears once with all nodes
+                      const byId = new Map<string, { issue: any; resultUrl?: string }>()
                       scanResults.forEach((result: any) => {
-                        if (result.issues && Array.isArray(result.issues)) {
-                          issues.push(...result.issues)
-                        }
+                        if (!result.issues || !Array.isArray(result.issues)) return
+                        result.issues.forEach((issue: any) => {
+                          const id = issue.id || issue.rule_id || 'unknown'
+                          if (byId.has(id)) {
+                            const existing = byId.get(id)!
+                            existing.issue.nodes = [...(existing.issue.nodes || []), ...(issue.nodes || [])]
+                            existing.issue.occurrences = existing.issue.nodes.length
+                          } else {
+                            byId.set(id, { issue: { ...issue }, resultUrl: result.url })
+                          }
+                        })
                       })
+                      rawIssues = Array.from(byId.values()).map(({ issue }) => issue)
                     }
                   }
-                  if (issues.length === 0) {
+
+                  if (rawIssues.length === 0) {
                     return (
                       <div className="text-center py-8">
                         <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
@@ -541,58 +549,82 @@ function ScanDetailsContent() {
                       </div>
                     )
                   }
-                  
+
                   return (
                     <div className="space-y-6">
-                      {issues.map((issue: any, issueIndex: number) => {
-                        // Find matching AI response from remediation report
-                        const matchingAIResponse = scan.remediationReport?.find((report: any) => 
-                          report.issueId === (issue.id || `issue-${issueIndex}`)
-                        );
+                      {rawIssues.map((issue: any, issueIndex: number) => {
+                        const issueId = issue.id || issue.rule_id || `issue-${issueIndex}`
+                        const matchingReport = scan.remediationReport?.find((r: any) => r.issueId === issueId)
 
-                        // Create a collapsible issue for each issue
+                        // Use remediation report (same as product backlog): offending elements with HTML/selector, AI fix with code, screenshots
+                        const offendingElements = matchingReport?.offendingElements?.length
+                          ? matchingReport.offendingElements.map((el: any) => ({
+                              html: el.html,
+                              target: el.target || [],
+                              failureSummary: el.failureSummary || issue.description,
+                              impact: el.impact || issue.impact || 'minor',
+                              url: el.url || scan.url || ''
+                            }))
+                          : (issue.nodes?.length
+                              ? issue.nodes.map((node: any) => ({
+                                  html: node.html,
+                                  target: node.target || [],
+                                  failureSummary: node.failureSummary || issue.description,
+                                  impact: node.impact || issue.impact || 'minor',
+                                  url: scan.url || ''
+                                }))
+                              : [{
+                                  html: issue.elementContent || '',
+                                  target: issue.elementSelector ? [issue.elementSelector] : [],
+                                  failureSummary: issue.description || issue.remediation || '',
+                                  impact: issue.impact || 'minor',
+                                  url: scan.url || ''
+                                }])
+
+                        const suggestions = matchingReport?.suggestions?.length
+                          ? matchingReport.suggestions.map((s: any) => ({
+                              type: (s.type || 'fix') as 'fix' | 'improvement' | 'warning',
+                              description: s.description || s.text || '',
+                              codeExample: s.codeExample || s.code,
+                              priority: (s.priority || 'medium') as 'high' | 'medium' | 'low'
+                            }))
+                          : (issue.suggestions?.length
+                              ? issue.suggestions.map((s: any) => ({
+                                  type: (s.type || 'fix') as 'fix' | 'improvement' | 'warning',
+                                  description: s.description || s.text || '',
+                                  codeExample: s.codeExample || s.code,
+                                  priority: (s.priority || 'medium') as 'high' | 'medium' | 'low'
+                                }))
+                              : [{
+                                  type: 'fix' as const,
+                                  description: issue.help || issue.description || 'Fix this accessibility issue',
+                                  priority: (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
+                                }])
+
                         const collapsibleIssue = {
-                          issueId: issue.id || `issue-${issueIndex}`,
-                          ruleName: issue.description || 'Accessibility Issue',
+                          issueId,
+                          ruleName: issue.description || matchingReport?.ruleName || 'Accessibility Issue',
                           description: issue.description || 'No description available',
-                          impact: issue.type || issue.impact || 'minor',
-                          wcag22Level: issue.wcagCriterion || 'A',
-                          help: issue.description || '',
-                          helpUrl: issue.wcagCriterion ? `https://www.w3.org/WAI/WCAG22/Understanding/${issue.wcagCriterion}` : '',
-                          totalOccurrences: issue.occurrences || 1,
-                          affectedUrls: [scan.url || scan.fileName || ''],
-                          offendingElements: [{
-                            html: scan.scanType === 'document' ? 
-                              `Document Content (Page ${issue.pageNumber || 'Unknown'})` : 
-                              (issue.elementContent || ''),
-                            target: scan.scanType === 'document' ? 
-                              [`Document Section: ${issue.section || 'Unknown'}`] : 
-                              (issue.elementSelector ? [issue.elementSelector] : []),
-                            failureSummary: scan.scanType === 'document' ? 
-                              (issue.remediation || issue.recommendation || '') : 
-                              (issue.remediation || issue.recommendation || issue.description || ''),
-                            impact: issue.type || issue.impact || 'minor',
-                            url: scan.scanType === 'document' ? 
-                              `Document: ${scan.fileName || 'Unknown'}` : 
-                              (scan.url || '')
-                          }],
-                          suggestions: [
-                            {
-                              type: 'fix' as const,
-                              description: issue.recommendation || issue.remediation || issue.description || 'Fix this accessibility issue',
-                              priority: (issue.type === 'critical' || issue.type === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
-                            }
-                          ],
-                          priority: (issue.type === 'critical' || issue.type === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
-                        };
-          return (
-            <CollapsibleIssue
-              key={`issue-${issueIndex}`}
-              {...collapsibleIssue}
-              scanType={scan.scanType}
-              scanId={params.id as string}
-            />
-          );
+                          impact: issue.impact || issue.type || 'minor',
+                          wcag22Level: issue.wcag22Level || issue.wcagCriterion || matchingReport?.wcag22Level || 'A',
+                          help: issue.help || matchingReport?.help || issue.description || '',
+                          helpUrl: issue.helpUrl || (issue.wcagCriterion ? `https://www.w3.org/WAI/WCAG22/Understanding/${issue.wcagCriterion}` : ''),
+                          totalOccurrences: issue.occurrences ?? issue.nodes?.length ?? 1,
+                          affectedUrls: matchingReport?.affectedUrls?.length ? matchingReport.affectedUrls : [scan.url || scan.fileName || ''].filter(Boolean),
+                          offendingElements,
+                          suggestions,
+                          priority: (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : 'medium') as 'high' | 'medium' | 'low'
+                        }
+
+                        return (
+                          <CollapsibleIssue
+                            key={`issue-${issueId}-${issueIndex}`}
+                            {...collapsibleIssue}
+                            scanType={scan.scanType}
+                            scanId={params.id as string}
+                            screenshots={matchingReport?.screenshots || (scan.scanResults?.results?.[0]?.screenshots ?? scan.scanResults?.screenshots)}
+                          />
+                        )
                       })}
                     </div>
                   )

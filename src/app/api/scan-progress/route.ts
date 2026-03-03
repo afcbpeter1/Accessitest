@@ -345,8 +345,28 @@ async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId
   })
 }
 
+// Extended rule IDs: group by (id + normalized description) so duplicates merge into one issue with multiple nodes
+const EXTENDED_RULE_IDS = new Set([
+  'alt-text-quality', 'content-readability', 'error-message-clarity', 'keyboard-focus-visible',
+  'modal-focus-escape', 'modal-keyboard-trap', 'keyboard-tabindex-order', 'aria-hidden-content',
+  'aria-role-strips-semantics', 'landmark-wrong-role', 'landmark-multiple-no-name',
+  'form-structure', 'ad-container-accessibility'
+])
+
+function normalizedDescriptionForExtendedRule(id: string, description: string): string {
+  if (!description) return id
+  // Same description text → same key (e.g. all "Alt text is very short (5 chars): \"Image\"" merge)
+  if (id === 'content-readability') {
+    // Normalize so "Paragraph may be hard to read (estimated grade level 12.9)" and "12.7" become one group
+    return description.replace(/\s*\(estimated grade level [0-9.]+\)/gi, ' (estimated grade level)').trim()
+  }
+  return description.trim()
+}
+
 /**
- * Deduplicate issues across multiple pages to avoid counting the same issue multiple times
+ * Deduplicate issues across multiple pages to avoid counting the same issue multiple times.
+ * Axe issues: key by rule id + selector (same element across pages = one issue).
+ * Extended checks: key by rule id + normalized description (same rule + same finding type = one issue with many nodes).
  */
 function deduplicateIssuesAcrossPages(results: any[]): any[] {
   const issueMap = new Map<string, any>()
@@ -355,23 +375,22 @@ function deduplicateIssuesAcrossPages(results: any[]): any[] {
     if (!result.issues) continue
     
     for (const issue of result.issues) {
-      // Create a unique key based on issue ID and selector
-      const key = `${issue.id}_${issue.nodes?.[0]?.target?.join('_') || 'unknown'}`
+      const isExtended = EXTENDED_RULE_IDS.has(issue.id)
+      const key = isExtended
+        ? `${issue.id}__${normalizedDescriptionForExtendedRule(issue.id, issue.description || '')}`
+        : `${issue.id}_${issue.nodes?.[0]?.target?.join('_') || 'unknown'}`
       
       if (issueMap.has(key)) {
-        // Merge with existing issue - combine node counts and pages
+        // Merge with existing issue - combine nodes
         const existingIssue = issueMap.get(key)
         existingIssue.nodes = [...(existingIssue.nodes || []), ...(issue.nodes || [])]
-        existingIssue.occurrences = (existingIssue.occurrences || 1) + 1
-        existingIssue.affectedPages = (existingIssue.affectedPages || 1) + 1
+        existingIssue.occurrences = existingIssue.nodes.length
+        existingIssue.affectedPages = (existingIssue.affectedPages || 1) + (result.url ? 1 : 0)
         
-        // Clean up description - remove any existing "(Found on X pages)" text to avoid duplicates
         if (existingIssue.description) {
           existingIssue.description = existingIssue.description.replace(/\s*\(Found on \d+ pages?\)/g, '').trim()
         }
       } else {
-        // New issue - add to map
-        // Clean up description - remove any existing "(Found on X pages)" text
         const cleanDescription = issue.description 
           ? issue.description.replace(/\s*\(Found on \d+ pages?\)/g, '').trim()
           : issue.description
@@ -379,7 +398,7 @@ function deduplicateIssuesAcrossPages(results: any[]): any[] {
         issueMap.set(key, {
           ...issue,
           description: cleanDescription,
-          occurrences: 1,
+          occurrences: issue.nodes?.length || 1,
           affectedPages: 1
         })
       }
