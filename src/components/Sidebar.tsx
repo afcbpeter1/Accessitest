@@ -22,6 +22,7 @@ import {
   Target,
   Twitter,
   Linkedin,
+  Mail,
   Building2,
   Check,
   Menu,
@@ -506,6 +507,16 @@ export default function Sidebar({ children }: SidebarProps) {
                 </Link>
               )
             })}
+          </div>
+          <div className="mt-6 pt-4 border-t border-gray-200 px-3">
+            <a
+              href={socialLinks.email}
+              className="flex items-center px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+              aria-label="Contact us by email"
+            >
+              <Mail className="h-5 w-5 mr-3 text-gray-500 flex-shrink-0" aria-hidden="true" />
+              <span>Contact us: hello@a11ytest.ai</span>
+            </a>
           </div>
         </nav>
       </aside>

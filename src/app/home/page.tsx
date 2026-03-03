@@ -1239,6 +1239,9 @@ export default function HomePage() {
               <p className="text-gray-400 max-w-2xl mx-auto mb-6">
                 Professional accessibility testing platform for Section 508 compliance, WCAG 2.2 standards, and inclusive digital experiences. AI-powered document and website accessibility testing for government, enterprise, and educational organisations.
               </p>
+              <p className="text-gray-400 mb-4">
+                Contact us: <a href="mailto:hello@a11ytest.ai" className="text-white hover:underline">hello@a11ytest.ai</a>
+              </p>
               {/* Social Media Links */}
               <div className="flex justify-center items-center space-x-4 mb-6">
                 <a 

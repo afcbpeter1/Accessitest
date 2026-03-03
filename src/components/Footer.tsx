@@ -94,10 +94,10 @@ export default function Footer() {
                 <a 
                   href={socialLinks.email} 
                   className="text-[#CBD5E0] hover:text-white block transition-colors flex items-center space-x-2"
-                  aria-label="Send us an email"
+                  aria-label="Contact us by email"
                 >
                   <Mail className="h-4 w-4" />
-                  <span>Email</span>
+                  <span>Contact us: hello@a11ytest.ai</span>
                 </a>
               </div>
             </div>

@@ -45,7 +45,8 @@ export default function Pricing() {
         'WCAG 2.2 + Section 508 compliance for websites',
         'AI-powered recommendations',
         'Multi-page scanning',
-        'Detailed issue breakdowns'
+        'Detailed issue breakdowns',
+        'Jira and ADO backlog integration'
       ],
       popular: true,
       unlimited: true
