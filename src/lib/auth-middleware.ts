@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import jwt from 'jsonwebtoken'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+const JWT_SECRET = process.env.JWT_SECRET
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('JWT_SECRET must be set in production')
+}
+const JWT_SECRET_OR_FALLBACK = JWT_SECRET || 'your-secret-key-change-in-production'
 
 export interface AuthenticatedUser {
   userId: string
@@ -12,7 +16,7 @@ export interface AuthenticatedUser {
 
 export function verifyToken(token: string): AuthenticatedUser | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any
+    const decoded = jwt.verify(token, JWT_SECRET_OR_FALLBACK) as any
 
     return {
       userId: decoded.userId,

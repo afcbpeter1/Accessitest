@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Settings, CreditCard, User, Bell, Shield, LogOut, Save, AlertCircle, X, CheckCircle, ExternalLink, Loader2 } from 'lucide-react'
+import { Settings, CreditCard, User, Bell, Shield, LogOut, Save, AlertCircle, X, CheckCircle, ExternalLink, Loader2, Key, Copy, Trash2 } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 
 interface UserData {
@@ -78,6 +78,7 @@ export default function SettingsPage() {
     { id: 'subscription', name: 'Subscription', icon: CreditCard },
     { id: 'notifications', name: 'Notifications', icon: Bell },
     ...(userRole === 'owner' || userRole === 'admin' ? [{ id: 'integrations', name: 'Integrations', icon: Settings }] : []),
+    ...(userRole === 'owner' || userRole === 'admin' ? [{ id: 'api-keys', name: 'API Keys', icon: Key }] : []),
     { id: 'security', name: 'Security', icon: Shield },
   ]
 
@@ -130,6 +131,15 @@ export default function SettingsPage() {
   const [testingAzureDevOpsConnection, setTestingAzureDevOpsConnection] = useState(false)
   const [loadingAzureDevOpsProjects, setLoadingAzureDevOpsProjects] = useState(false)
   const [loadingAzureDevOpsWorkItemTypes, setLoadingAzureDevOpsWorkItemTypes] = useState(false)
+
+  // API Keys state
+  const [apiKeys, setApiKeys] = useState<Array<{ id: string; name: string | null; key_prefix: string; created_at: string; last_used_at: string | null }>>([])
+  const [loadingApiKeys, setLoadingApiKeys] = useState(false)
+  const [apiKeyName, setApiKeyName] = useState('')
+  const [createdKeyOnce, setCreatedKeyOnce] = useState<string | null>(null)
+  const [creatingKey, setCreatingKey] = useState(false)
+  const [deletingKeyId, setDeletingKeyId] = useState<string | null>(null)
+  const [apiKeysError, setApiKeysError] = useState<string | null>(null)
 
   // Load user data on component mount
   useEffect(() => {
@@ -187,6 +197,91 @@ export default function SettingsPage() {
       loadSubscription()
     }
   }, [activeTab, user])
+
+  // Load API keys when API Keys tab is active
+  useEffect(() => {
+    if (activeTab === 'api-keys') {
+      loadApiKeys()
+    }
+  }, [activeTab])
+
+  const loadApiKeys = async () => {
+    setLoadingApiKeys(true)
+    setApiKeysError(null)
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+      const res = await fetch('/api/api-keys', { headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      if (data.success && Array.isArray(data.apiKeys)) {
+        setApiKeys(data.apiKeys)
+      } else {
+        setApiKeysError(data.error || 'Failed to load API keys')
+        if (res.status === 403) setApiKeys([])
+        else setApiKeys([])
+      }
+    } catch {
+      setApiKeysError('Failed to load API keys')
+      setApiKeys([])
+    } finally {
+      setLoadingApiKeys(false)
+    }
+  }
+
+  const handleCreateApiKey = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCreatingKey(true)
+    setApiKeysError(null)
+    setCreatedKeyOnce(null)
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+      const res = await fetch('/api/api-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: apiKeyName.trim() || undefined })
+      })
+      const data = await res.json()
+      if (data.success && data.apiKey) {
+        setCreatedKeyOnce(data.apiKey)
+        setApiKeyName('')
+        loadApiKeys()
+        setMessage({ type: 'success', text: 'API key created. Copy it now; it won\'t be shown again.' })
+      } else {
+        setApiKeysError(data.error || 'Failed to create API key')
+      }
+    } catch {
+      setApiKeysError('Failed to create API key')
+    } finally {
+      setCreatingKey(false)
+    }
+  }
+
+  const handleCopyApiKey = (key: string) => {
+    navigator.clipboard.writeText(key)
+    setMessage({ type: 'success', text: 'API key copied to clipboard' })
+  }
+
+  const handleDeleteApiKey = async (id: string) => {
+    if (!confirm('Delete this API key? Any CI pipelines using it will stop working.')) return
+    setDeletingKeyId(id)
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+      const res = await fetch(`/api/api-keys/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      if (data.success) {
+        setApiKeys(prev => prev.filter(k => k.id !== id))
+        setMessage({ type: 'success', text: 'API key deleted' })
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to delete API key' })
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to delete API key' })
+    } finally {
+      setDeletingKeyId(null)
+    }
+  }
 
   const loadUserData = async () => {
     try {
@@ -2166,6 +2261,85 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'api-keys' && (
+              <div className="card">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">API Keys</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  Use API keys to run accessibility scans from CI/CD pipelines. Send <code className="bg-gray-100 px-1 rounded">Authorization: Bearer &lt;key&gt;</code> or <code className="bg-gray-100 px-1 rounded">X-API-Key: &lt;key&gt;</code> to <code className="bg-gray-100 px-1 rounded">POST /api/ci/scan</code>.
+                </p>
+                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                  <strong>Multiple URLs:</strong> Use <strong>one</strong> <code className="bg-white/80 px-1 rounded">urls</code> array. Do not use two <code className="bg-white/80 px-1 rounded">url</code> keys — JSON only keeps the last one, so only one page would be scanned.
+                </p>
+                <div className="text-sm text-gray-600 mb-4 space-y-1">
+                  <p>Single page: <code className="bg-gray-100 px-1 rounded text-xs">{`{ "url": "https://example.com" }`}</code></p>
+                  <p>Multiple pages (one report, tabs): <code className="bg-gray-100 px-1 rounded text-xs block mt-1 break-all">{`{ "urls": ["https://example.com", "https://example.com/pricing"] }`}</code></p>
+                </div>
+                {apiKeysError && (
+                  <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700 text-sm flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    {apiKeysError}
+                  </div>
+                )}
+                <form onSubmit={handleCreateApiKey} className="flex flex-wrap items-end gap-3 mb-6">
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Key name (optional)</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      value={apiKeyName}
+                      onChange={(e) => setApiKeyName(e.target.value)}
+                      placeholder="e.g. CI Production"
+                    />
+                  </div>
+                  <button type="submit" className="btn-primary flex items-center gap-2" disabled={creatingKey}>
+                    {creatingKey ? <Loader2 className="h-4 w-4 animate-spin" /> : <Key className="h-4 w-4" />}
+                    Create API key
+                  </button>
+                </form>
+                {createdKeyOnce && (
+                  <div className="mb-6 p-4 rounded-lg bg-amber-50 border border-amber-200">
+                    <p className="text-sm font-medium text-amber-800 mb-2">Your new API key (copy now; it won&apos;t be shown again):</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 p-2 bg-white rounded border text-sm break-all">{createdKeyOnce}</code>
+                      <button type="button" onClick={() => handleCopyApiKey(createdKeyOnce)} className="btn-secondary flex items-center gap-1">
+                        <Copy className="h-4 w-4" /> Copy
+                      </button>
+                    </div>
+                  </div>
+                )}
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Your API keys</h3>
+                {loadingApiKeys ? (
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </div>
+                ) : apiKeys.length === 0 ? (
+                  <p className="text-sm text-gray-500">No API keys yet. Create one above.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {apiKeys.map((k) => (
+                      <li key={k.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-gray-50">
+                        <span className="font-mono text-sm text-gray-700">{k.key_prefix}…</span>
+                        <span className="text-sm text-gray-500">{k.name || 'Unnamed'}</span>
+                        <span className="text-xs text-gray-400">
+                          Last used: {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : 'Never'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteApiKey(k.id)}
+                          disabled={deletingKeyId === k.id}
+                          className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm"
+                        >
+                          {deletingKeyId === k.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                          Delete
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             )}
