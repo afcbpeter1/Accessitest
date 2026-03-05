@@ -1,9 +1,14 @@
 import { Pool } from 'pg'
 
-// Debug database URL (without password)
-const dbUrl = process.env.DATABASE_URL
+// Normalize: trim and strip surrounding quotes (env can load "postgresql://..." which breaks new URL())
+const raw = process.env.DATABASE_URL ?? ''
+const dbUrl = raw.trim().replace(/^["']|["']$/g, '')
 if (dbUrl) {
-  const urlParts = new URL(dbUrl)
+  try {
+    new URL(dbUrl)
+  } catch {
+    console.error('❌ DATABASE_URL is not a valid URL')
+  }
 } else {
   console.error('❌ DATABASE_URL not found in environment variables')
 }

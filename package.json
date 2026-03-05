@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test:puppeteer": "tsx scripts/verify-puppeteer.ts"
+    "test:puppeteer": "tsx scripts/verify-puppeteer.ts",
+    "pen-test": "tsx scripts/pen-test-apis.ts"
   },
   "dependencies": {
     "@adobe/pdfservices-node-sdk": "^4.1.0",

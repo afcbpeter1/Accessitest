@@ -97,7 +97,7 @@ export class AccessibilityScanner {
    * Scan a web page for accessibility issues using custom standards
    * This method should be called from within a Puppeteer page context
    */
-  async scanPageInBrowser(page: any, selectedTags?: string[]): Promise<ScanResult> {
+  async scanPageInBrowser(page: any, selectedTags?: string[], options?: { ciMode?: boolean }): Promise<ScanResult> {
 
     // Get the current URL from the page
     const currentUrl = await page.url();
@@ -299,183 +299,41 @@ export class AccessibilityScanner {
       // Check WCAG 2.2 compliance
       const wcag22Compliance = this.checkWCAG22Compliance(issues, results);
 
-      // Capture screenshots and upload to Cloudinary
-      let screenshots = null;
-      try {
+      let screenshots: ScanResult['screenshots'] = undefined;
+      if (!options?.ciMode) {
+        screenshots = await this.captureAndUploadScreenshots(page, issues);
+      }
 
-
-        // Take a full page screenshot (optimized for smaller file size)
-
-        const fullPageScreenshot = await page.screenshot({
-          fullPage: true,
-          encoding: 'base64',
-          quality: 80,
-          type: 'jpeg'
-        }) as string;
-
-        // Take a viewport screenshot (optimized for smaller file size)
-
-        const viewportScreenshot = await page.screenshot({
-          fullPage: false,
-          encoding: 'base64',
-          quality: 80,
-          type: 'jpeg'
-        }) as string;
-
-        // Capture screenshots of elements with issues
-
-        const elementScreenshots = [];
-        for (const issue of issues.slice(0, 5)) { // Limit to first 5 issues
-          for (const node of issue.nodes || []) {
-            const selector = node.target?.[0];
-            if (selector) {
-              try {
-                // Try to find and screenshot the element
-                const element = await page.$(selector);
-                if (element) {
-                  // Check if element is visible and has dimensions before screenshotting
-                  const boundingBox = await element.boundingBox();
-                  if (!boundingBox || boundingBox.width === 0 || boundingBox.height === 0) {
-                    // Element is hidden or has no dimensions - skip screenshot silently
-                    continue;
-                  }
-
-                  // Check if element is actually visible in the DOM
-                  const isVisible = await element.evaluate((el: Element) => {
-                    const rect = el.getBoundingClientRect();
-                    const style = window.getComputedStyle(el);
-                    return (
-                      rect.width > 0 &&
-                      rect.height > 0 &&
-                      style.display !== 'none' &&
-                      style.visibility !== 'hidden' &&
-                      style.opacity !== '0'
-                    );
-                  });
-
-                  if (!isVisible) {
-                    // Element is not visible - skip screenshot silently
-                    continue;
-                  }
-
-                  const elementScreenshot = await element.screenshot({
-                    encoding: 'base64',
-                    quality: 80,
-                    type: 'jpeg'
-                  }) as string;
-                  
-                  elementScreenshots.push({
-                    selector,
-                    issueId: issue.id,
-                    severity: issue.impact,
-                    screenshot: elementScreenshot,
-                    boundingBox: boundingBox
-                  });
-                }
-              } catch (elementError: any) {
-                // Silently skip elements that can't be screenshotted (hidden, zero width, lazy-loaded, etc.)
-                // Only log unexpected errors
-                if (!elementError?.message?.includes('0 width') && 
-                    !elementError?.message?.includes('not visible') &&
-                    !elementError?.message?.includes('Node')) {
-                  console.warn(`Failed to screenshot element ${selector}:`, elementError.message);
-                }
-              }
+      if (!options?.ciMode) {
+        // Generate AI-enhanced suggestions (skipped in CI mode to save tokens)
+        for (let i = 0; i < issues.length; i++) {
+          const issue = issues[i];
+          try {
+            const suggestions = await this.generateContextualSuggestions(issue);
+            if (suggestions.length > 0) {
+              (issue as any).suggestions = suggestions;
+            }
+            if (i < issues.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+          } catch (error) {
+            console.error(`❌ Failed to generate AI suggestions for issue ${issue.id}:`, error);
+            if (i < issues.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
             }
           }
         }
-
-        // Upload screenshots to Cloudinary
-
-        const timestamp = Date.now();
-        const scanId = `scan_${timestamp}`;
-        
-        const uploadPromises = [];
-        
-        // Upload full page screenshot
-        if (fullPageScreenshot) {
-          uploadPromises.push(
-            CloudinaryService.uploadBase64Image(
-              fullPageScreenshot,
-              'a11ytest/screenshots',
-              { public_id: `${scanId}_fullpage` }
-            )
-          );
-        }
-        
-        // Upload viewport screenshot
-        if (viewportScreenshot) {
-          uploadPromises.push(
-            CloudinaryService.uploadBase64Image(
-              viewportScreenshot,
-              'a11ytest/screenshots',
-              { public_id: `${scanId}_viewport` }
-            )
-          );
-        }
-        
-        // Upload element screenshots
-        for (let i = 0; i < elementScreenshots.length; i++) {
-          const element = elementScreenshots[i];
-          uploadPromises.push(
-            CloudinaryService.uploadBase64Image(
-              element.screenshot,
-              'a11ytest/screenshots',
-              { public_id: `${scanId}_element_${i}` }
-            )
-          );
-        }
-        
-        // Wait for all uploads to complete
-        const uploadResults = await Promise.all(uploadPromises);
-        
-        // Replace base64 data with Cloudinary URLs
-        screenshots = {
-          fullPage: uploadResults[0]?.secure_url || null,
-          viewport: uploadResults[1]?.secure_url || null,
-          elements: elementScreenshots.map((element, index) => ({
-            ...element,
-            screenshot: uploadResults[2 + index]?.secure_url || null,
-            cloudinaryId: uploadResults[2 + index]?.public_id || null
-          }))
-        };
-
-      } catch (screenshotError) {
-        console.error('❌ Screenshot capture failed:', screenshotError);
-        console.error('Screenshot error details:', {
-          message: (screenshotError as any).message,
-          stack: (screenshotError as any).stack
-        });
-        // Continue without screenshots
-      }
-
-      // Generate AI-enhanced suggestions for each issue with rate limiting
-
-      // Process issues sequentially to avoid overwhelming the API
-      for (let i = 0; i < issues.length; i++) {
-        const issue = issues[i];
-        try {
-
-          const suggestions = await this.generateContextualSuggestions(issue);
-          if (suggestions.length > 0) {
-            // Add suggestions to the issue object
-            (issue as any).suggestions = suggestions;
-
-          }
-          
-          // Add delay between issues to prevent rate limiting (2 seconds)
-          if (i < issues.length - 1) {
-
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          }
-          
-        } catch (error) {
-          console.error(`❌ Failed to generate AI suggestions for issue ${issue.id}:`, error);
-          
-          // Even on error, wait before continuing to prevent rate limiting
-          if (i < issues.length - 1) {
-
-            await new Promise(resolve => setTimeout(resolve, 2000));
+      } else {
+        // CI mode: attach rule-based suggestions only (no AI, no tokens)
+        for (const issue of issues) {
+          const firstNode = issue.nodes?.[0];
+          if (!firstNode) continue;
+          const html = firstNode.html ?? '';
+          const target = firstNode.target?.[0] ?? '';
+          const failureSummary = firstNode.failureSummary ?? '';
+          const suggestion = this.getBestRuleBasedSuggestion(issue.id, html, target, failureSummary, issue.impact);
+          if (suggestion) {
+            (issue as any).suggestions = [suggestion];
           }
         }
       }
@@ -493,6 +351,68 @@ export class AccessibilityScanner {
     } catch (error) {
       console.error('Error scanning page for accessibility issues:', error);
       throw new Error(`Failed to scan ${currentUrl}: ${(error as any).message}`);
+    }
+  }
+
+  private async captureAndUploadScreenshots(page: any, issues: AccessibilityIssue[]): Promise<ScanResult['screenshots']> {
+    try {
+      const fullPageScreenshot = await page.screenshot({
+        fullPage: true,
+        encoding: 'base64',
+        quality: 80,
+        type: 'jpeg'
+      }) as string;
+      const viewportScreenshot = await page.screenshot({
+        fullPage: false,
+        encoding: 'base64',
+        quality: 80,
+        type: 'jpeg'
+      }) as string;
+      const elementScreenshots: Array<{ selector: string; issueId: string; severity: string; screenshot: string; boundingBox: any }> = [];
+      for (const issue of issues.slice(0, 5)) {
+        for (const node of issue.nodes || []) {
+          const selector = node.target?.[0];
+          if (!selector) continue;
+          try {
+            const element = await page.$(selector);
+            if (!element) continue;
+            const boundingBox = await element.boundingBox();
+            if (!boundingBox || boundingBox.width === 0 || boundingBox.height === 0) continue;
+            const isVisible = await element.evaluate((el: Element) => {
+              const rect = el.getBoundingClientRect();
+              const style = window.getComputedStyle(el);
+              return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+            });
+            if (!isVisible) continue;
+            const elementScreenshot = await element.screenshot({ encoding: 'base64', quality: 80, type: 'jpeg' }) as string;
+            elementScreenshots.push({ selector, issueId: issue.id, severity: issue.impact, screenshot: elementScreenshot, boundingBox });
+          } catch {
+            // skip element
+          }
+        }
+      }
+      const timestamp = Date.now();
+      const scanId = `scan_${timestamp}`;
+      const uploadPromises: Promise<any>[] = [];
+      if (fullPageScreenshot) uploadPromises.push(CloudinaryService.uploadBase64Image(fullPageScreenshot, 'a11ytest/screenshots', { public_id: `${scanId}_fullpage` }));
+      if (viewportScreenshot) uploadPromises.push(CloudinaryService.uploadBase64Image(viewportScreenshot, 'a11ytest/screenshots', { public_id: `${scanId}_viewport` }));
+      for (let i = 0; i < elementScreenshots.length; i++) {
+        uploadPromises.push(CloudinaryService.uploadBase64Image(elementScreenshots[i].screenshot, 'a11ytest/screenshots', { public_id: `${scanId}_element_${i}` }));
+      }
+      const uploadResults = await Promise.all(uploadPromises);
+      const fullPageUrl = uploadResults[0]?.secure_url ?? undefined;
+      const viewportUrl = uploadResults[1]?.secure_url ?? undefined;
+      const elements = elementScreenshots.map((el, i) => ({
+        selector: el.selector,
+        issueId: el.issueId,
+        severity: el.severity,
+        screenshot: (uploadResults[2 + i]?.secure_url ?? '') as string,
+        boundingBox: el.boundingBox
+      }));
+      return { fullPage: fullPageUrl, viewport: viewportUrl, elements };
+    } catch (err) {
+      console.error('❌ Screenshot capture failed:', err);
+      return undefined;
     }
   }
 
