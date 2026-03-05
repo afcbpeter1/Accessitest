@@ -1,5 +1,9 @@
 # Azure DevOps pipeline for A11ytest.ai
 # Connect this repo (GitHub) in Pipelines → Create Pipeline → GitHub → select repo
+#
+# If you see "No hosted parallelism has been purchased or granted":
+# - Request free grant: https://aka.ms/azpipelines-parallelism-request
+# - Or use a self-hosted agent: replace the pool below with "pool: default" (after registering an agent)
 trigger:
   branches:
     include:
@@ -12,8 +16,11 @@ trigger:
       - '**.md'
       - 'docs/**'
 
+# Microsoft-hosted agent (requires parallelism grant for your org)
 pool:
   vmImage: 'ubuntu-latest'
+# Self-hosted agent (use this if you have no hosted parallelism; register an agent in Project settings → Agent pools)
+# pool: default
 
 variables:
   nodeVersion: '18.x'
