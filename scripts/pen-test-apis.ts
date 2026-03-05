@@ -97,8 +97,8 @@ async function testCiScanAuth(): Promise<void> {
 async function testCiScanInputValidation(): Promise<void> {
   const url = `${BASE}/api/ci/scan`
   const hasValidKey = Boolean(process.env.PEN_TEST_API_KEY)
-  const auth = hasValidKey
-    ? { Authorization: `Bearer ${process.env.PEN_TEST_API_KEY}` }
+  const auth: Record<string, string> = hasValidKey
+    ? { Authorization: `Bearer ${process.env.PEN_TEST_API_KEY!}` }
     : { 'X-API-Key': 'ask_dummy_key_for_validation_tests_only' }
 
   // Without valid key we get 401 before URL validation; with valid key we expect 400 for bad URLs
