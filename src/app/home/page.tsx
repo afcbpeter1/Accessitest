@@ -443,11 +443,11 @@ export default function HomePage() {
           <h1 className="text-5xl font-bold mb-4">
             Professional Accessibility Testing Platform
           </h1>
-          <h2 className="text-2xl font-semibold mb-6 text-white/90">
+          <p className="text-2xl font-semibold mb-6 text-white/90">
             No more hiding from accessibility.
-          </h2>
+          </p>
           <p className="text-xl mb-8 max-w-3xl mx-auto">
-            A11ytest.ai is a leading accessibility testing platform. We help your documents and websites meet <strong>ADA compliance</strong>, Section 508, and WCAG 2.2 AA standards. Our AI runs full accessibility audits on PDFs and websites. You get legal compliance and inclusive digital experiences for everyone.
+            A11ytest.ai is the leading accessibility testing platform that ensures your documents and websites meet <strong>ADA compliance</strong>, federal Section 508 requirements, and international WCAG 2.2 AA standards. Our AI-powered technology provides comprehensive accessibility audits for PDFs and websites, helping organizations achieve full legal compliance and create inclusive digital experiences for all users.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
@@ -480,6 +480,7 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
+      </main>
 
       {/* Why We're Different Section */}
       <section className="py-16 bg-gray-50">
@@ -573,9 +574,9 @@ export default function HomePage() {
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
                 Free Website Accessibility Scan
               </h2>
-              <h3 className="text-2xl font-semibold text-gray-900 mb-4">
+              <p className="text-2xl font-semibold text-gray-900 mb-4">
                 Instant actionable Accessibility
-              </h3>
+              </p>
               <p className="text-lg text-gray-600 max-w-3xl mx-auto">
                 Get a quick accessibility assessment of your website's homepage. See what issues we find, then sign up for detailed recommendations and remediation steps.
               </p>
@@ -1248,7 +1249,7 @@ export default function HomePage() {
               <div className="bg-white p-6 rounded-lg shadow-md border-2 border-gray-200 group-hover:border-blue-500 transition-all duration-300 transform group-hover:scale-105">
                 <img 
                   src="/jira-logo.svg" 
-                  alt="Jira by Atlassian project management and issue tracking integration logo" 
+                  alt="Jira Logo" 
                   className="w-32 h-32 object-contain"
                 />
               </div>
@@ -1292,10 +1293,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      </main>
-
       {/* Footer */}
-      <footer className="bg-[#0B1220] text-white py-12" role="contentinfo">
+      <footer className="bg-[#0B1220] text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-1 gap-8">
             <div className="text-center">

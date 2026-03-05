@@ -761,7 +761,9 @@ export class ScanService {
   /**
    * Scan a single page for accessibility issues
    */
-  async scanPage(url: string, selectedTags?: string[], options?: { ciMode?: boolean }): Promise<ScanResult> {
+  async scanPage(url: string, selectedTags?: string[]): Promise<ScanResult> {
+    console.log(`🔍 ScanService.scanPage called for: ${url}`)
+    
     if (!this.browser) {
       throw new Error('Browser not initialized');
     }
@@ -770,46 +772,37 @@ export class ScanService {
     await this.waitForPageReady();
 
     try {
+      console.log(`🌐 Navigating to ${url}...`)
+      // Navigate to the page (domcontentloaded first avoids "main frame too early" in containers)
       await page.goto(url, {
         waitUntil: ['domcontentloaded', 'networkidle2'],
-        timeout: options?.ciMode ? 60000 : 0
+        timeout: 0 // No timeout
       });
+      console.log(`✅ Page loaded successfully`)
 
+      console.log(`🔧 Injecting axe-core...`)
+      // Inject axe-core into the page
       await page.addScriptTag({
         url: 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.3/axe.min.js'
       });
+      console.log(`✅ Axe-core injected successfully`)
 
+      // Use our accessibility scanner with selected tags
+      // CRITICAL: Default to comprehensive WCAG compliance (includes all levels)
       const tagsToUse = selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508'];
-      const result = await this.scanner.scanPageInBrowser(page, tagsToUse, options);
+      console.log(`🧪 Running accessibility scan with tags: ${tagsToUse.join(', ')}`)
+      
+      const result = await this.scanner.scanPageInBrowser(page, tagsToUse);
+      
+      console.log(`📊 Scan result:`, {
+        issues: result.issues?.length || 0,
+        summary: result.summary,
+        url: result.url
+      })
+      
       return result;
     } finally {
       await page.close();
-    }
-  }
-
-  /**
-   * Run a single-URL scan for CI/API: no crawl, optional CI mode (no screenshots, no AI).
-   * Enforces a timeout so CI jobs do not hang.
-   */
-  async runSinglePageScan(url: string, options?: { ciMode?: boolean; timeoutMs?: number }): Promise<ScanResult> {
-    const timeoutMs = options?.timeoutMs ?? 90000;
-    const puppeteerModule = await getPuppeteer();
-    const browser = await puppeteerModule.launch(await getLaunchOptionsForServerAsync({
-      headless: 'new',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }));
-
-    try {
-      this.browser = browser;
-      const scanPromise = this.scanPage(url, undefined, { ciMode: options?.ciMode ?? true });
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Scan timed out')), timeoutMs);
-      });
-      const result = await Promise.race([scanPromise, timeoutPromise]);
-      return result;
-    } finally {
-      this.browser = null;
-      await browser.close().catch(() => {});
     }
   }
 
