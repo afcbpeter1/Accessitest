@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
     }
 
     const failOn: FailOn = body.failOn === 'critical' ? 'critical' : 'criticalAndSerious'
-    const origin = request.nextUrl.origin
+    const origin = process.env.NEXTAUTH_URL?.replace(/\/$/, '') || process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || request.nextUrl.origin
     const scanService = new ScanService()
     const results: Array<{
       url: string

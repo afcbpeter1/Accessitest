@@ -1201,6 +1201,7 @@ export default function HomePage() {
                     <li className="flex items-start gap-2"><CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" /> 200 pages/month (fair usage)</li>
                     <li className="flex items-start gap-2"><CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" /> WCAG 2.2 + Section 508 + PDF/UA</li>
                     <li className="flex items-start gap-2"><CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" /> AI-powered recommendations & Jira/ADO integration</li>
+                    <li className="flex items-start gap-2"><CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" /> Full API access</li>
                   </ul>
                 </div>
 
