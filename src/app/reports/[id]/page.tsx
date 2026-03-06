@@ -12,7 +12,9 @@ import {
   FileCode,
   Target,
   Calendar,
-  Layout
+  Layout,
+  Copy,
+  Check
 } from 'lucide-react'
 
 const BRAND = {
@@ -72,6 +74,17 @@ export default function ReportPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const copyToClipboard = async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedId(id)
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch {
+      setCopiedId(null)
+    }
+  }
 
   const pageIndex = Math.max(0, parseInt(searchParams.get('page') ?? '0', 10) || 0)
   const isMultiPage = Boolean(report?.results && report.results.length > 1)
@@ -114,6 +127,39 @@ export default function ReportPage() {
 
   const toggle = (key: string) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const reportLink = typeof window !== 'undefined' ? window.location.href : ''
+  const summaryText = [
+    `Page: ${url}`,
+    `Result: ${passed ? 'Passed' : 'Failed'}`,
+    `Total issues: ${summary.total} (Critical: ${summary.critical}, Serious: ${summary.serious}, Moderate: ${summary.moderate}, Minor: ${summary.minor})`
+  ].join('\n')
+
+  function issueCopyText(issue: ReportIssue): string {
+    const lines = [
+      `[${issue.impact.toUpperCase()}] ${issue.id}`,
+      issue.description,
+      `Help: ${issue.helpUrl}`,
+      ''
+    ]
+    if (issue.nodes?.length) {
+      lines.push('Affected elements:')
+      issue.nodes.forEach((n, i) => {
+        if (n.target?.[0]) lines.push(`  ${i + 1}. ${n.target[0]}`)
+        if (n.failureSummary) lines.push(`     ${n.failureSummary}`)
+        if (n.html) lines.push(`     HTML: ${n.html}`)
+      })
+      lines.push('')
+    }
+    if (issue.suggestions?.length) {
+      lines.push('Suggestions:')
+      issue.suggestions.forEach((s, i) => {
+        lines.push(`  ${i + 1}. ${s.description}`)
+        if (s.codeExample) lines.push(`     Code: ${s.codeExample}`)
+      })
+    }
+    return lines.join('\n')
   }
 
   if (loading) {
@@ -183,6 +229,15 @@ export default function ReportPage() {
             <span className="font-semibold text-white">A11ytest.ai</span>
           </Link>
           <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => copyToClipboard(reportLink, 'link')}
+              className="inline-flex items-center gap-1.5 text-white/80 hover:text-white text-sm font-medium transition-colors"
+              title="Copy report link"
+            >
+              {copiedId === 'link' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copiedId === 'link' ? 'Copied!' : 'Copy link'}
+            </button>
             <span className="text-white/70 text-sm flex items-center gap-1.5">
               <Calendar className="h-4 w-4" />
               {createdAt ? new Date(createdAt).toLocaleString() : 'CI scan report'}
@@ -262,9 +317,21 @@ export default function ReportPage() {
 
         {/* Summary */}
         <section className="bg-white rounded-xl shadow border border-gray-200/80 p-5 sm:p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4" style={{ color: BRAND.dark }}>
-            Summary
-          </h2>
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <h2 className="text-lg font-semibold" style={{ color: BRAND.dark }}>
+              Summary
+            </h2>
+            <button
+              type="button"
+              onClick={() => copyToClipboard(summaryText, 'summary')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border"
+              style={{ borderColor: BRAND.cyan, color: BRAND.cyan }}
+              title="Copy summary to clipboard"
+            >
+              {copiedId === 'summary' ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copiedId === 'summary' ? 'Copied!' : 'Copy summary'}
+            </button>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
             <div
               className="rounded-lg px-4 py-3 border"
@@ -309,24 +376,35 @@ export default function ReportPage() {
                   key={key}
                   className="bg-white rounded-xl shadow border border-gray-200/80 overflow-hidden"
                 >
-                  <button
-                    type="button"
-                    onClick={() => toggle(key)}
-                    className="w-full flex items-center gap-3 p-4 text-left hover:bg-gray-50/80 transition-colors"
-                  >
-                    {isOpen ? (
-                      <ChevronDown className="h-5 w-5 flex-shrink-0" style={{ color: BRAND.cyan }} />
-                    ) : (
-                      <ChevronRight className="h-5 w-5 flex-shrink-0" style={{ color: BRAND.cyan }} />
-                    )}
-                    <span className="font-mono text-sm font-semibold text-gray-900">{issue.id}</span>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeClass}`}>
-                      {issue.impact}
-                    </span>
-                    <span className="text-gray-500 text-sm flex-1 truncate">
-                      {issue.nodes?.length ?? 0} occurrence(s)
-                    </span>
-                  </button>
+                  <div className="w-full flex items-center gap-2 p-4">
+                    <button
+                      type="button"
+                      onClick={() => toggle(key)}
+                      className="flex-1 flex items-center gap-3 text-left hover:bg-gray-50/80 transition-colors rounded-lg"
+                    >
+                      {isOpen ? (
+                        <ChevronDown className="h-5 w-5 flex-shrink-0" style={{ color: BRAND.cyan }} />
+                      ) : (
+                        <ChevronRight className="h-5 w-5 flex-shrink-0" style={{ color: BRAND.cyan }} />
+                      )}
+                      <span className="font-mono text-sm font-semibold text-gray-900">{issue.id}</span>
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeClass}`}>
+                        {issue.impact}
+                      </span>
+                      <span className="text-gray-500 text-sm flex-1 truncate">
+                        {issue.nodes?.length ?? 0} occurrence(s)
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); copyToClipboard(issueCopyText(issue), key); }}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors border border-gray-200 hover:bg-gray-50"
+                      title="Copy issue details"
+                    >
+                      {copiedId === key ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4 text-gray-500" />}
+                      <span className="sr-only">Copy issue</span>
+                    </button>
+                  </div>
                   {isOpen && (
                     <div className="border-t border-gray-200 px-4 pb-4 pt-3 space-y-4 bg-gray-50/50">
                       <p className="text-sm text-gray-700">{issue.description}</p>
