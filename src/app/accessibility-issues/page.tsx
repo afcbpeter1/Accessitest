@@ -94,7 +94,7 @@ export default function AccessibilityIssuesPage() {
             <div className="flex items-start space-x-4 mb-6">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                  <XCircle className="h-6 w-6 text-red-600" />
+                  <XCircle className="h-6 w-6 text-red-800" />
                 </div>
               </div>
               <div className="flex-1">
@@ -135,21 +135,21 @@ export default function AccessibilityIssuesPage() {
                     <img src="/allytest.png" alt="A11ytest logo" className="w-32 h-32 object-cover rounded border mb-2" />
                     <p className="text-sm font-medium text-gray-900 mb-1">No alt attribute at all</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;img src="/product.jpg" /&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Screen reader says: "image" or skips entirely</p>
+                    <p className="text-sm text-red-800 mt-2">Screen reader says: "image" or skips entirely</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
                     <img src="/allytest.png" alt="" className="w-32 h-32 object-cover rounded border mb-2" />
                     <p className="text-sm font-medium text-gray-900 mb-1">Empty alt attribute on informative image</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;img src="/chart.png" alt="" /&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Screen reader skips important data visualization</p>
+                    <p className="text-sm text-red-800 mt-2">Screen reader skips important data visualization</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
                     <img src="/allytest.png" alt="A11ytest product logo" className="w-32 h-32 object-cover rounded border mb-2" />
                     <p className="text-sm font-medium text-gray-900 mb-1">Generic, unhelpful alt text</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;img src="/screenshot.png" alt="image" /&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Screen reader says: "image" - no context provided</p>
+                    <p className="text-sm text-red-800 mt-2">Screen reader says: "image" - no context provided</p>
                   </div>
                 </div>
               </div>
@@ -169,21 +169,21 @@ export default function AccessibilityIssuesPage() {
                     <img src="/allytest.png" alt="MacBook Pro 16-inch laptop showing the keyboard and trackpad" className="w-32 h-32 object-cover rounded border mb-2" />
                     <p className="text-sm font-medium text-gray-900 mb-1">Descriptive alt text for product image</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;img src="/laptop.jpg" alt="MacBook Pro 16-inch laptop showing the keyboard and trackpad" /&gt;</code>
-                    <p className="text-sm text-green-600 mt-2">Screen reader provides clear product description</p>
+                    <p className="text-sm text-green-800 mt-2">Screen reader provides clear product description</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
                     <img src="/allytest.png" alt="Bar chart showing 25% increase in sales from Q3 to Q4" className="w-32 h-32 object-cover rounded border mb-2" />
                     <p className="text-sm font-medium text-gray-900 mb-1">Data visualization with key insights</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;img src="/chart.png" alt="Bar chart showing 25% increase in sales from Q3 to Q4" /&gt;</code>
-                    <p className="text-sm text-green-600 mt-2">Screen reader conveys the data and its meaning</p>
+                    <p className="text-sm text-green-800 mt-2">Screen reader conveys the data and its meaning</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
                     <img src="/allytest.png" alt="" className="w-32 h-32 object-cover rounded border mb-2" />
                     <p className="text-sm font-medium text-gray-900 mb-1">Decorative image with empty alt</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;img src="/decoration.png" alt="" /&gt;</code>
-                    <p className="text-sm text-green-600 mt-2">Screen reader skips decorative elements appropriately</p>
+                    <p className="text-sm text-green-800 mt-2">Screen reader skips decorative elements appropriately</p>
                   </div>
                 </div>
               </div>
@@ -237,7 +237,7 @@ export default function AccessibilityIssuesPage() {
             <div className="flex items-start space-x-4 mb-6">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                  <XCircle className="h-6 w-6 text-red-600" />
+                  <XCircle className="h-6 w-6 text-red-800" />
                 </div>
               </div>
               <div className="flex-1">
@@ -297,24 +297,24 @@ export default function AccessibilityIssuesPage() {
                 <h4 className="text-lg font-semibold text-red-800 mb-3">❌ Common Contrast Failures:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
-                    <p className="text-gray-400 text-lg mb-2">This light grey text on white background is nearly invisible</p>
-                    <p className="text-sm text-red-600">Contrast ratio: 1.2:1 (fails AA by 275%)</p>
+                    <p className="text-gray-700 text-lg mb-2">This light grey text on white background is nearly invisible</p>
+                    <p className="text-sm text-red-800">Contrast ratio: 1.2:1 (fails AA by 275%)</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-2 rounded">color: #999999; background: #ffffff;</code>
-                    <p className="text-sm text-red-600 mt-2">Impact: Users with visual impairments cannot read this text at all</p>
+                    <p className="text-sm text-red-800 mt-2">Impact: Users with visual impairments cannot read this text at all</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
-                    <p className="text-blue-300 text-lg mb-2">Light blue text on white background</p>
-                    <p className="text-sm text-red-600">Contrast ratio: 1.8:1 (fails AA by 150%)</p>
+                    <p className="text-blue-800 text-lg mb-2">Light blue text on white background</p>
+                    <p className="text-sm text-red-800">Contrast ratio: 1.8:1 (fails AA by 150%)</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-2 rounded">color: #66b3ff; background: #ffffff;</code>
-                    <p className="text-sm text-red-600 mt-2">Impact: Difficult to read even for users with normal vision</p>
+                    <p className="text-sm text-red-800 mt-2">Impact: Difficult to read even for users with normal vision</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
-                    <p className="text-red-400 text-lg mb-2">Light red text on white background</p>
-                    <p className="text-sm text-red-600">Contrast ratio: 2.1:1 (fails AA by 114%)</p>
+                    <p className="text-red-800 text-lg mb-2">Light red text on white background</p>
+                    <p className="text-sm text-red-800">Contrast ratio: 2.1:1 (fails AA by 114%)</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-2 rounded">color: #ff9999; background: #ffffff;</code>
-                    <p className="text-sm text-red-600 mt-2">Impact: Particularly problematic for users with red-green colour blindness</p>
+                    <p className="text-sm text-red-800 mt-2">Impact: Particularly problematic for users with red-green colour blindness</p>
                   </div>
                 </div>
               </div>
@@ -330,23 +330,23 @@ export default function AccessibilityIssuesPage() {
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <p className="text-gray-900 text-lg mb-2">Dark grey text on white background</p>
-                    <p className="text-sm text-green-600">Contrast ratio: 21:1 (exceeds AAA by 200%)</p>
+                    <p className="text-sm text-green-800">Contrast ratio: 21:1 (exceeds AAA by 200%)</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-2 rounded">color: #000000; background: #ffffff;</code>
-                    <p className="text-sm text-green-600 mt-2">Impact: Excellent readability for all users</p>
+                    <p className="text-sm text-green-800 mt-2">Impact: Excellent readability for all users</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
                     <p className="text-blue-800 text-lg mb-2">Dark blue text on white background</p>
-                    <p className="text-sm text-green-600">Contrast ratio: 8.6:1 (exceeds AA by 91%)</p>
+                    <p className="text-sm text-green-800">Contrast ratio: 8.6:1 (exceeds AA by 91%)</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-2 rounded">color: #1e40af; background: #ffffff;</code>
-                    <p className="text-sm text-green-600 mt-2">Impact: Great readability with brand color</p>
+                    <p className="text-sm text-green-800 mt-2">Impact: Great readability with brand color</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
                     <p className="text-red-700 text-lg mb-2">Dark red text on white background</p>
-                    <p className="text-sm text-green-600">Contrast ratio: 5.3:1 (exceeds AA by 18%)</p>
+                    <p className="text-sm text-green-800">Contrast ratio: 5.3:1 (exceeds AA by 18%)</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-2 rounded">color: #b91c1c; background: #ffffff;</code>
-                    <p className="text-sm text-green-600 mt-2">Impact: Good readability with warm color</p>
+                    <p className="text-sm text-green-800 mt-2">Impact: Good readability with warm color</p>
                   </div>
                 </div>
               </div>
@@ -406,7 +406,7 @@ export default function AccessibilityIssuesPage() {
                   </li>
                   <li className="flex items-start">
                     <span className="font-semibold mr-2">•</span>
-                    <span><strong>Our Accessibility Playground:</strong> <Link href="/playground" className="text-blue-600 hover:underline">Test contrast issues live</Link> with interactive examples</span>
+                    <span><strong>Our Accessibility Playground:</strong> <Link href="/playground" className="text-blue-600 underline">Test contrast issues live</Link> with interactive examples</span>
                   </li>
                 </ul>
             </div>
@@ -431,7 +431,7 @@ export default function AccessibilityIssuesPage() {
             <div className="flex items-start space-x-4 mb-6">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                  <XCircle className="h-6 w-6 text-red-600" />
+                  <XCircle className="h-6 w-6 text-red-800" />
                 </div>
               </div>
               <div className="flex-1">
@@ -466,7 +466,7 @@ export default function AccessibilityIssuesPage() {
                     <input type="text" placeholder="Enter your name" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
                     <p className="text-sm font-medium text-gray-900 mb-1">Relying only on placeholder text</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;input type="text" placeholder="Enter your name" /&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Screen reader says: "edit text" - no context provided</p>
+                    <p className="text-sm text-red-800 mt-2">Screen reader says: "edit text" - no context provided</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -474,14 +474,14 @@ export default function AccessibilityIssuesPage() {
                     <input id="demo-email-bad" type="email" className="w-full px-3 py-2 border border-gray-300 rounded-md mt-1" />
                     <p className="text-sm font-medium text-gray-900 mb-1">Visual label without proper association</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;span&gt;Email:&lt;/span&gt;<br/>&lt;input type="email" /&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Screen reader doesn't connect the label with the input</p>
+                    <p className="text-sm text-red-800 mt-2">Screen reader doesn't connect the label with the input</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
                     <input type="password" placeholder="Password" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
                     <p className="text-sm font-medium text-gray-900 mb-1">No accessible name for password field</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;input type="password" placeholder="Password" /&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Critical security issue - users don't know it's a password field</p>
+                    <p className="text-sm text-red-800 mt-2">Critical security issue - users don't know it's a password field</p>
                   </div>
                 </div>
               </div>
@@ -500,7 +500,7 @@ export default function AccessibilityIssuesPage() {
                     <input type="text" id="name" name="name" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
                     <p className="text-sm font-medium text-gray-900 mb-1">Explicit label association with for/id</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;label for="name"&gt;Full Name&lt;/label&gt;<br/>&lt;input type="text" id="name" name="name" /&gt;</code>
-                    <p className="text-sm text-green-600 mt-2">Screen reader says: "Full Name, edit text"</p>
+                    <p className="text-sm text-green-800 mt-2">Screen reader says: "Full Name, edit text"</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -510,7 +510,7 @@ export default function AccessibilityIssuesPage() {
                     </label>
                     <p className="text-sm font-medium text-gray-900 mb-1">Implicit label association (wrapped)</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;label&gt;Email Address<br/>&nbsp;&nbsp;&lt;input type="email" name="email" /&gt;<br/>&lt;/label&gt;</code>
-                    <p className="text-sm text-green-600 mt-2">Screen reader says: "Email Address, edit text"</p>
+                    <p className="text-sm text-green-800 mt-2">Screen reader says: "Email Address, edit text"</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -518,7 +518,7 @@ export default function AccessibilityIssuesPage() {
                     <textarea id="message" name="message" rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-md"></textarea>
                     <p className="text-sm font-medium text-gray-900 mb-1">Label for textarea element</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;label for="message"&gt;Message&lt;/label&gt;<br/>&lt;textarea id="message" name="message"&gt;&lt;/textarea&gt;</code>
-                    <p className="text-sm text-green-600 mt-2">Screen reader says: "Message, edit text"</p>
+                    <p className="text-sm text-green-800 mt-2">Screen reader says: "Message, edit text"</p>
                   </div>
                 </div>
               </div>
@@ -606,7 +606,7 @@ export default function AccessibilityIssuesPage() {
                   </li>
                   <li className="flex items-start">
                     <span className="font-semibold mr-2">•</span>
-                    <span><strong>Interactive testing:</strong> <Link href="/playground" className="text-blue-600 hover:underline">Try our playground</Link> to test form accessibility in real-time</span>
+                    <span><strong>Interactive testing:</strong> <Link href="/playground" className="text-blue-600 underline">Try our playground</Link> to test form accessibility in real-time</span>
                   </li>
                 </ul>
           </div>
@@ -631,7 +631,7 @@ export default function AccessibilityIssuesPage() {
             <div className="flex items-start space-x-4 mb-6">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                  <XCircle className="h-6 w-6 text-red-600" />
+                  <XCircle className="h-6 w-6 text-red-800" />
                 </div>
               </div>
               <div className="flex-1">
@@ -692,11 +692,11 @@ export default function AccessibilityIssuesPage() {
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <h1 className="text-2xl font-bold mb-2">Page Title</h1>
-                    <h3 className="text-lg font-semibold mb-2">Skipped h2, went directly to h3</h3>
+                    <p className="text-lg font-semibold mb-2">Skipped h2, went directly to h3</p>
                     <h4 className="text-base font-semibold mb-2">Then h4</h4>
                     <p className="text-sm font-medium text-gray-900 mb-1">Skipping heading levels</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;h1&gt;Page Title&lt;/h1&gt;<br/>&lt;h3&gt;Section&lt;/h3&gt;<br/>&lt;h4&gt;Subsection&lt;/h4&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Screen reader navigation is broken - users can't understand the hierarchy</p>
+                    <p className="text-sm text-red-800 mt-2">Screen reader navigation is broken - users can't understand the hierarchy</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -705,7 +705,7 @@ export default function AccessibilityIssuesPage() {
                     <h1 className="text-2xl font-bold mb-2">Third h1</h1>
                     <p className="text-sm font-medium text-gray-900 mb-1">Multiple h1 elements</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;h1&gt;Section 1&lt;/h1&gt;<br/>&lt;h1&gt;Section 2&lt;/h1&gt;<br/>&lt;h1&gt;Section 3&lt;/h1&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">No clear page structure - confusing for screen readers</p>
+                    <p className="text-sm text-red-800 mt-2">No clear page structure - confusing for screen readers</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -714,7 +714,7 @@ export default function AccessibilityIssuesPage() {
                     <h4 className="text-base font-semibold mb-2">Then h3</h4>
                     <p className="text-sm font-medium text-gray-900 mb-1">Missing main heading</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;h2&gt;Main Section&lt;/h2&gt;<br/>&lt;h3&gt;Subsection&lt;/h3&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">No clear page title or main topic</p>
+                    <p className="text-sm text-red-800 mt-2">No clear page title or main topic</p>
                   </div>
                 </div>
               </div>
@@ -735,7 +735,7 @@ export default function AccessibilityIssuesPage() {
                     <h4 className="text-base font-semibold mb-2">Colour Contrast Standards</h4>
                     <p className="text-sm font-medium text-gray-900 mb-1">Logical hierarchy with proper progression</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;h1&gt;Web Accessibility Guide&lt;/h1&gt;<br/>&lt;h2&gt;Understanding WCAG Guidelines&lt;/h2&gt;<br/>&lt;h3&gt;Level A Requirements&lt;/h3&gt;<br/>&lt;h4&gt;Colour Contrast Standards&lt;/h4&gt;</code>
-                    <p className="text-sm text-green-600 mt-2">Screen reader can navigate: h1 → h2 → h3 → h4</p>
+                    <p className="text-sm text-green-800 mt-2">Screen reader can navigate: h1 → h2 → h3 → h4</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -746,7 +746,7 @@ export default function AccessibilityIssuesPage() {
                     <h3 className="text-lg font-semibold mb-2">Subsection 2.2: Common Mistakes</h3>
                     <p className="text-sm font-medium text-gray-900 mb-1">Consistent structure with parallel sections</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;h1&gt;Page Title&lt;/h1&gt;<br/>&lt;h2&gt;Section 1&lt;/h2&gt;<br/>&lt;h2&gt;Section 2&lt;/h2&gt;<br/>&lt;h3&gt;Subsection 2.1&lt;/h3&gt;<br/>&lt;h3&gt;Subsection 2.2&lt;/h3&gt;</code>
-                    <p className="text-sm text-green-600 mt-2">Clear parallel structure for similar content</p>
+                    <p className="text-sm text-green-800 mt-2">Clear parallel structure for similar content</p>
                   </div>
                 </div>
               </div>
@@ -806,7 +806,7 @@ export default function AccessibilityIssuesPage() {
                   </li>
                   <li className="flex items-start">
                     <span className="font-semibold mr-2">•</span>
-                    <span><strong>Practice with examples:</strong> <Link href="/playground" className="text-blue-600 hover:underline">Visit our playground</Link> to see heading structure in action</span>
+                    <span><strong>Practice with examples:</strong> <Link href="/playground" className="text-blue-600 underline">Visit our playground</Link> to see heading structure in action</span>
                   </li>
                 </ul>
             </div>
@@ -829,7 +829,7 @@ export default function AccessibilityIssuesPage() {
         <section className="mb-12">
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-start space-x-3 mb-4">
-              <XCircle className="h-6 w-6 text-red-600 flex-shrink-0 mt-1" />
+              <XCircle className="h-6 w-6 text-red-800 flex-shrink-0 mt-1" />
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">5. Missing Focus Indicators</h2>
                 <p className="text-gray-600 mb-4">
@@ -846,19 +846,19 @@ export default function AccessibilityIssuesPage() {
                     <button className="bg-blue-600 text-white px-4 py-2 rounded-md focus:outline-none">
                       Button with no focus
                     </button>
-                    <p className="text-sm text-red-600 mt-1">No visible focus indicator</p>
+                    <p className="text-sm text-red-800 mt-1">No visible focus indicator</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">button:focus {`{ outline: none; }`}</code>
                   </div>
                   <div>
                     <a href="#" className="text-blue-600 hover:underline focus:outline-none">
                       Link with no focus
                     </a>
-                    <p className="text-sm text-red-600 mt-1">No visible focus indicator</p>
+                    <p className="text-sm text-red-800 mt-1">No visible focus indicator</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">a:focus {`{ outline: none; }`}</code>
                   </div>
                   <div>
                     <input type="text" placeholder="Input with no focus" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none" />
-                    <p className="text-sm text-red-600 mt-1">No visible focus indicator</p>
+                    <p className="text-sm text-red-800 mt-1">No visible focus indicator</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">input:focus {`{ outline: none; }`}</code>
                   </div>
                 </div>
@@ -871,19 +871,19 @@ export default function AccessibilityIssuesPage() {
                     <button className="bg-blue-600 text-white px-4 py-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                       Button with focus
                     </button>
-                    <p className="text-sm text-green-600 mt-1">Clear focus indicator</p>
+                    <p className="text-sm text-green-800 mt-1">Clear focus indicator</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">button:focus {`{ ring: 2px solid blue; }`}</code>
                   </div>
                   <div>
                     <a href="#" className="text-blue-600 hover:underline focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                       Link with focus
                     </a>
-                    <p className="text-sm text-green-600 mt-1">Clear focus indicator</p>
+                    <p className="text-sm text-green-800 mt-1">Clear focus indicator</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">a:focus {`{ ring: 2px solid blue; }`}</code>
                   </div>
                   <div>
                     <input type="text" placeholder="Input with focus" className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" />
-                    <p className="text-sm text-green-600 mt-1">Clear focus indicator</p>
+                    <p className="text-sm text-green-800 mt-1">Clear focus indicator</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">input:focus {`{ ring: 2px solid blue; }`}</code>
                   </div>
                 </div>
@@ -904,7 +904,7 @@ export default function AccessibilityIssuesPage() {
         <section className="mb-12">
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-start space-x-3 mb-4">
-              <XCircle className="h-6 w-6 text-red-600 flex-shrink-0 mt-1" />
+              <XCircle className="h-6 w-6 text-red-800 flex-shrink-0 mt-1" />
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">6. Unclear Link Purpose</h2>
                 <p className="text-gray-600 mb-4">
@@ -918,18 +918,18 @@ export default function AccessibilityIssuesPage() {
                 <h3 className="text-lg font-semibold text-red-800 mb-3">❌ Unclear Link Text:</h3>
                 <div className="space-y-4">
                   <div className="p-4 bg-red-50 rounded border border-red-200">
-                    <p>Learn about accessibility <a href="#" className="text-blue-600 hover:underline">click here</a></p>
-                    <p className="text-sm text-red-600 mt-1">Generic "click here" text</p>
+                    <p>Learn about accessibility <a href="#" className="text-blue-600 underline">click here</a></p>
+                    <p className="text-sm text-red-800 mt-1">Generic "click here" text</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;a href="#"&gt;click here&lt;/a&gt;</code>
                   </div>
                   <div className="p-4 bg-red-50 rounded border border-red-200">
-                    <p>For more information <a href="#" className="text-blue-600 hover:underline">read more</a></p>
-                    <p className="text-sm text-red-600 mt-1">Generic "read more" text</p>
+                    <p>For more information <a href="#" className="text-blue-600 underline">read more</a></p>
+                    <p className="text-sm text-red-800 mt-1">Generic "read more" text</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;a href="#"&gt;read more&lt;/a&gt;</code>
                   </div>
                   <div className="p-4 bg-red-50 rounded border border-red-200">
-                    <p>Additional resources: <a href="#" className="text-blue-600 hover:underline">more</a></p>
-                    <p className="text-sm text-red-600 mt-1">Generic "more" text</p>
+                    <p>Additional resources: <a href="#" className="text-blue-600 underline">more</a></p>
+                    <p className="text-sm text-red-800 mt-1">Generic "more" text</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;a href="#"&gt;more&lt;/a&gt;</code>
                   </div>
                 </div>
@@ -939,18 +939,18 @@ export default function AccessibilityIssuesPage() {
                 <h3 className="text-lg font-semibold text-green-800 mb-3">✅ Clear Link Text:</h3>
                 <div className="space-y-4">
                   <div className="p-4 bg-green-50 rounded border border-green-200">
-                    <p>Learn about <a href="#" className="text-blue-600 hover:underline">WCAG accessibility guidelines</a></p>
-                    <p className="text-sm text-green-600 mt-1">Descriptive link text</p>
+                    <p>Learn about <a href="#" className="text-blue-600 underline">WCAG accessibility guidelines</a></p>
+                    <p className="text-sm text-green-800 mt-1">Descriptive link text</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;a href="#"&gt;WCAG accessibility guidelines&lt;/a&gt;</code>
                   </div>
                   <div className="p-4 bg-green-50 rounded border border-green-200">
-                    <p>For more information about <a href="#" className="text-blue-600 hover:underline">accessibility testing tools</a></p>
-                    <p className="text-sm text-green-600 mt-1">Descriptive link text</p>
+                    <p>For more information about <a href="#" className="text-blue-600 underline">accessibility testing tools</a></p>
+                    <p className="text-sm text-green-800 mt-1">Descriptive link text</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;a href="#"&gt;accessibility testing tools&lt;/a&gt;</code>
                   </div>
                   <div className="p-4 bg-green-50 rounded border border-green-200">
-                    <p>Additional resources: <a href="#" className="text-blue-600 hover:underline">inclusive design principles</a></p>
-                    <p className="text-sm text-green-600 mt-1">Descriptive link text</p>
+                    <p>Additional resources: <a href="#" className="text-blue-600 underline">inclusive design principles</a></p>
+                    <p className="text-sm text-green-800 mt-1">Descriptive link text</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;a href="#"&gt;inclusive design principles&lt;/a&gt;</code>
                   </div>
                 </div>
@@ -971,7 +971,7 @@ export default function AccessibilityIssuesPage() {
         <section className="mb-12">
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-start space-x-3 mb-4">
-              <XCircle className="h-6 w-6 text-red-600 flex-shrink-0 mt-1" />
+              <XCircle className="h-6 w-6 text-red-800 flex-shrink-0 mt-1" />
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">7. Buttons Without Accessible Names</h2>
                 <p className="text-gray-600 mb-4">
@@ -988,21 +988,21 @@ export default function AccessibilityIssuesPage() {
                     <button className="bg-green-600 text-white px-4 py-2 rounded-md">
                       ✓
                     </button>
-                    <p className="text-sm text-red-600 mt-1">Button with only symbol</p>
+                    <p className="text-sm text-red-800 mt-1">Button with only symbol</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button&gt;✓&lt;/button&gt;</code>
                   </div>
                   <div className="p-4 bg-red-50 rounded border border-red-200">
                     <button className="bg-red-600 text-white px-4 py-2 rounded-md">
                       ✗
                     </button>
-                    <p className="text-sm text-red-600 mt-1">Button with only symbol</p>
+                    <p className="text-sm text-red-800 mt-1">Button with only symbol</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button&gt;✗&lt;/button&gt;</code>
                   </div>
                   <div className="p-4 bg-red-50 rounded border border-red-200">
                     <button className="bg-blue-600 text-white px-4 py-2 rounded-md" aria-label="Send message">
                       <MessageCircle className="h-4 w-4" />
                     </button>
-                    <p className="text-sm text-red-600 mt-1">Button with only icon</p>
+                    <p className="text-sm text-red-800 mt-1">Button with only icon</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button&gt;&lt;Icon /&gt;&lt;/button&gt;</code>
                   </div>
                 </div>
@@ -1015,21 +1015,21 @@ export default function AccessibilityIssuesPage() {
                     <button className="bg-green-600 text-white px-4 py-2 rounded-md" aria-label="Approve">
                       ✓
                     </button>
-                    <p className="text-sm text-green-600 mt-1">Button with aria-label</p>
+                    <p className="text-sm text-green-800 mt-1">Button with aria-label</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button aria-label="Approve"&gt;✓&lt;/button&gt;</code>
                   </div>
                   <div className="p-4 bg-green-50 rounded border border-green-200">
                     <button className="bg-red-600 text-white px-4 py-2 rounded-md" aria-label="Reject">
                       ✗
                     </button>
-                    <p className="text-sm text-green-600 mt-1">Button with aria-label</p>
+                    <p className="text-sm text-green-800 mt-1">Button with aria-label</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button aria-label="Reject"&gt;✗&lt;/button&gt;</code>
                   </div>
                   <div className="p-4 bg-green-50 rounded border border-green-200">
                     <button className="bg-blue-600 text-white px-4 py-2 rounded-md" aria-label="Send message">
                       <MessageCircle className="h-4 w-4" />
                     </button>
-                    <p className="text-sm text-green-600 mt-1">Button with aria-label</p>
+                    <p className="text-sm text-green-800 mt-1">Button with aria-label</p>
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button aria-label="Send message"&gt;&lt;Icon /&gt;&lt;/button&gt;</code>
                   </div>
                 </div>
@@ -1050,7 +1050,7 @@ export default function AccessibilityIssuesPage() {
         <section className="mb-12">
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-start space-x-3 mb-4">
-              <XCircle className="h-6 w-6 text-red-600 flex-shrink-0 mt-1" />
+              <XCircle className="h-6 w-6 text-red-800 flex-shrink-0 mt-1" />
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">8. Table Without Headers</h2>
                 <p className="text-gray-600 mb-4">
@@ -1084,7 +1084,7 @@ export default function AccessibilityIssuesPage() {
                       </tr>
                     </tbody>
                   </table>
-                  <p className="text-sm text-red-600 mt-2">Using td instead of th for headers</p>
+                  <p className="text-sm text-red-800 mt-2">Using td instead of th for headers</p>
                   <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;td&gt;Disability Type&lt;/td&gt;</code>
                 </div>
               </div>
@@ -1114,7 +1114,7 @@ export default function AccessibilityIssuesPage() {
                       </tr>
                     </tbody>
                   </table>
-                  <p className="text-sm text-green-600 mt-2">Proper th elements with scope</p>
+                  <p className="text-sm text-green-800 mt-2">Proper th elements with scope</p>
                   <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;th scope="col"&gt;Disability Type&lt;/th&gt;</code>
                 </div>
               </div>
@@ -1136,7 +1136,7 @@ export default function AccessibilityIssuesPage() {
             <div className="flex items-start space-x-4 mb-6">
               <div className="flex-shrink-0">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                  <XCircle className="h-6 w-6 text-red-600" />
+                  <XCircle className="h-6 w-6 text-red-800" />
                 </div>
               </div>
               <div className="flex-1">
@@ -1202,7 +1202,7 @@ export default function AccessibilityIssuesPage() {
                     </div>
                     <p className="text-sm font-medium text-gray-900 mb-1">Using br tags instead of proper list structure</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">• Item 1&lt;br/&gt;• Item 2&lt;br/&gt;• Item 3&lt;br/&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Screen reader treats as separate paragraphs, not a list</p>
+                    <p className="text-sm text-red-800 mt-2">Screen reader treats as separate paragraphs, not a list</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -1213,7 +1213,7 @@ export default function AccessibilityIssuesPage() {
                     </ul>
                     <p className="text-sm font-medium text-gray-900 mb-1">ul with div instead of li elements</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;ul&gt;&lt;div&gt;Item&lt;/div&gt;&lt;div&gt;Item&lt;/div&gt;&lt;/ul&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Invalid HTML - screen readers can't navigate properly</p>
+                    <p className="text-sm text-red-800 mt-2">Invalid HTML - screen readers can't navigate properly</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -1224,7 +1224,7 @@ export default function AccessibilityIssuesPage() {
                     </div>
                     <p className="text-sm font-medium text-gray-900 mb-1">Numbered list without ol structure</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">1. Step&lt;br/&gt;2. Step&lt;br/&gt;3. Step</code>
-                    <p className="text-sm text-red-600 mt-2">Screen reader doesn't understand this is a sequential list</p>
+                    <p className="text-sm text-red-800 mt-2">Screen reader doesn't understand this is a sequential list</p>
                   </div>
                 </div>
               </div>
@@ -1249,7 +1249,7 @@ export default function AccessibilityIssuesPage() {
                     </ul>
                     <p className="text-sm font-medium text-gray-900 mb-1">Proper ul with li elements</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;ul&gt;<br/>&nbsp;&nbsp;&lt;li&gt;Item 1&lt;/li&gt;<br/>&nbsp;&nbsp;&lt;li&gt;Item 2&lt;/li&gt;<br/>&lt;/ul&gt;</code>
-                    <p className="text-sm text-green-600 mt-2">Screen reader announces: "List with 5 items"</p>
+                    <p className="text-sm text-green-800 mt-2">Screen reader announces: "List with 5 items"</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -1262,7 +1262,7 @@ export default function AccessibilityIssuesPage() {
                     </ol>
                     <p className="text-sm font-medium text-gray-900 mb-1">Proper ol with li elements</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;ol&gt;<br/>&nbsp;&nbsp;&lt;li&gt;Step 1&lt;/li&gt;<br/>&nbsp;&nbsp;&lt;li&gt;Step 2&lt;/li&gt;<br/>&lt;/ol&gt;</code>
-                    <p className="text-sm text-green-600 mt-2">Screen reader announces: "List with 4 items, item 1 of 4"</p>
+                    <p className="text-sm text-green-800 mt-2">Screen reader announces: "List with 4 items, item 1 of 4"</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -1274,7 +1274,7 @@ export default function AccessibilityIssuesPage() {
                     </dl>
                     <p className="text-sm font-medium text-gray-900 mb-1">Proper dl with dt and dd elements</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;dl&gt;<br/>&nbsp;&nbsp;&lt;dt&gt;Term&lt;/dt&gt;<br/>&nbsp;&nbsp;&lt;dd&gt;Definition&lt;/dd&gt;<br/>&lt;/dl&gt;</code>
-                    <p className="text-sm text-green-600 mt-2">Screen reader announces term-definition pairs</p>
+                    <p className="text-sm text-green-800 mt-2">Screen reader announces term-definition pairs</p>
                 </div>
               </div>
             </div>
@@ -1387,7 +1387,7 @@ export default function AccessibilityIssuesPage() {
                     </button>
                     <p className="text-sm font-medium text-gray-900 mb-1">tabIndex="-1" removes element from tab order</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;button tabIndex="-1"&gt;Button&lt;/button&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Keyboard users cannot reach this button</p>
+                    <p className="text-sm text-red-800 mt-2">Keyboard users cannot reach this button</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -1396,7 +1396,7 @@ export default function AccessibilityIssuesPage() {
                     </div>
                     <p className="text-sm font-medium text-gray-900 mb-1">div with click handler but no button role</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;div onClick="..."&gt;Click me&lt;/div&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Not keyboard accessible, no button semantics</p>
+                    <p className="text-sm text-red-800 mt-2">Not keyboard accessible, no button semantics</p>
                   </div>
                 </div>
               </div>
@@ -1419,7 +1419,7 @@ export default function AccessibilityIssuesPage() {
                     </div>
                     <p className="text-sm font-medium text-gray-900 mb-1">aria-describedby pointing to hidden content</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">aria-describedby="help-text" (hidden element)</code>
-                    <p className="text-sm text-red-600 mt-2">Screen readers can't access hidden referenced content</p>
+                    <p className="text-sm text-red-800 mt-2">Screen readers can't access hidden referenced content</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -1428,7 +1428,7 @@ export default function AccessibilityIssuesPage() {
                     </div>
                     <p className="text-sm font-medium text-gray-900 mb-1">Missing keyboard event handlers</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;div role="button"&gt;Button&lt;/div&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Looks like a button but doesn't respond to keyboard</p>
+                    <p className="text-sm text-red-800 mt-2">Looks like a button but doesn't respond to keyboard</p>
                   </div>
                 </div>
               </div>
@@ -1446,7 +1446,7 @@ export default function AccessibilityIssuesPage() {
                     <div className="text-2xl font-bold mb-2">Page Title</div>
                     <p className="text-sm font-medium text-gray-900 mb-1">Using div instead of h1 for page title</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;div class="title"&gt;Page Title&lt;/div&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Screen readers don't recognize this as the main heading</p>
+                    <p className="text-sm text-red-800 mt-2">Screen readers don't recognize this as the main heading</p>
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
@@ -1455,7 +1455,7 @@ export default function AccessibilityIssuesPage() {
                     </div>
                     <p className="text-sm font-medium text-gray-900 mb-1">div styled as button without button semantics</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;div class="button"&gt;Submit&lt;/div&gt;</code>
-                    <p className="text-sm text-red-600 mt-2">Not recognized as interactive element</p>
+                    <p className="text-sm text-red-800 mt-2">Not recognized as interactive element</p>
                   </div>
                 </div>
               </div>
@@ -1487,7 +1487,7 @@ export default function AccessibilityIssuesPage() {
                   </li>
                   <li className="flex items-start">
                     <span className="font-semibold mr-2">•</span>
-                    <span><strong>Interactive learning:</strong> <Link href="/playground" className="text-blue-600 hover:underline">Use our playground</Link> to practice identifying and fixing accessibility issues</span>
+                    <span><strong>Interactive learning:</strong> <Link href="/playground" className="text-blue-600 underline">Use our playground</Link> to practice identifying and fixing accessibility issues</span>
                   </li>
                 </ul>
               </div>
