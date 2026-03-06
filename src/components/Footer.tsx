@@ -18,7 +18,7 @@ export default function Footer() {
             </div>
           </div>
           <p className="text-gray-400 max-w-2xl mx-auto mb-6">
-            Professional accessibility testing platform for Section 508 compliance, WCAG 2.2 standards, and inclusive digital experiences. AI-powered document and website accessibility testing for government, enterprise, and educational organisations.
+            AI-powered accessibility testing for websites and documents. We help you meet Section 508, WCAG 2.2, and PDF/UA standards — for government, enterprise, and education.
           </p>
           <p className="text-gray-400 mb-4">
             Contact us: <a href="mailto:hello@a11ytest.ai" className="text-white hover:underline">hello@a11ytest.ai</a>

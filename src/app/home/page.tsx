@@ -487,7 +487,7 @@ export default function HomePage() {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Why We're Different</h2>
             <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-              Unlike other accessibility testing tools that only identify problems, we provide actionable code solutions to fix every issue found.
+              We don't just flag problems — we give you the code to fix them.
             </p>
           </div>
           
@@ -524,7 +524,7 @@ export default function HomePage() {
                 <h3 className="text-xl font-semibold text-gray-900">AI-Powered Fixes</h3>
               </div>
               <p className="text-gray-600">
-                Our AI analyzes your specific code and generates custom solutions tailored to your website's structure and design.
+                Our AI reads your code and creates fixes that fit your site.
               </p>
             </div>
           </div>
@@ -537,7 +537,7 @@ export default function HomePage() {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Professional Accessibility Testing</h2>
             <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-              Our accessibility testing platform provides reliable, accurate, and comprehensive accessibility testing solutions for organisations that need to meet federal and international accessibility standards.
+              Accurate, thorough accessibility testing for organisations that must meet federal and international standards.
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -921,7 +921,7 @@ export default function HomePage() {
                   Comprehensive Accessibility Testing for Modern Organisations
                 </h2>
                 <p className="text-lg text-white/90 max-w-4xl mx-auto mb-8">
-                  A11ytest.ai revolutionizes accessibility compliance by combining advanced artificial intelligence with comprehensive testing methodologies. Our platform addresses the critical need for organizations to ensure their digital content is accessible to all users, including those with disabilities. Whether you're a government agency requiring Section 508 compliance, a business seeking WCAG 2.2 AA certification, or an educational institution needing accessible document standards, A11ytest.ai provides the tools and expertise to achieve full accessibility compliance.
+                  A11ytest.ai helps your documents and websites meet accessibility standards. We support Section 508, WCAG 2.2 AA, and PDF/UA. Whether you're a government agency, a business, or an educational institution, we give you the tools to make your content accessible to everyone.
                 </p>
                 
                 {/* Accessibility Playground CTA */}
@@ -963,7 +963,7 @@ export default function HomePage() {
                 <div className="flex flex-col">
                   <h3 className="text-2xl font-semibold text-white mb-4">Document Accessibility Testing</h3>
                   <p className="text-white/90 mb-16 h-[120px]">
-                    Our advanced document scanning technology provides comprehensive accessibility testing for PDF documents used in modern business and government operations. For PDFs, we use Adobe PDF Services to automatically tag documents, run comprehensive accessibility checks, and provide AI-powered remediation to ensure your content meets the highest accessibility standards required by federal regulations and international guidelines.
+                    We test PDF documents for accessibility. Using Adobe PDF Services, we auto-tag your PDFs, check them against PDF/UA and WCAG standards, and provide AI-powered fixes. This helps your documents meet federal and international requirements.
                   </p>
                   <div className="space-y-4">
                     <div className="flex items-start gap-3">
@@ -1024,7 +1024,7 @@ export default function HomePage() {
                 <div className="flex flex-col">
                   <h3 className="text-2xl font-semibold text-white mb-4">Website Accessibility Testing</h3>
                   <p className="text-white/90 mb-16 h-[120px]">
-                    Comprehensive web accessibility testing that ensures your websites and web applications meet international accessibility standards and provide an inclusive user experience for all visitors. Our platform provides detailed analysis of your web content with actionable insights for continuous improvement and compliance maintenance.
+                    We test your website for accessibility issues and check it against international standards. You get a detailed report with clear steps to fix each problem and stay compliant.
                   </p>
                   <div className="space-y-4">
                     <div className="flex items-start gap-3">

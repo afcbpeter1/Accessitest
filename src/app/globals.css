@@ -48,17 +48,23 @@
   }
 }
 
-/* Accessibility Issues Demo - Remove focus indicators */
-.accessibility-issues-demo *:focus {
+/* Global visible focus indicators for keyboard navigation */
+*:focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+/* Accessibility Issues Demo - Remove focus indicators only inside the demo content (main), not the page chrome */
+.accessibility-issues-demo main *:focus {
   outline: none !important;
   box-shadow: none !important;
 }
 
-.accessibility-issues-demo button:focus,
-.accessibility-issues-demo input:focus,
-.accessibility-issues-demo textarea:focus,
-.accessibility-issues-demo select:focus,
-.accessibility-issues-demo a:focus {
+.accessibility-issues-demo main button:focus,
+.accessibility-issues-demo main input:focus,
+.accessibility-issues-demo main textarea:focus,
+.accessibility-issues-demo main select:focus,
+.accessibility-issues-demo main a:focus {
   outline: none !important;
   box-shadow: none !important;
 }

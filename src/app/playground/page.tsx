@@ -405,7 +405,7 @@ export default function AccessibilityPlayground() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-12">
             <div className="flex items-center space-x-4">
@@ -422,7 +422,7 @@ export default function AccessibilityPlayground() {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="space-y-4">
@@ -457,7 +457,7 @@ export default function AccessibilityPlayground() {
             {/* Issues List */}
             <div className="space-y-3">
               <h2 className="text-lg font-semibold text-gray-900">Accessibility Issues</h2>
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="space-y-2 max-h-96 overflow-y-auto" tabIndex={0} role="region" aria-label="Accessibility issues list">
                 {issues.map((issue) => (
                   <div
                     key={issue.id}
