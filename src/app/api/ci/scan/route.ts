@@ -129,7 +129,12 @@ export async function POST(request: NextRequest) {
     }
 
     const failOn: FailOn = body.failOn === 'critical' ? 'critical' : 'criticalAndSerious'
-    const origin = process.env.NEXTAUTH_URL?.replace(/\/$/, '') || process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || request.nextUrl.origin
+    const forwardedHost = request.headers.get('x-forwarded-host')
+    const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https'
+    const origin = process.env.NEXTAUTH_URL?.replace(/\/$/, '')
+      || process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
+      || (forwardedHost ? `${forwardedProto}://${forwardedHost}` : null)
+      || request.nextUrl.origin
     const scanService = new ScanService()
     const results: Array<{
       url: string
