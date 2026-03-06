@@ -438,7 +438,7 @@ export default function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <main id="main-content" className="py-20 bg-gradient-to-br from-[#06B6D4] to-[#0B1220] text-white" role="main">
+      <main id="main-content" className="pt-20 bg-gradient-to-br from-[#06B6D4] to-[#0B1220] text-white" role="main">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-5xl font-bold mb-4">
             Professional Accessibility Testing Platform
@@ -917,10 +917,10 @@ export default function HomePage() {
           {activeTab === 'overview' && (
             <div id="overview-panel" role="tabpanel" aria-labelledby="overview-tab" className="space-y-12">
               <div className="text-center">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                <h2 className="text-3xl font-bold text-white mb-4">
                   Comprehensive Accessibility Testing for Modern Organisations
                 </h2>
-                <p className="text-lg text-gray-600 max-w-4xl mx-auto mb-8">
+                <p className="text-lg text-white/90 max-w-4xl mx-auto mb-8">
                   A11ytest.ai revolutionizes accessibility compliance by combining advanced artificial intelligence with comprehensive testing methodologies. Our platform addresses the critical need for organizations to ensure their digital content is accessible to all users, including those with disabilities. Whether you're a government agency requiring Section 508 compliance, a business seeking WCAG 2.2 AA certification, or an educational institution needing accessible document standards, A11ytest.ai provides the tools and expertise to achieve full accessibility compliance.
                 </p>
                 
@@ -961,8 +961,8 @@ export default function HomePage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="flex flex-col">
-                  <h3 className="text-2xl font-semibold text-gray-900 mb-4">Document Accessibility Testing</h3>
-                  <p className="text-gray-600 mb-16 h-[120px]">
+                  <h3 className="text-2xl font-semibold text-white mb-4">Document Accessibility Testing</h3>
+                  <p className="text-white/90 mb-16 h-[120px]">
                     Our advanced document scanning technology provides comprehensive accessibility testing for PDF documents used in modern business and government operations. For PDFs, we use Adobe PDF Services to automatically tag documents, run comprehensive accessibility checks, and provide AI-powered remediation to ensure your content meets the highest accessibility standards required by federal regulations and international guidelines.
                   </p>
                   <div className="space-y-4">
@@ -975,8 +975,8 @@ export default function HomePage() {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 mb-1">PDF Auto-Tagging & Compliance Testing</div>
-                        <div className="text-sm text-gray-600 leading-relaxed">Automatically tag PDFs using Adobe PDF Services, then run comprehensive accessibility checks against PDF/UA and WCAG 2.1 AA standards (Section 508 compliant)</div>
+                        <div className="font-medium text-white mb-1">PDF Auto-Tagging & Compliance Testing</div>
+                        <div className="text-sm text-white/80 leading-relaxed">Automatically tag PDFs using Adobe PDF Services, then run comprehensive accessibility checks against PDF/UA and WCAG 2.1 AA standards (Section 508 compliant)</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -988,8 +988,8 @@ export default function HomePage() {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 mb-1">PDF Document Support</div>
-                        <div className="text-sm text-gray-600 leading-relaxed">Comprehensive testing for PDF documents with intelligent content analysis</div>
+                        <div className="font-medium text-white mb-1">PDF Document Support</div>
+                        <div className="text-sm text-white/80 leading-relaxed">Comprehensive testing for PDF documents with intelligent content analysis</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -1001,8 +1001,8 @@ export default function HomePage() {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 mb-1">AI-Powered Remediation</div>
-                        <div className="text-sm text-gray-600 leading-relaxed">Get detailed, element-level AI-generated step-by-step instructions for fixing each accessibility issue, with specific page numbers and content identification</div>
+                        <div className="font-medium text-white mb-1">AI-Powered Remediation</div>
+                        <div className="text-sm text-white/80 leading-relaxed">Get detailed, element-level AI-generated step-by-step instructions for fixing each accessibility issue, with specific page numbers and content identification</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -1014,16 +1014,16 @@ export default function HomePage() {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 mb-1">Download Tagged PDFs</div>
-                        <div className="text-sm text-gray-600 leading-relaxed">For PDF documents, download the automatically tagged version with improved accessibility structure, ready for distribution</div>
+                        <div className="font-medium text-white mb-1">Download Tagged PDFs</div>
+                        <div className="text-sm text-white/80 leading-relaxed">For PDF documents, download the automatically tagged version with improved accessibility structure, ready for distribution</div>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex flex-col">
-                  <h3 className="text-2xl font-semibold text-gray-900 mb-4">Website Accessibility Testing</h3>
-                  <p className="text-gray-600 mb-16 h-[120px]">
+                  <h3 className="text-2xl font-semibold text-white mb-4">Website Accessibility Testing</h3>
+                  <p className="text-white/90 mb-16 h-[120px]">
                     Comprehensive web accessibility testing that ensures your websites and web applications meet international accessibility standards and provide an inclusive user experience for all visitors. Our platform provides detailed analysis of your web content with actionable insights for continuous improvement and compliance maintenance.
                   </p>
                   <div className="space-y-4">
@@ -1036,8 +1036,8 @@ export default function HomePage() {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 mb-1">WCAG 2.2 Level AA Compliance Testing</div>
-                        <div className="text-sm text-gray-600 leading-relaxed">Latest web accessibility guidelines with automated testing for all success criteria and international standards compliance</div>
+                        <div className="font-medium text-white mb-1">WCAG 2.2 Level AA Compliance Testing</div>
+                        <div className="text-sm text-white/80 leading-relaxed">Latest web accessibility guidelines with automated testing for all success criteria and international standards compliance</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -1049,8 +1049,8 @@ export default function HomePage() {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 mb-1">Multi-Page Website Scanning</div>
-                        <div className="text-sm text-gray-600 leading-relaxed">Complete website accessibility testing and analysis across entire domains and web applications</div>
+                        <div className="font-medium text-white mb-1">Multi-Page Website Scanning</div>
+                        <div className="text-sm text-white/80 leading-relaxed">Complete website accessibility testing and analysis across entire domains and web applications</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -1062,8 +1062,8 @@ export default function HomePage() {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 mb-1">Real-Time Compliance Reports</div>
-                        <div className="text-sm text-gray-600 leading-relaxed">Instant accessibility scoring, detailed issue breakdowns, and prioritized remediation recommendations</div>
+                        <div className="font-medium text-white mb-1">Real-Time Compliance Reports</div>
+                        <div className="text-sm text-white/80 leading-relaxed">Instant accessibility scoring, detailed issue breakdowns, and prioritized remediation recommendations</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -1075,8 +1075,8 @@ export default function HomePage() {
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 mb-1">Interactive Element Testing</div>
-                        <div className="text-sm text-gray-600 leading-relaxed">Comprehensive testing of forms, navigation, multimedia content, and dynamic web components</div>
+                        <div className="font-medium text-white mb-1">Interactive Element Testing</div>
+                        <div className="text-sm text-white/80 leading-relaxed">Comprehensive testing of forms, navigation, multimedia content, and dynamic web components</div>
                       </div>
                     </div>
                   </div>
@@ -1089,10 +1089,10 @@ export default function HomePage() {
           {activeTab === 'features' && (
             <div className="space-y-12">
               <div className="text-center">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                <h2 className="text-3xl font-bold text-white mb-4">
                   Advanced Features for Professional Accessibility Testing
                 </h2>
-                <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+                <p className="text-lg text-white/90 max-w-3xl mx-auto">
                   A11ytest.ai combines cutting-edge technology with industry expertise to deliver the most comprehensive accessibility testing solution available.
                 </p>
               </div>
@@ -1134,10 +1134,10 @@ export default function HomePage() {
           {activeTab === 'compliance' && (
             <div className="space-y-12">
               <div className="text-center">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                <h2 className="text-3xl font-bold text-white mb-4">
                   Meeting Global Accessibility Standards
                 </h2>
-                <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+                <p className="text-lg text-white/90 max-w-3xl mx-auto">
                   Our platform ensures compliance with the most comprehensive accessibility standards used by government agencies, educational institutions, and businesses worldwide.
                 </p>
               </div>
@@ -1164,8 +1164,8 @@ export default function HomePage() {
           {activeTab === 'pricing' && (
             <div id="pricing-panel" role="tabpanel" aria-labelledby="pricing-tab" className="space-y-12">
               <div className="text-center">
-                <h2 className="text-3xl font-bold text-gray-900 mb-4">Simple, Transparent Pricing</h2>
-                <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+                <h2 className="text-3xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
+                <p className="text-lg text-white/90 max-w-3xl mx-auto">
                   One subscription for unlimited web and document scanning, or buy credits when you need them. All plans include the same testing capabilities.
                 </p>
               </div>
@@ -1225,7 +1225,7 @@ export default function HomePage() {
                   Sign up
                   <ArrowRight className="h-5 w-5 ml-2" />
                 </Link>
-                <p className="text-sm text-gray-500 mt-3">Create an account to choose a plan or buy credits</p>
+                <p className="text-sm text-white/70 mt-3">Create an account to choose a plan or buy credits</p>
               </div>
             </div>
           )}

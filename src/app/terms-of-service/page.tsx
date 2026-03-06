@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { FileText, CreditCard, AlertTriangle, Shield, CheckCircle } from 'lucide-react'
+import Footer from '../../components/Footer'
 
 export const metadata: Metadata = {
   title: 'Terms of Service - A11ytest.ai',
@@ -9,6 +10,7 @@ export const metadata: Metadata = {
 
 export default function TermsOfServicePage() {
   return (
+    <>
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 md:p-12">
@@ -283,6 +285,8 @@ export default function TermsOfServicePage() {
         </div>
       </div>
     </div>
+    <Footer />
+    </>
   )
 }
 

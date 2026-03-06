@@ -56,14 +56,6 @@ export default function AccessibilityIssuesPage() {
             <h1 className="text-3xl font-semibold text-gray-800 mb-6">
               Every Major Axe Issue Explained with Real Examples
             </h1>
-            
-            <div className="flex items-center justify-center space-x-4 text-gray-600 mb-8">
-              <span>By Web Accessibility Expert</span>
-              <span>•</span>
-              <span>March 15, 2024</span>
-              <span>•</span>
-              <span>15 min read</span>
-            </div>
           </div>
 
           <div className="prose prose-lg max-w-none">
