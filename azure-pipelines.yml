@@ -42,7 +42,8 @@ steps:
   # ── Accessibility scanning ──────────────────────────────────────────────────
 
   - script: |
-      curl -s -X POST https://a11ytest.ai/api/ci/scan \
+      set -e
+      RESP=$(curl -s -w "\n%{http_code}" -X POST https://a11ytest.ai/api/ci/scan \
         -H "Authorization: Bearer $(A11YTEST_API_KEY)" \
         -H "Content-Type: application/json" \
         -d '{
@@ -52,12 +53,38 @@ steps:
             "https://a11ytest.ai/logo-contrast-checker",
             "https://a11ytest.ai/accessibility-issues"
           ]
-        }' \
-        -o scan-result.json
-      echo "--- Raw scan result ---"
+        }')
+      HTTP_CODE=$(echo "$RESP" | tail -n1)
+      echo "$RESP" | sed '$d' > scan-result.json
+      echo "--- Scan result (HTTP $(echo $HTTP_CODE)) ---"
       cat scan-result.json
+      if [ "$HTTP_CODE" != "200" ]; then
+        echo "##vso[task.logissue type=error]Accessibility scan API returned HTTP $HTTP_CODE"
+        exit 1
+      fi
     displayName: 'Run a11ytest.ai Accessibility Scan'
 
   - script: |
-      PASSED=$(python3 -c "import sys,json; d=json.load(open('scan-result.json')); print(d['passed'])")
-      REPORT=$(python3 -c "
+      set -e
+      PASSED=$(python3 -c "import json; d=json.load(open('scan-result.json')); print(d.get('passed', False))")
+      echo "Overall passed: $PASSED"
+      # Print each page result and its report URL (proper link, not encoded JSON)
+      python3 -c "
+      import json
+      d = json.load(open('scan-result.json'))
+      for r in d.get('results', []):
+        status = 'PASS' if r.get('passed') else 'FAIL'
+        url = r.get('url', '')
+        report_url = r.get('reportUrl', '')
+        summary = r.get('summary', {})
+        print(f\"  {status}: {url}\")
+        if report_url:
+          print(f\"    Report: {report_url}\")
+        if summary:
+          print(f\"    Issues: {summary.get('total', 0)} total (critical={summary.get('critical', 0)}, serious={summary.get('serious', 0)})\")
+      "
+      if [ "$PASSED" != "True" ]; then
+        echo "##vso[task.logissue type=error]Accessibility scan failed: one or more pages have critical/serious issues."
+        exit 1
+      fi
+    displayName: 'Check accessibility scan result'
