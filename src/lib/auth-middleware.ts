@@ -6,7 +6,14 @@ const JWT_SECRET_OR_FALLBACK = JWT_SECRET || 'your-secret-key-change-in-producti
 
 function getSigningSecret(): string {
   if (process.env.NODE_ENV === 'production' && !JWT_SECRET) {
-    throw new Error('JWT_SECRET must be set in production')
+    // During `next build`, env vars may not be present even though they'll exist at runtime.
+    // Avoid failing the build; still fail fast at runtime if missing.
+    const isNextBuild =
+      process.env.NEXT_PHASE === 'phase-production-build' ||
+      process.env.NEXT_PHASE === 'phase-production-export'
+    if (!isNextBuild) {
+      throw new Error('JWT_SECRET must be set in production')
+    }
   }
   return JWT_SECRET_OR_FALLBACK
 }

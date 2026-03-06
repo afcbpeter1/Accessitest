@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "bash build.sh",
+    "build": "tsx scripts/build.ts",
     "build:next": "next build",
     "build:strict": "next build",
     "start": "next start",
