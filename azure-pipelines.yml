@@ -1,9 +1,4 @@
 # Azure DevOps pipeline for A11ytest.ai
-# Connect this repo (GitHub) in Pipelines → Create Pipeline → GitHub → select repo
-#
-# If you see "No hosted parallelism has been purchased or granted":
-# - Request free grant: https://aka.ms/azpipelines-parallelism-request
-# - Or use a self-hosted agent: replace the pool below with "pool: default" (after registering an agent)
 trigger:
   branches:
     include:
@@ -16,14 +11,13 @@ trigger:
       - '**.md'
       - 'docs/**'
 
-# Microsoft-hosted agent (requires parallelism grant for your org)
 pool:
   vmImage: 'ubuntu-latest'
-# Self-hosted agent (use this if you have no hosted parallelism; register an agent in Project settings → Agent pools)
-# pool: default
 
 variables:
-  nodeVersion: '18.x'
+  - group: a11ytest-secrets   # ← Library group containing A11YTEST_API_KEY
+  - name: nodeVersion
+    value: '18.x'
 
 steps:
   - task: NodeTool@0
@@ -44,3 +38,26 @@ steps:
     displayName: 'Build'
     env:
       CI: true
+
+  # ── Accessibility scanning ──────────────────────────────────────────────────
+
+  - script: |
+      curl -s -X POST https://a11ytest.ai/api/ci/scan \
+        -H "Authorization: Bearer $(A11YTEST_API_KEY)" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "urls": [
+            "https://a11ytest.ai",
+            "https://a11ytest.ai/playground",
+            "https://a11ytest.ai/logo-contrast-checker",
+            "https://a11ytest.ai/accessibility-issues"
+          ]
+        }' \
+        -o scan-result.json
+      echo "--- Raw scan result ---"
+      cat scan-result.json
+    displayName: 'Run a11ytest.ai Accessibility Scan'
+
+  - script: |
+      PASSED=$(python3 -c "import sys,json; d=json.load(open('scan-result.json')); print(d['passed'])")
+      REPORT=$(python3 -c "
