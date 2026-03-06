@@ -424,7 +424,7 @@ export default function AccessibilityPlayground() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4" role="main">
         <div className="space-y-4">
           {/* Hero Section */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-lg">
@@ -612,9 +612,9 @@ export default function AccessibilityPlayground() {
             </div>
           )}
         </div>
+      </main>
 
-        <Footer />
-      </div>
+      <Footer />
     </div>
   )
 }

@@ -279,7 +279,7 @@ export default function LogoContrastChecker() {
         </div>
       </header>
 
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
+      <main className="px-4 sm:px-6 lg:px-8 py-8" role="main">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
@@ -592,8 +592,8 @@ export default function LogoContrastChecker() {
           </div>
         )}
         </div>
-        <Footer />
-      </div>
+      </main>
+      <Footer />
     </div>
   )
 }

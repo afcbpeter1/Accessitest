@@ -63,15 +63,11 @@ export default function AccessibilityIssuesPage() {
               Web accessibility isn't just a nice-to-have feature—it's a fundamental requirement for creating 
               inclusive digital experiences. As developers, we have a responsibility to ensure our websites 
               and applications work for everyone, regardless of their abilities or the tools they use to access the web.
-              Want to test your own website's accessibility? Try our <Link href="/playground" className="text-blue-600 hover:underline font-semibold">accessibility playground</Link> to see these issues in action.
+              Want to test your own website's accessibility? Try our <Link href="/playground" className="text-blue-600 underline font-semibold">accessibility playground</Link> to see these issues in action.
             </p>
 
             <p className="text-lg text-gray-600 leading-relaxed mb-8">
-              In this comprehensive guide, we'll explore every major accessibility issue that automated tools 
-              like Axe can detect. Each issue includes real-world examples, detailed explanations of why it's 
-              problematic, and step-by-step solutions. Whether you're a seasoned developer or just starting 
-              your accessibility journey, this guide will help you understand and fix these critical issues.
-              Ready to get started? <Link href="/home" className="text-blue-600 hover:underline font-semibold">Return to our home page</Link> to explore more accessibility tools and resources.
+              This guide covers major accessibility issues that tools like Axe can find. Each issue has examples, why it matters, and how to fix it. <Link href="/home" className="text-blue-600 underline font-semibold">Return to our home page</Link> for more tools and resources.
             </p>
 
             {showIssues && (
@@ -79,7 +75,7 @@ export default function AccessibilityIssuesPage() {
                 <div className="flex items-start">
                   <AlertTriangle className="h-6 w-6 text-amber-600 flex-shrink-0 mt-1 mr-3" />
                   <div>
-                    <h3 className="text-lg font-semibold text-amber-800 mb-2">Educational Notice</h3>
+                    <h2 className="text-lg font-semibold text-amber-800 mb-2">Educational Notice</h2>
                     <p className="text-amber-700">
                       This page intentionally contains accessibility violations for educational purposes. 
                       Each issue is deliberately implemented to demonstrate common problems and their solutions. 
@@ -113,10 +109,7 @@ export default function AccessibilityIssuesPage() {
 
             <div className="prose prose-lg max-w-none mb-8">
               <p className="text-lg text-gray-700 leading-relaxed mb-6">
-                Alternative text (alt text) is perhaps the most fundamental accessibility feature for images, yet it's 
-                one of the most commonly overlooked. When screen readers encounter an image without proper alternative 
-                text, users with visual impairments are left completely in the dark about what the image contains. 
-                This creates a significant barrier to understanding and engagement with your content.
+                Alt text describes images for screen readers. Without it, people who can't see the image get no useful information. Good alt text helps everyone understand your content.
               </p>
 
               <p className="text-gray-700 leading-relaxed mb-6">
@@ -139,7 +132,7 @@ export default function AccessibilityIssuesPage() {
                 <h4 className="text-lg font-semibold text-red-800 mb-3">❌ Common Broken Examples:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
-                    <img src="/allytest.png" className="w-32 h-32 object-cover rounded border mb-2" />
+                    <img src="/allytest.png" alt="A11ytest logo" className="w-32 h-32 object-cover rounded border mb-2" />
                     <p className="text-sm font-medium text-gray-900 mb-1">No alt attribute at all</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;img src="/product.jpg" /&gt;</code>
                     <p className="text-sm text-red-600 mt-2">Screen reader says: "image" or skips entirely</p>
@@ -153,7 +146,7 @@ export default function AccessibilityIssuesPage() {
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
-                    <img src="/allytest.png" alt="image" className="w-32 h-32 object-cover rounded border mb-2" />
+                    <img src="/allytest.png" alt="A11ytest product logo" className="w-32 h-32 object-cover rounded border mb-2" />
                     <p className="text-sm font-medium text-gray-900 mb-1">Generic, unhelpful alt text</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;img src="/screenshot.png" alt="image" /&gt;</code>
                     <p className="text-sm text-red-600 mt-2">Screen reader says: "image" - no context provided</p>
@@ -224,10 +217,7 @@ export default function AccessibilityIssuesPage() {
               </div>
 
               <p className="text-gray-700 leading-relaxed mb-6">
-                Remember, alternative text isn't just about compliance—it's about inclusion. When you write good alt text, 
-                you're ensuring that your content is accessible to millions of users who rely on screen readers and other 
-                assistive technologies. This isn't just the right thing to do; it's also good business practice, as it 
-                expands your potential audience and improves your SEO.
+                Good alt text helps people who use screen readers. It also helps your audience and can improve SEO.
               </p>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
@@ -272,7 +262,7 @@ export default function AccessibilityIssuesPage() {
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Understanding Contrast Ratios</h3>
               
               <p className="text-gray-700 leading-relaxed mb-6">
-                The Web Content Accessibility Guidelines (WCAG) define specific contrast ratio requirements:
+                WCAG sets contrast ratio rules for text and backgrounds:
               </p>
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
@@ -480,8 +470,8 @@ export default function AccessibilityIssuesPage() {
                   </div>
                   
                   <div className="bg-white p-4 rounded border">
-                    <span className="text-sm text-gray-600">Email:</span>
-                    <input type="email" className="w-full px-3 py-2 border border-gray-300 rounded-md mt-1" />
+                    <label htmlFor="demo-email-bad" className="text-sm text-gray-600">Email:</label>
+                    <input id="demo-email-bad" type="email" className="w-full px-3 py-2 border border-gray-300 rounded-md mt-1" />
                     <p className="text-sm font-medium text-gray-900 mb-1">Visual label without proper association</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;span&gt;Email:&lt;/span&gt;<br/>&lt;input type="email" /&gt;</code>
                     <p className="text-sm text-red-600 mt-2">Screen reader doesn't connect the label with the input</p>
@@ -1009,7 +999,7 @@ export default function AccessibilityIssuesPage() {
                     <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button&gt;✗&lt;/button&gt;</code>
                   </div>
                   <div className="p-4 bg-red-50 rounded border border-red-200">
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded-md">
+                    <button className="bg-blue-600 text-white px-4 py-2 rounded-md" aria-label="Send message">
                       <MessageCircle className="h-4 w-4" />
                     </button>
                     <p className="text-sm text-red-600 mt-1">Button with only icon</p>
@@ -1073,13 +1063,15 @@ export default function AccessibilityIssuesPage() {
               <div>
                 <h3 className="text-lg font-semibold text-red-800 mb-3">❌ Table Without Headers:</h3>
                 <div className="p-4 bg-red-50 rounded border border-red-200">
-                  <table className="w-full border border-gray-300">
-                    <tbody>
+                  <table className="w-full border border-gray-300" tabIndex={0}>
+                    <thead>
                       <tr>
-                        <td className="border border-gray-300 px-4 py-2 font-semibold">Disability Type</td>
-                        <td className="border border-gray-300 px-4 py-2 font-semibold">Percentage</td>
-                        <td className="border border-gray-300 px-4 py-2 font-semibold">Impact</td>
+                        <th scope="col" className="border border-gray-300 px-4 py-2 font-semibold">Disability Type</th>
+                        <th scope="col" className="border border-gray-300 px-4 py-2 font-semibold">Percentage</th>
+                        <th scope="col" className="border border-gray-300 px-4 py-2 font-semibold">Impact</th>
                       </tr>
+                    </thead>
+                    <tbody>
                       <tr>
                         <td className="border border-gray-300 px-4 py-2">Visual Impairment</td>
                         <td className="border border-gray-300 px-4 py-2">2.2%</td>
@@ -1100,7 +1092,7 @@ export default function AccessibilityIssuesPage() {
               <div>
                 <h3 className="text-lg font-semibold text-green-800 mb-3">✅ Table With Headers:</h3>
                 <div className="p-4 bg-green-50 rounded border border-green-200">
-                  <table className="w-full border border-gray-300">
+                  <table className="w-full border border-gray-300" tabIndex={0}>
                     <caption className="text-left font-semibold mb-2">Accessibility Statistics</caption>
                     <thead>
                       <tr>
@@ -1215,9 +1207,9 @@ export default function AccessibilityIssuesPage() {
                   
                   <div className="bg-white p-4 rounded border">
                     <ul className="list-disc list-inside">
-                      <div>List without li elements</div>
-                      <div>Another item without li</div>
-                      <div>Third item without li</div>
+                      <li>List without li elements</li>
+                      <li>Another item without li</li>
+                      <li>Third item without li</li>
                     </ul>
                     <p className="text-sm font-medium text-gray-900 mb-1">ul with div instead of li elements</p>
                     <code className="text-xs bg-gray-100 p-2 block rounded">&lt;ul&gt;&lt;div&gt;Item&lt;/div&gt;&lt;div&gt;Item&lt;/div&gt;&lt;/ul&gt;</code>

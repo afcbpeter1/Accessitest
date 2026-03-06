@@ -54,19 +54,15 @@
   outline-offset: 2px;
 }
 
-/* Accessibility Issues Demo - Remove focus indicators only inside the demo content (main), not the page chrome */
-.accessibility-issues-demo main *:focus {
+/* Accessibility Issues Demo - Remove focus indicators on mouse focus only; keep visible for keyboard (focus-visible) */
+.accessibility-issues-demo main *:focus:not(:focus-visible) {
   outline: none !important;
   box-shadow: none !important;
 }
 
-.accessibility-issues-demo main button:focus,
-.accessibility-issues-demo main input:focus,
-.accessibility-issues-demo main textarea:focus,
-.accessibility-issues-demo main select:focus,
-.accessibility-issues-demo main a:focus {
-  outline: none !important;
-  box-shadow: none !important;
+.accessibility-issues-demo main *:focus-visible {
+  outline: 2px solid #0066cc !important;
+  outline-offset: 2px !important;
 }
 
 /* High Contrast Mode Improvements */
