@@ -22,6 +22,19 @@ const BRAND = {
   darkMuted: '#1e293b',
 }
 
+const TAB_LABEL_MAX_LEN = 10
+
+function tabLabelFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname || '/'
+    const label = pathname === '/' ? '/home' : pathname
+    if (label.length <= TAB_LABEL_MAX_LEN) return label
+    return label.slice(0, TAB_LABEL_MAX_LEN) + '…'
+  } catch {
+    return url
+  }
+}
+
 // Logo from CDN so it loads when report is viewed from any origin (e.g. shared link)
 const LOGO_SRC = 'https://res.cloudinary.com/dyzzpsxov/image/upload/v1764106136/allytest_vmuws6.png'
 
@@ -201,8 +214,8 @@ export default function ReportPage() {
                 style={i === currentPage.index ? { backgroundColor: BRAND.cyan } : undefined}
               >
                 <Layout className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate max-w-[200px] sm:max-w-[280px]" title={p.url}>
-                  {new URL(p.url).hostname}
+                <span className="truncate max-w-[120px] sm:max-w-[160px]" title={p.url}>
+                  {tabLabelFromUrl(p.url)}
                 </span>
                 {!p.passed && (
                   <XCircle className="h-3.5 w-3.5 text-red-200 flex-shrink-0" />
