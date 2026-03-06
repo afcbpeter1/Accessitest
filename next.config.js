@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Don't fail the build on ESLint errors (e.g. on Railway). Lint still runs in CI via npm run lint.
+  eslint: { ignoreDuringBuilds: true },
   images: {
     domains: ['localhost', 'accessitest.onrender.com'],
   },
