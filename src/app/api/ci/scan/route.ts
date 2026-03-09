@@ -219,7 +219,7 @@ export async function POST(request: NextRequest) {
             })),
             suggestions
           }
-          logPipelineSuggestion(issue.id, patternHash, computeSuggestionSignature(suggestions[0]?.description, suggestions[0]?.codeExample)).catch(() => {})
+          await logPipelineSuggestion(issue.id, patternHash, computeSuggestionSignature(suggestions[0]?.description, suggestions[0]?.codeExample)).catch(() => {})
           return issuePayload
         })
       )

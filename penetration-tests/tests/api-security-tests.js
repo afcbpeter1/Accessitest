@@ -100,14 +100,16 @@ export class APISecurityTests {
       { path: '/api/backlog', method: 'GET' },
       { path: '/api/issues-board', method: 'GET' },
       { path: '/api/scan', method: 'POST' }, // POST-only endpoint
-      { path: '/api/document-scan', method: 'POST' } // POST-only endpoint
+      { path: '/api/document-scan', method: 'POST' }, // POST-only endpoint
+      { path: '/api/ci/scan', method: 'POST' }, // CI scan: requires API key
+      { path: '/api/cron/suggestion-learning', method: 'GET' } // Cron: requires CRON_SECRET when set
     ];
 
     for (const endpoint of protectedEndpoints) {
       const endpointPath = endpoint.path;
       const endpointMethod = endpoint.method;
       const authTest = await this.helper.testAuthorization(endpointPath, endpointMethod);
-      
+      const isCiOrCron = endpointPath.includes('/api/ci/') || endpointPath.includes('/api/cron/');
       this.results.push({
         name: `Authorization Check: ${endpointPath}`,
         severity: authTest.noAuth.authorized ? 'INFO' : 'HIGH',
@@ -115,7 +117,8 @@ export class APISecurityTests {
         details: {
           endpoint: endpointPath,
           noAuth: authTest.noAuth,
-          invalidToken: authTest.invalidToken
+          invalidToken: authTest.invalidToken,
+          note: isCiOrCron ? 'CI/cron use API key or CRON_SECRET, not session token' : undefined
         }
       });
     }
@@ -157,6 +160,24 @@ export class APISecurityTests {
       details: {
         vulnerable: docScanSQLInjection.filter(r => r.vulnerable).length,
         total: docScanSQLInjection.length
+      }
+    });
+
+    // Test CI scan endpoint (API key required; tests that url/urls input is validated)
+    const ciScanSQLInjection = await this.helper.testSQLInjection(
+      '/api/ci/scan',
+      'POST',
+      'url'
+    );
+    this.results.push({
+      name: 'Input Validation: CI Scan Endpoint',
+      severity: this.getSeverity(ciScanSQLInjection),
+      passed: !ciScanSQLInjection.some(r => r.vulnerable),
+      details: {
+        endpoint: '/api/ci/scan',
+        vulnerable: ciScanSQLInjection.filter(r => r.vulnerable).length,
+        total: ciScanSQLInjection.length,
+        note: 'Expect 401 without API key; validates url/urls body'
       }
     });
   }

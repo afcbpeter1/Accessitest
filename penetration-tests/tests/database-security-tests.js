@@ -271,14 +271,16 @@ export class DatabaseSecurityTests {
   async testTableAccess() {
     console.log('📋 Testing Table Access Control...');
     
-    // Test access to various tables
+    // Test access to various tables (app tables; pipeline_suggestion_log / learned_suggestions are anonymized)
     const tablesToTest = [
       'users',
       'issues',
       'scan_history',
       'backlog',
       'jira_integrations',
-      'azure_devops_integrations'
+      'azure_devops_integrations',
+      'pipeline_suggestion_log',
+      'learned_suggestions'
     ];
 
     for (const table of tablesToTest) {

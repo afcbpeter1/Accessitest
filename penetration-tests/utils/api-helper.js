@@ -253,6 +253,11 @@ export class APIPenTestHelper {
           data: { url: 'https://example.com', pagesToScan: ['https://example.com'] },
           headers: { 'Content-Type': 'application/json' }
         };
+      } else if (endpoint === '/api/ci/scan') {
+        baseOptions = {
+          data: { url: 'https://example.com' },
+          headers: { 'Content-Type': 'application/json' }
+        };
       } else {
         baseOptions = {
           data: {},

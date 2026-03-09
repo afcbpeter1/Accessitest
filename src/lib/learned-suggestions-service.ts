@@ -80,7 +80,7 @@ export async function logPipelineSuggestion(
       [ruleId, patternHash, suggestionSignature]
     )
   } catch (e) {
-    console.warn('learned-suggestions logPipelineSuggestion error:', e)
+    console.error('pipeline_suggestion_log insert failed:', e)
   }
 }
 
