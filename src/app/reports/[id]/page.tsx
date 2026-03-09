@@ -130,11 +130,6 @@ export default function ReportPage() {
   }
 
   const reportLink = typeof window !== 'undefined' ? window.location.href : ''
-  const summaryText = [
-    `Page: ${url}`,
-    `Result: ${passed ? 'Passed' : 'Failed'}`,
-    `Total issues: ${summary.total} (Critical: ${summary.critical}, Serious: ${summary.serious}, Moderate: ${summary.moderate}, Minor: ${summary.minor})`
-  ].join('\n')
 
   function issueCopyText(issue: ReportIssue): string {
     const lines = [
@@ -197,6 +192,12 @@ export default function ReportPage() {
   const url = pageData?.url ?? ''
   const summary = pageData?.summary ?? { total: 0, critical: 0, serious: 0, moderate: 0, minor: 0 }
   const issues = pageData?.issues ?? []
+
+  const summaryText = [
+    `Page: ${url}`,
+    `Result: ${passed ? 'Passed' : 'Failed'}`,
+    `Total issues: ${summary.total} (Critical: ${summary.critical}, Serious: ${summary.serious}, Moderate: ${summary.moderate}, Minor: ${summary.minor})`
+  ].join('\n')
 
   const impactColors: Record<string, string> = {
     critical: 'bg-red-100 text-red-800',
