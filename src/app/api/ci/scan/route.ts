@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ScanService } from '@/lib/scan-service'
 import { lookupApiKey, checkRateLimit } from '@/lib/api-key-service'
-import { query } from '@/lib/database'
+import { query, queryOne } from '@/lib/database'
 import crypto from 'crypto'
 import {
   getLearnedSuggestion,
