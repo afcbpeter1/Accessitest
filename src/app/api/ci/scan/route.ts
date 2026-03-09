@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ScanService } from '@/lib/scan-service'
 import { lookupApiKey, checkRateLimit } from '@/lib/api-key-service'
-import { query, queryOne } from '@/lib/database'
+import { query } from '@/lib/database'
 import crypto from 'crypto'
+import {
+  getLearnedSuggestion,
+  logPipelineSuggestion,
+  computePatternHash,
+  computeSuggestionSignature
+} from '@/lib/learned-suggestions-service'
 
 const RAPIDAPI_PROXY_SECRET = process.env.RAPIDAPI_PROXY_SECRET
 const CI_SCAN_TIMEOUT_MS = 90000
@@ -182,24 +188,41 @@ export async function POST(request: NextRequest) {
         minor: summary?.minor ?? 0
       }
 
-      const issues = (result.issues ?? []).map((issue: any) => ({
-        id: issue.id,
-        impact: issue.impact,
-        description: issue.description,
-        help: issue.help,
-        helpUrl: issue.helpUrl,
-        nodes: (issue.nodes ?? []).map((node: any) => ({
-          target: node.target,
-          html: node.html,
-          failureSummary: node.failureSummary
-        })),
-        suggestions: (issue.suggestions ?? []).map((s: any) => ({
-          type: s.type,
-          description: s.description,
-          codeExample: s.codeExample,
-          priority: s.priority
-        }))
-      }))
+      const issues = await Promise.all(
+        (result.issues ?? []).map(async (issue: any) => {
+          const html = issue.nodes?.[0]?.html ?? ''
+          const patternHash = computePatternHash(issue.id, html)
+          const learned = await getLearnedSuggestion(issue.id, patternHash)
+          const suggestions = learned
+            ? [{
+                type: 'fix',
+                description: learned.description,
+                codeExample: learned.codeExample ?? undefined,
+                priority: (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : issue.impact === 'moderate' ? 'medium' : 'low') as 'high' | 'medium' | 'low'
+              }]
+            : (issue.suggestions ?? []).map((s: any) => ({
+                type: s.type,
+                description: s.description,
+                codeExample: s.codeExample,
+                priority: s.priority
+              }))
+          const issuePayload = {
+            id: issue.id,
+            impact: issue.impact,
+            description: issue.description,
+            help: issue.help,
+            helpUrl: issue.helpUrl,
+            nodes: (issue.nodes ?? []).map((node: any) => ({
+              target: node.target,
+              html: node.html,
+              failureSummary: node.failureSummary
+            })),
+            suggestions
+          }
+          logPipelineSuggestion(issue.id, patternHash, computeSuggestionSignature(suggestions[0]?.description, suggestions[0]?.codeExample)).catch(() => {})
+          return issuePayload
+        })
+      )
 
       results.push({
         url: result.url,
