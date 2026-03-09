@@ -1,1900 +1,1416 @@
 {
-  "timestamp": "2025-12-22T22:24:16.590Z",
-  "target": "http://localhost:3000",
-  "testType": "db",
+  "timestamp": "2026-03-09T20:45:39.862Z",
+  "target": "https://a11ytest.ai",
+  "testType": "api",
   "summary": {
-    "total": 31,
-    "passed": 11,
-    "failed": 20,
+    "total": 46,
+    "passed": 43,
+    "failed": 3,
     "bySeverity": {
-      "CRITICAL": 1,
-      "HIGH": 12,
-      "MEDIUM": 8,
-      "LOW": 1,
-      "INFO": 9
+      "CRITICAL": 0,
+      "HIGH": 3,
+      "MEDIUM": 0,
+      "LOW": 2,
+      "INFO": 41
     }
   },
   "results": [
     {
-      "name": "SQL Injection: Basic SQL Injection",
+      "name": "SQL Injection in Login Endpoint",
       "passed": true,
       "severity": "INFO",
       "details": {
-        "query": "SELECT * FROM users WHERE email = $1",
-        "params": [
-          "' OR '1'='1"
-        ],
-        "vulnerable": false
-      },
-      "timestamp": "2025-12-22T22:24:16.591Z"
-    },
-    {
-      "name": "SQL Injection: Union-based Injection",
-      "passed": true,
-      "severity": "INFO",
-      "details": {
-        "query": "SELECT * FROM users WHERE id = $1",
-        "params": [
-          "1' UNION SELECT NULL, NULL, NULL--"
-        ],
-        "vulnerable": false,
-        "protected": true,
-        "error": "invalid input syntax for type uuid: \"1' UNION SELECT NULL, NULL, NULL--\""
-      },
-      "timestamp": "2025-12-22T22:24:16.591Z"
-    },
-    {
-      "name": "SQL Injection: Boolean-based Injection",
-      "passed": true,
-      "severity": "INFO",
-      "details": {
-        "query": "SELECT * FROM users WHERE email = $1",
-        "params": [
-          "admin' AND '1'='1"
-        ],
-        "vulnerable": false
-      },
-      "timestamp": "2025-12-22T22:24:16.591Z"
-    },
-    {
-      "name": "SQL Injection: Time-based Injection",
-      "passed": true,
-      "severity": "INFO",
-      "details": {
-        "query": "SELECT * FROM users WHERE id = $1",
-        "params": [
-          "1'; WAITFOR DELAY '00:00:05'--"
-        ],
-        "vulnerable": false,
-        "protected": true,
-        "error": "invalid input syntax for type uuid: \"1'; WAITFOR DELAY '00:00:05'--\""
-      },
-      "timestamp": "2025-12-22T22:24:16.591Z"
-    },
-    {
-      "name": "SQL Injection: Stacked Queries",
-      "passed": true,
-      "severity": "INFO",
-      "details": {
-        "query": "SELECT * FROM users WHERE id = $1",
-        "params": [
-          "1'; DROP TABLE users--"
-        ],
-        "vulnerable": false,
-        "protected": true,
-        "error": "invalid input syntax for type uuid: \"1'; DROP TABLE users--\""
-      },
-      "timestamp": "2025-12-22T22:24:16.591Z"
-    },
-    {
-      "name": "Privilege Escalation: Access to pg_user",
-      "passed": false,
-      "severity": "HIGH",
-      "details": {
-        "table": "pg_user",
-        "accessible": true
-      },
-      "timestamp": "2025-12-22T22:24:16.591Z"
-    },
-    {
-      "name": "Privilege Escalation: Access to pg_shadow",
-      "passed": false,
-      "severity": "HIGH",
-      "details": {
-        "table": "pg_shadow",
-        "accessible": true
-      },
-      "timestamp": "2025-12-22T22:24:16.591Z"
-    },
-    {
-      "name": "Privilege Escalation: Access to pg_roles",
-      "passed": false,
-      "severity": "HIGH",
-      "details": {
-        "table": "pg_roles",
-        "accessible": true
-      },
-      "timestamp": "2025-12-22T22:24:16.591Z"
-    },
-    {
-      "name": "Privilege Escalation: Access to pg_authid",
-      "passed": false,
-      "severity": "HIGH",
-      "details": {
-        "table": "pg_authid",
-        "accessible": true
-      },
-      "timestamp": "2025-12-22T22:24:16.591Z"
-    },
-    {
-      "name": "Privilege Escalation: Access to pg_database",
-      "passed": false,
-      "severity": "HIGH",
-      "details": {
-        "table": "pg_database",
-        "accessible": true
-      },
-      "timestamp": "2025-12-22T22:24:16.591Z"
-    },
-    {
-      "name": "Privilege Escalation: CREATE TABLE",
-      "passed": false,
-      "severity": "HIGH",
-      "details": {
-        "canCreate": true,
-        "note": "Test uses transaction rollback - no data modified"
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Schema Enumeration: Table Names",
-      "passed": false,
-      "severity": "MEDIUM",
-      "details": {
-        "canEnumerate": true,
-        "tableCount": 41,
-        "tables": [
-          "active_scans",
-          "azure_devops_integrations",
-          "azure_devops_work_item_mappings",
-          "backlog_comments",
-          "blocked_email_domains",
-          "credit_packages",
-          "credit_transactions",
-          "document_scans",
-          "email_verification_attempts",
-          "free_scan_usage",
-          "issue_activity",
-          "issue_label_assignments",
-          "issue_labels",
-          "issue_status",
-          "issues",
-          "jira_integrations",
-          "jira_ticket_mappings",
-          "notifications",
-          "periodic_scan_executions",
-          "periodic_scans",
-          "product_backlog",
-          "registration_attempts",
-          "scan_history",
-          "scan_issue_occurrences",
-          "scan_issues",
-          "scan_queue",
-          "sprint_burndown_data",
-          "sprint_columns",
-          "sprint_issues",
-          "sprint_templates",
-          "sprints",
-          "template_columns",
-          "user_audit_log",
-          "organization_credits",
-          "user_notification_preferences",
-          "user_passwords",
-          "user_sessions",
-          "user_subscriptions",
-          "users",
-          "vpn_detection_log",
-          "web_scans"
-        ]
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Schema Enumeration: Columns for active_scans",
-      "passed": false,
-      "severity": "MEDIUM",
-      "details": {
-        "table": "active_scans",
-        "canEnumerate": true,
-        "columnCount": 14,
-        "columns": [
+        "vulnerable": 0,
+        "total": 17,
+        "tests": [
           {
-            "name": "id",
-            "type": "uuid"
+            "payload": "' OR '1'='1",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "scan_id",
-            "type": "character varying"
+            "payload": "' OR '1'='1' --",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "user_id",
-            "type": "uuid"
+            "payload": "' OR '1'='1' /*",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "scan_type",
-            "type": "character varying"
+            "payload": "admin'--",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "url",
-            "type": "text"
+            "payload": "admin'/*",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "file_name",
-            "type": "text"
+            "payload": "' UNION SELECT NULL--",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "status",
-            "type": "character varying"
+            "payload": "1' AND '1'='1",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "progress",
-            "type": "jsonb"
+            "payload": "1' AND '1'='2",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "total_pages",
-            "type": "integer"
+            "payload": "' OR 1=1--",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "current_page",
-            "type": "integer"
+            "payload": "' OR 1=1#",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "started_at",
-            "type": "timestamp with time zone"
+            "payload": "' OR 1=1/*",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "completed_at",
-            "type": "timestamp with time zone"
+            "payload": "') OR ('1'='1--",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "created_at",
-            "type": "timestamp with time zone"
+            "payload": "1' OR '1'='1",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           },
           {
-            "name": "updated_at",
-            "type": "timestamp with time zone"
+            "payload": "1 EXEC XP_",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
+          },
+          {
+            "payload": "' UNION SELECT NULL, NULL, NULL--",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
+          },
+          {
+            "payload": "1' AND 1=1--",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
+          },
+          {
+            "payload": "1' AND 1=2--",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
           }
         ]
       },
-      "timestamp": "2025-12-22T22:24:16.592Z"
+      "timestamp": "2026-03-09T20:45:39.864Z"
     },
     {
-      "name": "Data Exposure: Access to users",
-      "passed": false,
-      "severity": "HIGH",
-      "details": {
-        "table": "users",
-        "accessible": true,
-        "rowCount": "7",
-        "note": "READ-ONLY test - only counting rows, no data accessed"
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Data Exposure: Access to user_passwords",
-      "passed": false,
-      "severity": "HIGH",
-      "details": {
-        "table": "user_passwords",
-        "accessible": true,
-        "rowCount": "7",
-        "note": "READ-ONLY test - only counting rows, no data accessed"
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Data Exposure: Access to organization_credits",
-      "passed": false,
-      "severity": "HIGH",
-      "details": {
-        "table": "organization_credits",
-        "accessible": true,
-        "rowCount": "7",
-        "note": "READ-ONLY test - only counting rows, no data accessed"
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Data Exposure: Access to jira_integrations",
-      "passed": false,
-      "severity": "HIGH",
-      "details": {
-        "table": "jira_integrations",
-        "accessible": true,
-        "rowCount": "2",
-        "note": "READ-ONLY test - only counting rows, no data accessed"
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Data Exposure: Access to azure_devops_integrations",
-      "passed": false,
-      "severity": "HIGH",
-      "details": {
-        "table": "azure_devops_integrations",
-        "accessible": true,
-        "rowCount": "1",
-        "note": "READ-ONLY test - only counting rows, no data accessed"
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Data Exposure: Password Hash Access",
-      "passed": false,
-      "severity": "CRITICAL",
-      "details": {
-        "canAccess": true,
-        "note": "READ-ONLY test - checking table access only, no actual password data retrieved"
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Connection Security: User Access",
+      "name": "Login Endpoint Authorization",
       "passed": true,
       "severity": "INFO",
       "details": {
-        "currentUser": "neondb_owner",
-        "sessionUser": "neondb_owner",
-        "database": "neondb"
+        "endpoint": "/api/auth",
+        "note": "Login endpoint is public but should validate input",
+        "noAuth": {
+          "status": 401,
+          "authorized": true,
+          "response": {
+            "success": false,
+            "error": "Invalid email or password"
+          }
+        },
+        "invalidToken": {
+          "status": 401,
+          "authorized": true,
+          "response": {
+            "success": false,
+            "error": "Invalid email or password"
+          }
+        },
+        "malformedToken": {
+          "status": 401,
+          "authorized": true,
+          "response": {
+            "success": false,
+            "error": "Invalid email or password"
+          }
+        },
+        "validToken": {
+          "status": 401,
+          "authorized": false,
+          "response": {
+            "success": false,
+            "error": "Invalid email or password"
+          }
+        }
       },
-      "timestamp": "2025-12-22T22:24:16.592Z"
+      "timestamp": "2026-03-09T20:45:39.864Z"
     },
     {
-      "name": "Connection Security: Version Information",
+      "name": "SQL Injection in Registration Endpoint",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "vulnerable": 0,
+        "total": 17
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authorization Check: /api/user",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/user",
+        "noAuth": {
+          "status": 401,
+          "authorized": true,
+          "response": {
+            "success": false,
+            "error": "Authentication required"
+          }
+        },
+        "invalidToken": {
+          "status": 401,
+          "authorized": true,
+          "response": {
+            "success": false,
+            "error": "Invalid or expired token"
+          }
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authorization Check: /api/credits",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/credits",
+        "noAuth": {
+          "status": 401,
+          "authorized": true,
+          "response": {
+            "success": false,
+            "error": "Authentication required"
+          }
+        },
+        "invalidToken": {
+          "status": 500,
+          "authorized": false,
+          "response": {
+            "success": false,
+            "error": "Failed to fetch credit information"
+          }
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authorization Check: /api/scan-history",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/scan-history",
+        "noAuth": {
+          "status": 401,
+          "authorized": true,
+          "response": {
+            "success": false,
+            "error": "Authentication required",
+            "details": "Authentication required"
+          }
+        },
+        "invalidToken": {
+          "status": 500,
+          "authorized": false,
+          "response": {
+            "success": false,
+            "error": "Failed to fetch scan history",
+            "details": "Invalid or expired token"
+          }
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authorization Check: /api/backlog",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/backlog",
+        "noAuth": {
+          "status": 401,
+          "authorized": true,
+          "response": {
+            "error": "Failed to fetch backlog items",
+            "details": "Authentication required"
+          }
+        },
+        "invalidToken": {
+          "status": 500,
+          "authorized": false,
+          "response": {
+            "error": "Failed to fetch backlog items",
+            "details": "Invalid or expired token"
+          }
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authorization Check: /api/issues-board",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/issues-board",
+        "noAuth": {
+          "status": 401,
+          "authorized": true,
+          "response": {
+            "error": "Authentication required"
+          }
+        },
+        "invalidToken": {
+          "status": 500,
+          "authorized": false,
+          "response": {
+            "error": "Failed to fetch issues board"
+          }
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authorization Check: /api/scan",
+      "passed": false,
+      "severity": "HIGH",
+      "details": {
+        "endpoint": "/api/scan",
+        "noAuth": {
+          "status": 500,
+          "authorized": false,
+          "response": {
+            "error": "Scan failed",
+            "details": "Authentication required"
+          }
+        },
+        "invalidToken": {
+          "status": 500,
+          "authorized": false,
+          "response": {
+            "error": "Scan failed",
+            "details": "Invalid or expired token"
+          }
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authorization Check: /api/document-scan",
+      "passed": false,
+      "severity": "HIGH",
+      "details": {
+        "endpoint": "/api/document-scan",
+        "noAuth": {
+          "status": 500,
+          "authorized": false,
+          "response": {
+            "success": false,
+            "error": "Authentication required"
+          }
+        },
+        "invalidToken": {
+          "status": 500,
+          "authorized": false,
+          "response": {
+            "success": false,
+            "error": "Invalid or expired token"
+          }
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authorization Check: /api/ci/scan",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/ci/scan",
+        "noAuth": {
+          "status": 401,
+          "authorized": true,
+          "response": {
+            "error": "Missing API key. Use Authorization: Bearer <key> or X-API-Key: <key>."
+          }
+        },
+        "invalidToken": {
+          "status": 401,
+          "authorized": true,
+          "response": {
+            "error": "Invalid or expired API key"
+          }
+        },
+        "note": "CI/cron use API key or CRON_SECRET, not session token"
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authorization Check: /api/cron/suggestion-learning",
+      "passed": false,
+      "severity": "HIGH",
+      "details": {
+        "endpoint": "/api/cron/suggestion-learning",
+        "noAuth": {
+          "status": 0,
+          "authorized": false
+        },
+        "invalidToken": {
+          "status": 0,
+          "authorized": false
+        },
+        "note": "CI/cron use API key or CRON_SECRET, not session token"
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Input Validation: Scan Endpoint",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/scan",
+        "vulnerable": 0,
+        "total": 17
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Input Validation: Document Scan Endpoint",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "vulnerable": 0,
+        "total": 17
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Input Validation: CI Scan Endpoint",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/ci/scan",
+        "vulnerable": 0,
+        "total": 17,
+        "note": "Expect 401 without API key; validates url/urls body"
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Rate Limiting: /api/auth",
       "passed": true,
       "severity": "LOW",
       "details": {
-        "canQuery": true,
-        "version": "PostgreSQL 17.7 (bdc8956) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 12.2.0-14+deb12u1) 12.2.0, 64-bit"
+        "endpoint": "/api/auth",
+        "rateLimited": false,
+        "rateLimitCount": 0,
+        "totalRequests": 50,
+        "errorRate": 0,
+        "note": "Rate limiting not detected, but endpoint handles load gracefully"
       },
-      "timestamp": "2025-12-22T22:24:16.592Z"
+      "timestamp": "2026-03-09T20:45:39.864Z"
     },
     {
-      "name": "Parameterized Queries: Valid Query",
+      "name": "Rate Limiting: /api/free-scan",
+      "passed": true,
+      "severity": "LOW",
+      "details": {
+        "endpoint": "/api/free-scan",
+        "rateLimited": false,
+        "rateLimitCount": 0,
+        "totalRequests": 50,
+        "errorRate": 0,
+        "note": "Rate limiting not detected, but endpoint handles load gracefully"
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "IDOR: /api/backlog",
       "passed": true,
       "severity": "INFO",
       "details": {
-        "works": true,
-        "usesParams": true
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Parameterized Queries: Malicious Input Protection",
-      "passed": true,
-      "severity": "INFO",
-      "details": {
-        "protected": true
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Table Access: users",
-      "passed": false,
-      "severity": "MEDIUM",
-      "details": {
-        "table": "users",
-        "accessible": true
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Table Access: issues",
-      "passed": false,
-      "severity": "MEDIUM",
-      "details": {
-        "table": "issues",
-        "accessible": true
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Table Access: scan_history",
-      "passed": false,
-      "severity": "MEDIUM",
-      "details": {
-        "table": "scan_history",
-        "accessible": true
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Table Access: backlog",
-      "passed": true,
-      "severity": "INFO",
-      "details": {
-        "table": "backlog",
-        "accessible": false,
-        "error": "relation \"backlog\" does not exist"
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Table Access: jira_integrations",
-      "passed": false,
-      "severity": "MEDIUM",
-      "details": {
-        "table": "jira_integrations",
-        "accessible": true
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "Table Access: azure_devops_integrations",
-      "passed": false,
-      "severity": "MEDIUM",
-      "details": {
-        "table": "azure_devops_integrations",
-        "accessible": true
-      },
-      "timestamp": "2025-12-22T22:24:16.592Z"
-    },
-    {
-      "name": "User Privileges: Current User Privileges",
-      "passed": true,
-      "severity": "MEDIUM",
-      "details": {
-        "canQuery": true,
-        "privilegeCount": 287,
-        "privileges": [
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "document_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "document_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "document_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "document_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "document_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "document_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "document_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "users"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "users"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "users"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "users"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "users"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "users"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "users"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "user_passwords"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "user_passwords"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "user_passwords"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "user_passwords"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "user_passwords"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "user_passwords"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "user_passwords"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "user_sessions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "user_sessions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "user_sessions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "user_sessions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "user_sessions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "user_sessions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "user_sessions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "organization_credits"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "organization_credits"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "organization_credits"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "organization_credits"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "organization_credits"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "organization_credits"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "organization_credits"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "credit_transactions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "credit_transactions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "credit_transactions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "credit_transactions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "credit_transactions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "credit_transactions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "credit_transactions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "credit_packages"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "credit_packages"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "credit_packages"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "credit_packages"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "credit_packages"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "credit_packages"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "credit_packages"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "web_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "web_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "web_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "web_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "web_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "web_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "web_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "scan_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "scan_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "scan_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "scan_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "scan_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "scan_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "scan_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "user_subscriptions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "user_subscriptions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "user_subscriptions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "user_subscriptions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "user_subscriptions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "user_subscriptions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "user_subscriptions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "user_audit_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "user_audit_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "user_audit_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "user_audit_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "user_audit_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "user_audit_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "user_audit_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "blocked_email_domains"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "blocked_email_domains"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "blocked_email_domains"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "blocked_email_domains"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "blocked_email_domains"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "blocked_email_domains"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "blocked_email_domains"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "vpn_detection_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "vpn_detection_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "vpn_detection_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "vpn_detection_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "vpn_detection_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "vpn_detection_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "vpn_detection_log"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "registration_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "registration_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "registration_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "registration_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "registration_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "registration_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "registration_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "free_scan_usage"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "free_scan_usage"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "free_scan_usage"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "free_scan_usage"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "free_scan_usage"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "free_scan_usage"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "free_scan_usage"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "email_verification_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "email_verification_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "email_verification_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "email_verification_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "email_verification_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "email_verification_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "email_verification_attempts"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "notifications"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "notifications"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "notifications"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "notifications"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "notifications"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "notifications"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "notifications"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "user_notification_preferences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "user_notification_preferences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "user_notification_preferences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "user_notification_preferences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "user_notification_preferences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "user_notification_preferences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "user_notification_preferences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "active_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "active_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "active_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "active_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "active_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "active_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "active_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "scan_history"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "scan_history"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "scan_history"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "scan_history"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "scan_history"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "scan_history"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "scan_history"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "issue_status"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "issue_status"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "issue_status"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "issue_status"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "issue_status"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "issue_status"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "issue_status"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "scan_queue"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "scan_queue"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "scan_queue"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "scan_queue"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "scan_queue"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "scan_queue"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "scan_queue"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "scan_issue_occurrences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "scan_issue_occurrences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "scan_issue_occurrences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "scan_issue_occurrences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "scan_issue_occurrences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "scan_issue_occurrences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "scan_issue_occurrences"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "issue_activity"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "issue_activity"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "issue_activity"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "issue_activity"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "issue_activity"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "issue_activity"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "issue_activity"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "issue_label_assignments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "issue_label_assignments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "issue_label_assignments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "issue_label_assignments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "issue_label_assignments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "issue_label_assignments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "issue_label_assignments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "issue_labels"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "issue_labels"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "issue_labels"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "issue_labels"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "issue_labels"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "issue_labels"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "issue_labels"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "sprints"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "sprints"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "sprints"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "sprints"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "sprints"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "sprints"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "sprints"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "periodic_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "periodic_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "periodic_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "periodic_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "periodic_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "periodic_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "periodic_scans"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "periodic_scan_executions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "periodic_scan_executions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "periodic_scan_executions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "periodic_scan_executions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "periodic_scan_executions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "periodic_scan_executions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "periodic_scan_executions"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "product_backlog"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "product_backlog"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "product_backlog"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "product_backlog"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "product_backlog"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "product_backlog"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "product_backlog"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "backlog_comments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "backlog_comments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "backlog_comments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "backlog_comments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "backlog_comments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "backlog_comments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "backlog_comments"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "sprint_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "sprint_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "sprint_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "sprint_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "sprint_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "sprint_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "sprint_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "sprint_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "sprint_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "sprint_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "sprint_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "sprint_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "sprint_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "sprint_issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "sprint_templates"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "sprint_templates"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "sprint_templates"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "sprint_templates"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "sprint_templates"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "sprint_templates"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "sprint_templates"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "template_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "template_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "template_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "template_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "template_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "template_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "template_columns"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "sprint_burndown_data"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "sprint_burndown_data"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "sprint_burndown_data"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "sprint_burndown_data"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "sprint_burndown_data"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "sprint_burndown_data"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "sprint_burndown_data"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "jira_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "jira_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "jira_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "jira_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "jira_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "jira_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "jira_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "jira_ticket_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "jira_ticket_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "jira_ticket_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "jira_ticket_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "jira_ticket_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "jira_ticket_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "jira_ticket_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "azure_devops_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "azure_devops_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "azure_devops_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "azure_devops_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "azure_devops_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "azure_devops_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "azure_devops_integrations"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "azure_devops_work_item_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "azure_devops_work_item_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "azure_devops_work_item_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "azure_devops_work_item_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "azure_devops_work_item_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "azure_devops_work_item_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "azure_devops_work_item_mappings"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "INSERT",
-            "table_name": "issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "SELECT",
-            "table_name": "issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "UPDATE",
-            "table_name": "issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "DELETE",
-            "table_name": "issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRUNCATE",
-            "table_name": "issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "REFERENCES",
-            "table_name": "issues"
-          },
-          {
-            "grantee": "neondb_owner",
-            "privilege_type": "TRIGGER",
-            "table_name": "issues"
+        "endpoint": "/api/backlog",
+        "accessible": 0,
+        "total": 4,
+        "tests": [
+          {
+            "id": "1",
+            "status": 401,
+            "accessible": false,
+            "response": {
+              "error": "Failed to fetch backlog items",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "id": "2",
+            "status": 401,
+            "accessible": false,
+            "response": {
+              "error": "Failed to fetch backlog items",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "id": "999999",
+            "status": 401,
+            "accessible": false,
+            "response": {
+              "error": "Failed to fetch backlog items",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000000",
+            "status": 401,
+            "accessible": false,
+            "response": {
+              "error": "Failed to fetch backlog items",
+              "details": "Authentication required"
+            }
           }
         ]
       },
-      "timestamp": "2025-12-22T22:24:16.592Z"
+      "timestamp": "2026-03-09T20:45:39.864Z"
     },
     {
-      "name": "User Privileges: Data Modification",
-      "passed": false,
-      "severity": "HIGH",
+      "name": "IDOR: /api/scan-history",
+      "passed": true,
+      "severity": "INFO",
       "details": {
-        "canModify": true,
-        "note": "Test uses transaction rollback - no data modified"
+        "endpoint": "/api/scan-history",
+        "accessible": 0,
+        "total": 4,
+        "tests": [
+          {
+            "id": "1",
+            "status": 401,
+            "accessible": false,
+            "response": {
+              "success": false,
+              "error": "Authentication required",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "id": "2",
+            "status": 401,
+            "accessible": false,
+            "response": {
+              "success": false,
+              "error": "Authentication required",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "id": "999999",
+            "status": 401,
+            "accessible": false,
+            "response": {
+              "success": false,
+              "error": "Authentication required",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000000",
+            "status": 401,
+            "accessible": false,
+            "response": {
+              "success": false,
+              "error": "Authentication required",
+              "details": "Authentication required"
+            }
+          }
+        ]
       },
-      "timestamp": "2025-12-22T22:24:16.592Z"
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "IDOR: /api/issues-board",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/issues-board",
+        "accessible": 0,
+        "total": 4,
+        "tests": [
+          {
+            "id": "1",
+            "status": 401,
+            "accessible": false,
+            "response": {
+              "error": "Authentication required"
+            }
+          },
+          {
+            "id": "2",
+            "status": 401,
+            "accessible": false,
+            "response": {
+              "error": "Authentication required"
+            }
+          },
+          {
+            "id": "999999",
+            "status": 401,
+            "accessible": false,
+            "response": {
+              "error": "Authentication required"
+            }
+          },
+          {
+            "id": "00000000-0000-0000-0000-000000000000",
+            "status": 401,
+            "accessible": false,
+            "response": {
+              "error": "Authentication required"
+            }
+          }
+        ]
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "XSS: /api/scan",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/scan",
+        "vulnerable": 0,
+        "total": 12
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "XSS: /api/backlog",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/backlog",
+        "vulnerable": 0,
+        "total": 12
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Command Injection: Scan Endpoint",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "vulnerable": 0,
+        "total": 10
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Path Traversal",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "vulnerable": 0,
+        "total": 5
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "File Spoofing: PDF Extension with Executable Content",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "test": "PDF Extension with Executable Content",
+        "fileName": "malicious.pdf",
+        "expectedBlocked": true,
+        "actuallyBlocked": true,
+        "status": 400,
+        "response": {
+          "success": false,
+          "error": "Invalid PDF file: File does not start with PDF magic number. Detected header: 4d5ac29000030000",
+          "details": "File does not appear to be a valid PDF. This may be a file spoofing attempt."
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "File Spoofing: PDF Extension with ZIP Content",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "test": "PDF Extension with ZIP Content",
+        "fileName": "fake.pdf",
+        "expectedBlocked": true,
+        "actuallyBlocked": true,
+        "status": 400,
+        "response": {
+          "success": false,
+          "error": "Invalid PDF file: File does not start with PDF magic number. Detected header: 504b030414000000",
+          "details": "File does not appear to be a valid PDF. This may be a file spoofing attempt."
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "File Spoofing: Word Extension with Executable Content",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "test": "Word Extension with Executable Content",
+        "fileName": "malicious.docx",
+        "expectedBlocked": true,
+        "actuallyBlocked": true,
+        "status": 400,
+        "response": {
+          "success": false,
+          "error": "Invalid .docx file: File does not have ZIP archive signature (expected for .docx files)",
+          "details": "File does not appear to be a valid Word document. This may be a file spoofing attempt."
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "File Spoofing: Double Extension Attack",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "test": "Double Extension Attack",
+        "fileName": "document.pdf.exe",
+        "expectedBlocked": true,
+        "actuallyBlocked": true,
+        "status": 400,
+        "response": {
+          "success": false,
+          "error": "File does not have .pdf extension",
+          "details": "File does not appear to be a valid PDF. This may be a file spoofing attempt."
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "File Spoofing: Null Byte Injection",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "test": "Null Byte Injection",
+        "fileName": "document.pdf\u0000.exe",
+        "expectedBlocked": true,
+        "actuallyBlocked": true,
+        "status": 400,
+        "response": {
+          "success": false,
+          "error": "File name contains null bytes",
+          "details": "File does not appear to be a valid PDF. This may be a file spoofing attempt."
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "File Spoofing: Path Traversal in Filename",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "test": "Path Traversal in Filename",
+        "fileName": "../../../etc/passwd.pdf",
+        "expectedBlocked": true,
+        "actuallyBlocked": true,
+        "status": 400,
+        "response": {
+          "success": false,
+          "error": "File name contains invalid characters (path traversal attempt detected)",
+          "details": "File does not appear to be a valid PDF. This may be a file spoofing attempt."
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "File Spoofing: Valid PDF File",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "test": "Valid PDF File",
+        "fileName": "valid.pdf",
+        "expectedBlocked": false,
+        "actuallyBlocked": false,
+        "status": 200,
+        "response": {
+          "success": true,
+          "result": {
+            "is508Compliant": false,
+            "overallScore": 90,
+            "issues": [
+              {
+                "id": "iso_compliance_issue_1773089137378_0",
+                "type": "critical",
+                "category": "structure",
+                "description": "PDF is not tagged - structure tree not found",
+                "section": "Document Structure",
+                "pageNumber": 1,
+                "elementLocation": "Entire document",
+                "elementId": "issue_1773089123448_pdf_untagged",
+                "context": "ISO 14289-1 compliance check found: Document Structure (Page 1, Location: Entire document, Element ID: issue_1773089123448_pdf_untagged)",
+                "wcagCriterion": "WCAG 2.1 AA - PDF/UA Compliance",
+                "section508Requirement": "36 CFR § 1194.22 - Document Accessibility",
+                "impact": "high",
+                "recommendation": "## ISSUE EXPLANATION\n\nThis PDF lacks proper tagging structure, which means screen readers and other assistive technologies cannot properly navigate or interpret the document content. This violates Section 508 § 1194.22(f) which requires documents to be organized so they are readable without requiring an associated style sheet, and WCAG 2.1 Success Criterion 1.3.1 (Info and Relationships) which mandates that information and structural relationships be programmatically determinable.\n\n## STEP-BY-STEP SOLUTION (Adobe Acrobat Pro)\n\n**Step 1:** Open the PDF in Adobe Acrobat Pro (not Reader)\n- Launch Adobe Acrobat Pro\n- Go to File > Open and select your \"valid.pdf\" file\n\n**Step 2:** Access the Accessibility Tools\n- Go to Tools > Accessibility in the top menu\n- Click \"Full Check\" to run a complete accessibility audit first\n\n**Step 3:** Add Tags to the Document\n- In the Accessibility panel, click \"Add Tags to Document\"\n- OR go to Tools > Accessibility > Add Tags to Document\n- Acrobat will automatically analyze and tag the document structure\n\n**Step 4:** Review and Refine Tag Structure\n- Open the Tags panel: View > Show/Hide > Navigation Panes > Tags (or press F6)\n- Examine the tag tree structure in the left panel\n- Right-click any incorrectly tagged elements and select \"Properties\" to modify tag types\n- Ensure headings are tagged as H1, H2, etc., and paragraphs as P tags\n\n**Step 5:** Set Reading Order (if needed)\n- Go to Tools > Accessibility > Reading Order\n- Use the Reading Order tool to adjust the logical flow of content\n- Click \"Show Order Panel\" to visualize reading sequence\n\n## VERIFICATION STEPS\n\n**Step 1:** Run Accessibility Check\n- Go to Tools > Accessibility > Full Check\n- Verify \"Tagged PDF\" shows as \"Passed\" in the results\n\n**Step 2:** Test Tag Structure\n- In the Tags panel, expand the tag tree\n- Confirm all content appears within appropriate tags\n- Use View > Read Out Loud > Read This Page Only to test screen reader functionality\n\n## ADDITIONAL NOTES\n\nSave the document after tagging (Ctrl+S) to preserve the accessibility structure. For documents with complex layouts, manual tag refinement may be necessary. Consider creating tagged PDFs from the source document (Word, InDesign) rather than retroactively tagging for better results.",
+                "remediation": "## ISSUE EXPLANATION\n\nThis PDF lacks proper tagging structure, which means screen readers and other assistive technologies cannot properly navigate or interpret the document content. This violates Section 508 § 1194.22(f) which requires documents to be organized so they are readable without requiring an associated style sheet, and WCAG 2.1 Success Criterion 1.3.1 (Info and Relationships) which mandates that information and structural relationships be programmatically determinable.\n\n## STEP-BY-STEP SOLUTION (Adobe Acrobat Pro)\n\n**Step 1:** Open the PDF in Adobe Acrobat Pro (not Reader)\n- Launch Adobe Acrobat Pro\n- Go to File > Open and select your \"valid.pdf\" file\n\n**Step 2:** Access the Accessibility Tools\n- Go to Tools > Accessibility in the top menu\n- Click \"Full Check\" to run a complete accessibility audit first\n\n**Step 3:** Add Tags to the Document\n- In the Accessibility panel, click \"Add Tags to Document\"\n- OR go to Tools > Accessibility > Add Tags to Document\n- Acrobat will automatically analyze and tag the document structure\n\n**Step 4:** Review and Refine Tag Structure\n- Open the Tags panel: View > Show/Hide > Navigation Panes > Tags (or press F6)\n- Examine the tag tree structure in the left panel\n- Right-click any incorrectly tagged elements and select \"Properties\" to modify tag types\n- Ensure headings are tagged as H1, H2, etc., and paragraphs as P tags\n\n**Step 5:** Set Reading Order (if needed)\n- Go to Tools > Accessibility > Reading Order\n- Use the Reading Order tool to adjust the logical flow of content\n- Click \"Show Order Panel\" to visualize reading sequence\n\n## VERIFICATION STEPS\n\n**Step 1:** Run Accessibility Check\n- Go to Tools > Accessibility > Full Check\n- Verify \"Tagged PDF\" shows as \"Passed\" in the results\n\n**Step 2:** Test Tag Structure\n- In the Tags panel, expand the tag tree\n- Confirm all content appears within appropriate tags\n- Use View > Read Out Loud > Read This Page Only to test screen reader functionality\n\n## ADDITIONAL NOTES\n\nSave the document after tagging (Ctrl+S) to preserve the accessibility structure. For documents with complex layouts, manual tag refinement may be necessary. Consider creating tagged PDFs from the source document (Word, InDesign) rather than retroactively tagging for better results.",
+                "status": "Failed",
+                "autoFixed": false
+              }
+            ],
+            "summary": {
+              "total": 1,
+              "critical": 1,
+              "serious": 0,
+              "moderate": 0,
+              "minor": 0
+            },
+            "detailedReport": {
+              "filename": "valid.pdf",
+              "reportCreatedBy": "Adobe PDF Services API",
+              "organization": "Accessitest",
+              "summary": {
+                "needsManualCheck": 0,
+                "passedManually": 0,
+                "failedManually": 0,
+                "skipped": 0,
+                "passed": 0,
+                "failed": 1
+              },
+              "categories": {
+                "structure": [
+                  {
+                    "ruleName": "Document Structure",
+                    "status": "Failed",
+                    "description": "PDF is not tagged - structure tree not found",
+                    "page": 1,
+                    "location": "Entire document"
+                  }
+                ]
+              },
+              "autoTagged": false
+            },
+            "metadata": {
+              "scanEngine": "Adobe PDF Services API",
+              "standard": "PDF/UA, WCAG 2.1 AA",
+              "pagesAnalyzed": 0,
+              "fileSize": 85,
+              "scanDuration": 15803,
+              "taggedPdfAvailable": false,
+              "autoTagged": false
+            },
+            "adobeReport": {
+              "compliant": false,
+              "summary": {
+                "totalIssues": 1,
+                "criticalIssues": 1,
+                "warnings": 0,
+                "passed": 0,
+                "needsManualCheck": 0,
+                "failed": 1,
+                "skipped": 0
+              }
+            },
+            "comparisonReport": {
+              "original": {
+                "totalChecks": 1,
+                "failed": 1,
+                "passed": 0,
+                "needsManualCheck": 0,
+                "issues": [
+                  {
+                    "rule": "Document Structure",
+                    "description": "PDF is not tagged - structure tree not found",
+                    "status": "Failed",
+                    "category": "structure",
+                    "page": 1,
+                    "location": "Entire document"
+                  }
+                ]
+              },
+              "fixed": {
+                "count": 0,
+                "issues": [],
+                "fixesApplied": {
+                  "altText": 0,
+                  "tableSummaries": 0,
+                  "metadata": 0,
+                  "bookmarks": 0,
+                  "readingOrder": 0,
+                  "colorContrast": 0,
+                  "language": 0,
+                  "formLabel": 0,
+                  "linkText": 0,
+                  "textSize": 0,
+                  "fontEmbedding": 0,
+                  "tabOrder": 0,
+                  "formFieldProperties": 0,
+                  "linkValidation": 0,
+                  "securitySettings": 0
+                }
+              },
+              "remaining": {
+                "totalChecks": 1,
+                "failed": 1,
+                "passed": 0,
+                "needsManualCheck": 0,
+                "issues": [
+                  {
+                    "rule": "Document Structure",
+                    "description": "PDF is not tagged - structure tree not found",
+                    "status": "Failed",
+                    "category": "structure",
+                    "page": 1,
+                    "location": "Entire document"
+                  }
+                ]
+              },
+              "improvement": {
+                "issuesFixed": 0,
+                "issuesRemaining": 1,
+                "improvementPercentage": 0
+              }
+            },
+            "taggedPdfBase64": "JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwo+PgplbmRvYmoKeHJlZgowIDAKdHJhaWxlcgo8PAovUm9vdCAxIDAgUgo+PgolJUVPRg==",
+            "taggedPdfFileName": "valid_auto-fixed.pdf",
+            "autoFixed": true,
+            "autoFixStats": {
+              "altText": 0,
+              "tableSummaries": 0,
+              "metadata": 0,
+              "bookmarks": 0,
+              "readingOrder": 0,
+              "colorContrast": 0,
+              "language": 0,
+              "formLabel": 0,
+              "linkText": 0,
+              "textSize": 0,
+              "fontEmbedding": 0,
+              "tabOrder": 0,
+              "formFieldProperties": 0,
+              "linkValidation": 0,
+              "securitySettings": 0
+            },
+            "verification": {
+              "success": true,
+              "isTagged": true,
+              "isMarked": false,
+              "language": "null",
+              "title": "",
+              "bookmarkCount": 0,
+              "structureElements": 0,
+              "figureCount": 0,
+              "tableCount": 0,
+              "headingCount": 0
+            }
+          },
+          "scanId": "scan_1773089121577_xvcsl0rck",
+          "backlogAdded": {
+            "success": true,
+            "total": 1,
+            "added": 1,
+            "skipped": 0,
+            "addedItems": [
+              {
+                "id": "d039eef6-b419-45eb-8622-feb8bbb746d4",
+                "issueId": "iso_compliance_issue_1773089137378_0",
+                "ruleName": "PDF is not tagged - structure tree not found",
+                "impact": "critical"
+              }
+            ],
+            "skippedItems": []
+          },
+          "taggedPdfBase64": "JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwo+PgplbmRvYmoKeHJlZgowIDAKdHJhaWxlcgo8PAovUm9vdCAxIDAgUgo+PgolJUVPRg==",
+          "taggedPdfFileName": "valid_auto-fixed.pdf"
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "CSRF: /api/user",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/user",
+        "noOrigin": {
+          "status": 405,
+          "success": false
+        },
+        "wrongOrigin": {
+          "status": 405,
+          "success": false
+        },
+        "wrongReferer": {
+          "status": 405,
+          "success": false
+        },
+        "vulnerable": false
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "CSRF: /api/credits",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/credits",
+        "noOrigin": {
+          "status": 500,
+          "success": false
+        },
+        "wrongOrigin": {
+          "status": 500,
+          "success": false
+        },
+        "wrongReferer": {
+          "status": 500,
+          "success": false
+        },
+        "vulnerable": false
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "CSRF: /api/backlog",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/backlog",
+        "noOrigin": {
+          "status": 500,
+          "success": false
+        },
+        "wrongOrigin": {
+          "status": 500,
+          "success": false
+        },
+        "wrongReferer": {
+          "status": 500,
+          "success": false
+        },
+        "vulnerable": false
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "CSRF: /api/document-scan",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/document-scan",
+        "noOrigin": {
+          "status": 500,
+          "success": false
+        },
+        "wrongOrigin": {
+          "status": 500,
+          "success": false
+        },
+        "wrongReferer": {
+          "status": 500,
+          "success": false
+        },
+        "vulnerable": false
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "SSRF: Scan Endpoint",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "vulnerable": 0,
+        "total": 9,
+        "tests": [
+          {
+            "payload": "http://127.0.0.1:22",
+            "status": 500,
+            "vulnerable": false,
+            "response": {
+              "error": "Scan failed",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "payload": "http://localhost:3306",
+            "status": 500,
+            "vulnerable": false,
+            "response": {
+              "error": "Scan failed",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "payload": "http://169.254.169.254/latest/meta-data/",
+            "status": 500,
+            "vulnerable": false,
+            "response": {
+              "error": "Scan failed",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "payload": "file:///etc/passwd",
+            "status": 500,
+            "vulnerable": false,
+            "response": {
+              "error": "Scan failed",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "payload": "gopher://127.0.0.1:3306",
+            "status": 500,
+            "vulnerable": false,
+            "response": {
+              "error": "Scan failed",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "payload": "http://[::1]:22",
+            "status": 500,
+            "vulnerable": false,
+            "response": {
+              "error": "Scan failed",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "payload": "http://0.0.0.0:22",
+            "status": 500,
+            "vulnerable": false,
+            "response": {
+              "error": "Scan failed",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "payload": "http://127.0.0.1/internal",
+            "status": 500,
+            "vulnerable": false,
+            "response": {
+              "error": "Scan failed",
+              "details": "Authentication required"
+            }
+          },
+          {
+            "payload": "http://localhost/admin",
+            "status": 500,
+            "vulnerable": false,
+            "response": {
+              "error": "Scan failed",
+              "details": "Authentication required"
+            }
+          }
+        ]
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Session Management: Expired Token",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "status": 401,
+        "accepted": false
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Session Management: Malformed Token",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "status": 401,
+        "accepted": false
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Session Management: Logout Endpoint",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "exists": false,
+        "status": 404
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authentication Bypass: SQL Injection in Login",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "test": "SQL Injection in Login",
+        "status": 400,
+        "bypassed": false,
+        "response": {
+          "success": false,
+          "error": "Invalid action"
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authentication Bypass: NoSQL Injection in Login",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "test": "NoSQL Injection in Login",
+        "status": 400,
+        "bypassed": false,
+        "response": {
+          "success": false,
+          "error": "Invalid action"
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authentication Bypass: Empty Credentials",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "test": "Empty Credentials",
+        "status": 400,
+        "bypassed": false,
+        "response": {
+          "success": false,
+          "error": "Invalid action"
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authentication Bypass: Null Credentials",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "test": "Null Credentials",
+        "status": 400,
+        "bypassed": false,
+        "response": {
+          "success": false,
+          "error": "Invalid action"
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "Authentication Bypass: JWT None Algorithm",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "test": "JWT None Algorithm",
+        "status": 401,
+        "bypassed": false,
+        "response": {
+          "success": false,
+          "error": "Invalid or expired token"
+        }
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "NoSQL Injection: /api/auth",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/auth",
+        "vulnerable": 0,
+        "total": 5,
+        "tests": [
+          {
+            "payload": "{\"email\":{\"$ne\":null}}",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
+          },
+          {
+            "payload": "{\"email\":{\"$gt\":\"\"}}",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
+          },
+          {
+            "payload": "{\"email\":{\"$regex\":\".*\"}}",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
+          },
+          {
+            "payload": "{\"email\":{\"$where\":\"this.password == this.username\"}}",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
+          },
+          {
+            "payload": "{\"email\":{\"$exists\":true}}",
+            "status": 400,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Invalid action"
+            }
+          }
+        ]
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
+    },
+    {
+      "name": "NoSQL Injection: /api/user",
+      "passed": true,
+      "severity": "INFO",
+      "details": {
+        "endpoint": "/api/user",
+        "vulnerable": 0,
+        "total": 5,
+        "tests": [
+          {
+            "payload": "{\"id\":{\"$ne\":null}}",
+            "status": 401,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Authentication required"
+            }
+          },
+          {
+            "payload": "{\"id\":{\"$gt\":\"\"}}",
+            "status": 401,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Authentication required"
+            }
+          },
+          {
+            "payload": "{\"id\":{\"$regex\":\".*\"}}",
+            "status": 401,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Authentication required"
+            }
+          },
+          {
+            "payload": "{\"id\":{\"$where\":\"this.password == this.username\"}}",
+            "status": 401,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Authentication required"
+            }
+          },
+          {
+            "payload": "{\"id\":{\"$exists\":true}}",
+            "status": 401,
+            "vulnerable": false,
+            "response": {
+              "success": false,
+              "error": "Authentication required"
+            }
+          }
+        ]
+      },
+      "timestamp": "2026-03-09T20:45:39.864Z"
     }
   ]
 }

@@ -110,3 +110,4 @@ performance-test-report.json
 **/penetration-tests/README.md
 **/performance-tests/README.md
 **/e2e-tests/README.md
+scripts/migrations/suggestion-learning-tables.sql

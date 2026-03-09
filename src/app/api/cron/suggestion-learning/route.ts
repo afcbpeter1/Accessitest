@@ -7,7 +7,8 @@ import { ClaudeAPI } from '@/lib/claude-api'
  * Pipeline suggestion learning job.
  * Operational/background only: no user context; AI usage is not counted against any
  * per-user suggestion allowance. Billed to your Anthropic account as a flat cost.
- * Trigger via cron (e.g. weekly): GET or POST with Authorization: Bearer <CRON_SECRET>.
+ * Trigger: daily via GitHub Actions (.github/workflows/suggestion-learning-daily.yml), or any cron that
+ * calls GET/POST with Authorization: Bearer <CRON_SECRET>.
  */
 const CRON_SECRET = process.env.CRON_SECRET ?? process.env.SUGGESTION_LEARNING_JOB_SECRET
 const MAX_RULES_PER_RUN = parseInt(process.env.SUGGESTION_LEARNING_MAX_RULES ?? '20', 10) || 20
@@ -22,6 +23,10 @@ export async function POST(request: NextRequest) {
 }
 
 async function runJob(request: NextRequest) {
+  const isProduction = process.env.NODE_ENV === 'production'
+  if (isProduction && !CRON_SECRET) {
+    return NextResponse.json({ error: 'Cron secret not configured' }, { status: 503 })
+  }
   if (CRON_SECRET) {
     const auth = request.headers.get('authorization')
     const bearer = auth?.startsWith('Bearer ') ? auth.slice(7).trim() : ''
