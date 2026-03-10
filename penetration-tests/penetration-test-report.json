@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-03-09T20:45:39.862Z",
+  "timestamp": "2026-03-10T14:56:35.593Z",
   "target": "https://a11ytest.ai",
   "testType": "api",
   "summary": {
     "total": 46,
-    "passed": 43,
-    "failed": 3,
+    "passed": 44,
+    "failed": 2,
     "bySeverity": {
       "CRITICAL": 0,
-      "HIGH": 3,
+      "HIGH": 2,
       "MEDIUM": 0,
       "LOW": 2,
-      "INFO": 41
+      "INFO": 42
     }
   },
   "results": [
@@ -178,7 +178,7 @@
           }
         ]
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Login Endpoint Authorization",
@@ -220,7 +220,7 @@
           }
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "SQL Injection in Registration Endpoint",
@@ -230,7 +230,7 @@
         "vulnerable": 0,
         "total": 17
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authorization Check: /api/user",
@@ -255,7 +255,7 @@
           }
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authorization Check: /api/credits",
@@ -280,7 +280,7 @@
           }
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authorization Check: /api/scan-history",
@@ -307,7 +307,7 @@
           }
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authorization Check: /api/backlog",
@@ -332,7 +332,7 @@
           }
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authorization Check: /api/issues-board",
@@ -355,7 +355,7 @@
           }
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authorization Check: /api/scan",
@@ -380,7 +380,7 @@
           }
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authorization Check: /api/document-scan",
@@ -405,7 +405,7 @@
           }
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authorization Check: /api/ci/scan",
@@ -429,25 +429,31 @@
         },
         "note": "CI/cron use API key or CRON_SECRET, not session token"
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authorization Check: /api/cron/suggestion-learning",
-      "passed": false,
-      "severity": "HIGH",
+      "passed": true,
+      "severity": "INFO",
       "details": {
         "endpoint": "/api/cron/suggestion-learning",
         "noAuth": {
-          "status": 0,
-          "authorized": false
+          "status": 503,
+          "authorized": true,
+          "response": {
+            "error": "Cron secret not configured"
+          }
         },
         "invalidToken": {
-          "status": 0,
-          "authorized": false
+          "status": 503,
+          "authorized": true,
+          "response": {
+            "error": "Cron secret not configured"
+          }
         },
         "note": "CI/cron use API key or CRON_SECRET, not session token"
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Input Validation: Scan Endpoint",
@@ -458,7 +464,7 @@
         "vulnerable": 0,
         "total": 17
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Input Validation: Document Scan Endpoint",
@@ -468,7 +474,7 @@
         "vulnerable": 0,
         "total": 17
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Input Validation: CI Scan Endpoint",
@@ -480,7 +486,7 @@
         "total": 17,
         "note": "Expect 401 without API key; validates url/urls body"
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Rate Limiting: /api/auth",
@@ -494,7 +500,7 @@
         "errorRate": 0,
         "note": "Rate limiting not detected, but endpoint handles load gracefully"
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Rate Limiting: /api/free-scan",
@@ -508,7 +514,7 @@
         "errorRate": 0,
         "note": "Rate limiting not detected, but endpoint handles load gracefully"
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "IDOR: /api/backlog",
@@ -557,7 +563,7 @@
           }
         ]
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "IDOR: /api/scan-history",
@@ -610,7 +616,7 @@
           }
         ]
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "IDOR: /api/issues-board",
@@ -655,7 +661,7 @@
           }
         ]
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "XSS: /api/scan",
@@ -666,7 +672,7 @@
         "vulnerable": 0,
         "total": 12
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "XSS: /api/backlog",
@@ -677,7 +683,7 @@
         "vulnerable": 0,
         "total": 12
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Command Injection: Scan Endpoint",
@@ -687,7 +693,7 @@
         "vulnerable": 0,
         "total": 10
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Path Traversal",
@@ -697,7 +703,7 @@
         "vulnerable": 0,
         "total": 5
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "File Spoofing: PDF Extension with Executable Content",
@@ -715,7 +721,7 @@
           "details": "File does not appear to be a valid PDF. This may be a file spoofing attempt."
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "File Spoofing: PDF Extension with ZIP Content",
@@ -733,7 +739,7 @@
           "details": "File does not appear to be a valid PDF. This may be a file spoofing attempt."
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "File Spoofing: Word Extension with Executable Content",
@@ -751,7 +757,7 @@
           "details": "File does not appear to be a valid Word document. This may be a file spoofing attempt."
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "File Spoofing: Double Extension Attack",
@@ -769,7 +775,7 @@
           "details": "File does not appear to be a valid PDF. This may be a file spoofing attempt."
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "File Spoofing: Null Byte Injection",
@@ -787,7 +793,7 @@
           "details": "File does not appear to be a valid PDF. This may be a file spoofing attempt."
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "File Spoofing: Path Traversal in Filename",
@@ -805,7 +811,7 @@
           "details": "File does not appear to be a valid PDF. This may be a file spoofing attempt."
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "File Spoofing: Valid PDF File",
@@ -824,20 +830,20 @@
             "overallScore": 90,
             "issues": [
               {
-                "id": "iso_compliance_issue_1773089137378_0",
+                "id": "iso_compliance_issue_1773154594393_0",
                 "type": "critical",
                 "category": "structure",
                 "description": "PDF is not tagged - structure tree not found",
                 "section": "Document Structure",
                 "pageNumber": 1,
                 "elementLocation": "Entire document",
-                "elementId": "issue_1773089123448_pdf_untagged",
-                "context": "ISO 14289-1 compliance check found: Document Structure (Page 1, Location: Entire document, Element ID: issue_1773089123448_pdf_untagged)",
+                "elementId": "issue_1773154579695_pdf_untagged",
+                "context": "ISO 14289-1 compliance check found: Document Structure (Page 1, Location: Entire document, Element ID: issue_1773154579695_pdf_untagged)",
                 "wcagCriterion": "WCAG 2.1 AA - PDF/UA Compliance",
                 "section508Requirement": "36 CFR § 1194.22 - Document Accessibility",
                 "impact": "high",
-                "recommendation": "## ISSUE EXPLANATION\n\nThis PDF lacks proper tagging structure, which means screen readers and other assistive technologies cannot properly navigate or interpret the document content. This violates Section 508 § 1194.22(f) which requires documents to be organized so they are readable without requiring an associated style sheet, and WCAG 2.1 Success Criterion 1.3.1 (Info and Relationships) which mandates that information and structural relationships be programmatically determinable.\n\n## STEP-BY-STEP SOLUTION (Adobe Acrobat Pro)\n\n**Step 1:** Open the PDF in Adobe Acrobat Pro (not Reader)\n- Launch Adobe Acrobat Pro\n- Go to File > Open and select your \"valid.pdf\" file\n\n**Step 2:** Access the Accessibility Tools\n- Go to Tools > Accessibility in the top menu\n- Click \"Full Check\" to run a complete accessibility audit first\n\n**Step 3:** Add Tags to the Document\n- In the Accessibility panel, click \"Add Tags to Document\"\n- OR go to Tools > Accessibility > Add Tags to Document\n- Acrobat will automatically analyze and tag the document structure\n\n**Step 4:** Review and Refine Tag Structure\n- Open the Tags panel: View > Show/Hide > Navigation Panes > Tags (or press F6)\n- Examine the tag tree structure in the left panel\n- Right-click any incorrectly tagged elements and select \"Properties\" to modify tag types\n- Ensure headings are tagged as H1, H2, etc., and paragraphs as P tags\n\n**Step 5:** Set Reading Order (if needed)\n- Go to Tools > Accessibility > Reading Order\n- Use the Reading Order tool to adjust the logical flow of content\n- Click \"Show Order Panel\" to visualize reading sequence\n\n## VERIFICATION STEPS\n\n**Step 1:** Run Accessibility Check\n- Go to Tools > Accessibility > Full Check\n- Verify \"Tagged PDF\" shows as \"Passed\" in the results\n\n**Step 2:** Test Tag Structure\n- In the Tags panel, expand the tag tree\n- Confirm all content appears within appropriate tags\n- Use View > Read Out Loud > Read This Page Only to test screen reader functionality\n\n## ADDITIONAL NOTES\n\nSave the document after tagging (Ctrl+S) to preserve the accessibility structure. For documents with complex layouts, manual tag refinement may be necessary. Consider creating tagged PDFs from the source document (Word, InDesign) rather than retroactively tagging for better results.",
-                "remediation": "## ISSUE EXPLANATION\n\nThis PDF lacks proper tagging structure, which means screen readers and other assistive technologies cannot properly navigate or interpret the document content. This violates Section 508 § 1194.22(f) which requires documents to be organized so they are readable without requiring an associated style sheet, and WCAG 2.1 Success Criterion 1.3.1 (Info and Relationships) which mandates that information and structural relationships be programmatically determinable.\n\n## STEP-BY-STEP SOLUTION (Adobe Acrobat Pro)\n\n**Step 1:** Open the PDF in Adobe Acrobat Pro (not Reader)\n- Launch Adobe Acrobat Pro\n- Go to File > Open and select your \"valid.pdf\" file\n\n**Step 2:** Access the Accessibility Tools\n- Go to Tools > Accessibility in the top menu\n- Click \"Full Check\" to run a complete accessibility audit first\n\n**Step 3:** Add Tags to the Document\n- In the Accessibility panel, click \"Add Tags to Document\"\n- OR go to Tools > Accessibility > Add Tags to Document\n- Acrobat will automatically analyze and tag the document structure\n\n**Step 4:** Review and Refine Tag Structure\n- Open the Tags panel: View > Show/Hide > Navigation Panes > Tags (or press F6)\n- Examine the tag tree structure in the left panel\n- Right-click any incorrectly tagged elements and select \"Properties\" to modify tag types\n- Ensure headings are tagged as H1, H2, etc., and paragraphs as P tags\n\n**Step 5:** Set Reading Order (if needed)\n- Go to Tools > Accessibility > Reading Order\n- Use the Reading Order tool to adjust the logical flow of content\n- Click \"Show Order Panel\" to visualize reading sequence\n\n## VERIFICATION STEPS\n\n**Step 1:** Run Accessibility Check\n- Go to Tools > Accessibility > Full Check\n- Verify \"Tagged PDF\" shows as \"Passed\" in the results\n\n**Step 2:** Test Tag Structure\n- In the Tags panel, expand the tag tree\n- Confirm all content appears within appropriate tags\n- Use View > Read Out Loud > Read This Page Only to test screen reader functionality\n\n## ADDITIONAL NOTES\n\nSave the document after tagging (Ctrl+S) to preserve the accessibility structure. For documents with complex layouts, manual tag refinement may be necessary. Consider creating tagged PDFs from the source document (Word, InDesign) rather than retroactively tagging for better results.",
+                "recommendation": "## ISSUE EXPLANATION\n\nThis PDF lacks proper tagging structure, which means assistive technologies like screen readers cannot understand the document's logical reading order, headings, lists, or other structural elements. This violates Section 508 § 1194.22(i) requiring information to be organized so it's understandable when accessed through assistive technology, and WCAG 2.1 Success Criterion 1.3.1 (Info and Relationships) requiring structural markup to be programmatically determinable.\n\n## STEP-BY-STEP SOLUTION\n\n**Step 1:** Open the PDF in Adobe Acrobat Pro (not Reader)\n- Go to **File > Open** and select your valid.pdf file\n\n**Step 2:** Access the Accessibility Tools\n- Go to **Tools > Accessibility** in the top menu\n- Click **\"Full Check\"** to run a complete accessibility audit first\n\n**Step 3:** Add Tags to Document Structure\n- In the Accessibility panel, click **\"Add Tags to Document\"**\n- OR use the menu: **Tools > Accessibility > Add Tags to Document**\n- A dialog box will appear - click **\"OK\"** to proceed with automatic tagging\n\n**Step 4:** Review and Refine Tag Structure\n- Open the **Tags panel**: **View > Show/Hide > Navigation Panes > Tags** (F6)\n- The Tags panel will show the document's structure tree\n- Expand the tree to review heading levels, paragraphs, and lists\n\n**Step 5:** Fix Tag Order (if needed)\n- In the Tags panel, drag and drop elements to correct reading order\n- Right-click problematic tags and select **\"Properties\"** to change tag types\n- Ensure headings follow logical hierarchy (H1, H2, H3, etc.)\n\n## VERIFICATION STEPS\n\n**Step 1:** Run Accessibility Checker\n- Go to **Tools > Accessibility > Full Check**\n- Verify \"Document is tagged PDF\" shows as **\"Passed\"**\n\n**Step 2:** Test Reading Order\n- Go to **View > Show/Hide > Navigation Panes > Order**\n- Click **\"Show Order Panel\"** to verify logical reading sequence\n\n**Step 3:** Screen Reader Test\n- Use **Read Out Loud**: **View > Read Out Loud > Activate Read Out Loud** (Ctrl+Shift+Y)\n- Listen to ensure content flows logically\n\n## ADDITIONAL NOTES\n\n**Alternative Method:** If automatic tagging produces poor results, use **Tools > Accessibility > Reading Order Tool** for manual tag assignment. For complex documents, consider recreating from the source file (Word, InDesign) with proper accessibility features enabled before converting to PDF.",
+                "remediation": "## ISSUE EXPLANATION\n\nThis PDF lacks proper tagging structure, which means assistive technologies like screen readers cannot understand the document's logical reading order, headings, lists, or other structural elements. This violates Section 508 § 1194.22(i) requiring information to be organized so it's understandable when accessed through assistive technology, and WCAG 2.1 Success Criterion 1.3.1 (Info and Relationships) requiring structural markup to be programmatically determinable.\n\n## STEP-BY-STEP SOLUTION\n\n**Step 1:** Open the PDF in Adobe Acrobat Pro (not Reader)\n- Go to **File > Open** and select your valid.pdf file\n\n**Step 2:** Access the Accessibility Tools\n- Go to **Tools > Accessibility** in the top menu\n- Click **\"Full Check\"** to run a complete accessibility audit first\n\n**Step 3:** Add Tags to Document Structure\n- In the Accessibility panel, click **\"Add Tags to Document\"**\n- OR use the menu: **Tools > Accessibility > Add Tags to Document**\n- A dialog box will appear - click **\"OK\"** to proceed with automatic tagging\n\n**Step 4:** Review and Refine Tag Structure\n- Open the **Tags panel**: **View > Show/Hide > Navigation Panes > Tags** (F6)\n- The Tags panel will show the document's structure tree\n- Expand the tree to review heading levels, paragraphs, and lists\n\n**Step 5:** Fix Tag Order (if needed)\n- In the Tags panel, drag and drop elements to correct reading order\n- Right-click problematic tags and select **\"Properties\"** to change tag types\n- Ensure headings follow logical hierarchy (H1, H2, H3, etc.)\n\n## VERIFICATION STEPS\n\n**Step 1:** Run Accessibility Checker\n- Go to **Tools > Accessibility > Full Check**\n- Verify \"Document is tagged PDF\" shows as **\"Passed\"**\n\n**Step 2:** Test Reading Order\n- Go to **View > Show/Hide > Navigation Panes > Order**\n- Click **\"Show Order Panel\"** to verify logical reading sequence\n\n**Step 3:** Screen Reader Test\n- Use **Read Out Loud**: **View > Read Out Loud > Activate Read Out Loud** (Ctrl+Shift+Y)\n- Listen to ensure content flows logically\n\n## ADDITIONAL NOTES\n\n**Alternative Method:** If automatic tagging produces poor results, use **Tools > Accessibility > Reading Order Tool** for manual tag assignment. For complex documents, consider recreating from the source file (Word, InDesign) with proper accessibility features enabled before converting to PDF.",
                 "status": "Failed",
                 "autoFixed": false
               }
@@ -879,7 +885,7 @@
               "standard": "PDF/UA, WCAG 2.1 AA",
               "pagesAnalyzed": 0,
               "fileSize": 85,
-              "scanDuration": 15803,
+              "scanDuration": 16247,
               "taggedPdfAvailable": false,
               "autoTagged": false
             },
@@ -988,27 +994,25 @@
               "headingCount": 0
             }
           },
-          "scanId": "scan_1773089121577_xvcsl0rck",
+          "scanId": "scan_1773154578147_eec32rvq1",
           "backlogAdded": {
             "success": true,
             "total": 1,
-            "added": 1,
-            "skipped": 0,
-            "addedItems": [
+            "added": 0,
+            "skipped": 1,
+            "addedItems": [],
+            "skippedItems": [
               {
-                "id": "d039eef6-b419-45eb-8622-feb8bbb746d4",
-                "issueId": "iso_compliance_issue_1773089137378_0",
-                "ruleName": "PDF is not tagged - structure tree not found",
-                "impact": "critical"
+                "issueId": "iso_compliance_issue_1773154594393_0",
+                "reason": "Already exists in backlog"
               }
-            ],
-            "skippedItems": []
+            ]
           },
           "taggedPdfBase64": "JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwo+PgplbmRvYmoKeHJlZgowIDAKdHJhaWxlcgo8PAovUm9vdCAxIDAgUgo+PgolJUVPRg==",
           "taggedPdfFileName": "valid_auto-fixed.pdf"
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "CSRF: /api/user",
@@ -1030,7 +1034,7 @@
         },
         "vulnerable": false
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "CSRF: /api/credits",
@@ -1052,7 +1056,7 @@
         },
         "vulnerable": false
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "CSRF: /api/backlog",
@@ -1074,7 +1078,7 @@
         },
         "vulnerable": false
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "CSRF: /api/document-scan",
@@ -1096,7 +1100,7 @@
         },
         "vulnerable": false
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "SSRF: Scan Endpoint",
@@ -1189,7 +1193,7 @@
           }
         ]
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Session Management: Expired Token",
@@ -1199,7 +1203,7 @@
         "status": 401,
         "accepted": false
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Session Management: Malformed Token",
@@ -1209,7 +1213,7 @@
         "status": 401,
         "accepted": false
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Session Management: Logout Endpoint",
@@ -1219,7 +1223,7 @@
         "exists": false,
         "status": 404
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authentication Bypass: SQL Injection in Login",
@@ -1234,7 +1238,7 @@
           "error": "Invalid action"
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authentication Bypass: NoSQL Injection in Login",
@@ -1249,7 +1253,7 @@
           "error": "Invalid action"
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authentication Bypass: Empty Credentials",
@@ -1264,7 +1268,7 @@
           "error": "Invalid action"
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authentication Bypass: Null Credentials",
@@ -1279,7 +1283,7 @@
           "error": "Invalid action"
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "Authentication Bypass: JWT None Algorithm",
@@ -1294,7 +1298,7 @@
           "error": "Invalid or expired token"
         }
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "NoSQL Injection: /api/auth",
@@ -1352,7 +1356,7 @@
           }
         ]
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     },
     {
       "name": "NoSQL Injection: /api/user",
@@ -1410,7 +1414,7 @@
           }
         ]
       },
-      "timestamp": "2026-03-09T20:45:39.864Z"
+      "timestamp": "2026-03-10T14:56:35.594Z"
     }
   ]
 }

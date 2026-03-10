@@ -102,7 +102,7 @@ export class APISecurityTests {
       { path: '/api/scan', method: 'POST' }, // POST-only endpoint
       { path: '/api/document-scan', method: 'POST' }, // POST-only endpoint
       { path: '/api/ci/scan', method: 'POST' }, // CI scan: requires API key
-      { path: '/api/cron/suggestion-learning', method: 'GET' } // Cron: requires CRON_SECRET when set
+      { path: '/api/cron/suggestion-learning', method: 'POST' } // Cron: POST with Bearer CRON_SECRET; GET/unauth → 503
     ];
 
     for (const endpoint of protectedEndpoints) {

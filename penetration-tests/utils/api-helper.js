@@ -304,20 +304,21 @@ export class APIPenTestHelper {
       });
     }
 
+    const blocked = (s) => s === 401 || s === 403 || s === 503;
     return {
       noAuth: {
         status: noAuth.status,
-        authorized: noAuth.status === 401 || noAuth.status === 403,
+        authorized: blocked(noAuth.status),
         response: noAuth.data
       },
       invalidToken: {
         status: invalidToken.status,
-        authorized: invalidToken.status === 401 || invalidToken.status === 403,
+        authorized: blocked(invalidToken.status),
         response: invalidToken.data
       },
       malformedToken: {
         status: malformedToken.status,
-        authorized: malformedToken.status === 401 || malformedToken.status === 403,
+        authorized: blocked(malformedToken.status),
         response: malformedToken.data
       },
       validToken: validToken ? {
