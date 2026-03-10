@@ -11,7 +11,7 @@ A11ytest.ai is an accessibility testing platform that helps developers and busin
 - **Reports** – Per-scan reports with issue breakdown, screenshots, and code-fix suggestions.
 
 ### API & integrations
-- **CI Scan API** – `POST /api/ci/scan` for any pipeline (GitHub Actions, GitLab CI, Azure Pipelines, etc.). API key or RapidAPI auth; single or multiple URLs (max 50); pass/fail for builds. See [docs/CI-SCAN-API.md](docs/CI-SCAN-API.md).
+- **CI Scan API** – `POST /api/ci/scan` for any pipeline (GitHub Actions, GitLab CI, Azure Pipelines, etc.). API key or RapidAPI auth; single or multiple URLs (max 50); pass/fail for builds. **Setup and YAML:** [docs/CI-API-SETUP.md](docs/CI-API-SETUP.md). **Full API reference:** [docs/CI-SCAN-API.md](docs/CI-SCAN-API.md).
 - **API keys** – Create and manage keys under Settings → API Keys (subscription required); rate limit 30 req/min per key.
 - **Integrations** – Jira and Azure DevOps backlog integration (organization settings).
 
