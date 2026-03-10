@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
   // Get all environment variables for debugging
   const allEnvVars = Object.keys(process.env)
     .filter(key => key.includes('ANTHROPIC') || key.includes('CLAUDE') || key.includes('API'))

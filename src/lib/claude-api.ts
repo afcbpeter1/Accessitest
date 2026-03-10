@@ -761,11 +761,11 @@ Return ONLY valid JSON:
     currentDescription: string,
     currentCodeExample?: string | null
   ): Promise<{ description: string; codeExample: string | null }> {
-    const systemPrompt = `You are an expert web accessibility consultant. For pipeline/CI accessibility reports, propose a single improved suggestion: a short description and one code example. Output format: first a brief description (1-3 sentences), then a markdown code block with \`\`\`html or \`\`\`css. No user context or credits—operational use only.`;
+    const systemPrompt = `You are an expert web accessibility consultant. You must output a suggestion for ONE accessibility rule only. Do not include suggestions or code examples for any other rule. Output: (1) a brief description (1-3 sentences) for this rule only, then (2) exactly one markdown code block (\`\`\`html or \`\`\`css) that shows ONLY a good, correct code example—something developers should follow. Do not include bad examples, "before", "avoid", or "incorrect" code. Only show correct, accessible code. Operational use only.`;
     const current = currentDescription
       ? `Current suggestion: ${currentDescription}${currentCodeExample ? `\nCurrent code:\n${currentCodeExample}` : ''}`
       : 'No existing suggestion.'
-    const userPrompt = `Accessibility rule ID: ${ruleId}. ${current}\n\nPropose a clearer, more actionable suggestion and one code example for developers in a CI pipeline. Reply with the description, then a \`\`\`html or \`\`\`css code block.`;
+    const userPrompt = `Accessibility rule ID: "${ruleId}". ${current}\n\nPropose a clearer, more actionable suggestion for this rule ONLY. Reply with (1) a short description for "${ruleId}" only, then (2) exactly one \`\`\`html or \`\`\`css code block containing ONLY a good, correct example—no bad/avoid/before examples. Do not add examples for any other rule—only for "${ruleId}".`;
     try {
       const estimatedTokens = this.estimateTokens(systemPrompt + userPrompt);
       const response = await this.makeRateLimitedRequest(
@@ -775,7 +775,10 @@ Return ONLY valid JSON:
       const codeBlockMatch = response.match(/```(?:html|css|js|javascript)?\s*\n([\s\S]*?)```/);
       let description = response.replace(/```[\s\S]*?```/g, '').trim();
       description = description.replace(/^#+\s*/gm, '').trim();
-      const codeExample = codeBlockMatch ? codeBlockMatch[1].trim() : null;
+      // Keep only the first paragraph so we don't store multi-rule blobs
+      const firstParagraph = description.split(/\n\s*\n/)[0]?.trim() || description;
+      description = firstParagraph.slice(0, 600);
+      const codeExample = codeBlockMatch ? codeBlockMatch[1].trim().slice(0, 2000) : null;
       return { description: description || response.slice(0, 500), codeExample };
     } catch (error) {
       console.error('generateImprovedSuggestionForRule error:', error);

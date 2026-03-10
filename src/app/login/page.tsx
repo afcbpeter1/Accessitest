@@ -65,12 +65,14 @@ export default function LoginPage() {
         const { tokenRefreshService } = await import('@/lib/token-refresh-service')
         tokenRefreshService.resetInactivityTimer()
         
-        // Check for redirect parameter
+        // Check for redirect parameter (allow only same-origin paths to prevent open redirect)
         const urlParams = new URLSearchParams(window.location.search)
-        const redirectPath = urlParams.get('redirect')
-        
-        // Redirect to the requested page or dashboard
-        router.push(redirectPath || '/dashboard')
+        const rawRedirect = urlParams.get('redirect')
+        const redirectPath =
+          rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')
+            ? rawRedirect
+            : '/dashboard'
+        router.push(redirectPath)
       } else {
         if (data.requiresVerification) {
           // Redirect to signup page for verification
