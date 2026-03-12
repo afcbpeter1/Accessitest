@@ -140,11 +140,13 @@ export default function Sidebar({ children }: SidebarProps) {
     }
   }, [])
 
-  // Close dropdowns when clicking outside
+  // Close dropdowns when clicking outside (notifications dropdown is in a portal so it needs its own class)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element
-      if (!target.closest('.dropdown-container')) {
+      const inDropdownContainer = target.closest('.dropdown-container')
+      const inNotificationsDropdown = target.closest('.notifications-dropdown')
+      if (!inDropdownContainer && !inNotificationsDropdown) {
         setShowUserMenu(false)
         setShowNotifications(false)
       }
@@ -306,6 +308,18 @@ export default function Sidebar({ children }: SidebarProps) {
       const token = localStorage.getItem('accessToken')
       if (!token) return
 
+      // Optimistically update UI so read state and unread count update immediately
+      if (!notificationIds) {
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
+        setUnreadCount(0)
+      } else {
+        const idSet = new Set(notificationIds)
+        setNotifications(prev =>
+          prev.map(n => (idSet.has(n.id) ? { ...n, is_read: true } : n))
+        )
+        setUnreadCount(prev => Math.max(0, prev - notificationIds.length))
+      }
+
       const response = await fetch('/api/notifications', {
         method: 'PUT',
         headers: {
@@ -319,10 +333,14 @@ export default function Sidebar({ children }: SidebarProps) {
       })
 
       if (response.ok) {
-        loadNotifications() // Reload notifications
+        await loadNotifications() // Reload from server to stay in sync
+      } else {
+        // Revert optimistic update on failure
+        loadNotifications()
       }
     } catch (error) {
       console.error('Failed to mark notifications as read:', error)
+      loadNotifications() // Revert on error
     }
   }
 
@@ -596,7 +614,7 @@ export default function Sidebar({ children }: SidebarProps) {
                       onClick={() => setShowNotifications(false)}
                     />
                     <div
-                      className="fixed w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 z-[70]"
+                      className="notifications-dropdown fixed w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-gray-200 z-[70]"
                       style={{
                         top: notificationDropdownPosition.top,
                         right: notificationDropdownPosition.right,
