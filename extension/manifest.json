@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "AccessScan",
+  "version": "1.0.0",
+  "description": "Scan the current tab for accessibility issues and add them to your AccessScan product backlog.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "sidePanel",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "action": {
+    "default_title": "Open AccessScan"
+  },
+  "options_ui": {
+    "page": "options.html"
+  }
+}

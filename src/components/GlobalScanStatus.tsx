@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useScan } from '@/contexts/ScanContext'
 import { 
   Loader2, 
@@ -13,8 +13,22 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
+function formatElapsed(ms: number): string {
+  const sec = Math.floor(ms / 1000)
+  if (sec < 60) return `${sec}s`
+  const min = Math.floor(sec / 60)
+  const s = sec % 60
+  return s ? `${min}m ${s}s` : `${min}m`
+}
+
 export default function GlobalScanStatus() {
   const { activeScans, removeScan, isAnyScanActive } = useScan()
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    if (!isAnyScanActive) return
+    const id = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [isAnyScanActive])
 
   if (!isAnyScanActive) {
     return null
@@ -145,6 +159,14 @@ export default function GlobalScanStatus() {
                 </Link>
               )}
             </div>
+            {(scan.status === 'crawling' || scan.status === 'scanning' || scan.status === 'analyzing') && (
+              <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-gray-500 flex items-center justify-between">
+                <span>Elapsed: {formatElapsed(Date.now() - scan.startTime)}</span>
+                {(scan.status === 'scanning' || scan.status === 'analyzing') && scan.totalPages > 0 && (
+                  <span className="text-gray-400">Each page can take 1–3 min</span>
+                )}
+              </div>
+            )}
           </div>
         )
       })}

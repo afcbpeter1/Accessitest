@@ -1,5 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Allow Chrome extension to embed the app (side panel)
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors 'self' https: chrome-extension:;",
+          },
+        ],
+      },
+    ]
+  },
   // Don't fail the build on ESLint errors (e.g. on Railway). Lint still runs in CI via npm run lint.
   eslint: { ignoreDuringBuilds: true },
   images: {

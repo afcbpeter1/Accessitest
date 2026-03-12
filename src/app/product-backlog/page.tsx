@@ -687,11 +687,23 @@ ${item.element_html || 'N/A'}
     )
   }
 
+  const inExtensionIframe = typeof window !== 'undefined' && window.self !== window.top
+
   return (
     <ProtectedRoute>
       <Sidebar>
         <div className="min-h-screen bg-gray-50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {inExtensionIframe && (
+              <div className="mb-4 flex items-center">
+                <a
+                  href="/extension"
+                  className="inline-flex items-center text-sm font-medium text-primary-600 hover:text-primary-700"
+                >
+                  ← Back to extension scan
+                </a>
+              </div>
+            )}
             {/* Header */}
             <div className="mb-6 sm:mb-8">
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Product Backlog</h1>

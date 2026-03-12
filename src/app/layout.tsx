@@ -6,6 +6,7 @@ import GlobalScanStatus from '@/components/GlobalScanStatus'
 import AccessibilitySettingsHandler from '@/components/AccessibilitySettingsHandler'
 import CookieConsent from '@/components/CookieConsent'
 import PageTracker from '@/components/PageTracker'
+import ExtensionScanBridge from '@/components/ExtensionScanBridge'
 
 // Force dynamic rendering to avoid static generation issues with React Context
 export const dynamic = 'force-dynamic'
@@ -43,6 +44,7 @@ export default function RootLayout({
         <AuthProvider>
           <ScanProvider>
             <AccessibilitySettingsHandler />
+            <ExtensionScanBridge />
             <PageTracker />
             {children}
             <GlobalScanStatus />

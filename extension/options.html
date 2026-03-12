@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AccessScan – Options</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 16px; max-width: 480px; }
+    h1 { font-size: 1.25rem; margin-bottom: 8px; }
+    p { color: #555; font-size: 0.875rem; margin-bottom: 16px; }
+    label { display: block; font-weight: 500; margin-bottom: 4px; font-size: 0.875rem; }
+    input[type="url"] { width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.875rem; box-sizing: border-box; }
+    button { margin-top: 12px; padding: 8px 16px; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 0.875rem; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    .status { margin-top: 12px; font-size: 0.875rem; color: #059669; }
+  </style>
+</head>
+<body>
+  <h1>AccessScan – Options</h1>
+  <p>Set the app URL the extension side panel loads. Default is <strong>https://app.a11ytest.ai</strong>. Use <strong>http://localhost:3000</strong> for local testing.</p>
+  <label for="app-url">App URL</label>
+  <input type="url" id="app-url" placeholder="https://app.a11ytest.ai" />
+  <button id="save">Save</button>
+  <div id="status" class="status" aria-live="polite"></div>
+  <script src="options.js"></script>
+</body>
+</html>

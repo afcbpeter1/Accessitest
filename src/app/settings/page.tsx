@@ -1162,6 +1162,7 @@ export default function SettingsPage() {
           {/* Content */}
           <div className="flex-1">
             {activeTab === 'account' && (
+              <>
               <div className="card">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Account Settings</h2>
                 <form onSubmit={handleAccountUpdate} className="space-y-4">
@@ -1217,6 +1218,7 @@ export default function SettingsPage() {
                   </div>
                 </form>
               </div>
+              </>
             )}
 
             {activeTab === 'subscription' && (

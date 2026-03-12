@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
 
       // Capture basic screenshots and HTML source using the existing page instance
       let screenshots = null
-      
+
       try {
         // Take a full page screenshot (optimized)
         const fullPageScreenshot = await page.screenshot({
@@ -238,7 +238,6 @@ export async function POST(request: NextRequest) {
             screenshot: `data:image/jpeg;base64,${element.screenshot}`
           }))
         }
-
       } catch (screenshotError) {
         console.warn('Failed to capture screenshots:', screenshotError)
         // Continue without screenshots
