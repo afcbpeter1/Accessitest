@@ -1304,8 +1304,8 @@ export default function OrganizationPage() {
 
   return (
     <Sidebar>
-      <div className="p-8">
-        <div className="max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 min-w-0 overflow-hidden">
+        <div className="max-w-7xl mx-auto min-w-0">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div>
@@ -1338,13 +1338,13 @@ export default function OrganizationPage() {
               <p className="text-gray-600">Your organisation should be created automatically</p>
             </div>
           ) : (
-            <div>
+            <div className="min-w-0">
               {/* Main Content - Single Organization */}
               {currentOrg && (
-                <div className="bg-white rounded-lg shadow">
-                  {/* Tabs */}
-                  <div className="border-b border-gray-200">
-                      <nav className="flex space-x-8 px-6">
+                <div className="bg-white rounded-lg shadow min-w-0 overflow-hidden">
+                  {/* Tabs: scroll on small screens so labels don't clip */}
+                  <div className="border-b border-gray-200 overflow-x-auto overflow-y-hidden">
+                      <nav className="flex flex-wrap sm:flex-nowrap gap-x-6 gap-y-0 px-4 sm:px-6 min-w-0 -mb-px">
                         {[
                           { id: 'overview', name: 'Overview', icon: Building2, roles: ['owner', 'admin', 'user'] },
                           { id: 'billing', name: 'Billing', icon: CreditCard, roles: ['owner', 'admin'] },
@@ -1363,13 +1363,13 @@ export default function OrganizationPage() {
                             <button
                               key={tab.id}
                               onClick={() => setActiveTab(tab.id as any)}
-                              className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
+                              className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex-shrink-0 ${
                                 activeTab === tab.id
                                   ? 'border-primary-600 text-primary-600'
                                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                               }`}
                             >
-                              <Icon className="h-5 w-5 mr-2" />
+                              <Icon className="h-5 w-5 mr-2 flex-shrink-0" />
                               {tab.name}
                             </button>
                           )

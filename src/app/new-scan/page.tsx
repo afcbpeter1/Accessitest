@@ -8,6 +8,7 @@ import Sidebar from '@/components/Sidebar'
 import DetailedReport from '@/components/DetailedReport'
 import CollapsibleIssue from '@/components/CollapsibleIssue'
 import { authenticatedFetch } from '@/lib/auth-utils'
+import { validateWebsiteUrl } from '@/lib/url-utils'
 import { AlertModal, ConfirmationModal } from '@/components/AccessibleModal'
 import { useModal } from '@/hooks/useModal'
 import { useScan } from '@/contexts/ScanContext'
@@ -241,8 +242,24 @@ function NewScanContent() {
         setSelectedTags(selectedTagsParam.split(','))
       }
       if (pagesToScanParam) {
-        const pages = pagesToScanParam.split(',').map(page => {
-          // Ensure each page URL has protocol
+        let pages: string[]
+        let decoded: string
+        try {
+          decoded = decodeURIComponent(pagesToScanParam)
+        } catch {
+          decoded = pagesToScanParam
+        }
+        if (decoded.startsWith('[')) {
+          try {
+            const parsed = JSON.parse(decoded) as unknown[]
+            pages = Array.isArray(parsed) ? parsed.filter((u): u is string => typeof u === 'string' && u.trim().length > 0) : []
+          } catch {
+            pages = decoded.split(',').map(p => p.trim()).filter(Boolean)
+          }
+        } else {
+          pages = decoded.split(',').map(p => p.trim()).filter(Boolean)
+        }
+        pages = pages.map(page => {
           return page.startsWith('http') ? page : `https://${page}`
         })
         setDiscoveredPages(pages.map((pageUrl, index) => ({
@@ -529,20 +546,15 @@ function NewScanContent() {
       url: url
     })
 
+    const urlValidation = validateWebsiteUrl(url)
+    if (!urlValidation.valid) {
+      alert(urlValidation.error)
+      setIsScanning(false)
+      return
+    }
+    const normalizedUrl = urlValidation.normalized
+
     try {
-      // Validate URL format
-      let normalizedUrl = url.trim()
-      if (!normalizedUrl.startsWith('http://') && !normalizedUrl.startsWith('https://')) {
-        normalizedUrl = `https://${normalizedUrl}`
-      }
-      
-      try {
-        new URL(normalizedUrl) // Validate URL format
-      } catch (error) {
-        alert('Please enter a valid URL (e.g., example.com or https://example.com)')
-        setIsScanning(false)
-        return
-      }
 
       // Clear previous log and update progress
       setDiscoveryLog([])

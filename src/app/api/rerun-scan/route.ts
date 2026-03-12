@@ -45,8 +45,18 @@ export async function POST(request: NextRequest) {
       const scanSettings = originalScan.scan_settings || {}
       const scanResults = originalScan.scan_results || {}
       
-      // Extract pages from the original scan results
-      const pagesToScan = scanResults.pages?.map((page: any) => page.url) || [originalScan.url]
+      // Pages to scan: prefer scan_settings.pagesToScan (what was actually used), then URLs from results, then single URL
+      let pagesToScan: string[] =
+        Array.isArray(scanSettings.pagesToScan) && scanSettings.pagesToScan.length > 0
+          ? scanSettings.pagesToScan.filter((u: unknown) => typeof u === 'string' && u.trim().length > 0)
+          : Array.isArray(scanResults.results) && scanResults.results.length > 0
+            ? scanResults.results.map((r: any) => r.url).filter(Boolean)
+            : originalScan.url
+              ? [originalScan.url]
+              : []
+      if (pagesToScan.length === 0 && originalScan.url) {
+        pagesToScan = [originalScan.url]
+      }
       
       // Return the settings for the frontend to handle navigation
       return NextResponse.json({

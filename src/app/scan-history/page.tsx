@@ -432,8 +432,8 @@ function ScanHistoryContent() {
             </div>
           </div>
         ) : (
-          <div className="bg-white rounded-lg border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div className="bg-white rounded-lg border border-gray-200 min-w-0 overflow-hidden">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <h2 className="text-lg font-medium text-gray-900">Recent Scans</h2>
               <span className="text-sm text-gray-500">
                 Showing {((currentPage - 1) * scansPerPage) + 1}-{Math.min(currentPage * scansPerPage, totalScans)} of {totalScans}
@@ -446,37 +446,38 @@ function ScanHistoryContent() {
                   <Link
                     key={scan.id}
                     href={`/scan-history/${scan.id}`}
-                    className="block p-4 hover:bg-gray-50 transition-colors"
+                    className="block p-4 sm:p-4 hover:bg-gray-50 transition-colors min-w-0"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className={`p-2 rounded-lg ${
-                          scan.scanType === 'web' ? 'bg-blue-100' : 'bg-green-100'
-                        }`}>
-                          <IconComponent className={`h-5 w-5 ${
-                            scan.scanType === 'web' ? 'text-blue-600' : 'text-green-600'
-                          }`} />
-                        </div>
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-gray-500 uppercase">
-                              {scan.scanType === 'web' ? 'Web Scan' : 'Document Scan'}
-                            </span>
-                            <span className="text-gray-300">•</span>
-                            <span className="text-sm text-gray-900 font-medium">
-                              {scan.scanTitle}
-                            </span>
-                          </div>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <span className="text-xs text-gray-500">
-                              {formatDate(scan.createdAt)}
-                            </span>
-                          </div>
-                        </div>
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className={`p-2 rounded-lg flex-shrink-0 ${
+                        scan.scanType === 'web' ? 'bg-blue-100' : 'bg-green-100'
+                      }`}>
+                        <IconComponent className={`h-5 w-5 ${
+                          scan.scanType === 'web' ? 'text-blue-600' : 'text-green-600'
+                        }`} />
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Eye className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">View Details</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0">
+                          <span className="text-sm font-medium text-gray-500 uppercase flex-shrink-0">
+                            {scan.scanType === 'web' ? 'Web Scan' : 'Document Scan'}
+                          </span>
+                          <span className="text-gray-300 hidden sm:inline flex-shrink-0">•</span>
+                          <span
+                            className="text-sm text-gray-900 font-medium truncate block min-w-0"
+                            title={scan.scanTitle}
+                          >
+                            {scan.scanTitle}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mt-1">
+                          <span className="text-xs text-gray-500">
+                            {formatDate(scan.createdAt)}
+                          </span>
+                          <span className="flex items-center gap-1.5 text-sm text-primary-600 font-medium flex-shrink-0">
+                            <Eye className="h-4 w-4" aria-hidden />
+                            View Details
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </Link>
@@ -486,13 +487,13 @@ function ScanHistoryContent() {
             
             {/* Pagination */}
             {totalScans > scansPerPage && (
-              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+              <div className="px-4 sm:px-6 py-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-2">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                   disabled={currentPage === 1}
-                  className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4 flex-shrink-0" />
                   <span>Previous</span>
                 </button>
                 <span className="text-sm text-gray-700">
@@ -501,10 +502,10 @@ function ScanHistoryContent() {
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(Math.ceil(totalScans / scansPerPage), prev + 1))}
                   disabled={currentPage >= Math.ceil(totalScans / scansPerPage)}
-                  className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>Next</span>
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4 flex-shrink-0" />
                 </button>
               </div>
             )}

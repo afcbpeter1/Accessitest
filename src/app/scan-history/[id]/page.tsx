@@ -19,7 +19,7 @@ import {
 import Link from 'next/link'
 import Sidebar from '@/components/Sidebar'
 import ProtectedRoute from '@/components/ProtectedRoute'
-import { AlertModal } from '@/components/AccessibleModal'
+import AccessibleModal, { AlertModal } from '@/components/AccessibleModal'
 import { useModal } from '@/hooks/useModal'
 import DetailedReport from '@/components/DetailedReport'
 import CollapsibleIssue from '@/components/CollapsibleIssue'
@@ -63,8 +63,7 @@ function ScanDetailsContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [rerunning, setRerunning] = useState(false)
-  const [syncingToJira, setSyncingToJira] = useState(false)
-  const [jiraSyncResult, setJiraSyncResult] = useState<{ created: number; skipped: number; errors: number } | null>(null)
+  const [showExtensionRerunModal, setShowExtensionRerunModal] = useState(false)
   
   // Modal management
   const { modalState, showAlert, closeModal } = useModal()
@@ -153,81 +152,15 @@ function ScanDetailsContent() {
     return scanType === 'web' ? Globe : FileText
   }
 
-  const handleSyncToJira = async () => {
-    if (!scan?.id) return
-    
-    setSyncingToJira(true)
-    setJiraSyncResult(null)
-    
-    try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) {
-        setError('Authentication required')
-        return
-      }
-
-      // Get all issue IDs from this scan
-      const issuesResponse = await fetch(`/api/issues-board?scanId=${scan.id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      
-      if (!issuesResponse.ok) {
-        throw new Error('Failed to fetch issues')
-      }
-      
-      const issuesData = await issuesResponse.json()
-      const issueIds = issuesData.issues?.map((i: any) => i.id) || []
-      
-      if (issueIds.length === 0) {
-        showAlert('No Issues', 'No issues found in this scan to sync')
-        return
-      }
-
-      // Sync each issue to Jira
-      let created = 0
-      let skipped = 0
-      let errors = 0
-
-      for (const issueId of issueIds) {
-        try {
-          const syncResponse = await fetch('/api/jira/tickets', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ issueId })
-          })
-          
-          const syncData = await syncResponse.json()
-          if (syncData.success) {
-            if (syncData.existing) {
-              skipped++
-            } else {
-              created++
-            }
-          } else {
-            errors++
-          }
-        } catch (err) {
-          errors++
-        }
-      }
-
-      setJiraSyncResult({ created, skipped, errors })
-      showAlert('Jira Sync Complete', `Jira sync complete: ${created} created, ${skipped} skipped, ${errors} errors`)
-    } catch (error) {
-      console.error('Error syncing to Jira:', error)
-      showAlert('Sync Failed', 'Failed to sync issues to Jira')
-    } finally {
-      setSyncingToJira(false)
-    }
-  }
+  const isExtensionScan = scan?.scanTitle?.startsWith('Extension:') ?? false
 
   const handleRerunScan = async () => {
     if (!scan) return
+
+    if (isExtensionScan) {
+      setShowExtensionRerunModal(true)
+      return
+    }
     
     setRerunning(true)
     try {
@@ -325,93 +258,80 @@ function ScanDetailsContent() {
 
   return (
     <Sidebar>
-      <div className="space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+      <div className="space-y-4 min-w-0 overflow-hidden">
+        {/* Header: stacks on small screens so URL and buttons don't overlap */}
+        <div className="flex flex-col gap-4 sm:gap-6">
+          <div className="flex flex-col gap-3 min-w-0">
             <Link
               href="/scan-history"
-              className="inline-flex items-center text-gray-600 hover:text-gray-900"
+              className="inline-flex items-center text-gray-600 hover:text-gray-900 w-fit"
             >
-              <ArrowLeft className="h-5 w-5 mr-2" />
+              <ArrowLeft className="h-5 w-5 mr-2 flex-shrink-0" />
               Back to History
             </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-                <div className={`p-2 rounded-lg mr-3 ${
+            <div className="min-w-0 flex-1">
+              <h1
+                className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-3 min-w-0"
+                title={scan.scanTitle}
+              >
+                <div className={`p-2 rounded-lg flex-shrink-0 ${
                   scan.scanType === 'web' ? 'bg-blue-100' : 'bg-green-100'
                 }`}>
                   <IconComponent className={`h-6 w-6 ${
                     scan.scanType === 'web' ? 'text-blue-600' : 'text-green-600'
                   }`} />
                 </div>
-                {scan.scanTitle}
+                <span className="truncate block min-w-0" title={scan.scanTitle}>
+                  {scan.scanTitle}
+                </span>
               </h1>
-              <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
-                <div className="flex items-center">
-                  <Calendar className="h-4 w-4 mr-1" />
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mt-1">
+                <div className="flex items-center flex-shrink-0">
+                  <Calendar className="h-4 w-4 mr-1 flex-shrink-0" />
                   {formatDate(scan.createdAt)}
                 </div>
-                <div className="flex items-center">
-                  <Clock className="h-4 w-4 mr-1" />
+                <div className="flex items-center flex-shrink-0">
+                  <Clock className="h-4 w-4 mr-1 flex-shrink-0" />
                   {formatDuration(scan.scanDurationSeconds)}
                 </div>
-                {scan.scanType === 'web' && scan.pagesScanned && (
-                  <div className="flex items-center">
-                    <Globe className="h-4 w-4 mr-1" />
+                {scan.scanType === 'web' && scan.pagesScanned != null && (
+                  <div className="flex items-center flex-shrink-0">
+                    <Globe className="h-4 w-4 mr-1 flex-shrink-0" />
                     {scan.pagesScanned} page{scan.pagesScanned !== 1 ? 's' : ''} scanned
                   </div>
                 )}
-                {scan.scanType === 'document' && scan.pagesAnalyzed && (
-                  <div className="flex items-center">
-                    <FileText className="h-4 w-4 mr-1" />
+                {scan.scanType === 'document' && scan.pagesAnalyzed != null && (
+                  <div className="flex items-center flex-shrink-0">
+                    <FileText className="h-4 w-4 mr-1 flex-shrink-0" />
                     {scan.pagesAnalyzed} page{scan.pagesAnalyzed !== 1 ? 's' : ''} analyzed
                   </div>
                 )}
               </div>
             </div>
           </div>
-          
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={handleSyncToJira}
-              disabled={syncingToJira || !scan.totalIssues}
-              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {syncingToJira ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              ) : (
-                <ExternalLink className="h-4 w-4 mr-2" />
-              )}
-              {syncingToJira ? 'Syncing...' : 'Sync to Jira'}
-            </button>
-            {jiraSyncResult && (
-              <span className="text-sm text-gray-600">
-                {jiraSyncResult.created} created, {jiraSyncResult.skipped} skipped
-              </span>
-            )}
+
+          {/* Action buttons: wrap and stay below title so they never overlap the URL */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               onClick={handleRerunScan}
               disabled={rerunning}
-              className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
               {rerunning ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2 flex-shrink-0" />
               ) : (
-                <RotateCcw className="h-4 w-4 mr-2" />
+                <RotateCcw className="h-4 w-4 mr-2 flex-shrink-0" />
               )}
               {rerunning ? 'Rerunning...' : 'Rerun Scan'}
             </button>
-            
-            
             {scan.url && (
               <a
                 href={scan.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex-shrink-0"
               >
-                <ExternalLink className="h-4 w-4 mr-2" />
+                <ExternalLink className="h-4 w-4 mr-2 flex-shrink-0" />
                 Visit Site
               </a>
             )}
@@ -419,8 +339,8 @@ function ScanDetailsContent() {
         </div>
 
         {/* Compliance Status */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6 min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h2 className="text-lg font-medium text-gray-900 mb-2">Compliance Status</h2>
               <div className="flex items-center space-x-4">
@@ -497,11 +417,11 @@ function ScanDetailsContent() {
         </div>
 
         {/* Main Content Container */}
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-          <div className="xl:col-span-3">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 min-w-0">
+          <div className="xl:col-span-3 min-w-0">
             {/* Scan Results */}
-            <div className="bg-white rounded-lg border border-gray-200">
-              <div className="p-6">
+            <div className="bg-white rounded-lg border border-gray-200 min-w-0 overflow-hidden">
+              <div className="p-4 sm:p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-6">Accessibility Issues</h3>
                 {(() => {
                   // Handle different data structures and deduplicate so we show each unique issue once (like product backlog)
@@ -635,6 +555,30 @@ function ScanDetailsContent() {
         </div>
       </div>
 
+
+      {/* Extension scans: rerun not allowed in app */}
+      <AccessibleModal
+        isOpen={showExtensionRerunModal}
+        onClose={() => setShowExtensionRerunModal(false)}
+        title="Extension scan"
+        type="info"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 leading-relaxed">
+            Please rerun this scan using the Chrome extension. Extension scans cannot be rerun from the app.
+          </p>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowExtensionRerunModal(false)}
+              className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </AccessibleModal>
 
       {/* User-friendly Modal */}
       <AlertModal

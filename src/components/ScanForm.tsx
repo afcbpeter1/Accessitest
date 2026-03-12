@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Search, Globe, HelpCircle } from 'lucide-react'
+import { validateWebsiteUrl } from '@/lib/url-utils'
 
 interface ScanFormProps {
   onScanComplete: (scan: any) => void
@@ -16,7 +17,12 @@ export default function ScanForm({ onScanComplete }: ScanFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!url) return
+    const validation = validateWebsiteUrl(url)
+    if (!validation.valid) {
+      alert(validation.error)
+      return
+    }
+    const normalizedUrl = validation.normalized
 
     setIsScanning(true)
     
@@ -27,7 +33,7 @@ export default function ScanForm({ onScanComplete }: ScanFormProps) {
       // Mock scan result
       const scanResult = {
         id: Date.now(),
-        url: url,
+        url: normalizedUrl,
         date: new Date().toISOString(),
         pagesScanned: Math.floor(Math.random() * 50) + 10,
         issuesFound: Math.floor(Math.random() * 20) + 5,

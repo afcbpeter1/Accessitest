@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Check, CreditCard, Zap, Shield, FileText, Globe, Layers, Image, MessageSquare, Keyboard } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import { STRIPE_PRICE_IDS } from '@/lib/stripe-config'
@@ -27,7 +27,6 @@ interface CreditPackage {
 
 export default function Pricing() {
   const { user, isLoading } = useAuth()
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [selectedCredits, setSelectedCredits] = useState<string | null>(null)
 
@@ -80,7 +79,7 @@ export default function Pricing() {
     }
   ]
 
-  const handleSubscribe = async (plan: PricingPlan) => {
+  const handleSubscribe = async (plan: PricingPlan, cycle: 'monthly' | 'yearly') => {
     // Wait for auth to finish loading
     if (isLoading) {
       return // Don't do anything while loading
@@ -123,7 +122,7 @@ export default function Pricing() {
       let priceId = ''
       
       if (plan.name === 'Unlimited Access') {
-        priceId = billingCycle === 'monthly'
+        priceId = cycle === 'monthly'
           ? STRIPE_PRICE_IDS.subscriptions.unlimitedMonthly
           : STRIPE_PRICE_IDS.subscriptions.unlimitedYearly
       }
@@ -305,88 +304,100 @@ export default function Pricing() {
           </div>
         </div>
 
-        {/* Billing Toggle */}
-        <div className="flex justify-center">
-          <div className="bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setBillingCycle('monthly')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                billingCycle === 'monthly'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-700 hover:text-gray-900'
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBillingCycle('yearly')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                billingCycle === 'yearly'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-700 hover:text-gray-900'
-              }`}
-            >
-              Yearly
-              <span className="ml-1 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
-                Save 20%
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Subscription Plans */}
+        {/* Subscription Plans: Monthly and Yearly side by side */}
         <div className="pb-4">
-          <div className="grid grid-cols-1 gap-6 items-stretch max-w-md mx-auto px-4 sm:px-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch max-w-4xl mx-auto px-4 sm:px-0">
             {subscriptionPlans.map((plan) => (
-              <div
-                key={plan.name}
-                className={`bg-white rounded-lg shadow-lg border-2 p-6 flex flex-col h-full ${
-                  plan.popular ? 'border-primary-500' : 'border-gray-200'
-                }`}
-              >
-                {plan.popular && (
-                  <div className="flex justify-center mb-4">
-                    <span className="bg-primary-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap shadow-md">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
-
-                <div className="text-center mb-6">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">{plan.name}</h3>
-                  <p className="text-gray-700 mb-4">{plan.description}</p>
-                  <div className="mb-2">
-                    <span className="text-4xl font-bold text-gray-900">
-                      £{(billingCycle === 'monthly' ? plan.price : plan.yearlyPrice).toFixed(2)}
-                    </span>
-                    <span className="text-gray-700">
-                      /{billingCycle === 'monthly' ? 'month' : 'year'}
-                    </span>
-                  </div>
-                  {billingCycle === 'yearly' && (
-                    <div className="text-sm text-green-600">
-                      <p>Save £{((plan.price * 12) - plan.yearlyPrice).toFixed(2)} per year (20% off monthly price)</p>
-                      <p className="text-xs text-gray-600 mt-1">Billed annually. Prices exclude tax.</p>
+              <React.Fragment key={plan.name}>
+                {/* Monthly */}
+                <div
+                  className={`bg-white rounded-lg shadow-lg border-2 p-6 flex flex-col h-full ${
+                    plan.popular ? 'border-primary-500' : 'border-gray-200'
+                  }`}
+                >
+                  {plan.popular && (
+                    <div className="flex justify-center mb-4">
+                      <span className="bg-primary-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap shadow-md">
+                        Most Popular
+                      </span>
                     </div>
                   )}
+
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{plan.name}</h3>
+                    <p className="text-gray-500 text-sm mb-3">Monthly billing</p>
+                    <p className="text-gray-700 mb-4 text-sm">{plan.description}</p>
+                    <div className="mb-2">
+                      <span className="text-4xl font-bold text-gray-900">
+                        £{plan.price.toFixed(2)}
+                      </span>
+                      <span className="text-gray-700">/month</span>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-3 mb-6">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-start">
+                        <Check className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-800 text-sm">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button
+                    onClick={() => handleSubscribe(plan, 'monthly')}
+                    disabled={selectedPlan === plan.name}
+                    className="w-full py-3 px-4 bg-primary-600 text-white rounded-lg font-medium transition-colors hover:bg-primary-700 mt-auto disabled:opacity-70"
+                  >
+                    {selectedPlan === plan.name ? 'Processing…' : 'Get Started'}
+                  </button>
                 </div>
 
-                <ul className="space-y-3 mb-6">
-                  {plan.features.map((feature, index) => (
-                    <li key={index} className="flex items-start">
-                      <Check className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                      <span className="text-gray-800">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <button
-                  onClick={() => handleSubscribe(plan)}
-                  className="w-full py-3 px-4 bg-primary-600 text-white rounded-lg font-medium transition-colors hover:bg-primary-700 mt-auto"
+                {/* Yearly */}
+                <div
+                  key={`${plan.name}-yearly`}
+                  className="bg-white rounded-lg shadow-lg border-2 border-gray-200 p-6 flex flex-col h-full"
                 >
-                  Get Started
-                </button>
-              </div>
+                  <div className="flex justify-center mb-4">
+                    <span className="px-3 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                      Save 20%
+                    </span>
+                  </div>
+
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{plan.name}</h3>
+                    <p className="text-gray-500 text-sm mb-3">Yearly billing</p>
+                    <p className="text-gray-700 mb-4 text-sm">{plan.description}</p>
+                    <div className="mb-2">
+                      <span className="text-4xl font-bold text-gray-900">
+                        £{plan.yearlyPrice.toFixed(2)}
+                      </span>
+                      <span className="text-gray-700">/year</span>
+                    </div>
+                    <div className="text-sm text-green-600">
+                      <p>Save £{((plan.price * 12) - plan.yearlyPrice).toFixed(2)} per year</p>
+                      <p className="text-xs text-gray-600 mt-1">Billed annually. Prices exclude tax.</p>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-3 mb-6">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-start">
+                        <Check className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
+                        <span className="text-gray-800 text-sm">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button
+                    onClick={() => handleSubscribe(plan, 'yearly')}
+                    disabled={selectedPlan === plan.name}
+                    className="w-full py-3 px-4 bg-primary-600 text-white rounded-lg font-medium transition-colors hover:bg-primary-700 mt-auto disabled:opacity-70"
+                  >
+                    {selectedPlan === plan.name ? 'Processing…' : 'Get Started'}
+                  </button>
+                </div>
+              </React.Fragment>
             ))}
           </div>
         </div>

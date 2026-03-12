@@ -108,9 +108,9 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden my-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col my-auto min-h-0">
         {/* Header */}
-        <div className="flex items-center justify-between gap-2 p-4 sm:p-6 border-b border-gray-200 flex-wrap">
+        <div className="flex items-center justify-between gap-2 p-4 sm:p-6 border-b border-gray-200 flex-wrap flex-shrink-0">
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 min-w-0">
             <span className="text-sm font-medium text-gray-500 truncate">#{issue.issue_id}</span>
             <span className={`px-2 py-1 text-xs font-medium rounded-full border flex-shrink-0 whitespace-nowrap ${getImpactColor(issue.impact)}`}>
@@ -126,9 +126,9 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
           </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row h-[calc(90vh-80px)] min-h-0">
-          {/* Main Content */}
-          <div className="flex-1 p-4 sm:p-6 overflow-y-auto min-w-0">
+        <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
+          {/* Main Content - scrollable so long content is accessible */}
+          <div className="flex-1 p-4 sm:p-6 overflow-y-auto min-w-0 min-h-0">
             {/* Title */}
             <div className="mb-4 sm:mb-6">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 break-words">{issue.rule_name}</h1>
@@ -449,8 +449,8 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
             </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="w-80 border-l border-gray-200 p-6 bg-gray-50 overflow-y-auto">
+          {/* Sidebar - scrollable when content is tall */}
+          <div className="w-80 flex-shrink-0 border-l border-gray-200 p-6 bg-gray-50 overflow-y-auto min-h-0">
             <div className="space-y-6">
               {/* Story Points */}
               <div>

@@ -673,10 +673,10 @@ export default function Sidebar({ children }: SidebarProps) {
                 )}
               </div>
               
-              {/* Organization Name (simplified - single org per user); narrow on mobile to prevent overflow */}
+              {/* Organization Name: truncate with full name on hover; responsive max-width */}
               {currentOrg && (
-                <div className="flex items-center space-x-1 sm:space-x-2 px-1 sm:px-3 py-2 text-sm text-gray-700 flex-shrink min-w-0 max-w-[80px] sm:max-w-[140px]">
-                  <Building2 className="h-4 w-4 flex-shrink-0" />
+                <div className="flex items-center gap-1 sm:gap-2 px-1 sm:px-3 py-2 text-sm text-gray-700 flex-shrink min-w-0 max-w-[100px] sm:max-w-[140px] md:max-w-[180px]">
+                  <Building2 className="h-4 w-4 flex-shrink-0" aria-hidden />
                   <span className="truncate" title={currentOrg.name}>{currentOrg.name}</span>
                 </div>
               )}
@@ -743,7 +743,7 @@ export default function Sidebar({ children }: SidebarProps) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto overflow-x-hidden min-w-0">
           {children}
         </main>
       </div>

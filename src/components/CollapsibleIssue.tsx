@@ -269,7 +269,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg mb-6 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-white border border-gray-200 rounded-lg mb-6 overflow-hidden shadow-sm hover:shadow-md transition-shadow min-w-0">
       {/* Collapsible Header */}
       <div 
         className="p-4 cursor-pointer hover:bg-gray-50 transition-colors border-b border-gray-100 focus:bg-gray-50 focus:outline-none"
@@ -286,7 +286,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
         aria-controls={`issue-content-${issueId}`}
         aria-label={`${isExpanded ? 'Collapse' : 'Expand'} issue: ${ruleName}`}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap sm:flex-nowrap items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button className="flex-shrink-0 text-gray-400 hover:text-gray-600">
               {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
@@ -295,30 +295,30 @@ Affected URLs: ${affectedUrls.join(', ')}`
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <h3 className="text-base font-semibold text-gray-900 break-words">{ruleName}</h3>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getImpactColor(impact)}`}>
+                <span className={`px-2 py-1 text-xs font-medium rounded-full border flex-shrink-0 ${getImpactColor(impact)}`}>
                   {impact.toUpperCase()}
                 </span>
-                <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full border border-purple-200">
+                <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full border border-purple-200 flex-shrink-0">
                   WCAG 2.2 {wcag22Level}
                 </span>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(priority || 'medium')} bg-opacity-10`}>
+                <span className={`px-2 py-1 text-xs font-medium rounded-full border flex-shrink-0 ${getPriorityColor(priority || 'medium')} bg-opacity-10`}>
                   {(priority || 'medium').toUpperCase()} PRIORITY
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                <span className="flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3" />
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                <span className="flex items-center gap-1 flex-shrink-0">
+                  <AlertTriangle className="h-3 w-3 flex-shrink-0" />
                   {totalOccurrences} occurrence{totalOccurrences !== 1 ? 's' : ''}
                 </span>
-                <span className="flex items-center gap-1">
-                  <ExternalLink className="h-3 w-3" />
+                <span className="flex items-center gap-1 flex-shrink-0">
+                  <ExternalLink className="h-3 w-3 flex-shrink-0" />
                   {(affectedUrls || []).length} page{(affectedUrls || []).length !== 1 ? 's' : ''}
                 </span>
               </div>
             </div>
           </div>
           
-          <div className="flex items-center gap-2 ml-4">
+          <div className="flex items-center gap-2 flex-shrink-0 sm:ml-4">
             <button
               onClick={(e) => {
                 e.stopPropagation()

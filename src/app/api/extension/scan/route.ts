@@ -6,20 +6,12 @@ import { NotificationService } from '@/lib/notification-service'
 import { autoCreateBacklogItemsWithHistoryId } from '@/lib/backlog-from-scan'
 import { AccessibilityScanner } from '@/lib/accessibility-scanner'
 import type { AccessibilityIssue } from '@/lib/accessibility-scanner'
+import { isValidUrl } from '@/lib/url-utils'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
-}
-
-function isValidUrl(s: string): boolean {
-  try {
-    const u = new URL(s)
-    return u.protocol === 'http:' || u.protocol === 'https:'
-  } catch {
-    return false
-  }
 }
 
 export async function OPTIONS() {
