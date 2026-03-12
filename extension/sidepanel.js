@@ -1,7 +1,7 @@
 (function () {
   const IFRAME_ID = 'app-iframe';
   // Default to production; use extension options to switch to http://localhost:3000 for local testing
-  const DEFAULT_APP_URL = 'https://app.a11ytest.ai';
+  const DEFAULT_APP_URL = 'https://a11ytest.ai';
 
   var pendingScan = null;
 

@@ -4,7 +4,7 @@
   var status = document.getElementById('status');
 
   chrome.storage.local.get(['accessScanAppUrl'], function (data) {
-    input.value = data.accessScanAppUrl || 'https://app.a11ytest.ai';
+    input.value = data.accessScanAppUrl || 'https://a11ytest.ai';
   });
 
   saveBtn.addEventListener('click', function () {
