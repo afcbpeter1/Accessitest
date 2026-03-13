@@ -84,6 +84,38 @@
       return;
     }
 
+    if (data.type === 'ACCESSSCAN_GET_LINKS') {
+      chrome.runtime.sendMessage({ type: 'GET_LINKS' }, function (response) {
+        if (!iframe.contentWindow) return;
+        if (!response || response.ok === false) {
+          iframe.contentWindow.postMessage({
+            type: 'ACCESSSCAN_LINKS_ERROR',
+            error: (response && response.error) || 'Failed to get links from this page'
+          }, '*');
+        } else {
+          iframe.contentWindow.postMessage({
+            type: 'ACCESSSCAN_LINKS',
+            links: response.links || []
+          }, '*');
+        }
+      });
+      return;
+    }
+
+    if (data.type === 'ACCESSSCAN_RUN_MULTI_SCAN') {
+      var urls = Array.isArray(data.urls) ? data.urls : [];
+      var tagsMulti = Array.isArray(data.tags) ? data.tags : [];
+      chrome.runtime.sendMessage({ type: 'RUN_MULTI_SCAN', urls: urls, tags: tagsMulti }, function (response) {
+        if (response && response.error && iframe.contentWindow) {
+          iframe.contentWindow.postMessage({
+            type: 'ACCESSSCAN_SCAN_ERROR',
+            error: response.error
+          }, '*');
+        }
+      });
+      return;
+    }
+
     if (data.type === 'ACCESSSCAN_SUBMIT_RESPONSE') {
       var success = data.success;
       var backlogAdded = data.backlogAdded;

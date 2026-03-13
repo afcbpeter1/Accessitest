@@ -62,6 +62,10 @@ export default function ExtensionPage() {
   const [scanError, setScanError] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [currentTabUrl, setCurrentTabUrl] = useState<string | null>(null)
+  const [availableLinks, setAvailableLinks] = useState<Array<{ url: string; text: string }>>([])
+  const [selectedLinkUrls, setSelectedLinkUrls] = useState<Set<string>>(new Set())
+  const [loadingLinks, setLoadingLinks] = useState(false)
+  const [isMultiScanning, setIsMultiScanning] = useState(false)
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
@@ -112,6 +116,16 @@ export default function ExtensionPage() {
         setScanError(event.data.error || 'Scan failed')
         setIsScanning(false)
       }
+      if (event.data?.type === 'ACCESSSCAN_LINKS') {
+        const links = Array.isArray(event.data.links) ? event.data.links : []
+        setAvailableLinks(links)
+        setSelectedLinkUrls(new Set(links.map((l: any) => l.url)))
+        setLoadingLinks(false)
+      }
+      if (event.data?.type === 'ACCESSSCAN_LINKS_ERROR') {
+        setLoadingLinks(false)
+        setScanError(event.data.error || 'Failed to get links from this page')
+      }
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
@@ -141,6 +155,65 @@ export default function ExtensionPage() {
       setScanError('Failed to start scan')
       setIsScanning(false)
     }
+  }
+
+  const fetchLinks = () => {
+    setScanError(null)
+    setLoadingLinks(true)
+    setAvailableLinks([])
+    setSelectedLinkUrls(new Set())
+    try {
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'ACCESSSCAN_GET_LINKS' }, '*')
+      } else {
+        setScanError('Open this page in the AccessScan extension to fetch links.')
+        setLoadingLinks(false)
+      }
+    } catch {
+      setScanError('Failed to request links from this page')
+      setLoadingLinks(false)
+    }
+  }
+
+  const toggleLinkSelected = (url: string) => {
+    setSelectedLinkUrls((prev) => {
+      const next = new Set(prev)
+      if (next.has(url)) {
+        next.delete(url)
+      } else {
+        next.add(url)
+      }
+      return next
+    })
+  }
+
+  const runMultiScan = () => {
+    const urls = Array.from(selectedLinkUrls)
+    if (!urls.length) {
+      setScanError('Select at least one page to scan.')
+      return
+    }
+    setScanError(null)
+    setIsMultiScanning(true)
+    try {
+      if (window.parent !== window) {
+        window.parent.postMessage(
+          { type: 'ACCESSSCAN_RUN_MULTI_SCAN', urls, tags: getTags() },
+          '*'
+        )
+      } else {
+        setScanError('Open this page in the AccessScan extension to run a multi-page scan.')
+        setIsMultiScanning(false)
+        return
+      }
+    } catch {
+      setScanError('Failed to start multi-page scan')
+      setIsMultiScanning(false)
+      return
+    }
+    // We rely on the normal SCAN_RESULTS events as each page completes.
+    // Clear the flag after a short delay so the button is usable again.
+    setTimeout(() => setIsMultiScanning(false), 1000)
   }
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
@@ -179,6 +252,70 @@ export default function ExtensionPage() {
           <p className="text-sm text-gray-600 break-all" title={currentTabUrl ?? undefined}>
             {currentTabUrl ? currentTabUrl : 'Open a webpage in another tab to see its URL here. That tab will be scanned when you click Scan page.'}
           </p>
+        </div>
+
+        {/* Multi-page scan (no manual URL pasting; use links from current page) */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
+          <h2 className="text-sm font-semibold text-gray-900">Scan multiple pages (same site)</h2>
+          <p className="text-xs text-gray-600">
+            Click <strong>Find links on this page</strong> below. We&apos;ll list other pages on the same site so you can tick which ones to scan. The extension will then open each page in this tab (using your login) and run a scan.
+          </p>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-gray-700">Pages you can scan:</span>
+            <button
+              type="button"
+              onClick={fetchLinks}
+              disabled={loadingLinks}
+              className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {loadingLinks ? 'Finding links…' : 'Find links on this page'}
+            </button>
+          </div>
+          {availableLinks.length === 0 && !loadingLinks && (
+            <p className="text-xs text-gray-500 italic">
+              No links loaded yet. Make sure the tab you want to scan is the active tab, then click &quot;Find links on this page&quot;.
+            </p>
+          )}
+          {availableLinks.length > 0 && (
+            <>
+              <p className="text-xs font-medium text-gray-700">
+                Scraped pages ({availableLinks.length}) — tick the ones to scan:
+              </p>
+              <div className="max-h-56 overflow-y-auto border border-gray-200 rounded-md divide-y divide-gray-100 bg-gray-50/50">
+                {availableLinks.map((link) => (
+                  <label
+                    key={link.url}
+                    className="flex items-start gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-gray-50"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-3 w-3 text-primary-600 border-gray-300 rounded"
+                      checked={selectedLinkUrls.has(link.url)}
+                      onChange={() => toggleLinkSelected(link.url)}
+                    />
+                    <div className="min-w-0">
+                      <div className="font-medium text-gray-800 truncate" title={link.text}>
+                        {link.text}
+                      </div>
+                      <div className="text-[11px] text-gray-500 truncate" title={link.url}>
+                        {link.url}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={runMultiScan}
+                  disabled={isMultiScanning || selectedLinkUrls.size === 0}
+                  className="inline-flex items-center px-4 py-2.5 bg-primary-600 text-white text-xs font-medium rounded-md hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isMultiScanning ? 'Scanning selected pages…' : `Scan selected (${selectedLinkUrls.size})`}
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Options */}
