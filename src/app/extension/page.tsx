@@ -537,52 +537,89 @@ export default function ExtensionPage() {
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Issues</h3>
-              {scanResult.pages && scanResult.pages.length > 0 && (
-                <div className="flex flex-wrap gap-1 border-b border-gray-200 pb-3 mb-3">
-                  {scanResult.pages.map((p, idx) => {
-                    const label = (() => {
-                      try {
-                        const u = new URL(p.url)
-                        const path = u.pathname === '/' ? u.hostname : u.pathname.slice(0, 30) + (u.pathname.length > 30 ? '…' : '')
-                        return path || `Page ${idx + 1}`
-                      } catch {
-                        return `Page ${idx + 1}`
-                      }
-                    })()
-                    const count = p.issues?.length ?? 0
-                    const isActive = issuesPageTab === idx
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => setIssuesPageTab(idx)}
-                        className={`px-3 py-1.5 text-xs font-medium rounded-t-md border border-b-0 -mb-px ${
-                          isActive
-                            ? 'bg-white border-gray-300 text-primary-700 border-b-white'
-                            : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-50'
-                        }`}
-                        title={p.url}
-                      >
-                        {label} ({count})
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
               {(() => {
-                const issuesPage =
+                // Build list of pages for tabs; multi-scan gets an "All pages" tab first with combined issues
+                const rawPages =
                   scanResult.pages && scanResult.pages.length > 0
-                    ? scanResult.pages[Math.min(issuesPageTab, scanResult.pages.length - 1)]
-                    : {
-                        url: scanResult.url,
-                        issues: scanResult.issues,
-                        remediationReport: scanResult.remediationReport
+                    ? scanResult.pages
+                    : [{ url: scanResult.url, issues: scanResult.issues, remediationReport: scanResult.remediationReport }]
+                const isMultiPage = (scanResult.pages?.length ?? 0) > 1
+                const allPagesCombined =
+                  isMultiPage && rawPages.length > 0
+                    ? {
+                        url: '__all__',
+                        issues: rawPages.flatMap((p) => p.issues || []),
+                        remediationReport: rawPages.flatMap((p) =>
+                          (p.remediationReport || []).map((r: any) => ({ ...r, _pageUrl: p.url }))
+                        )
                       }
-                const pageIssues = issuesPage.issues || []
-                const pageReport = issuesPage.remediationReport
-                const reportUrl = issuesPage.url
-                return pageIssues.length === 0 ? (
+                    : null
+                const pagesForTabs = allPagesCombined ? [allPagesCombined, ...rawPages] : rawPages
+                const currentPage = pagesForTabs[Math.min(issuesPageTab, pagesForTabs.length - 1)]
+                const pageIssues = currentPage?.issues || []
+                const pageReport = currentPage?.remediationReport
+                const reportUrl = currentPage?.url ?? ''
+                const isAllPagesView = reportUrl === '__all__'
+                const pageLabel = (() => {
+                  try {
+                    const u = new URL(reportUrl || '')
+                    return u.pathname === '/' || !u.pathname ? 'Home' : u.pathname
+                  } catch {
+                    return reportUrl || 'This page'
+                  }
+                })()
+                return (
+                  <>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                {isMultiPage ? 'Issues by page' : 'Issues'}
+              </h3>
+              <p className="text-xs text-gray-500 mb-2">Page tabs — issues below are for the selected page:</p>
+              <div className="flex flex-wrap gap-1 rounded-t-lg border border-gray-300 border-b-0 bg-gray-100 p-2 pb-0 min-h-[40px]">
+                {pagesForTabs.map((p, idx) => {
+                  const label =
+                    p.url === '__all__'
+                      ? 'All pages'
+                      : (() => {
+                          try {
+                            const u = new URL(p.url)
+                            const path = u.pathname || '/'
+                            if (path === '/') return 'Home'
+                            const short = path.length > 28 ? path.slice(0, 28) + '…' : path
+                            return short
+                          } catch {
+                            return `Page ${idx + (allPagesCombined ? 0 : 1)}`
+                          }
+                        })()
+                  const count = p.issues?.length ?? 0
+                  const isActive = issuesPageTab === idx
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setIssuesPageTab(idx)}
+                      className={`px-3 py-2 text-xs font-medium rounded-t-md border border-b-0 -mb-px transition-colors ${
+                        isActive
+                          ? 'bg-white border-gray-400 text-primary-700 border-b-white shadow-sm'
+                          : 'bg-gray-200 border-gray-300 text-gray-600 hover:bg-gray-50 border-b-gray-100'
+                      }`}
+                      title={p.url}
+                    >
+                      {label} ({count})
+                    </button>
+                  )
+                })}
+              </div>
+              {isMultiPage && !isAllPagesView && (
+                <p className="text-xs text-gray-500 mb-2" title={reportUrl}>
+                  Page: <span className="font-medium text-gray-700">{pageLabel}</span>
+                </p>
+              )}
+              {isAllPagesView && (
+                <p className="text-xs text-gray-500 mb-2">
+                  All issues from all {rawPages.length} page{rawPages.length !== 1 ? 's' : ''} — each issue shows which page it came from.
+                </p>
+              )}
+              {pageIssues.length === 0 ? (
                   <p className="text-sm text-gray-500 py-4">No violations found for this page.</p>
                 ) : (pageReport && pageReport.length > 0 ? (
                 <ul className="space-y-4">
@@ -591,6 +628,16 @@ export default function ExtensionPage() {
                     const isExpanded = expandedId === id
                     const offendingElements = report.offendingElements || []
                     const suggestions = report.suggestions || []
+                    const issuePageUrl = report._pageUrl ?? reportUrl
+                    const issuePageLabel = (() => {
+                      if (!issuePageUrl || issuePageUrl === '__all__') return null
+                      try {
+                        const u = new URL(issuePageUrl)
+                        return u.pathname === '/' || !u.pathname ? 'Home' : u.pathname
+                      } catch {
+                        return issuePageUrl
+                      }
+                    })()
                     return (
                       <li key={id} className="border border-gray-200 rounded-lg overflow-hidden">
                         <button
@@ -602,6 +649,11 @@ export default function ExtensionPage() {
                           <span className={`text-xs font-medium px-2 py-0.5 rounded border shrink-0 ${getImpactColor(report.impact || 'moderate')}`}>
                             {(report.impact || 'moderate').toUpperCase()}
                           </span>
+                          {isAllPagesView && issuePageLabel && (
+                            <span className="text-xs text-gray-500 shrink-0" title={issuePageUrl}>
+                              {issuePageLabel}
+                            </span>
+                          )}
                           <span className="text-sm font-medium text-gray-900 truncate flex-1">{report.ruleName || report.issueId || 'Issue'}</span>
                           <span className="text-xs text-gray-500 shrink-0">{offendingElements.length} item{offendingElements.length !== 1 ? 's' : ''}</span>
                         </button>
@@ -617,7 +669,12 @@ export default function ExtensionPage() {
                                     <div key={ei} className="bg-gray-50 rounded-lg p-3">
                                       <div className="flex items-start justify-between gap-2 mb-2">
                                         <div className="min-w-0 flex-1 space-y-1">
-                                          {reportUrl && <div className="text-xs text-gray-600">Page: {reportUrl}</div>}
+                                          {isAllPagesView && issuePageLabel && (
+                                            <div className="text-xs text-gray-600">Page: {issuePageLabel}</div>
+                                          )}
+                                          {!isAllPagesView && reportUrl && (
+                                            <div className="text-xs text-gray-600">Page: {reportUrl}</div>
+                                          )}
                                           {el.target && el.target.length > 0 && (
                                             <div className="text-xs font-medium text-gray-800 font-mono break-all">Element: {el.target.join(' ')}</div>
                                           )}
@@ -732,7 +789,10 @@ export default function ExtensionPage() {
                     )
                   })}
                 </ul>
-              );
+              )
+              }
+            </>
+                );
               })()}
             </div>
           </>
