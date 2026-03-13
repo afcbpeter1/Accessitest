@@ -7,6 +7,7 @@ This directory contains comprehensive penetration tests for the AccessScan SaaS 
 The penetration test suite includes:
 - **API Security Tests**: Authentication, authorization, input validation, rate limiting, IDOR, XSS, command injection, and path traversal
 - **Database Security Tests**: SQL injection protection, privilege escalation, schema enumeration, data exposure, and access control
+- **Extension Security Tests**: Static analysis of the Chrome extension — no hardcoded secrets, no eval/dynamic code, postMessage origin checks, manifest permissions, storage usage, script injection sources, URL validation
 
 ## Setup
 
@@ -44,6 +45,14 @@ npm run test:db
 # or
 node test-runner.js --type db
 ```
+
+### Run Only Extension Security Tests
+```bash
+npm run test:extension
+# or
+node test-runner.js --type extension
+```
+Runs from the repo root; the extension is expected at `../extension` relative to the `penetration-tests` directory. Override with `EXTENSION_PATH` (e.g. `EXTENSION_PATH=/path/to/extension node test-runner.js --type extension`).
 
 ## Test Results
 
@@ -96,14 +105,15 @@ Test results are saved to `penetration-test-report.json` in the penetration-test
 ```
 penetration-tests/
 ├── tests/
-│   ├── api-security-tests.js    # API security test suite
-│   └── database-security-tests.js # Database security test suite
+│   ├── api-security-tests.js      # API security test suite
+│   ├── database-security-tests.js # Database security test suite
+│   └── extension-security-tests.js # Extension static security checks
 ├── utils/
-│   ├── api-helper.js             # API testing utilities
-│   └── db-helper.js              # Database testing utilities
-├── test-runner.js                # Main test runner
-├── package.json                  # Dependencies
-└── penetration-test-report.json # Test results
+│   ├── api-helper.js              # API testing utilities
+│   └── db-helper.js               # Database testing utilities
+├── test-runner.js                 # Main test runner
+├── package.json                   # Dependencies
+└── penetration-test-report.json   # Test results
 ```
 
 ## Security Best Practices

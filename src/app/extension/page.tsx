@@ -30,7 +30,8 @@ function getPriorityColor(priority: string) {
 }
 
 /**
- * Chrome extension only: after login, this is the only page shown in the extension.
+ * Chrome extension only: shown in the extension side panel iframe.
+ * User logs in inside the iframe (app handles session/cookie). No tokens or secrets in extension code.
  * Lets users scan the current browser tab and save issues to the product backlog.
  */
 export default function ExtensionPage() {
@@ -91,13 +92,6 @@ export default function ExtensionPage() {
   useEffect(() => {
     isMultiScanningRef.current = isMultiScanning
   }, [isMultiScanning])
-
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
-    if (!token) {
-      window.location.href = '/login?redirect=' + encodeURIComponent('/extension')
-    }
-  }, [])
 
   // Request current tab URL on load, when page becomes visible, and on an interval so it stays in sync when user switches tabs
   useEffect(() => {
@@ -283,15 +277,6 @@ export default function ExtensionPage() {
       setIsMultiScanning(false)
       setMultiScanPage(null)
     }
-  }
-
-  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
-  if (!token) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <p className="text-gray-600">Redirecting to login…</p>
-      </div>
-    )
   }
 
   const summary = scanResult?.summary || {}

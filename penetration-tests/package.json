@@ -7,6 +7,7 @@
     "test": "node test-runner.js",
     "test:api": "node test-runner.js --type api",
     "test:db": "node test-runner.js --type db",
+    "test:extension": "node test-runner.js --type extension",
     "test:all": "node test-runner.js --type all"
   },
   "dependencies": {

@@ -1,11 +1,12 @@
 import { APISecurityTests } from './tests/api-security-tests.js';
 import { DatabaseSecurityTests } from './tests/database-security-tests.js';
+import { ExtensionSecurityTests } from './tests/extension-security-tests.js';
 import fs from 'fs';
 import path from 'path';
 
 const args = process.argv.slice(2);
-const testType = args.includes('--type') 
-  ? args[args.indexOf('--type') + 1] 
+const testType = args.includes('--type')
+  ? args[args.indexOf('--type') + 1]
   : 'all';
 
 async function runTests() {
@@ -44,12 +45,12 @@ async function runTests() {
       console.log('\n' + '='.repeat(60));
       console.log('DATABASE SECURITY TESTS');
       console.log('='.repeat(60) + '\n');
-      
+
       try {
         const dbTests = new DatabaseSecurityTests();
         const dbResults = await dbTests.runAllTests();
         allResults.push(...dbResults);
-        
+
         // Close database connection
         await dbTests.close();
       } catch (error) {
@@ -60,6 +61,17 @@ async function runTests() {
           throw error;
         }
       }
+    }
+
+    // Run Extension security tests (static analysis)
+    if (testType === 'all' || testType === 'extension') {
+      console.log('\n' + '='.repeat(60));
+      console.log('EXTENSION SECURITY TESTS');
+      console.log('='.repeat(60) + '\n');
+
+      const extensionTests = new ExtensionSecurityTests();
+      const extensionResults = await extensionTests.runAllTests();
+      allResults.push(...extensionResults);
     }
 
     // Calculate summary
