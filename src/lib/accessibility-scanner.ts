@@ -97,7 +97,7 @@ export class AccessibilityScanner {
    * Scan a web page for accessibility issues using custom standards
    * This method should be called from within a Puppeteer page context
    */
-  async scanPageInBrowser(page: any, selectedTags?: string[], options?: { ciMode?: boolean }): Promise<ScanResult> {
+  async scanPageInBrowser(page: any, selectedTags?: string[], options?: { ciMode?: boolean; skipAiSuggestions?: boolean }): Promise<ScanResult> {
 
     // Get the current URL from the page
     const currentUrl = await page.url();
@@ -304,8 +304,9 @@ export class AccessibilityScanner {
         screenshots = await this.captureAndUploadScreenshots(page, issues);
       }
 
-      if (!options?.ciMode) {
-        // Generate AI-enhanced suggestions (skipped in CI mode to save tokens)
+      const useLearnedOrRuleBasedOnly = options?.ciMode === true || options?.skipAiSuggestions === true;
+      if (!useLearnedOrRuleBasedOnly) {
+        // Generate AI-enhanced suggestions (skipped in CI / learned-suggestions mode to save tokens)
         for (let i = 0; i < issues.length; i++) {
           const issue = issues[i];
           try {
@@ -324,7 +325,7 @@ export class AccessibilityScanner {
           }
         }
       } else {
-        // CI mode: attach rule-based suggestions only (no AI, no tokens)
+        // CI / learned-suggestions mode: attach rule-based suggestions only (no AI, no tokens)
         for (const issue of issues) {
           const firstNode = issue.nodes?.[0];
           if (!firstNode) continue;
@@ -648,6 +649,19 @@ export class AccessibilityScanner {
     
     // Return exactly ONE suggestion per issue
     return contextualSuggestions;
+  }
+
+  /**
+   * Get rule-based suggestion only (no AI). Used when using learned suggestions + cron (e.g. extension scan).
+   */
+  getRuleBasedSuggestion(issue: AccessibilityIssue): RemediationSuggestion[] {
+    const firstNode = issue.nodes?.[0];
+    if (!firstNode) return [];
+    const html = firstNode.html ?? '';
+    const target = firstNode.target?.[0] ?? '';
+    const failureSummary = firstNode.failureSummary ?? '';
+    const suggestion = this.getBestRuleBasedSuggestion(issue.id, html, target, failureSummary, issue.impact);
+    return suggestion ? [suggestion] : [];
   }
 
   /**

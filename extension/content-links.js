@@ -1,6 +1,7 @@
 // Collect same-site links from the current page for the AccessScan extension.
 // Returns a de-duplicated list of URLs with basic labels so the side panel
 // can present them as checkboxes for multi-page scanning.
+// Includes hash routes (e.g. #/inbox, #/case/status) as distinct links.
 (function () {
   function getSameSiteLinks() {
     var links = [];
@@ -10,8 +11,10 @@
 
     for (var i = 0; i < anchors.length; i++) {
       var a = anchors[i];
-      var href = a.getAttribute('href') || '';
-      if (!href || href.startsWith('#') || href.startsWith('javascript:')) continue;
+      var href = (a.getAttribute('href') || '').trim();
+      if (!href || href.startsWith('javascript:')) continue;
+      // Skip only bare "#" (same-page anchor); keep hash routes like "#/inbox", "#/case/status"
+      if (href === '#' || href === '') continue;
 
       var url;
       try {

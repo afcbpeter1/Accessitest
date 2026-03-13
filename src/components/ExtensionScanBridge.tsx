@@ -14,7 +14,7 @@ export default function ExtensionScanBridge() {
       const data = event.data
       if (data?.type !== 'ACCESSSCAN_SUBMIT_SCAN' || typeof data.id === 'undefined' || !data.url) return
 
-      const { id, url, issues = [], summary = {} } = data
+      const { id, url, issues = [], summary = {}, wcagLevel, selectedTags } = data
       const token = typeof localStorage !== 'undefined' ? localStorage.getItem('accessToken') : null
       if (!token) {
         respond(id, { success: false, error: 'Not logged in' })
@@ -36,7 +36,13 @@ export default function ExtensionScanBridge() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`
           },
-          body: JSON.stringify({ url, issues, summary })
+          body: JSON.stringify({
+            url,
+            issues,
+            summary,
+            ...(typeof wcagLevel === 'string' && { wcagLevel }),
+            ...(Array.isArray(selectedTags) && { selectedTags })
+          })
         })
         const json = await res.json().catch(() => ({}))
         respond(id, { ...json, backlogError: json.backlogError || null })

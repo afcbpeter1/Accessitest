@@ -3,10 +3,55 @@
   // Default to production; use extension options to switch to http://localhost:3000 for local testing
   const DEFAULT_APP_URL = 'https://a11ytest.ai';
 
-  var pendingScan = null;
+  var pendingScansById = {};
+  var lastScanTags = [];
+  var lastWcagLevel = 'AA';
+  var isMultiScan = false;
+  var scanOverlayVisible = false;
 
   function getIframe() {
     return document.getElementById(IFRAME_ID);
+  }
+
+  function showScanOverlay(multiScan, currentPage, totalPages, url) {
+    var overlay = document.getElementById('scan-overlay');
+    var title = document.getElementById('scan-overlay-title');
+    var bar = document.getElementById('scan-progress-bar');
+    var fill = document.getElementById('scan-progress-fill');
+    var urlEl = document.getElementById('scan-overlay-url');
+    if (!overlay) return;
+    scanOverlayVisible = true;
+    if (multiScan && totalPages > 0) {
+      title.textContent = 'Scanning page ' + (currentPage || 1) + ' of ' + totalPages;
+      bar.style.display = 'block';
+      fill.style.width = ((currentPage || 1) / totalPages * 100) + '%';
+      urlEl.textContent = url || '';
+      urlEl.style.display = url ? 'block' : 'none';
+    } else {
+      title.textContent = 'Scanning…';
+      bar.style.display = 'none';
+      urlEl.style.display = 'none';
+    }
+    overlay.classList.add('visible');
+  }
+
+  function updateScanOverlayProgress(currentPage, totalPages, url) {
+    if (!scanOverlayVisible) return;
+    var title = document.getElementById('scan-overlay-title');
+    var bar = document.getElementById('scan-progress-bar');
+    var fill = document.getElementById('scan-progress-fill');
+    var urlEl = document.getElementById('scan-overlay-url');
+    if (title) title.textContent = 'Scanning page ' + currentPage + ' of ' + totalPages;
+    if (bar) bar.style.display = 'block';
+    if (fill && totalPages > 0) fill.style.width = (currentPage / totalPages * 100) + '%';
+    if (urlEl) { urlEl.textContent = url || ''; urlEl.style.display = url ? 'block' : 'none'; }
+  }
+
+  function hideScanOverlay() {
+    var overlay = document.getElementById('scan-overlay');
+    if (overlay) overlay.classList.remove('visible');
+    scanOverlayVisible = false;
+    isMultiScan = false;
   }
 
   function getAppUrl(cb) {
@@ -34,7 +79,10 @@
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
       if (msg.type === 'SCAN_RESULTS') {
-        pendingScan = { url: msg.url, issues: msg.issues || [], summary: msg.summary || {} };
+        var scanId = msg.id;
+        if (scanId != null) {
+          pendingScansById[scanId] = { url: msg.url, issues: msg.issues || [], summary: msg.summary || {} };
+        }
         const iframe = getIframe();
         if (iframe && iframe.contentWindow) {
           iframe.contentWindow.postMessage({
@@ -42,9 +90,12 @@
             id: msg.id,
             url: msg.url,
             issues: msg.issues || [],
-            summary: msg.summary || {}
+            summary: msg.summary || {},
+            wcagLevel: lastWcagLevel,
+            selectedTags: lastScanTags
           }, '*');
         }
+        if (!isMultiScan) hideScanOverlay();
         sendResponse({ ok: true });
       } else if (msg.type === 'CURRENT_TAB_URL') {
         const iframe = getIframe();
@@ -52,6 +103,18 @@
           iframe.contentWindow.postMessage({
             type: 'ACCESSSCAN_CURRENT_TAB_URL',
             url: msg.url != null ? msg.url : null
+          }, '*');
+        }
+        sendResponse({ ok: true });
+      } else if (msg.type === 'MULTI_SCAN_PAGE_START') {
+        updateScanOverlayProgress(msg.currentPage || 1, msg.totalPages || 1, msg.url || '');
+        const iframe = getIframe();
+        if (iframe && iframe.contentWindow) {
+          iframe.contentWindow.postMessage({
+            type: 'ACCESSSCAN_MULTI_SCAN_PAGE_START',
+            currentPage: msg.currentPage,
+            totalPages: msg.totalPages,
+            url: msg.url || ''
           }, '*');
         }
         sendResponse({ ok: true });
@@ -72,13 +135,18 @@
     }
 
     if (data.type === 'ACCESSSCAN_RUN_SCAN') {
+      isMultiScan = false;
+      showScanOverlay(false);
       var tags = Array.isArray(data.tags) ? data.tags : [];
+      lastScanTags = tags;
+      lastWcagLevel = (data.wcagLevel === 'A' || data.wcagLevel === 'AAA') ? data.wcagLevel : 'AA';
       chrome.runtime.sendMessage({ type: 'RUN_SCAN', tags: tags }, function (response) {
         if (response && response.error && iframe.contentWindow) {
           iframe.contentWindow.postMessage({
             type: 'ACCESSSCAN_SCAN_ERROR',
             error: response.error
           }, '*');
+          hideScanOverlay();
         }
       });
       return;
@@ -104,13 +172,25 @@
 
     if (data.type === 'ACCESSSCAN_RUN_MULTI_SCAN') {
       var urls = Array.isArray(data.urls) ? data.urls : [];
+      isMultiScan = true;
+      showScanOverlay(true, 1, urls.length, urls[0] || '');
       var tagsMulti = Array.isArray(data.tags) ? data.tags : [];
+      lastScanTags = tagsMulti;
+      lastWcagLevel = (data.wcagLevel === 'A' || data.wcagLevel === 'AAA') ? data.wcagLevel : 'AA';
       chrome.runtime.sendMessage({ type: 'RUN_MULTI_SCAN', urls: urls, tags: tagsMulti }, function (response) {
         if (response && response.error && iframe.contentWindow) {
           iframe.contentWindow.postMessage({
             type: 'ACCESSSCAN_SCAN_ERROR',
             error: response.error
           }, '*');
+          hideScanOverlay();
+        }
+        if (response && response.ok === true && iframe.contentWindow) {
+          iframe.contentWindow.postMessage({
+            type: 'ACCESSSCAN_MULTI_SCAN_COMPLETE',
+            scanned: response.scanned || 0
+          }, '*');
+          hideScanOverlay();
         }
       });
       return;
@@ -122,8 +202,10 @@
       var reportUrl = data.reportUrl;
       var scanHistoryId = data.scanHistoryId;
       var remediationReport = data.remediationReport;
-      var payload = pendingScan || {};
-      pendingScan = null;
+      var scanId = data.id;
+      var payload = (scanId != null && pendingScansById[scanId]) ? pendingScansById[scanId] : {};
+      if (scanId != null) delete pendingScansById[scanId];
+      chrome.runtime.sendMessage({ type: 'MULTI_SCAN_PAGE_SUBMIT_DONE' }).catch(function () {});
       if (iframe.contentWindow) {
         if (success) {
           var added = (backlogAdded && typeof backlogAdded.added === 'number' ? backlogAdded.added : 0) +
@@ -145,6 +227,7 @@
             type: 'ACCESSSCAN_SCAN_ERROR',
             error: data.error || 'Scan failed'
           }, '*');
+          hideScanOverlay();
         }
       }
     }

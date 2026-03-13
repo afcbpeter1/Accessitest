@@ -6,6 +6,12 @@ import { NotificationService } from '@/lib/notification-service'
 import { ScanStateService } from '@/lib/scan-state-service'
 import { getUserCredits, deductCredits } from '@/lib/credit-service'
 import { generateIssueId, autoCreateBacklogItemsWithHistoryId } from '@/lib/backlog-from-scan'
+import {
+  getLearnedSuggestion,
+  logPipelineSuggestion,
+  computePatternHash,
+  computeSuggestionSignature
+} from '@/lib/learned-suggestions-service'
 
 // Auto-create backlog items for unique issues (legacy function)
 async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId: string, scanType: string) {
@@ -439,7 +445,7 @@ export async function POST(request: NextRequest) {
                 
                 // Scan the specific page directly
                 console.log(`🧪 Scanning page with tags: ${selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508']}`)
-                const pageResult = await scanService.scanPage(pageUrl, selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508'])
+                const pageResult = await scanService.scanPage(pageUrl, selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508'], { skipAiSuggestions: true })
                 
                 console.log(`✅ Scan completed for ${pageUrl}:`, {
                   issues: pageResult.issues?.length || 0,
@@ -468,6 +474,28 @@ export async function POST(request: NextRequest) {
                   currentUrl: pageUrl,
                   status: 'error'
                 })
+              }
+            }
+
+            // Enrich with learned suggestions (same as pipeline) and log for cron to update daily
+            for (const result of results) {
+              if (result.issues && result.issues.length > 0) {
+                for (const issue of result.issues) {
+                  const html = issue.nodes?.[0]?.html ?? ''
+                  const patternHash = computePatternHash(issue.id, html)
+                  const learned = await getLearnedSuggestion(issue.id, patternHash)
+                  const priority = (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : issue.impact === 'moderate' ? 'medium' : 'low') as 'high' | 'medium' | 'low'
+                  if (learned) {
+                    (issue as any).suggestions = [{
+                      type: 'fix',
+                      description: learned.description,
+                      codeExample: learned.codeExample ?? undefined,
+                      priority
+                    }]
+                  }
+                  const sugg = (issue as any).suggestions?.[0]
+                  await logPipelineSuggestion(issue.id, patternHash, computeSuggestionSignature(sugg?.description, sugg?.codeExample)).catch(() => {})
+                }
               }
             }
 
@@ -530,10 +558,61 @@ export async function POST(request: NextRequest) {
               complianceSummary,
               remediationReport
             }
-            
-            // Send complete and close stream immediately so the client gets the response
-            // and can update the UI. History + backlog run in the background to avoid
-            // timeouts that leave the frontend stuck on "Scanning...".
+
+            let scanHistoryId: string | null = null
+            try {
+              await ScanStateService.markCompleted(scanId, finalResults)
+            } catch (error) {
+              console.error('Failed to mark scan as completed:', error)
+            }
+            try {
+              const { ScanHistoryService } = await import('@/lib/scan-history-service')
+              scanHistoryId = await ScanHistoryService.storeScanResult(user.userId, 'web', {
+                scanTitle: `Web Scan: ${url}`,
+                url: url,
+                scanResults: finalResults,
+                complianceSummary: complianceSummary,
+                remediationReport: remediationReport,
+                totalIssues: complianceSummary.totalIssues,
+                criticalIssues: complianceSummary.criticalIssues,
+                seriousIssues: complianceSummary.seriousIssues,
+                moderateIssues: complianceSummary.moderateIssues,
+                minorIssues: complianceSummary.minorIssues,
+                pagesScanned: results.length,
+                scanSettings: {
+                  pagesToScan: pagesToScan,
+                  includeSubdomains: includeSubdomains,
+                  wcagLevel: wcagLevel,
+                  selectedTags: selectedTags
+                }
+              })
+              console.log('✅ Scan results stored in history with ID:', scanHistoryId)
+            } catch (error) {
+              console.error('Failed to store scan results in history:', error)
+            }
+            if (scanHistoryId) {
+              try {
+                console.log('🎫 Auto-creating backlog items for unique issues...')
+                await autoCreateBacklogItemsWithHistoryId(user.userId, finalResults.results, scanHistoryId)
+                try {
+                  const { autoSyncIssuesToJira, getIssueIdsFromScan } = await import('@/lib/jira-sync-service')
+                  const issueIds = await getIssueIdsFromScan(scanHistoryId)
+                  if (issueIds.length > 0) {
+                    console.log(`🔗 Auto-syncing ${issueIds.length} issues to Jira...`)
+                    const syncResult = await autoSyncIssuesToJira(user.userId, issueIds)
+                    console.log(`✅ Jira sync complete: ${syncResult.created} created, ${syncResult.skipped} skipped, ${syncResult.errors} errors`)
+                  }
+                } catch (jiraError) {
+                  console.error('❌ Error auto-syncing to Jira:', jiraError)
+                }
+              } catch (error) {
+                console.error('❌ Error auto-creating backlog items:', error)
+              }
+            }
+
+            const origin = process.env.NEXTAUTH_URL?.replace(/\/$/, '') || ''
+            const reportUrl = scanHistoryId ? `${origin}/scan-history/${scanHistoryId}` : null
+
             await sendProgress({
               type: 'complete',
               message: `Scan completed successfully! Scanned ${results.length} pages.`,
@@ -541,71 +620,11 @@ export async function POST(request: NextRequest) {
               totalPages: pagesToScan.length,
               status: 'complete',
               results: finalResults,
-              scanId
+              scanId,
+              scanHistoryId: scanHistoryId ?? undefined,
+              reportUrl: reportUrl ?? undefined
             })
             controller.close()
-
-            // Run post-scan work in background (don't block the response)
-            ;(async () => {
-              try {
-                try {
-                  await ScanStateService.markCompleted(scanId, finalResults)
-                } catch (error) {
-                  console.error('Failed to mark scan as completed:', error)
-                }
-
-                let scanHistoryId: string | null = null
-                try {
-                  const { ScanHistoryService } = await import('@/lib/scan-history-service')
-                  scanHistoryId = await ScanHistoryService.storeScanResult(user.userId, 'web', {
-                    scanTitle: `Web Scan: ${url}`,
-                    url: url,
-                    scanResults: finalResults,
-                    complianceSummary: complianceSummary,
-                    remediationReport: remediationReport,
-                    totalIssues: complianceSummary.totalIssues,
-                    criticalIssues: complianceSummary.criticalIssues,
-                    seriousIssues: complianceSummary.seriousIssues,
-                    moderateIssues: complianceSummary.moderateIssues,
-                    minorIssues: complianceSummary.minorIssues,
-                    pagesScanned: results.length,
-                    scanSettings: {
-                      pagesToScan: pagesToScan,
-                      includeSubdomains: includeSubdomains,
-                      wcagLevel: wcagLevel,
-                      selectedTags: selectedTags
-                    }
-                  })
-                  console.log('✅ Scan results stored in history with ID:', scanHistoryId)
-                } catch (error) {
-                  console.error('Failed to store scan results in history:', error)
-                }
-
-                if (scanHistoryId) {
-                  try {
-                    console.log('🎫 Auto-creating backlog items for unique issues...')
-                    await autoCreateBacklogItemsWithHistoryId(user.userId, finalResults.results, scanHistoryId)
-                    try {
-                      const { autoSyncIssuesToJira, getIssueIdsFromScan } = await import('@/lib/jira-sync-service')
-                      const issueIds = await getIssueIdsFromScan(scanHistoryId)
-                      if (issueIds.length > 0) {
-                        console.log(`🔗 Auto-syncing ${issueIds.length} issues to Jira...`)
-                        const syncResult = await autoSyncIssuesToJira(user.userId, issueIds)
-                        console.log(`✅ Jira sync complete: ${syncResult.created} created, ${syncResult.skipped} skipped, ${syncResult.errors} errors`)
-                      }
-                    } catch (jiraError) {
-                      console.error('❌ Error auto-syncing to Jira:', jiraError)
-                    }
-                  } catch (error) {
-                    console.error('❌ Error auto-creating backlog items:', error)
-                  }
-                } else {
-                  console.error('❌ Cannot create backlog items - no scan history ID')
-                }
-              } catch (err) {
-                console.error('❌ Background post-scan work failed:', err)
-              }
-            })()
 
            } catch (error) {
              console.error('Scan error:', error)

@@ -254,6 +254,29 @@ export class ScanService {
   }
 
   /**
+   * Normalize URL but preserve query parameters (for the seed/entry URL so params like ?CourseTemplateId=21 are kept).
+   */
+  private normalizeUrlPreservingQuery(url: string): string {
+    try {
+      let urlWithProtocol = url.trim();
+      if (!urlWithProtocol.match(/^https?:\/\//i)) {
+        urlWithProtocol = 'https://' + urlWithProtocol;
+      }
+      const urlObj = new URL(urlWithProtocol);
+      urlObj.hash = '';
+      if (urlObj.pathname === '/' && urlWithProtocol.endsWith('/')) {
+        urlObj.pathname = '';
+      }
+      if (urlObj.pathname.length > 1 && urlObj.pathname.endsWith('/')) {
+        urlObj.pathname = urlObj.pathname.slice(0, -1);
+      }
+      return urlObj.href;
+    } catch {
+      return url;
+    }
+  }
+
+  /**
    * Crawl website to discover all pages
    */
   /**
@@ -275,7 +298,8 @@ export class ScanService {
     let page = await this.browser.newPage();
     await this.waitForPageReady();
     const visited = new Set<string>();
-    const toVisit = [this.normalizeUrl(options.url)];
+    const seedUrlWithParams = this.normalizeUrlPreservingQuery(options.url);
+    const toVisit = [seedUrlWithParams];
     const discoveredUrls: string[] = [];
     const retryCount = new Map<string, number>(); // one retry per URL when goto fails
     const startTime = Date.now();
@@ -420,8 +444,9 @@ export class ScanService {
           break;
         }
 
-        // Add to discovered URLs (use normalized URL)
-        discoveredUrls.push(normalizedUrl);
+        // Add to discovered URLs: preserve query params for the seed URL, use normalized URL for others
+        const isSeedPage = this.normalizeUrl(currentUrl) === this.normalizeUrl(seedUrlWithParams);
+        discoveredUrls.push(isSeedPage ? currentUrl : normalizedUrl);
         
         // Track high-priority pages
         const path = new URL(normalizedUrl).pathname.toLowerCase();
@@ -453,6 +478,7 @@ export class ScanService {
           });
 
           // Process discovered links with smart filtering
+          const currentNormalized = this.normalizeUrl(currentUrl);
           for (const link of links) {
             try {
               const absoluteUrl = new URL(link, currentUrl).href;
@@ -468,6 +494,16 @@ export class ScanService {
               }
               
               const normalizedLinkUrl = this.normalizeUrl(absoluteUrl);
+              const linkUrlObj = new URL(absoluteUrl);
+              const isSameDocumentWithHash = linkUrlObj.hash.length > 1 && normalizedLinkUrl === currentNormalized;
+              
+              // SPA / hash routes (e.g. #/inbox, #/sentitems): same document, different hash. Add to discovered list but don't re-visit.
+              if (isSameDocumentWithHash) {
+                if (!discoveredUrls.includes(absoluteUrl)) {
+                  discoveredUrls.push(absoluteUrl);
+                }
+                continue;
+              }
               
               // Check if URL is within the same domain
               const currentDomain = new URL(currentUrl).hostname;
@@ -534,7 +570,14 @@ export class ScanService {
     const uniqueUrls = Array.from(new Set(discoveredUrls));
     
     // Remove template duplicates - keep only one representative per template pattern
-    const deduplicatedUrls = this.removeTemplateDuplicates(uniqueUrls);
+    let deduplicatedUrls = this.removeTemplateDuplicates(uniqueUrls);
+    
+    // Ensure the seed URL (with query params) is kept when it was discovered - template dedup might have kept only the path-without-params version
+    if (uniqueUrls.includes(seedUrlWithParams) && !deduplicatedUrls.includes(seedUrlWithParams)) {
+      const seedNormalized = this.normalizeUrl(seedUrlWithParams);
+      deduplicatedUrls = deduplicatedUrls.filter((u) => this.normalizeUrl(u) !== seedNormalized);
+      deduplicatedUrls.push(seedUrlWithParams);
+    }
     
     console.log(`🔍 Page discovery completed: ${discoveredUrls.length} URLs found, ${uniqueUrls.length} unique, ${deduplicatedUrls.length} after template deduplication`);
     
@@ -553,14 +596,10 @@ export class ScanService {
       try {
         const urlObj = new URL(url);
         const path = urlObj.pathname;
-        
-        // Extract template pattern from path
-        // Examples:
-        // /article/123 -> /article/*
-        // /blog/2024/post-name -> /blog/*
-        // /news/123/title -> /news/*
-        // /products/123 -> /products/*
-        const templatePattern = this.extractTemplatePattern(path);
+        // SPA / hash routes (e.g. #/inbox): treat path+hash as distinct so we keep each route in the list
+        const templatePattern = urlObj.hash.length > 1
+          ? path + urlObj.hash
+          : this.extractTemplatePattern(path);
         
         if (!templateGroups.has(templatePattern)) {
           templateGroups.set(templatePattern, []);
@@ -761,7 +800,7 @@ export class ScanService {
   /**
    * Scan a single page for accessibility issues
    */
-  async scanPage(url: string, selectedTags?: string[], options?: { ciMode?: boolean }): Promise<ScanResult> {
+  async scanPage(url: string, selectedTags?: string[], options?: { ciMode?: boolean; skipAiSuggestions?: boolean }): Promise<ScanResult> {
     if (!this.browser) {
       throw new Error('Browser not initialized');
     }

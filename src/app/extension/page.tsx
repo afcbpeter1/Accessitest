@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Globe, AlertTriangle, ChevronDown, ChevronRight, ExternalLink, Sparkles, Code } from 'lucide-react'
 import Link from 'next/link'
 
@@ -39,6 +39,22 @@ export default function ExtensionPage() {
   const [includeSection508, setIncludeSection508] = useState(true)
   const [includeEN301549, setIncludeEN301549] = useState(true)
   const [isScanning, setIsScanning] = useState(false)
+  type PageResult = {
+    url: string
+    issues: any[]
+    summary: any
+    reportUrl?: string | null
+    remediationReport?: Array<{
+      issueId?: string
+      ruleName?: string
+      description?: string
+      impact?: string
+      help?: string
+      helpUrl?: string
+      offendingElements?: Array<{ url?: string; target?: string[]; failureSummary?: string; impact?: string; html?: string }>
+      suggestions?: Array<{ type?: string; description?: string; codeExample?: string; priority?: string }>
+    }>
+  }
   const [scanResult, setScanResult] = useState<{
     url: string
     issues: any[]
@@ -58,7 +74,10 @@ export default function ExtensionPage() {
       offendingElements?: Array<{ url?: string; target?: string[]; failureSummary?: string; impact?: string; html?: string }>
       suggestions?: Array<{ type?: string; description?: string; codeExample?: string; priority?: string }>
     }>
+    pages?: PageResult[]
   } | null>(null)
+  const [multiScanPageResults, setMultiScanPageResults] = useState<PageResult[]>([])
+  const isMultiScanningRef = useRef(false)
   const [scanError, setScanError] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [currentTabUrl, setCurrentTabUrl] = useState<string | null>(null)
@@ -66,6 +85,12 @@ export default function ExtensionPage() {
   const [selectedLinkUrls, setSelectedLinkUrls] = useState<Set<string>>(new Set())
   const [loadingLinks, setLoadingLinks] = useState(false)
   const [isMultiScanning, setIsMultiScanning] = useState(false)
+  const [multiScanPage, setMultiScanPage] = useState<{ current: number; total: number; url: string } | null>(null)
+  const [issuesPageTab, setIssuesPageTab] = useState(0)
+
+  useEffect(() => {
+    isMultiScanningRef.current = isMultiScanning
+  }, [isMultiScanning])
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
@@ -99,17 +124,28 @@ export default function ExtensionPage() {
       }
       if (event.data?.type === 'ACCESSSCAN_SHOW_RESULTS') {
         setScanError(null)
-        setScanResult({
+        const pageData: PageResult = {
           url: event.data.url || '',
           issues: event.data.issues || [],
           summary: event.data.summary || {},
-          backlogAdded: event.data.backlogAdded,
-          backlogAddedDetail: event.data.backlogAddedDetail,
           reportUrl: event.data.reportUrl,
-          scanHistoryId: event.data.scanHistoryId,
-          backlogError: event.data.backlogError,
           remediationReport: event.data.remediationReport
-        })
+        }
+        if (isMultiScanningRef.current) {
+          setMultiScanPageResults((prev) => [...prev, pageData])
+        } else {
+          setScanResult({
+            url: pageData.url,
+            issues: pageData.issues,
+            summary: pageData.summary,
+            backlogAdded: event.data.backlogAdded,
+            backlogAddedDetail: event.data.backlogAddedDetail,
+            reportUrl: event.data.reportUrl,
+            scanHistoryId: event.data.scanHistoryId,
+            backlogError: event.data.backlogError,
+            remediationReport: event.data.remediationReport
+          })
+        }
         setIsScanning(false)
       }
       if (event.data?.type === 'ACCESSSCAN_SCAN_ERROR') {
@@ -125,6 +161,38 @@ export default function ExtensionPage() {
       if (event.data?.type === 'ACCESSSCAN_LINKS_ERROR') {
         setLoadingLinks(false)
         setScanError(event.data.error || 'Failed to get links from this page')
+      }
+      if (event.data?.type === 'ACCESSSCAN_MULTI_SCAN_PAGE_START') {
+        const current = Number(event.data.currentPage) || 1
+        const total = Number(event.data.totalPages) || 1
+        const url = typeof event.data.url === 'string' ? event.data.url : ''
+        setMultiScanPage({ current, total, url })
+      }
+      if (event.data?.type === 'ACCESSSCAN_MULTI_SCAN_COMPLETE') {
+        setMultiScanPageResults((prev) => {
+          if (prev.length > 0) {
+            const combinedSummary = prev.reduce(
+              (acc, p) => {
+                const s = p.summary || {}
+                ;(['critical', 'serious', 'moderate', 'minor'] as const).forEach((k) => {
+                  acc[k] = (acc[k] || 0) + (s[k] ?? 0)
+                })
+                return acc
+              },
+              {} as Record<string, number>
+            )
+            setScanResult({
+              url: prev[0].url,
+              issues: prev.flatMap((p) => p.issues),
+              summary: combinedSummary,
+              pages: prev
+            })
+          }
+          return []
+        })
+        setIsMultiScanning(false)
+        setMultiScanPage(null)
+        setIssuesPageTab(0)
       }
     }
     window.addEventListener('message', handler)
@@ -143,10 +211,11 @@ export default function ExtensionPage() {
   const runScan = () => {
     setScanError(null)
     setScanResult(null)
+    setMultiScanPageResults([])
     setIsScanning(true)
     try {
       if (window.parent !== window) {
-        window.parent.postMessage({ type: 'ACCESSSCAN_RUN_SCAN', tags: getTags() }, '*')
+        window.parent.postMessage({ type: 'ACCESSSCAN_RUN_SCAN', tags: getTags(), wcagLevel }, '*')
       } else {
         setScanError('Open this page in the AccessScan extension to scan.')
         setIsScanning(false)
@@ -194,26 +263,26 @@ export default function ExtensionPage() {
       return
     }
     setScanError(null)
+    setScanResult(null)
+    setMultiScanPageResults([])
     setIsMultiScanning(true)
+    setMultiScanPage({ current: 1, total: urls.length, url: urls[0] || '' })
     try {
       if (window.parent !== window) {
         window.parent.postMessage(
-          { type: 'ACCESSSCAN_RUN_MULTI_SCAN', urls, tags: getTags() },
+          { type: 'ACCESSSCAN_RUN_MULTI_SCAN', urls, tags: getTags(), wcagLevel },
           '*'
         )
       } else {
         setScanError('Open this page in the AccessScan extension to run a multi-page scan.')
         setIsMultiScanning(false)
-        return
+        setMultiScanPage(null)
       }
     } catch {
       setScanError('Failed to start multi-page scan')
       setIsMultiScanning(false)
-      return
+      setMultiScanPage(null)
     }
-    // We rely on the normal SCAN_RESULTS events as each page completes.
-    // Clear the flag after a short delay so the button is usable again.
-    setTimeout(() => setIsMultiScanning(false), 1000)
   }
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
@@ -256,16 +325,35 @@ export default function ExtensionPage() {
 
         {/* Multi-page scan (no manual URL pasting; use links from current page) */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
+          {isMultiScanning && multiScanPage && (
+            <div className="rounded-lg border-2 border-primary-500 bg-primary-50 p-4">
+              <p className="text-sm font-semibold text-primary-900">
+                Scanning page {multiScanPage.current} of {multiScanPage.total}
+              </p>
+              <div className="mt-2 h-2 w-full rounded-full bg-primary-200 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary-600 transition-all duration-300"
+                  style={{ width: `${(multiScanPage.current / multiScanPage.total) * 100}%` }}
+                />
+              </div>
+              <p className="mt-2 truncate text-xs text-primary-700" title={multiScanPage.url}>
+                {multiScanPage.url || 'Loading…'}
+              </p>
+              <p className="mt-1 text-xs text-gray-600">
+                The tab opens each page in turn. We wait for the scan and AI suggestions to finish before moving to the next.
+              </p>
+            </div>
+          )}
           <h2 className="text-sm font-semibold text-gray-900">Scan multiple pages (same site)</h2>
           <p className="text-xs text-gray-600">
-            Click <strong>Find links on this page</strong> below. We&apos;ll list other pages on the same site so you can tick which ones to scan. The extension will then open each page in this tab (using your login) and run a scan.
+            Click <strong>Find links on this page</strong>, tick the pages to scan, then <strong>Scan selected</strong>. The extension will open each page in the tab, run the scan (like &quot;Scan page&quot;), and save issues to your product backlog.
           </p>
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-gray-700">Pages you can scan:</span>
             <button
               type="button"
               onClick={fetchLinks}
-              disabled={loadingLinks}
+              disabled={loadingLinks || isMultiScanning || isScanning}
               className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loadingLinks ? 'Finding links…' : 'Find links on this page'}
@@ -289,11 +377,11 @@ export default function ExtensionPage() {
                   >
                     <input
                       type="checkbox"
-                      className="mt-0.5 h-3 w-3 text-primary-600 border-gray-300 rounded"
+                      className="mt-0.5 h-4 w-4 shrink-0 text-primary-600 border-gray-300 rounded"
                       checked={selectedLinkUrls.has(link.url)}
                       onChange={() => toggleLinkSelected(link.url)}
                     />
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="font-medium text-gray-800 truncate" title={link.text}>
                         {link.text}
                       </div>
@@ -304,11 +392,11 @@ export default function ExtensionPage() {
                   </label>
                 ))}
               </div>
-              <div className="flex justify-end">
+              <div className="flex flex-col items-end gap-1">
                 <button
                   type="button"
                   onClick={runMultiScan}
-                  disabled={isMultiScanning || selectedLinkUrls.size === 0}
+                  disabled={isMultiScanning || isScanning || selectedLinkUrls.size === 0}
                   className="inline-flex items-center px-4 py-2.5 bg-primary-600 text-white text-xs font-medium rounded-md hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isMultiScanning ? 'Scanning selected pages…' : `Scan selected (${selectedLinkUrls.size})`}
@@ -377,14 +465,16 @@ export default function ExtensionPage() {
           <button
             type="button"
             onClick={runScan}
-            disabled={isScanning}
+            disabled={isScanning || isMultiScanning}
             className="inline-flex items-center px-4 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-md hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Globe className="h-4 w-4 mr-2" />
             {isScanning ? 'Scanning…' : 'Scan page'}
           </button>
-          {isScanning && (
-            <span className="text-sm text-gray-500">Make sure the tab you want to scan is the active tab.</span>
+          {(isScanning || isMultiScanning) && (
+            <span className="text-sm text-gray-500">
+              {isMultiScanning ? 'Multi-scan in progress. Wait for it to finish.' : 'Make sure the tab you want to scan is the active tab.'}
+            </span>
           )}
         </div>
 
@@ -448,16 +538,59 @@ export default function ExtensionPage() {
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Issues</h3>
-              {scanResult.issues.length === 0 ? (
-                <p className="text-sm text-gray-500 py-4">No violations found for the selected standards.</p>
-              ) : (scanResult.remediationReport && scanResult.remediationReport.length > 0 ? (
+              {scanResult.pages && scanResult.pages.length > 0 && (
+                <div className="flex flex-wrap gap-1 border-b border-gray-200 pb-3 mb-3">
+                  {scanResult.pages.map((p, idx) => {
+                    const label = (() => {
+                      try {
+                        const u = new URL(p.url)
+                        const path = u.pathname === '/' ? u.hostname : u.pathname.slice(0, 30) + (u.pathname.length > 30 ? '…' : '')
+                        return path || `Page ${idx + 1}`
+                      } catch {
+                        return `Page ${idx + 1}`
+                      }
+                    })()
+                    const count = p.issues?.length ?? 0
+                    const isActive = issuesPageTab === idx
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setIssuesPageTab(idx)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-t-md border border-b-0 -mb-px ${
+                          isActive
+                            ? 'bg-white border-gray-300 text-primary-700 border-b-white'
+                            : 'bg-gray-100 border-gray-200 text-gray-600 hover:bg-gray-50'
+                        }`}
+                        title={p.url}
+                      >
+                        {label} ({count})
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {(() => {
+                const issuesPage =
+                  scanResult.pages && scanResult.pages.length > 0
+                    ? scanResult.pages[Math.min(issuesPageTab, scanResult.pages.length - 1)]
+                    : {
+                        url: scanResult.url,
+                        issues: scanResult.issues,
+                        remediationReport: scanResult.remediationReport
+                      }
+                const pageIssues = issuesPage.issues || []
+                const pageReport = issuesPage.remediationReport
+                const reportUrl = issuesPage.url
+                return pageIssues.length === 0 ? (
+                  <p className="text-sm text-gray-500 py-4">No violations found for this page.</p>
+                ) : (pageReport && pageReport.length > 0 ? (
                 <ul className="space-y-4">
-                  {scanResult.remediationReport.map((report: any, index: number) => {
-                    const id = `report-${index}-${report.issueId || index}`
+                  {pageReport.map((report: any, index: number) => {
+                    const id = `report-${issuesPageTab}-${index}-${report.issueId || index}`
                     const isExpanded = expandedId === id
                     const offendingElements = report.offendingElements || []
                     const suggestions = report.suggestions || []
-                    const reportUrl = scanResult.url
                     return (
                       <li key={id} className="border border-gray-200 rounded-lg overflow-hidden">
                         <button
@@ -558,8 +691,8 @@ export default function ExtensionPage() {
                 </ul>
               ) : (
                 <ul className="space-y-2">
-                  {scanResult.issues.map((issue: any, index: number) => {
-                    const id = `issue-${index}-${issue.id}`
+                  {pageIssues.map((issue: any, index: number) => {
+                    const id = `issue-${issuesPageTab}-${index}-${issue.id}`
                     const isExpanded = expandedId === id
                     const nodes = issue.nodes || []
                     return (
@@ -599,7 +732,8 @@ export default function ExtensionPage() {
                     )
                   })}
                 </ul>
-              ))}
+              );
+              })()}
             </div>
           </>
         )}

@@ -7,6 +7,12 @@ import { autoCreateBacklogItemsWithHistoryId } from '@/lib/backlog-from-scan'
 import { AccessibilityScanner } from '@/lib/accessibility-scanner'
 import type { AccessibilityIssue } from '@/lib/accessibility-scanner'
 import { isValidUrl } from '@/lib/url-utils'
+import {
+  getLearnedSuggestion,
+  logPipelineSuggestion,
+  computePatternHash,
+  computeSuggestionSignature
+} from '@/lib/learned-suggestions-service'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -24,7 +30,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
     const body = await request.json().catch(() => ({}))
-    const { url, issues = [], summary = {} } = body
+    const { url, issues = [], summary = {}, wcagLevel: reqWcagLevel, selectedTags: reqSelectedTags } = body
 
     if (!url || typeof url !== 'string') {
       return NextResponse.json(
@@ -60,9 +66,9 @@ export async function POST(request: NextRequest) {
       )
     }
     const scanId = `extension_scan_${Date.now()}`
-    await deductCredits(user.userId, 1, `Extension scan: ${url}`, scanId)
+    await deductCredits(user.userId, 1, `Web scan: ${url}`, scanId)
 
-    // Normalize issues to AccessibilityIssue shape and generate suggestions (AI or rule-based)
+    // Normalize issues and use learned suggestions (same as pipeline) + rule-based fallback; log for cron to update daily
     const scanner = new AccessibilityScanner()
     const normalizedIssues: AccessibilityIssue[] = issues.map((i: any) => ({
       id: i.id || 'unknown',
@@ -81,18 +87,24 @@ export async function POST(request: NextRequest) {
       }))
     }))
 
-    for (let i = 0; i < normalizedIssues.length; i++) {
-      try {
-        const suggestions = await scanner.generateRemediationSuggestions(normalizedIssues[i])
-        if (suggestions.length > 0) {
-          (normalizedIssues[i] as any).suggestions = suggestions
-        }
-        if (i < normalizedIssues.length - 1) {
-          await new Promise((r) => setTimeout(r, 500))
-        }
-      } catch (err) {
-        console.error('Extension scan: suggestion generation failed for', normalizedIssues[i].id, err)
+    for (const issue of normalizedIssues) {
+      const html = issue.nodes?.[0]?.html ?? ''
+      const patternHash = computePatternHash(issue.id, html)
+      const learned = await getLearnedSuggestion(issue.id, patternHash)
+      const priority = (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : issue.impact === 'moderate' ? 'medium' : 'low') as 'high' | 'medium' | 'low'
+      if (learned) {
+        (issue as any).suggestions = [{
+          type: 'fix',
+          description: learned.description,
+          codeExample: learned.codeExample ?? undefined,
+          priority
+        }]
+      } else {
+        const ruleBased = scanner.getRuleBasedSuggestion(issue)
+        if (ruleBased.length > 0) (issue as any).suggestions = ruleBased
       }
+      const sugg = (issue as any).suggestions?.[0]
+      await logPipelineSuggestion(issue.id, patternHash, computeSuggestionSignature(sugg?.description, sugg?.codeExample)).catch(() => {})
     }
 
     const remediationReport: any[] = []
@@ -147,8 +159,9 @@ export async function POST(request: NextRequest) {
       remediationReport
     }
 
+    // Store exactly like the main app (a11ytest): same title format and scanSettings shape
     const scanHistoryId = await ScanHistoryService.storeScanResult(user.userId, 'web', {
-      scanTitle: `Extension: ${url}`,
+      scanTitle: `Web Scan: ${url}`,
       url,
       scanResults: finalResults,
       complianceSummary,
@@ -159,7 +172,15 @@ export async function POST(request: NextRequest) {
       moderateIssues: complianceSummary.moderateIssues,
       minorIssues: complianceSummary.minorIssues,
       pagesScanned: 1,
-      scanSettings: { source: 'extension' }
+      scanSettings: {
+        source: 'extension',
+        pagesToScan: [url],
+        includeSubdomains: false,
+        wcagLevel: (reqWcagLevel === 'A' || reqWcagLevel === 'AAA' ? reqWcagLevel : 'AA') as string,
+        selectedTags: Array.isArray(reqSelectedTags) && reqSelectedTags.length > 0
+          ? reqSelectedTags
+          : ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']
+      }
     })
 
     let backlogAdded = { added: 0, reopened: 0, skipped: 0 }

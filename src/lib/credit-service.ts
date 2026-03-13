@@ -68,9 +68,22 @@ export async function getUserCredits(userId: string): Promise<CreditInfo> {
     try {
       const subscription = await getStripe().subscriptions.retrieve(userSubscriptionData.stripe_subscription_id)
       hasActiveSubscription = subscription.status === 'active' || subscription.status === 'trialing'
-    } catch (error) {
+    } catch (error: unknown) {
       // Subscription not found or error - treat as inactive
-      console.warn(`Could not verify subscription for user ${userId}:`, error)
+      const err = error as { code?: string; message?: string; raw?: { code?: string } }
+      const code = err?.raw?.code ?? err?.code
+      const message = err?.message ?? (error instanceof Error ? error.message : String(error))
+      const isTestModeMismatch = code === 'resource_missing' && /test mode|live mode/i.test(message)
+      if (isTestModeMismatch) {
+        // Stored subscription ID is from Stripe test mode but app is using live key (or vice versa). Clear invalid ID to stop repeated errors.
+        console.warn(`Could not verify subscription for user ${userId}: subscription from other Stripe mode (test vs live). Clearing stored subscription ID.`)
+        await query(
+          `UPDATE users SET stripe_subscription_id = NULL, plan_type = 'free', updated_at = NOW() WHERE id = $1`,
+          [userId]
+        )
+      } else {
+        console.warn(`Could not verify subscription for user ${userId}:`, error)
+      }
     }
   }
   

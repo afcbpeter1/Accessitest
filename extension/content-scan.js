@@ -1,4 +1,9 @@
 (function () {
+  if (typeof window !== 'undefined' && window.__accessScanScanLoaded) return;
+  if (typeof window !== 'undefined') window.__accessScanScanLoaded = true;
+
+  var lastAxeRun = Promise.resolve();
+
   function mapViolationsToIssues(violations) {
     if (!Array.isArray(violations)) return [];
     return violations.map(function (v) {
@@ -37,7 +42,10 @@
       callback('axe-core not loaded', null);
       return;
     }
-    window.axe.run(document, { runOnly: { type: 'tag', values: tags } })
+    lastAxeRun = lastAxeRun
+      .then(function () {
+        return window.axe.run(document, { runOnly: { type: 'tag', values: tags } });
+      })
       .then(function (r) {
         var issues = mapViolationsToIssues(r.violations || []);
         var summary = buildSummary(issues);
