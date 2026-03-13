@@ -93,10 +93,13 @@ export async function POST(request: NextRequest) {
       const learned = await getLearnedSuggestion(issue.id, patternHash)
       const priority = (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : issue.impact === 'moderate' ? 'medium' : 'low') as 'high' | 'medium' | 'low'
       if (learned) {
-        (issue as any).suggestions = [{
+        const ruleBased = scanner.getRuleBasedSuggestion(issue)
+        const firstSuggestion = ruleBased.length > 0 ? ruleBased[0] : null
+        const fallbackCode: string | undefined = firstSuggestion?.codeExample
+        ;(issue as any).suggestions = [{
           type: 'fix',
           description: learned.description,
-          codeExample: learned.codeExample ?? undefined,
+          codeExample: learned.codeExample ?? fallbackCode ?? undefined,
           priority
         }]
       } else {
@@ -113,7 +116,7 @@ export async function POST(request: NextRequest) {
       if (sugg && Array.isArray(sugg) && sugg.length > 0) {
         remediationReport.push({
           issueId: issue.id,
-          ruleName: issue.description || issue.id,
+          ruleName: issue.id,
           description: issue.description || 'Accessibility issue detected',
           impact: issue.impact || 'moderate',
           wcag22Level: 'A',

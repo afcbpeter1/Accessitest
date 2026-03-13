@@ -187,7 +187,7 @@ export class ScanService {
         });
 
         try {
-          const result = await this.scanPage(url, options.selectedTags);
+          const result = await this.scanPage(url, options.selectedTags, { skipAiSuggestions: true });
           results.push(result);
         } catch (error) {
           console.error(`Failed to scan ${url}:`, error);

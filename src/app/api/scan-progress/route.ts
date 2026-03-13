@@ -12,6 +12,7 @@ import {
   computePatternHash,
   computeSuggestionSignature
 } from '@/lib/learned-suggestions-service'
+import { AccessibilityScanner } from '@/lib/accessibility-scanner'
 
 // Auto-create backlog items for unique issues (legacy function)
 async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId: string, scanType: string) {
@@ -478,6 +479,7 @@ export async function POST(request: NextRequest) {
             }
 
             // Enrich with learned suggestions (same as pipeline) and log for cron to update daily
+            const scanner = new AccessibilityScanner()
             for (const result of results) {
               if (result.issues && result.issues.length > 0) {
                 for (const issue of result.issues) {
@@ -486,12 +488,18 @@ export async function POST(request: NextRequest) {
                   const learned = await getLearnedSuggestion(issue.id, patternHash)
                   const priority = (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : issue.impact === 'moderate' ? 'medium' : 'low') as 'high' | 'medium' | 'low'
                   if (learned) {
-                    (issue as any).suggestions = [{
+                    const ruleBased = scanner.getRuleBasedSuggestion(issue)
+                    const firstRule = ruleBased.length > 0 ? ruleBased[0] : null
+                    const codeExample = learned.codeExample ?? (firstRule && firstRule.codeExample) ?? undefined
+                    ;(issue as any).suggestions = [{
                       type: 'fix',
                       description: learned.description,
-                      codeExample: learned.codeExample ?? undefined,
+                      codeExample,
                       priority
                     }]
+                  } else {
+                    const ruleBased = scanner.getRuleBasedSuggestion(issue)
+                    if (ruleBased.length > 0) (issue as any).suggestions = ruleBased
                   }
                   const sugg = (issue as any).suggestions?.[0]
                   await logPipelineSuggestion(issue.id, patternHash, computeSuggestionSignature(sugg?.description, sugg?.codeExample)).catch(() => {})
@@ -506,7 +514,7 @@ export async function POST(request: NextRequest) {
                   if (issue.suggestions && issue.suggestions.length > 0) {
                     const report = {
                       issueId: issue.id,
-                      ruleName: issue.description || issue.id,
+                      ruleName: issue.id,
                       description: issue.description || 'Accessibility issue detected',
                       impact: issue.impact || 'moderate',
                       wcag22Level: 'A',

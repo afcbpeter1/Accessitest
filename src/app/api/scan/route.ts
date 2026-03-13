@@ -5,6 +5,12 @@ import { query } from '@/lib/database'
 import { getUserCredits, deductCredits } from '@/lib/credit-service'
 import { NotificationService } from '@/lib/notification-service'
 import { ScanToIssuesIntegration } from '@/lib/scan-to-issues-integration'
+import {
+  getLearnedSuggestion,
+  logPipelineSuggestion,
+  computePatternHash,
+  computeSuggestionSignature
+} from '@/lib/learned-suggestions-service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -77,6 +83,28 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error(`Failed to scan ${pageUrl}:`, error)
         // Continue with other pages
+      }
+    }
+
+    // Enrich with learned suggestions (same as extension/scan-progress) and log for cron
+    for (const result of results) {
+      if (result.issues && result.issues.length > 0) {
+        for (const issue of result.issues) {
+          const html = issue.nodes?.[0]?.html ?? ''
+          const patternHash = computePatternHash(issue.id, html)
+          const learned = await getLearnedSuggestion(issue.id, patternHash)
+          const priority = (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : issue.impact === 'moderate' ? 'medium' : 'low') as 'high' | 'medium' | 'low'
+          if (learned) {
+            issue.suggestions = [{
+              type: 'fix',
+              description: learned.description,
+              codeExample: learned.codeExample ?? undefined,
+              priority
+            }]
+          }
+          const sugg = issue.suggestions?.[0]
+          await logPipelineSuggestion(issue.id, patternHash, computeSuggestionSignature(sugg?.description, sugg?.codeExample)).catch(() => {})
+        }
       }
     }
 

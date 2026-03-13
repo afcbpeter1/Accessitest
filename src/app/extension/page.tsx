@@ -775,9 +775,10 @@ export default function ExtensionPage() {
                   })}
                 </ul>
               )
+              )
               }
             </>
-                );
+              );
               })()}
             </div>
           </>

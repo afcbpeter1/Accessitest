@@ -255,7 +255,10 @@ export async function GET(request: NextRequest) {
           
           // For web scans, try to find remediation item by exact rule name match first
           let remediationItem = issue.scan_results?.remediationReport?.find((r: any) => r.ruleName === issue.rule_name)
-          
+          // Fallback: match by rule ID (issueId in report is the axe rule id, same as rule_name)
+          if (!remediationItem) {
+            remediationItem = issue.scan_results?.remediationReport?.find((r: any) => r.issueId === issue.rule_name)
+          }
           // If not found, try to find by partial match (rule name contains the issue rule name)
           if (!remediationItem) {
             remediationItem = issue.scan_results?.remediationReport?.find((r: any) => 
