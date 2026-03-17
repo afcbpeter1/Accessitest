@@ -66,6 +66,33 @@ steps:
 
   - script: |
       set -e
+      # Extract all issues across all scanned pages
+      python3 -c "
+      import json
+      d = json.load(open('scan-result.json'))
+      issues = []
+      for r in d.get('results', []) or []:
+          issues.extend(r.get('issues', []) or [])
+      with open('backlog-issues.json','w') as f:
+          json.dump(issues, f)
+      print(f'Extracted {len(issues)} issues for backlog add')
+      "
+      RESP=$(curl -s -w "\n%{http_code}" -X POST https://a11ytest.ai/api/ci/backlog-add \
+        -H "Authorization: Bearer $(A11YTEST_API_KEY)" \
+        -H "Content-Type: application/json" \
+        -d @backlog-issues.json)
+      HTTP_CODE=$(echo "$RESP" | tail -n1)
+      BODY=$(echo "$RESP" | sed '$d')
+      echo "--- Backlog add response (HTTP $(echo $HTTP_CODE)) ---"
+      echo "$BODY"
+      if [ "$HTTP_CODE" != "200" ]; then
+        echo "##vso[task.logissue type=error]Backlog add API returned HTTP $HTTP_CODE"
+        exit 1
+      fi
+    displayName: 'Add CI scan issues to product backlog'
+
+  - script: |
+      set -e
       PASSED=$(python3 -c "import json; d=json.load(open('scan-result.json')); print(d.get('passed', False))")
       echo "Overall passed: $PASSED"
       # Print each page result and its report URL (proper link, not encoded JSON)

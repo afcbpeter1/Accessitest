@@ -249,6 +249,16 @@ export default function ReportPage() {
             >
               Back to home
             </Link>
+
+            {/* CI-only: backlog creation is optional (triggered by calling /api/ci/backlog-add in CI).
+                This link requires the user to be signed in. */}
+            <Link
+              href="/product-backlog"
+              className="text-sm font-medium text-white/90 hover:text-white underline underline-offset-2"
+              title="Open your product backlog (requires login)"
+            >
+              Product backlog
+            </Link>
           </div>
         </div>
       </header>

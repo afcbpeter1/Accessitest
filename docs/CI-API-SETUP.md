@@ -129,3 +129,32 @@ Add variables `A11YTEST_API_URL` and `A11YTEST_API_KEY` (masked). Use the same `
 ---
 
 For full API details (rate limits, errors, multi-URL response shape, RapidAPI), see [CI-SCAN-API.md](CI-SCAN-API.md).
+
+---
+
+## (Optional) Auto-add CI issues to your Product Backlog
+If you want CI scan issues to be added to your `product_backlog` automatically (with de-duplication), call the backlog add endpoint after `POST /api/ci/scan`.
+
+### Endpoint
+`POST <base-url>/api/ci/backlog-add`
+
+### Authentication
+Use the same headers as the CI Scan API:
+- `Content-Type: application/json`
+- `Authorization: Bearer <your-api-key>` (or `X-API-Key: <your-api-key>`)
+
+### Pipeline request
+1. Run the scan and write `scan-result.json` (like your current YAML does)
+2. Extract all issues: `results[].issues`
+3. POST them to the endpoint
+
+Example `curl` usage:
+```bash
+RESP=$(curl -s -w "\n%{http_code}" -X POST "$(API_URL)/api/ci/backlog-add" \
+  -H "Authorization: Bearer $(A11YTEST_API_KEY)" \
+  -H "Content-Type: application/json" \
+  -d @"backlog-issues.json")
+```
+
+### What the user needs to do
+- Sign in to A11ytest.ai with the same account that owns the API key to see the added backlog items.

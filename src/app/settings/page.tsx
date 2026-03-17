@@ -2273,12 +2273,102 @@ export default function SettingsPage() {
                 <p className="text-sm text-gray-600 mb-4">
                   Use API keys to run accessibility scans from CI/CD pipelines. Send <code className="bg-gray-100 px-1 rounded">Authorization: Bearer &lt;key&gt;</code> or <code className="bg-gray-100 px-1 rounded">X-API-Key: &lt;key&gt;</code> to <code className="bg-gray-100 px-1 rounded">POST /api/ci/scan</code>.
                 </p>
-                <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-                  <strong>Multiple URLs:</strong> Use <strong>one</strong> <code className="bg-white/80 px-1 rounded">urls</code> array. Do not use two <code className="bg-white/80 px-1 rounded">url</code> keys — JSON only keeps the last one, so only one page would be scanned.
-                </p>
-                <div className="text-sm text-gray-600 mb-4 space-y-1">
-                  <p>Single page: <code className="bg-gray-100 px-1 rounded text-xs">{`{ "url": "https://example.com" }`}</code></p>
-                  <p>Multiple pages (one report, tabs): <code className="bg-gray-100 px-1 rounded text-xs block mt-1 break-all">{`{ "urls": ["https://example.com", "https://example.com/pricing"] }`}</code></p>
+
+                <div className="mb-6 p-4 rounded-lg bg-white border border-gray-200">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2">CI YAML quick setup</h3>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Use your API key to run CI scans and (optionally) automatically add the detected issues to your
+                    <span className="font-medium text-gray-900"> product backlog</span>. De-duplication is handled by the server, so repeated pipeline runs won’t spam duplicates.
+                  </p>
+                  <div className="text-sm text-gray-700 space-y-3">
+                    <p>
+                      Put your key into Azure Pipelines secrets as <code className="bg-gray-100 px-1 rounded text-xs">A11YTEST_API_KEY</code> (and optionally <code className="bg-gray-100 px-1 rounded text-xs">API_URL</code> = <span className="font-mono">https://a11ytest.ai</span>).
+                    </p>
+
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-900">1) Scan endpoint</p>
+                      <p className="text-xs text-gray-500">
+                        Endpoint: <code className="bg-gray-100 px-1 rounded text-xs">POST /api/ci/scan</code>
+                      </p>
+                      <pre className="bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto text-xs">
+{`# Request body: use "urls" (multiple pages in one report/tabs)
+{
+  "urls": ["https://your-site.com", "https://your-site.com/pricing"]
+}`}
+                      </pre>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-gray-900">2) Auto-add to product backlog</p>
+                      <p className="text-xs text-gray-500">
+                        Endpoint: <code className="bg-gray-100 px-1 rounded text-xs">POST /api/ci/backlog-add</code>
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        This uses the same API key to determine which user’s backlog to write to. You must be signed in to that user to view it in the UI.
+                      </p>
+                    </div>
+
+                    <p className="text-sm font-medium text-gray-900">Example Pipelines snippet</p>
+                    <pre className="bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto text-xs">
+{`- script: |
+    set -e
+
+    # Run the scan (creates scan-result.json)
+    RESP=$(curl -s -w "\\n%{http_code}" -X POST https://a11ytest.ai/api/ci/scan \\
+      -H "Authorization: Bearer $(A11YTEST_API_KEY)" \\
+      -H "Content-Type: application/json" \\
+      -d '{
+        "urls": [
+          "https://your-site.com",
+          "https://your-site.com/pricing"
+        ]
+      }')
+
+    HTTP_CODE=$(echo "$RESP" | tail -n1)
+    echo "$RESP" | sed '$d' > scan-result.json
+
+    if [ "$HTTP_CODE" != "200" ]; then
+      echo "##vso[task.logissue type=error]CI scan returned HTTP $HTTP_CODE"
+      exit 1
+    fi
+
+    PASSED=$(python3 -c "import json; print(json.load(open('scan-result.json')).get('passed', False))")
+    echo "Overall passed: $PASSED"
+    if [ "$PASSED" != "True" ]; then
+      echo "##vso[task.logissue type=error]Accessibility scan failed (critical/serious issues found)"
+      exit 1
+    fi
+  displayName: 'A11ytest.ai accessibility scan'
+
+- script: |
+    set -e
+
+    # Extract all issues from scan-result.json
+    python3 -c "import json; d=json.load(open('scan-result.json')); issues=[]; 
+for r in d.get('results', []) or []:
+  issues.extend(r.get('issues', []) or []);
+json.dump(issues, open('backlog-issues.json','w'))"
+
+    # Add to product backlog (de-duplicated)
+    RESP=$(curl -s -w "\\n%{http_code}" -X POST https://a11ytest.ai/api/ci/backlog-add \\
+      -H "Authorization: Bearer $(A11YTEST_API_KEY)" \\
+      -H "Content-Type: application/json" \\
+      -d @backlog-issues.json)
+
+    HTTP_CODE=$(echo "$RESP" | tail -n1)
+    BODY=$(echo "$RESP" | sed '$d')
+    echo "$BODY"
+    if [ "$HTTP_CODE" != "200" ]; then
+      echo "##vso[task.logissue type=error]Backlog add returned HTTP $HTTP_CODE"
+      exit 1
+    fi
+  displayName: 'Add scan issues to product backlog (optional)'`}
+                    </pre>
+
+                    <p className="text-xs text-gray-500">
+                      Important: use only one key in the scan request: either <code className="bg-gray-100 px-1 rounded text-xs">url</code> (single page) or <code className="bg-gray-100 px-1 rounded text-xs">urls</code> (multiple pages). Don’t send both.
+                    </p>
+                  </div>
                 </div>
                 {apiKeysError && (
                   <div className="mb-4 p-3 rounded-md bg-red-50 text-red-700 text-sm flex items-center gap-2">
