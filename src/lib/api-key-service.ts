@@ -10,6 +10,7 @@ const HASH_ALGORITHM = 'sha256'
 export interface ApiKeyRecord {
   id: string
   organization_id: string
+  user_id?: string | null
   name: string | null
   key_prefix: string
   created_at: Date
@@ -22,6 +23,7 @@ export interface CreateApiKeyResult {
   id: string
   key_prefix: string
   name: string | null
+  user_id?: string | null
   created_at: Date
 }
 
@@ -43,17 +45,18 @@ function constantTimeCompare(a: string, b: string): boolean {
  */
 export async function createApiKey(
   organizationId: string,
-  name?: string | null
+  name?: string | null,
+  userId?: string | null
 ): Promise<CreateApiKeyResult> {
   const plainKey = KEY_PREFIX + crypto.randomBytes(KEY_BYTES).toString('hex')
   const keyHash = hashKey(plainKey)
   const keyPrefix = plainKey.substring(0, PREFIX_LENGTH)
 
   const row = await queryOne(
-    `INSERT INTO api_keys (organization_id, name, key_hash, key_prefix, rate_limit_tier)
-     VALUES ($1, $2, $3, $4, 'default')
-     RETURNING id, organization_id, name, key_prefix, created_at`,
-    [organizationId, name || null, keyHash, keyPrefix]
+    `INSERT INTO api_keys (organization_id, user_id, name, key_hash, key_prefix, rate_limit_tier)
+     VALUES ($1, $2, $3, $4, $5, 'default')
+     RETURNING id, organization_id, user_id, name, key_prefix, created_at`,
+    [organizationId, userId ?? null, name || null, keyHash, keyPrefix]
   )
 
   return {
@@ -61,6 +64,7 @@ export async function createApiKey(
     id: row.id,
     key_prefix: row.key_prefix,
     name: row.name,
+    user_id: row.user_id ?? null,
     created_at: row.created_at
   }
 }
@@ -77,7 +81,7 @@ export async function lookupApiKey(plainKey: string): Promise<ApiKeyRecord | nul
   const keyHash = hashKey(plainKey)
 
   const row = await queryOne(
-    `SELECT id, organization_id, name, key_prefix, created_at, last_used_at, rate_limit_tier
+    `SELECT id, organization_id, user_id, name, key_prefix, created_at, last_used_at, rate_limit_tier
      FROM api_keys
      WHERE key_prefix = $1`,
     [keyPrefix]
@@ -100,6 +104,7 @@ export async function lookupApiKey(plainKey: string): Promise<ApiKeyRecord | nul
   return {
     id: row.id,
     organization_id: row.organization_id,
+    user_id: row.user_id ?? null,
     name: row.name,
     key_prefix: row.key_prefix,
     created_at: row.created_at,
@@ -143,7 +148,7 @@ export async function checkRateLimit(apiKeyId: string): Promise<{ allowed: boole
  */
 export async function listApiKeys(organizationId: string): Promise<ApiKeyRecord[]> {
   const res = await query(
-    `SELECT id, organization_id, name, key_prefix, created_at, last_used_at, rate_limit_tier
+    `SELECT id, organization_id, user_id, name, key_prefix, created_at, last_used_at, rate_limit_tier
      FROM api_keys
      WHERE organization_id = $1
      ORDER BY created_at DESC`,

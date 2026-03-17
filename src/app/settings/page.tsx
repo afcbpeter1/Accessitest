@@ -133,7 +133,7 @@ export default function SettingsPage() {
   const [loadingAzureDevOpsWorkItemTypes, setLoadingAzureDevOpsWorkItemTypes] = useState(false)
 
   // API Keys state
-  const [apiKeys, setApiKeys] = useState<Array<{ id: string; name: string | null; key_prefix: string; created_at: string; last_used_at: string | null }>>([])
+  const [apiKeys, setApiKeys] = useState<Array<{ id: string; name: string | null; key_prefix: string; created_at: string; last_used_at: string | null; user_id?: string | null }>>([])
   const [loadingApiKeys, setLoadingApiKeys] = useState(false)
   const [apiKeyName, setApiKeyName] = useState('')
   const [createdKeyOnce, setCreatedKeyOnce] = useState<string | null>(null)
@@ -2414,12 +2414,32 @@ json.dump(issues, open('backlog-issues.json','w'))"
                 ) : (
                   <ul className="space-y-2">
                     {apiKeys.map((k) => (
-                      <li key={k.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-gray-50">
-                        <span className="font-mono text-sm text-gray-700">{k.key_prefix}…</span>
-                        <span className="text-sm text-gray-500">{k.name || 'Unnamed'}</span>
-                        <span className="text-xs text-gray-400">
-                          Last used: {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : 'Never'}
-                        </span>
+                      <li key={k.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-gray-50 gap-3">
+                        <div className="min-w-0 flex items-center gap-3 flex-1">
+                          <span className="font-mono text-sm text-gray-700 whitespace-nowrap">{k.key_prefix}…</span>
+                          <span className="text-sm text-gray-500 whitespace-nowrap">{k.name || 'Unnamed'}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-xs text-gray-400 whitespace-nowrap">
+                            ID: {k.user_id ?? '—'}
+                          </span>
+                          {k.user_id && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(String(k.user_id))
+                                setMessage({ type: 'success', text: 'User ID copied' })
+                              }}
+                              className="btn-secondary px-2 py-1 flex items-center gap-1 text-xs"
+                              title="Copy user ID"
+                            >
+                              <Copy className="h-3.5 w-3.5" /> Copy
+                            </button>
+                          )}
+                          <span className="text-xs text-gray-400 whitespace-nowrap">
+                            Last used: {k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : 'Never'}
+                          </span>
+                        </div>
                         <button
                           type="button"
                           onClick={() => handleDeleteApiKey(k.id)}

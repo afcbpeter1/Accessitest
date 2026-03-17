@@ -80,13 +80,14 @@ export async function POST(request: NextRequest) {
     }
     const body = await request.json().catch(() => ({}))
     const name = typeof body.name === 'string' ? body.name.trim() || null : null
-    const created = await createApiKey(organizationId, name)
+    const created = await createApiKey(organizationId, name, user.userId)
     return NextResponse.json({
       success: true,
       apiKey: created.key,
       id: created.id,
       key_prefix: created.key_prefix,
       name: created.name,
+      user_id: created.user_id ?? null,
       created_at: created.created_at,
       message: 'Copy and store your API key securely. It will not be shown again.'
     })
