@@ -57,7 +57,8 @@ steps:
       HTTP_CODE=$(echo "$RESP" | tail -n1)
       echo "$RESP" | sed '$d' > scan-result.json
       echo "--- Scan result (HTTP $(echo $HTTP_CODE)) ---"
-      cat scan-result.json
+      # Avoid dumping the full JSON in logs (it can be hard to copy clean URLs from).
+      # The detailed per-page report URLs are printed in the next step.
       if [ "$HTTP_CODE" != "200" ]; then
         echo "##vso[task.logissue type=error]Accessibility scan API returned HTTP $HTTP_CODE"
         exit 1
