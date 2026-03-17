@@ -73,7 +73,12 @@ steps:
       d = json.load(open('scan-result.json'))
       issues = []
       for r in d.get('results', []) or []:
-          issues.extend(r.get('issues', []) or [])
+          page_url = r.get('url', '') or ''
+          for issue in (r.get('issues', []) or []):
+              # Attach the page URL so backend can compute domain + de-dup key.
+              # CI issue objects don't include url themselves.
+              issue['url'] = page_url
+              issues.append(issue)
       with open('backlog-issues.json','w') as f:
           json.dump({ 'issues': issues }, f)
       print(f'Extracted {len(issues)} issues for backlog add')
