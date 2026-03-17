@@ -67,13 +67,13 @@ export async function POST(request: NextRequest) {
       return jsonError('Invalid JSON body', undefined, 400)
     }
 
-    const { issues, results, scanResults, failOn } = body ?? {}
+    const { issues, results: requestResults, scanResults, failOn } = body ?? {}
     const rawIssues = Array.isArray(issues)
       ? issues
       : Array.isArray(scanResults)
         ? scanResults
-        : Array.isArray(results)
-          ? results.flatMap((r: any) => r?.issues ?? [])
+        : Array.isArray(requestResults)
+          ? requestResults.flatMap((r: any) => r?.issues ?? [])
           : []
 
     if (!Array.isArray(rawIssues) || rawIssues.length === 0) {
@@ -195,8 +195,8 @@ export async function POST(request: NextRequest) {
       return { success: true, added, reopened, skipped }
     })()
 
-    const results = await Promise.race([workPromise, timeoutPromise])
-    return NextResponse.json(results)
+    const outcome = await Promise.race([workPromise, timeoutPromise])
+    return NextResponse.json(outcome)
   } catch (err: any) {
     console.error('CI backlog add route error:', err)
     return jsonError(err?.message ?? 'Failed to add issues to backlog', 'BACKLOG_ADD_FAILED', 500)
