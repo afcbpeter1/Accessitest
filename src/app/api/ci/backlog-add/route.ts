@@ -16,18 +16,43 @@ function generateIssueId(ruleName: string, elementSelector: string, url: string)
   return crypto.createHash('sha256').update(content).digest('hex').substring(0, 16)
 }
 
-async function resolveUserForApiKey(organizationId: string): Promise<{ userId: string } | { error: string }> {
-  // Pick an active member in the org. We rely on your existing org->members schema.
+async function resolveUserForApiKey(organizationId: string, requestedUserId?: string): Promise<{ userId: string } | { error: string }> {
+  if (requestedUserId) {
+    const match = await queryOne(
+      `SELECT 1
+       FROM organization_members
+       WHERE organization_id = $1 AND user_id = $2 AND is_active = true
+       LIMIT 1`,
+      [organizationId, requestedUserId]
+    )
+    if (!match) return { error: 'Requested userId is not an active member of this organization' }
+    return { userId: requestedUserId }
+  }
+
+  // If the caller didn’t provide a userId, only auto-resolve when the org has exactly 1 active member.
   const row = await queryOne(
+    `SELECT COUNT(*)::int as active_count
+     FROM organization_members
+     WHERE organization_id = $1 AND is_active = true`,
+    [organizationId]
+  )
+  const activeCount = row?.active_count ?? 0
+  if (activeCount === 0) return { error: 'No active user found for this organization' }
+  if (activeCount > 1) {
+    return {
+      error: 'Multiple active users exist for this API key organization; pass userId in request body to target the correct backlog'
+    }
+  }
+
+  const resolved = await queryOne(
     `SELECT om.user_id
      FROM organization_members om
      WHERE om.organization_id = $1 AND om.is_active = true
-     ORDER BY om.joined_at DESC
      LIMIT 1`,
     [organizationId]
   )
-  if (!row?.user_id) return { error: 'No active user found for this organization' }
-  return { userId: row.user_id }
+  if (!resolved?.user_id) return { error: 'Failed to resolve user for this API key' }
+  return { userId: resolved.user_id }
 }
 
 export async function POST(request: NextRequest) {
@@ -67,7 +92,7 @@ export async function POST(request: NextRequest) {
       return jsonError('Invalid JSON body', undefined, 400)
     }
 
-    const { issues, results: requestResults, scanResults, failOn } = body ?? {}
+    const { issues, results: requestResults, scanResults, failOn, userId: requestedUserId } = body ?? {}
     const rawIssues = Array.isArray(issues)
       ? issues
       : Array.isArray(scanResults)
@@ -80,7 +105,7 @@ export async function POST(request: NextRequest) {
       return jsonError('Missing issues array. Pass "issues" or "results[]".', 'MISSING_ISSUES', 400)
     }
 
-    const userResolved = await resolveUserForApiKey(keyRecord.organization_id)
+    const userResolved = await resolveUserForApiKey(keyRecord.organization_id, requestedUserId)
     if ('error' in userResolved) return jsonError(userResolved.error, undefined, 403)
     const userId = userResolved.userId
 
