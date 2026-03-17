@@ -74,7 +74,7 @@ steps:
       for r in d.get('results', []) or []:
           issues.extend(r.get('issues', []) or [])
       with open('backlog-issues.json','w') as f:
-          json.dump(issues, f)
+          json.dump({ 'issues': issues }, f)
       print(f'Extracted {len(issues)} issues for backlog add')
       "
       RESP=$(curl -s -w "\n%{http_code}" -X POST https://a11ytest.ai/api/ci/backlog-add \
