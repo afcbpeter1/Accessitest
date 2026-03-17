@@ -134,7 +134,7 @@ export default function Pricing() {
         headers: {
           'Content-Type': 'application/json',
           // Include auth token if available
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          credentials: 'include',
         },
         body: JSON.stringify({
           priceId,
@@ -224,7 +224,7 @@ export default function Pricing() {
         headers: {
           'Content-Type': 'application/json',
           // Include auth token if available
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          credentials: 'include',
         },
         body: JSON.stringify({
           priceId,

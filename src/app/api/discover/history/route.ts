@@ -33,14 +33,18 @@ export async function GET(request: NextRequest) {
     const discoveries = scanHistory.rows.map(row => {
       let pageCount = row.pages_scanned || 0
       let discoveredPages: any[] = []
+      let source: 'app' | 'extension' = 'app'
 
-      // Try to extract page count and discovered pages from scan_settings
+      // Try to extract page count, discovered pages, and source from scan_settings
       if (row.scan_settings) {
         try {
-          const settings = typeof row.scan_settings === 'string' 
-            ? JSON.parse(row.scan_settings) 
+          const settings = typeof row.scan_settings === 'string'
+            ? JSON.parse(row.scan_settings)
             : row.scan_settings
-          
+
+          if (settings.source === 'extension') {
+            source = 'extension'
+          }
           if (settings.discoveredPages && Array.isArray(settings.discoveredPages)) {
             discoveredPages = settings.discoveredPages
             pageCount = discoveredPages.length
@@ -58,6 +62,7 @@ export async function GET(request: NextRequest) {
         title: row.scan_title || `Scan: ${row.url}`,
         pageCount,
         discoveredPages,
+        source,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       }

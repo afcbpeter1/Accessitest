@@ -73,7 +73,7 @@ A11ytest.ai is an accessibility testing platform that helps developers and busin
    | `STRIPE_PER_USER_PRICE_ID_YEARLY` | Stripe price ID for yearly plan |
    | `RESEND_API_KEY` | Resend API key (verification, password reset, receipts) |
 
-   Optional: `RAPIDAPI_PROXY_SECRET` (for RapidAPI proxy to CI Scan API), `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` (see Deployment).
+   Optional: `RAPIDAPI_PROXY_SECRET` (for RapidAPI proxy to CI Scan API), `INTEGRATION_ENCRYPTION_KEY` or `JIRA_ENCRYPTION_KEY` (required in production for Jira/Azure DevOps; see Deployment), `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` (see Deployment).
 
 4. **Run the dev server**
    ```bash
@@ -94,6 +94,12 @@ A11ytest.ai is an accessibility testing platform that helps developers and busin
   Do a full redeploy after setting it; users may need to refresh to clear cached client code.
 
 - **JWT_SECRET** – Must be set in production (app will throw on startup if missing).
+
+- **INTEGRATION_ENCRYPTION_KEY** (or **JIRA_ENCRYPTION_KEY**) – Required for Jira and Azure DevOps integrations. One key encrypts/decrypts both Jira API tokens and Azure DevOps PATs in the database. Generate once and **never change it** (or existing stored tokens will fail to decrypt). Generate with:
+  ```bash
+  openssl rand -hex 32
+  ```
+  Set in your host's environment. If you must rotate it, users will need to re-enter their Jira and Azure DevOps credentials in Settings.
 
 - **PDF auto-fix (optional)** – For server-side PDF fixes (alt text, table summaries, etc.), install PyMuPDF in the same environment as the Node app (e.g. in a custom Dockerfile): `pip install pymupdf`. Scans and AI suggestions work without it.
 

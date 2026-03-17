@@ -921,70 +921,59 @@ ${item.element_html || 'N/A'}
                                         <Trash2 className="h-4 w-4" />
                                       </button>
                                       
-                                      {/* Integration Menu (Jira/Azure DevOps) */}
-                                      <div className="relative">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setShowIntegrationMenu(showIntegrationMenu === item.id ? null : item.id)
-                                            setShowSprintDropdown(null) // Close sprint dropdown if open
-                                          }}
-                                          className="p-2 sm:p-1 text-gray-400 hover:text-blue-600 rounded min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center disabled:opacity-50"
-                                          title="Add to Integration"
-                                          disabled={syncingToJira === item.id || syncingToAzureDevOps === item.id}
-                                          aria-label="Add to Jira or Azure DevOps"
-                                        >
-                                          {(syncingToJira === item.id || syncingToAzureDevOps === item.id) ? (
-                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                                          ) : (
-                                            <MoreHorizontal className="h-4 w-4" />
-                                          )}
-                                        </button>
-                                        
-                                        {showIntegrationMenu === item.id && (
-                                          <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-48">
-                                            <div className="py-1">
-                                              {jiraIntegration ? (
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    handleAddToJira(item)
-                                                  }}
-                                                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                                                >
-                                                  <ExternalLink className="h-4 w-4" />
-                                                  <span>Add to Jira</span>
-                                                </button>
-                                              ) : (
-                                                <div className="px-3 py-2 text-xs text-gray-500">
-                                                  <span>Add to Jira</span>
-                                                  <p className="mt-1 text-gray-400">Ask your admin to connect Jira in Organisation settings.</p>
-                                                  <a href="/organization" className="text-blue-600 hover:underline mt-1 inline-block">Organization settings</a>
-                                                </div>
-                                              )}
-                                              {azureDevOpsIntegration ? (
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    handleAddToAzureDevOps(item)
-                                                  }}
-                                                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100"
-                                                  disabled={syncingToAzureDevOps === item.id}
-                                                >
-                                                  <ExternalLink className="h-4 w-4" />
-                                                  <span>Add to Azure DevOps</span>
-                                                </button>
-                                              ) : (
-                                                <div className="px-3 py-2 text-xs text-gray-500 border-t border-gray-100">
-                                                  <span>Add to Azure DevOps</span>
-                                                  <p className="mt-1 text-gray-400">Ask your admin to connect Azure DevOps in Organisation settings.</p>
-                                                  <a href="/organization" className="text-blue-600 hover:underline mt-1 inline-block">Organization settings</a>
-                                                </div>
-                                              )}
+                                      {/* Integration Menu (Jira / Azure DevOps) – only show when at least one is connected; show only connected option(s) */}
+                                      {(jiraIntegration || azureDevOpsIntegration) && (
+                                        <div className="relative">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setShowIntegrationMenu(showIntegrationMenu === item.id ? null : item.id)
+                                              setShowSprintDropdown(null) // Close sprint dropdown if open
+                                            }}
+                                            className="p-2 sm:p-1 text-gray-400 hover:text-blue-600 rounded min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center disabled:opacity-50"
+                                            title="Add to Integration"
+                                            disabled={syncingToJira === item.id || syncingToAzureDevOps === item.id}
+                                            aria-label={jiraIntegration && azureDevOpsIntegration ? 'Add to Jira or Azure DevOps' : jiraIntegration ? 'Add to Jira' : 'Add to Azure DevOps'}
+                                          >
+                                            {(syncingToJira === item.id || syncingToAzureDevOps === item.id) ? (
+                                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                            ) : (
+                                              <MoreHorizontal className="h-4 w-4" />
+                                            )}
+                                          </button>
+                                          {showIntegrationMenu === item.id && (
+                                            <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-48">
+                                              <div className="py-1">
+                                                {jiraIntegration && (
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation()
+                                                      handleAddToJira(item)
+                                                    }}
+                                                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                                  >
+                                                    <ExternalLink className="h-4 w-4" />
+                                                    <span>Add to Jira</span>
+                                                  </button>
+                                                )}
+                                                {azureDevOpsIntegration && (
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation()
+                                                      handleAddToAzureDevOps(item)
+                                                    }}
+                                                    className={`w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 ${jiraIntegration ? 'border-t border-gray-100' : ''}`}
+                                                    disabled={syncingToAzureDevOps === item.id}
+                                                  >
+                                                    <ExternalLink className="h-4 w-4" />
+                                                    <span>Add to Azure DevOps</span>
+                                                  </button>
+                                                )}
+                                              </div>
                                             </div>
-                                          </div>
-                                        )}
-                                      </div>
+                                          )}
+                                        </div>
+                                      )}
 
                                       {/* Sprint Assignment Dropdown */}
                                       {sprints.length > 0 && (

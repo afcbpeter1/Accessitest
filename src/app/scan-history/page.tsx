@@ -40,6 +40,7 @@ interface ScanHistoryItem {
   overallScore?: number
   is508Compliant?: boolean
   scanDurationSeconds?: number
+  source?: 'app' | 'extension'
   createdAt: string
   updatedAt: string
 }
@@ -461,6 +462,11 @@ function ScanHistoryContent() {
                           <span className="text-sm font-medium text-gray-500 uppercase flex-shrink-0">
                             {scan.scanType === 'web' ? 'Web Scan' : 'Document Scan'}
                           </span>
+                          {scan.source === 'extension' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200 flex-shrink-0">
+                              Extension
+                            </span>
+                          )}
                           <span className="text-gray-300 hidden sm:inline flex-shrink-0">•</span>
                           <span
                             className="text-sm text-gray-900 font-medium truncate block min-w-0"

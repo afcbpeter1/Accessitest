@@ -155,7 +155,7 @@ export async function POST(request: NextRequest) {
       `SELECT 
         i.id, i.issue_key, i.rule_id, i.rule_name, i.description, i.impact, i.wcag_level,
         i.priority, i.total_occurrences, i.affected_pages, i.help_url, i.help_text, i.notes,
-        sh.scan_results, sh.scan_type, sh.file_name, sh.url as scan_url
+        sh.scan_results, sh.remediation_report, sh.scan_type, sh.file_name, sh.url as scan_url
       FROM issues i
       LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
       WHERE i.id = $1`,
@@ -183,6 +183,49 @@ export async function POST(request: NextRequest) {
     let suggestions: any[] = []
     let screenshots: any = null
 
+    const normalizeRuleId = (v: unknown) =>
+      String(v ?? '')
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g, '-')
+
+    const buildContrastDetails = (node: any): string => {
+      const anyData = Array.isArray(node?.any) ? node.any : []
+      const allData = Array.isArray(node?.all) ? node.all : []
+      const candidates = [...anyData, ...allData]
+      for (const c of candidates) {
+        const d = c?.data
+        if (!d || typeof d !== 'object') continue
+        // axe color-contrast commonly provides: fgColor, bgColor, contrastRatio, expectedContrastRatio, fontSize, fontWeight
+        const contrastRatio = (d as any).contrastRatio
+        const expected = (d as any).expectedContrastRatio
+        const fg = (d as any).fgColor
+        const bg = (d as any).bgColor
+        const fontSize = (d as any).fontSize
+        const fontWeight = (d as any).fontWeight
+        if (contrastRatio || expected || fg || bg) {
+          const parts: string[] = []
+          if (contrastRatio !== undefined) parts.push(`Contrast ratio: ${contrastRatio}`)
+          if (expected !== undefined) parts.push(`Required: ${expected}`)
+          if (fg) parts.push(`Foreground: ${fg}`)
+          if (bg) parts.push(`Background: ${bg}`)
+          if (fontSize) parts.push(`Font size: ${fontSize}`)
+          if (fontWeight) parts.push(`Font weight: ${fontWeight}`)
+          return parts.length ? `\n\n${parts.join(' | ')}` : ''
+        }
+      }
+      return ''
+    }
+
+    const buildNodeFailureSummary = (node: any, scanIssue: any): string => {
+      const base = node?.failureSummary || scanIssue?.description || issue.description || ''
+      const ruleId = normalizeRuleId(scanIssue?.id || scanIssue?.ruleId || issue.rule_name || issue.rule_id)
+      if (ruleId.includes('color-contrast')) {
+        return `${base}${buildContrastDetails(node)}`
+      }
+      return base
+    }
+
     if (isDocumentScan) {
       // For document scans, AI recommendations are in the notes field
       if (issue.notes && issue.notes.trim().length > 0) {
@@ -206,23 +249,33 @@ export async function POST(request: NextRequest) {
         }))
       }
     } else {
-      // For web scans, extract from remediationReport
-      if (issue.scan_results?.remediationReport) {
-        remediationItem = issue.scan_results.remediationReport.find((r: any) => 
-          r.ruleName === issue.rule_name || 
+      // For web scans, extract from remediationReport (in scan_results or separate remediation_report column)
+      let scanResults = issue.scan_results
+      if (typeof scanResults === 'string') {
+        try { scanResults = JSON.parse(scanResults) } catch { scanResults = null }
+      }
+      let remediationReportRaw = scanResults?.remediationReport ?? issue.remediation_report ?? null
+      if (typeof remediationReportRaw === 'string') {
+        try { remediationReportRaw = JSON.parse(remediationReportRaw) } catch { remediationReportRaw = null }
+      }
+      const remediationReport = Array.isArray(remediationReportRaw) ? remediationReportRaw : null
+      if (remediationReport && remediationReport.length > 0) {
+        remediationItem = remediationReport.find((r: any) =>
+          r.ruleName === issue.rule_name ||
           r.ruleName === issue.rule_id ||
-          r.issueId === issue.id
+          r.issueId === issue.rule_name ||
+          r.issueId === issue.rule_id
         )
 
         if (!remediationItem && issue.description) {
-          remediationItem = issue.scan_results.remediationReport.find((r: any) => 
+          remediationItem = remediationReport.find((r: any) =>
             r.description && r.description.toLowerCase().trim() === issue.description.toLowerCase().trim()
           )
         }
 
         if (!remediationItem && issue.description) {
           const descWords = issue.description.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3)
-          remediationItem = issue.scan_results.remediationReport.find((r: any) => 
+          remediationItem = remediationReport.find((r: any) =>
             r.description && descWords.some((word: string) => r.description.toLowerCase().includes(word))
           )
         }
@@ -230,68 +283,80 @@ export async function POST(request: NextRequest) {
         if (remediationItem) {
           offendingElements = remediationItem.offendingElements || []
           suggestions = remediationItem.suggestions || []
-        } else {
-          // Fallback: Extract from scan_results.results
-          if (issue.scan_results?.results) {
-            for (const result of issue.scan_results.results) {
-              if (result.issues) {
-                for (const scanIssue of result.issues) {
-                  const ruleMatches = scanIssue.id === issue.rule_name || 
-                                     scanIssue.id === issue.rule_id ||
-                                     scanIssue.ruleId === issue.rule_name ||
-                                     scanIssue.ruleId === issue.rule_id
-                  const descMatches = scanIssue.description && issue.description &&
-                                     (scanIssue.description.toLowerCase().trim() === issue.description.toLowerCase().trim() ||
-                                      scanIssue.description.toLowerCase().includes(issue.description.toLowerCase().substring(0, 20)) ||
-                                      issue.description.toLowerCase().includes(scanIssue.description.toLowerCase().substring(0, 20)))
-                  
-                  if (ruleMatches || descMatches) {
-                    if (scanIssue.nodes && scanIssue.nodes.length > 0) {
-                      offendingElements = scanIssue.nodes.map((node: any) => ({
-                        html: node.html || `<${node.target?.[0] || 'element'}>`,
-                        target: node.target || [],
-                        failureSummary: node.failureSummary || scanIssue.description || issue.description,
-                        impact: scanIssue.impact || issue.impact || 'moderate',
-                        url: result.url || issue.scan_url || issue.affected_pages?.[0] || '',
-                        screenshot: node.screenshot,
-                        boundingBox: node.boundingBox
-                      }))
-                    }
-                    
-                    if (scanIssue.suggestions && scanIssue.suggestions.length > 0) {
-                      suggestions = scanIssue.suggestions.map((s: any) => ({
-                        type: 'fix',
-                        description: s.description || s.text || s.whatWillBeFixed || '',
-                        codeExample: s.codeExample || s.code || '',
-                        priority: s.priority || 'medium'
-                      }))
-                    }
-                    
-                    if (offendingElements.length > 0 || suggestions.length > 0) {
-                      break
-                    }
+        }
+      }
+
+      // Always fallback to raw scan results when we don't have offending elements yet.
+      // Many issues (e.g. landmark-unique) won't be present in remediationReport because remediationReport
+      // is typically built only for issues with AI suggestions.
+      if (offendingElements.length === 0) {
+        if (scanResults?.results) {
+          for (const result of scanResults.results) {
+            if (result.issues) {
+              for (const scanIssue of result.issues) {
+                const scanRule = normalizeRuleId(scanIssue.id || scanIssue.ruleId)
+                const issueRuleName = normalizeRuleId(issue.rule_name)
+                const issueRuleId = normalizeRuleId(issue.rule_id)
+                // Match so we get nodes for all axe rules: exact id, or stored rule contains axe id (e.g. "wcag2aa-region" vs "region"), or vice versa
+                const ruleMatches =
+                  !scanRule ? false
+                  : (scanRule === issueRuleName || scanRule === issueRuleId)
+                  || (issueRuleName && issueRuleName.includes(scanRule))
+                  || (issueRuleId && issueRuleId.includes(scanRule))
+                  || (issueRuleName && scanRule.includes(issueRuleName))
+                  || (issueRuleId && scanRule.includes(issueRuleId))
+                  || (scanRule.includes('contrast') && (issueRuleName?.includes('contrast') || issueRuleId?.includes('contrast')))
+                const descMatches = scanIssue.description && issue.description &&
+                                   (scanIssue.description.toLowerCase().trim() === issue.description.toLowerCase().trim() ||
+                                    scanIssue.description.toLowerCase().includes(issue.description.toLowerCase().substring(0, 20)) ||
+                                    issue.description.toLowerCase().includes(scanIssue.description.toLowerCase().substring(0, 20)))
+
+                if (ruleMatches || descMatches) {
+                  if (scanIssue.nodes && scanIssue.nodes.length > 0) {
+                    offendingElements = scanIssue.nodes.map((node: any) => ({
+                      html: node.html || `<${node.target?.[0] || 'element'}>`,
+                      target: node.target || [],
+                      failureSummary: buildNodeFailureSummary(node, scanIssue),
+                      impact: scanIssue.impact || issue.impact || 'moderate',
+                      url: result.url || issue.scan_url || issue.affected_pages?.[0] || '',
+                      screenshot: node.screenshot,
+                      boundingBox: node.boundingBox
+                    }))
+                  }
+
+                  if (suggestions.length === 0 && scanIssue.suggestions && scanIssue.suggestions.length > 0) {
+                    suggestions = scanIssue.suggestions.map((s: any) => ({
+                      type: 'fix',
+                      description: s.description || s.text || s.whatWillBeFixed || '',
+                      codeExample: s.codeExample || s.code || '',
+                      priority: s.priority || 'medium'
+                    }))
+                  }
+
+                  if (offendingElements.length > 0 || suggestions.length > 0) {
+                    break
                   }
                 }
               }
             }
           }
-          
-          // Last resort: create basic offending element from notes
-          if (offendingElements.length === 0 && issue.notes) {
-            offendingElements = [{
-              html: issue.notes.split(':')[1]?.trim() || issue.description || '',
-              target: [issue.rule_name || ''],
-              failureSummary: issue.notes,
-              impact: issue.impact || 'moderate',
-              url: issue.affected_pages?.[0] || issue.scan_url || ''
-            }]
-          }
         }
       }
 
+      // Last resort: create basic offending element from notes
+      if (offendingElements.length === 0 && issue.notes) {
+        offendingElements = [{
+          html: issue.notes.split(':')[1]?.trim() || issue.description || '',
+          target: [issue.rule_name || ''],
+          failureSummary: issue.notes,
+          impact: issue.impact || 'moderate',
+          url: issue.affected_pages?.[0] || issue.scan_url || ''
+        }]
+      }
+
       // Get screenshots from scan results (web scans only)
-      if (issue.scan_results?.results?.[0]?.screenshots) {
-        screenshots = issue.scan_results.results[0].screenshots
+      if (scanResults?.results?.[0]?.screenshots) {
+        screenshots = scanResults.results[0].screenshots
       }
     }
 

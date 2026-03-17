@@ -146,39 +146,49 @@ export class ScanHistoryService {
       )
       const total = parseInt(countResult.total || '0')
 
-      // Get paginated results
+      // Get paginated results (include scan_settings to derive source: app vs extension)
       const results = await query(
         `SELECT 
           id, scan_type, scan_title, url, file_name, file_type,
           total_issues, critical_issues, serious_issues, moderate_issues, minor_issues,
           pages_scanned, pages_analyzed, overall_score, is_508_compliant, scan_duration_seconds,
-          created_at, updated_at
+          scan_settings, created_at, updated_at
         FROM scan_history 
         WHERE user_id = $1 
         ORDER BY created_at DESC 
         LIMIT $2 OFFSET $3`,
         [userId, limit, offset]
       )
-      const scans = results.rows.map(row => ({
-        id: row.id,
-        scanType: row.scan_type,
-        scanTitle: row.scan_title,
-        url: row.url,
-        fileName: row.file_name,
-        fileType: row.file_type,
-        totalIssues: row.total_issues,
-        criticalIssues: row.critical_issues,
-        seriousIssues: row.serious_issues,
-        moderateIssues: row.moderate_issues,
-        minorIssues: row.minor_issues,
-        pagesScanned: row.pages_scanned,
-        pagesAnalyzed: row.pages_analyzed,
-        overallScore: row.overall_score,
-        is508Compliant: row.is_508_compliant,
-        scanDurationSeconds: row.scan_duration_seconds,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at
-      }))
+      const scans = results.rows.map(row => {
+        let source: 'app' | 'extension' = 'app'
+        if (row.scan_settings) {
+          try {
+            const settings = typeof row.scan_settings === 'string' ? JSON.parse(row.scan_settings) : row.scan_settings
+            if (settings?.source === 'extension') source = 'extension'
+          } catch (_) {}
+        }
+        return {
+          id: row.id,
+          scanType: row.scan_type,
+          scanTitle: row.scan_title,
+          url: row.url,
+          fileName: row.file_name,
+          fileType: row.file_type,
+          totalIssues: row.total_issues,
+          criticalIssues: row.critical_issues,
+          seriousIssues: row.serious_issues,
+          moderateIssues: row.moderate_issues,
+          minorIssues: row.minor_issues,
+          pagesScanned: row.pages_scanned,
+          pagesAnalyzed: row.pages_analyzed,
+          overallScore: row.overall_score,
+          is508Compliant: row.is_508_compliant,
+          scanDurationSeconds: row.scan_duration_seconds,
+          source,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at
+        }
+      })
 
       return { scans, total }
     } catch (error) {

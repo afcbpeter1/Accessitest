@@ -52,7 +52,10 @@ function NewScanContent() {
   const [url, setUrl] = useState('')
   const [includeSubdomains, setIncludeSubdomains] = useState(true)
   const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('AA')
-  const [selectedTags, setSelectedTags] = useState<string[]>(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa']) // Comprehensive WCAG compliance
+  const [selectedTags, setSelectedTags] = useState<string[]>([
+    'wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa',
+    'best-practice', 'section508', 'EN-301-549'
+  ]) // WCAG + Best Practices, Section 508, EN 301 549 — all run by default with axe-core
   const [isScanning, setIsScanning] = useState(false)
   const { addScan, updateScan, removeScan, getActiveScan, activeScans } = useScan()
   const [activeScanId, setActiveScanId] = useState<string | null>(null)
@@ -74,6 +77,9 @@ function NewScanContent() {
   const [discoveryId, setDiscoveryId] = useState<string | null>(null)
   const [discoveryAbortController, setDiscoveryAbortController] = useState<AbortController | null>(null)
   const hasAutoStartedRef = useRef(false)
+
+  // Always-on tags (not user-configurable)
+  const ALWAYS_ON_TAGS = ['best-practice', 'section508', 'EN-301-549'] as const
   
   // Modal management
   const { modalState, showAlert, showConfirm, closeModal, handleConfirm } = useModal()
@@ -340,24 +346,15 @@ function NewScanContent() {
   useEffect(() => {
     if (wcagLevel === 'A') {
       // WCAG Level A only
-      setSelectedTags(['wcag2a'])
+      setSelectedTags(['wcag2a', ...ALWAYS_ON_TAGS])
     } else if (wcagLevel === 'AA') {
       // WCAG Level AA includes A + AA (must include both explicitly)
-      setSelectedTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
+      setSelectedTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', ...ALWAYS_ON_TAGS])
     } else if (wcagLevel === 'AAA') {
       // WCAG Level AAA includes A + AA + AAA (must include all explicitly)
-      setSelectedTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'wcag2aaa', 'wcag21aaa', 'wcag22aaa'])
+      setSelectedTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'wcag2aaa', 'wcag21aaa', 'wcag22aaa', ...ALWAYS_ON_TAGS])
     }
   }, [wcagLevel])
-
-  // Update selectedTags when checkboxes change
-  const updateSelectedTags = (tag: string, checked: boolean) => {
-    if (checked) {
-      setSelectedTags(prev => [...prev, tag])
-    } else {
-      setSelectedTags(prev => prev.filter(t => t !== tag))
-    }
-  }
 
   const checkForActiveScans = async () => {
     try {
@@ -1402,7 +1399,7 @@ function NewScanContent() {
                          checked={wcagLevel === 'AAA'}
                          onChange={(e) => {
                            setWcagLevel(e.target.value as 'A' | 'AA' | 'AAA')
-                           setSelectedTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'wcag2aaa', 'wcag21aaa', 'wcag22aaa'])
+                          setSelectedTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'wcag2aaa', 'wcag21aaa', 'wcag22aaa', ...ALWAYS_ON_TAGS])
                          }}
                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
                          disabled={discoveredPages.length === 0}
@@ -1550,44 +1547,6 @@ function NewScanContent() {
                       </div>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center">
-                      <input
-                           id="best-practice"
-                        type="checkbox"
-                           checked={selectedTags.includes('best-practice')}
-                           onChange={(e) => updateSelectedTags('best-practice', e.target.checked)}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                         <label htmlFor="best-practice" className="ml-2 block text-sm text-gray-700">
-                           Best Practices
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                           id="section508"
-                        type="checkbox"
-                           checked={selectedTags.includes('section508')}
-                           onChange={(e) => updateSelectedTags('section508', e.target.checked)}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                         <label htmlFor="section508" className="ml-2 block text-sm text-gray-700">
-                           Section 508 (US Federal)
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                           id="en-301-549"
-                        type="checkbox"
-                           checked={selectedTags.includes('EN-301-549')}
-                           onChange={(e) => updateSelectedTags('EN-301-549', e.target.checked)}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                      />
-                         <label htmlFor="en-301-549" className="ml-2 block text-sm text-gray-700">
-                           EN 301 549 (EU Standard)
-                      </label>
-                    </div>
-                     </div>
                       </div>
                     )}
 
@@ -1771,32 +1730,60 @@ function NewScanContent() {
                 </div>
               ) : previousScans.length > 0 ? (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {previousScans.map((scan) => (
-                    <button
-                      key={scan.id}
-                      type="button"
-                      onClick={() => loadScanFromHistory(scan)}
-                      className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate" title={scan.url}>
-                            {scan.url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || 'Unknown URL'}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-gray-500">
-                              {scan.pageCount || 0} pages
-                            </span>
-                            <span className="text-xs text-gray-400">•</span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(scan.createdAt).toLocaleDateString()}
-                            </span>
+                  {previousScans.map((scan) =>
+                    scan.source === 'extension' ? (
+                      <div
+                        key={scan.id}
+                        className="w-full text-left p-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 cursor-default"
+                        title="Extension scan — open the extension to scan again"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate" title={scan.url}>
+                              {scan.url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || 'Unknown URL'}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span className="text-xs text-gray-500">
+                                {scan.pageCount || 0} pages
+                              </span>
+                              <span className="text-xs text-gray-400">•</span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(scan.createdAt).toLocaleDateString()}
+                              </span>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                                Extension
+                              </span>
+                            </div>
                           </div>
                         </div>
-                        <Repeat className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
                       </div>
-                    </button>
-                  ))}
+                    ) : (
+                      <button
+                        key={scan.id}
+                        type="button"
+                        onClick={() => loadScanFromHistory(scan)}
+                        className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate" title={scan.url}>
+                              {scan.url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || 'Unknown URL'}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span className="text-xs text-gray-500">
+                                {scan.pageCount || 0} pages
+                              </span>
+                              <span className="text-xs text-gray-400">•</span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(scan.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          <Repeat className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
+                        </div>
+                      </button>
+                    )
+                  )}
                 </div>
               ) : (
                 <p className="text-sm text-gray-500 text-center py-4">

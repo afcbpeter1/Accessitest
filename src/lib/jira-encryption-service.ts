@@ -8,19 +8,21 @@ const TAG_LENGTH = 16
 const KEY_LENGTH = 32 // 256 bits
 
 /**
- * Get encryption key from environment variable
- * Falls back to a default key if not set (for development only)
- * In production, this should always be set via environment variable
+ * Get encryption key from environment variable.
+ * Used for both Jira API tokens and Azure DevOps PATs (shared integration secrets).
+ * Supports INTEGRATION_ENCRYPTION_KEY or legacy JIRA_ENCRYPTION_KEY.
  */
 function getEncryptionKey(): Buffer {
-  const key = process.env.JIRA_ENCRYPTION_KEY
-  
+  const key = process.env.INTEGRATION_ENCRYPTION_KEY ?? process.env.JIRA_ENCRYPTION_KEY
+
   if (!key) {
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('JIRA_ENCRYPTION_KEY environment variable is required in production')
+      throw new Error(
+        'INTEGRATION_ENCRYPTION_KEY (or JIRA_ENCRYPTION_KEY) is required in production for Jira and Azure DevOps integrations'
+      )
     }
     // Development fallback - warn but allow
-    console.warn('⚠️  JIRA_ENCRYPTION_KEY not set, using default key (development only)')
+    console.warn('⚠️  INTEGRATION_ENCRYPTION_KEY / JIRA_ENCRYPTION_KEY not set, using default key (development only)')
     // Use a default key for development (32 bytes)
     return crypto.scryptSync('default-dev-key-change-in-production', 'salt', KEY_LENGTH)
   }
@@ -129,7 +131,12 @@ export function decryptTokenFromStorage(storedToken: string): string {
     const encryptedData = JSON.parse(storedToken)
     return decryptToken(encryptedData)
   } catch (error) {
-    throw new Error(`Failed to decrypt token: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    const msg = error instanceof Error ? error.message : 'Unknown error'
+    const hint =
+      /unable to authenticate data|Unsupported state/i.test(msg)
+        ? ' This usually means INTEGRATION_ENCRYPTION_KEY (or JIRA_ENCRYPTION_KEY) was changed or differs from the key used when the token was stored. Set a persistent key in production and do not change it; users may need to re-enter Jira/Azure DevOps credentials.'
+        : ''
+    throw new Error(`Failed to decrypt token: ${msg}${hint}`)
   }
 }
 

@@ -818,7 +818,7 @@ export class ScanService {
         url: 'https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.10.3/axe.min.js'
       });
 
-      const tagsToUse = selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508'];
+      const tagsToUse = selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508', 'EN-301-549'];
       const result = await this.scanner.scanPageInBrowser(page, tagsToUse, options);
       return result;
     } finally {

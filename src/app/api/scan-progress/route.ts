@@ -434,7 +434,7 @@ export async function POST(request: NextRequest) {
                 deepCrawl: false,
                 maxPages: 1,
                 scanType: 'full',
-                selectedTags: selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508'] // Comprehensive WCAG compliance
+                selectedTags: selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508', 'EN-301-549']
               }
               
               try {
@@ -445,8 +445,8 @@ export async function POST(request: NextRequest) {
                 await scanService.initializeBrowser()
                 
                 // Scan the specific page directly
-                console.log(`🧪 Scanning page with tags: ${selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508']}`)
-                const pageResult = await scanService.scanPage(pageUrl, selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508'], { skipAiSuggestions: true })
+                console.log(`🧪 Scanning page with tags: ${selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508', 'EN-301-549']}`)
+                const pageResult = await scanService.scanPage(pageUrl, selectedTags || ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa', 'best-practice', 'section508', 'EN-301-549'], { skipAiSuggestions: true })
                 
                 console.log(`✅ Scan completed for ${pageUrl}:`, {
                   issues: pageResult.issues?.length || 0,

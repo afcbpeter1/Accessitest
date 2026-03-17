@@ -28,12 +28,17 @@ export default function ExtensionScanPage() {
   const [scanResult, setScanResult] = useState<{ url: string; issues: any[]; summary: any; backlogAdded?: number } | null>(null)
   const [scanError, setScanError] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [authState, setAuthState] = useState<'checking' | 'authed' | 'redirecting'>('checking')
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+    // Avoid reading localStorage during initial render (prevents hydration mismatch).
+    const token = localStorage.getItem('accessToken')
     if (!token) {
+      setAuthState('redirecting')
       window.location.href = '/login?redirect=' + encodeURIComponent('/extension-scan')
+      return
     }
+    setAuthState('authed')
   }, [])
 
   useEffect(() => {
@@ -82,11 +87,10 @@ export default function ExtensionScanPage() {
     }
   }
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
-  if (!token) {
+  if (authState !== 'authed') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <p className="text-gray-600">Redirecting to login…</p>
+        <p className="text-gray-600">{authState === 'redirecting' ? 'Redirecting to login…' : 'Loading…'}</p>
       </div>
     )
   }

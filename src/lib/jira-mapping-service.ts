@@ -387,7 +387,7 @@ function buildDescription(issue: LocalIssue): any {
       type: 'paragraph',
       content: [{
         type: 'text',
-        text: 'Created from Accessibility Scan',
+        text: 'Created from A11ytest.ai Scan',
         marks: [{ type: 'em' }]
       }]
     })
