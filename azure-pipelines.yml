@@ -80,7 +80,7 @@ steps:
               issue['url'] = page_url
               issues.append(issue)
       with open('backlog-issues.json','w') as f:
-          json.dump({ 'issues': issues }, f)
+          json.dump({ 'userId': '8a9b6d94-b39c-4384-98ce-d889ce118363', 'issues': issues }, f)
       print(f'Extracted {len(issues)} issues for backlog add')
       "
       RESP=$(curl -s -w "\n%{http_code}" -X POST https://a11ytest.ai/api/ci/backlog-add \
