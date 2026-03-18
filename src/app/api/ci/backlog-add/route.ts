@@ -90,7 +90,9 @@ export async function POST(request: NextRequest) {
       return jsonError('Invalid JSON body', undefined, 400)
     }
 
-    const { issues, results: requestResults, scanResults, failOn, userId: requestedUserId } = body ?? {}
+    // Prefer body userId, then the API key's linked user, so items go to the key owner when key has user_id set
+    const { issues, results: requestResults, scanResults, failOn, userId: bodyUserId } = body ?? {}
+    const requestedUserId = bodyUserId ?? keyRecord.user_id ?? undefined
     const rawIssues = Array.isArray(issues)
       ? issues
       : Array.isArray(scanResults)
@@ -192,32 +194,52 @@ export async function POST(request: NextRequest) {
         const finalImpact = String(impact).slice(0, 10)
         const finalWcag = String(wcagLevel).slice(0, 10)
 
-        // Map CI fields to product_backlog columns
-        await query(
-          `INSERT INTO product_backlog (
-            user_id, issue_id, rule_name, description, impact, wcag_level,
-            help_text, help_url, suggestions,
-            element_selector, element_html, failure_summary, url, domain,
-            priority_rank, status, last_scan_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15, 'backlog', NOW())`,
-          [
-            userId,
-            issueId,
-            String(ruleName).slice(0, 255),
-            String(issue?.description ?? issue?.help ?? '').slice(0, 5000),
-            finalImpact,
-            finalWcag,
-            helpText ? String(helpText).slice(0, 5000) : null,
-            helpUrl ? String(helpUrl).slice(0, 2000) : null,
-            suggestions ? JSON.stringify(suggestions).slice(0, 200000) : null,
-            String(elementSelector || '').slice(0, 2000),
-            elementHtml ? String(elementHtml).slice(0, 10000) : null,
-            String(failureSummary).slice(0, 5000),
-            url,
-            domain,
-            nextRank
-          ]
-        )
+        const insertParams = [
+          userId,
+          issueId,
+          String(ruleName).slice(0, 255),
+          String(issue?.description ?? issue?.help ?? '').slice(0, 5000),
+          finalImpact,
+          finalWcag,
+          helpText ? String(helpText).slice(0, 5000) : null,
+          helpUrl ? String(helpUrl).slice(0, 2000) : null,
+          suggestions ? JSON.stringify(suggestions).slice(0, 200000) : null,
+          String(elementSelector || '').slice(0, 2000),
+          elementHtml ? String(elementHtml).slice(0, 10000) : null,
+          String(failureSummary).slice(0, 5000),
+          url,
+          domain,
+          nextRank
+        ]
+
+        try {
+          await query(
+            `INSERT INTO product_backlog (
+              user_id, issue_id, rule_name, description, impact, wcag_level,
+              help_text, help_url, suggestions,
+              element_selector, element_html, failure_summary, url, domain,
+              priority_rank, status, last_scan_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15, 'backlog', NOW())`,
+            insertParams
+          )
+        } catch (insertErr: any) {
+          const msg = insertErr?.message ?? ''
+          if (msg.includes('column') && (msg.includes('does not exist') || msg.includes('help_text') || msg.includes('help_url') || msg.includes('suggestions'))) {
+            await query(
+              `INSERT INTO product_backlog (
+                user_id, issue_id, rule_name, description, impact, wcag_level,
+                element_selector, element_html, failure_summary, url, domain,
+                priority_rank, status, last_scan_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'backlog', NOW())`,
+              [
+                insertParams[0], insertParams[1], insertParams[2], insertParams[3], insertParams[4], insertParams[5],
+                insertParams[9], insertParams[10], insertParams[11], insertParams[12], insertParams[13], insertParams[14]
+              ]
+            )
+          } else {
+            throw insertErr
+          }
+        }
 
         added.push({ issueId, ruleName, impact })
       }

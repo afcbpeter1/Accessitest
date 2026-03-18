@@ -89,32 +89,41 @@ export async function GET(request: NextRequest) {
           if (pagesToConvert[0] && typeof pagesToConvert[0] === 'object' && pagesToConvert[0].url) {
             discoveredPages = pagesToConvert
           } else {
-            // Convert URLs to discovered pages format
-            discoveredPages = pagesToConvert.map((pageUrl: string) => {
-            const path = new URL(pageUrl).pathname.toLowerCase()
-            let category: 'home' | 'content' | 'forms' | 'blog' | 'legal' | 'other' = 'other'
-            let priority: 'high' | 'medium' | 'low' = 'medium'
+            // Convert URLs to discovered pages format; skip invalid URLs (e.g. typos like "https://www travelbag.co.uk")
+            discoveredPages = pagesToConvert.filter((pageUrl: string) => {
+              if (!pageUrl || typeof pageUrl !== 'string') return false
+              const u = pageUrl.trim().replace(/\s+/g, '') // fix common typo: space in hostname
+              try {
+                new URL(u)
+                return true
+              } catch {
+                return false
+              }
+            }).map((pageUrl: string) => {
+              const normalized = pageUrl.trim().replace(/\s+/g, '')
+              const path = new URL(normalized).pathname.toLowerCase()
+              let category: 'home' | 'content' | 'forms' | 'blog' | 'legal' | 'other' = 'other'
+              let priority: 'high' | 'medium' | 'low' = 'medium'
 
-            // Categorize based on URL patterns
-            if (path === '/' || path === '/home' || path === '/index') {
-              category = 'home'
-              priority = 'high'
-            } else if (path.includes('/blog') || path.includes('/news') || path.includes('/article')) {
-              category = 'blog'
-              priority = 'medium'
-            } else if (path.includes('/contact') || path.includes('/form') || path.includes('/signup') || path.includes('/login')) {
-              category = 'forms'
-              priority = 'high'
-            } else if (path.includes('/privacy') || path.includes('/terms') || path.includes('/legal') || path.includes('/policy')) {
-              category = 'legal'
-              priority = 'low'
-            } else if (path.includes('/about') || path.includes('/services') || path.includes('/products') || path.includes('/help')) {
-              category = 'content'
-              priority = 'medium'
-            }
+              if (path === '/' || path === '/home' || path === '/index') {
+                category = 'home'
+                priority = 'high'
+              } else if (path.includes('/blog') || path.includes('/news') || path.includes('/article')) {
+                category = 'blog'
+                priority = 'medium'
+              } else if (path.includes('/contact') || path.includes('/form') || path.includes('/signup') || path.includes('/login')) {
+                category = 'forms'
+                priority = 'high'
+              } else if (path.includes('/privacy') || path.includes('/terms') || path.includes('/legal') || path.includes('/policy')) {
+                category = 'legal'
+                priority = 'low'
+              } else if (path.includes('/about') || path.includes('/services') || path.includes('/products') || path.includes('/help')) {
+                category = 'content'
+                priority = 'medium'
+              }
 
               return {
-                url: pageUrl,
+                url: normalized,
                 title: path === '/' ? 'Homepage' : path.split('/').pop()?.replace(/-/g, ' ') || 'Page',
                 category,
                 priority

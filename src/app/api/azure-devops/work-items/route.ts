@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     // Get issue details with scan results for full remediation data (LEFT JOIN so we still get the issue if scan is missing/deleted)
     const issue = await queryOne(
       `SELECT 
-        i.id, i.issue_key, i.rule_id, i.rule_name, i.description, i.impact, i.wcag_level,
+        i.id, i.issue_key, i.rule_id, i.rule_name, i.description, i.impact, i.wcag_level, i.standard_tags,
         i.priority, i.total_occurrences, i.affected_pages, i.help_url, i.help_text, i.notes,
         sh.scan_results, sh.remediation_report, sh.scan_type, sh.file_name, sh.url as scan_url
       FROM issues i

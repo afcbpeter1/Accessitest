@@ -6,7 +6,6 @@ import { createPortal } from 'react-dom'
 import { 
   LayoutDashboard, 
   Plus, 
-  FileText, 
   Settings,
   Bell,
   User,
@@ -60,13 +59,6 @@ interface UserData {
   organizationId?: string | null
 }
 
-interface PageTrackingData {
-  pages_scanned_this_month: number
-  monthly_page_limit: number
-  pages_remaining: number
-  is_unlimited: boolean
-}
-
 interface Notification {
   id: string
   title: string
@@ -94,7 +86,6 @@ export default function Sidebar({ children }: SidebarProps) {
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [pageTracking, setPageTracking] = useState<PageTrackingData | null>(null)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const firstMenuItemRef = useRef<HTMLAnchorElement>(null)
   const notificationButtonRef = useRef<HTMLButtonElement>(null)
@@ -107,7 +98,6 @@ export default function Sidebar({ children }: SidebarProps) {
       loadUserData()
       loadNotifications()
       loadOrganizations()
-      loadPageTracking()
     } else {
       setLoading(false)
     }
@@ -118,7 +108,6 @@ export default function Sidebar({ children }: SidebarProps) {
       if (currentToken) {
         loadUserData()
         loadNotifications()
-        loadPageTracking()
       }
     }
     
@@ -131,7 +120,6 @@ export default function Sidebar({ children }: SidebarProps) {
       setTimeout(() => {
         loadUserData()
         loadNotifications()
-        loadPageTracking()
       }, 1500)
     }
     
@@ -281,28 +269,6 @@ export default function Sidebar({ children }: SidebarProps) {
     }
   }
 
-  const loadPageTracking = async () => {
-    try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) return
-
-      const response = await fetch('/api/page-tracking', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success) {
-          setPageTracking(data)
-        }
-      }
-    } catch (error) {
-      console.error('Error loading page tracking:', error)
-    }
-  }
-
   const markNotificationsAsRead = async (notificationIds?: string[]) => {
     try {
       const token = localStorage.getItem('accessToken')
@@ -363,16 +329,6 @@ export default function Sidebar({ children }: SidebarProps) {
     }
   }
 
-  const getPlanDisplayName = (plan: string) => {
-    switch (plan) {
-      case 'free': return 'Pay as You Go'
-      case 'web_only': return 'Web Only'
-      case 'document_only': return 'Document Only'
-      case 'complete_access': return 'Unlimited Access'
-      default: return 'Pay as You Go'
-    }
-  }
-
   // Position notifications dropdown via portal so it isn't clipped by overflow-hidden ancestors
   useLayoutEffect(() => {
     if (!showNotifications || !notificationButtonRef.current) return
@@ -387,9 +343,6 @@ export default function Sidebar({ children }: SidebarProps) {
     if (!user) return null
     
     if (user.unlimitedCredits) {
-      // Show page tracking for unlimited subscription users
-      const showPageTracking = pageTracking && !pageTracking.is_unlimited && pageTracking.monthly_page_limit > 0
-      
       return (
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
           <div className="flex items-center gap-1 text-green-600 flex-shrink-0">
@@ -398,22 +351,6 @@ export default function Sidebar({ children }: SidebarProps) {
               <span className="text-xs text-gray-500 whitespace-nowrap">({user.creditsRemaining} saved)</span>
             )}
           </div>
-          {showPageTracking && (
-            <>
-              <div className="h-4 w-px bg-gray-300 flex-shrink-0 hidden sm:block" aria-hidden />
-              <div className="flex items-center gap-1 text-orange-600 flex-shrink-0">
-                <FileText className="h-4 w-4" />
-                <span className="text-sm font-medium">
-                  {pageTracking.pages_remaining}/{pageTracking.monthly_page_limit}
-                </span>
-                <span className="text-xs text-gray-500 whitespace-nowrap">pages</span>
-              </div>
-            </>
-          )}
-          <div className="h-4 w-px bg-gray-300 flex-shrink-0 hidden sm:block" aria-hidden />
-          <span className="text-sm text-gray-600 font-medium whitespace-nowrap truncate">
-            {getPlanDisplayName(user.plan)}
-          </span>
         </div>
       )
     }
@@ -424,10 +361,6 @@ export default function Sidebar({ children }: SidebarProps) {
           <CreditCard className="h-4 w-4" />
           <span className="text-sm font-medium">{user.creditsRemaining}</span>
         </div>
-        <div className="h-4 w-px bg-gray-300 flex-shrink-0 hidden sm:block" aria-hidden />
-        <span className="text-sm text-gray-600 font-medium whitespace-nowrap truncate">
-          {getPlanDisplayName(user.plan)}
-        </span>
       </div>
     )
   }

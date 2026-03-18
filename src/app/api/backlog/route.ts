@@ -101,6 +101,7 @@ export async function GET(request: NextRequest) {
         i.description,
         i.impact,
         i.wcag_level,
+        i.standard_tags,
         i.help_url,
         i.help_text,
         i.total_occurrences,

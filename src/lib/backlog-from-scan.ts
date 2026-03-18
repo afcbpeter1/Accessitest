@@ -1,5 +1,6 @@
 import { query, queryOne } from './database'
 import crypto from 'crypto'
+import { getStandardTagsFromAxeTags } from './standard-tags'
 
 /**
  * Generate a unique issue ID based on rule, element, and URL.
@@ -113,16 +114,17 @@ export async function autoCreateBacklogItemsWithHistoryId(
         const description = safeStr(issue.description, 5000)
         const impact = safeStr(issue.impact, 50)
         const wcagLevel = (issue.tags && Array.isArray(issue.tags) && issue.tags.find((tag: string) => tag.startsWith('wcag'))) || 'AA'
+        const standardTags = getStandardTagsFromAxeTags(issue.tags)
         const notes = safeStr(issue.nodes?.[0]?.failureSummary, 5000)
         const affectedPages = Array.isArray(result.url) ? result.url : [result.url].filter(Boolean)
 
         const newItem = await queryOne(
           `INSERT INTO issues (
-            issue_key, rule_id, rule_name, description, impact, wcag_level,
+            issue_key, rule_id, rule_name, description, impact, wcag_level, standard_tags,
             total_occurrences, affected_pages, notes,
             status, priority, rank, story_points, remaining_points,
             first_seen_scan_id, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
           RETURNING *`,
           [
             issueId,
@@ -131,6 +133,7 @@ export async function autoCreateBacklogItemsWithHistoryId(
             description,
             impact,
             safeStr(wcagLevel, 50),
+            standardTags.length > 0 ? standardTags : null,
             issue.nodes?.length || 1,
             affectedPages,
             notes,

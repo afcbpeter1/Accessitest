@@ -13,6 +13,7 @@ import {
   computeSuggestionSignature
 } from '@/lib/learned-suggestions-service'
 import { AccessibilityScanner } from '@/lib/accessibility-scanner'
+import { getStandardTagsFromAxeTags } from '@/lib/standard-tags'
 
 // Auto-create backlog items for unique issues (legacy function)
 async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId: string, scanType: string) {
@@ -107,30 +108,32 @@ async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId
           continue
         }
 
+        const standardTags = getStandardTagsFromAxeTags(issue.tags)
         // Insert new issue
         const newItem = await queryOne(`
           INSERT INTO issues (
-            rule_name, description, impact, wcag_level,
+            rule_name, description, impact, wcag_level, standard_tags,
             total_occurrences, affected_pages, notes,
             status, priority, rank, story_points, remaining_points,
             first_seen_scan_id, created_at, updated_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
           RETURNING *
         `, [
-          issue.id, 
-          issue.description, 
-          issue.impact, 
+          issue.id,
+          issue.description,
+          issue.impact,
           issue.tags?.find((tag: string) => tag.startsWith('wcag')) || 'AA',
-          issue.nodes?.length || 1, 
-          [result.url], 
-          issue.nodes?.[0]?.failureSummary || '', 
-          'backlog', 
-          'medium', 
-          nextRank, 
-          1, 
-          1, 
-          scanHistory.id, 
-          new Date().toISOString(), 
+          standardTags.length > 0 ? standardTags : null,
+          issue.nodes?.length || 1,
+          [result.url],
+          issue.nodes?.[0]?.failureSummary || '',
+          'backlog',
+          'medium',
+          nextRank,
+          1,
+          1,
+          scanHistory.id,
+          new Date().toISOString(),
           new Date().toISOString()
         ])
 
@@ -305,35 +308,7 @@ export async function POST(request: NextRequest) {
     
     // Check if user has unlimited credits
     if (creditData.unlimited_credits) {
-      // Unlimited user - check page limit before scanning
-      const { canScanPages, deductPages } = await import('@/lib/page-tracking-service')
-      
-      // Check if they can scan the requested number of pages
-      const pageCheck = await canScanPages(user.userId, pagesToScan.length)
-      if (!pageCheck.canScan) {
-        return new Response(JSON.stringify({ 
-          error: pageCheck.error || 'Monthly page limit reached', 
-          canScan: false,
-          pagesRemaining: pageCheck.pagesRemaining
-        }), {
-          status: 402,
-          headers: { 'Content-Type': 'application/json' }
-        })
-      }
-      
-      // Deduct pages upfront (will be refunded if scan fails, but easier to deduct upfront)
-      const pageDeductResult = await deductPages(user.userId, pagesToScan.length, `Web scan: ${url}`)
-      if (!pageDeductResult.success) {
-        return new Response(JSON.stringify({ 
-          error: pageDeductResult.error || 'Failed to deduct pages', 
-          canScan: false 
-        }), {
-          status: 402,
-          headers: { 'Content-Type': 'application/json' }
-        })
-      }
-      
-      // Unlimited user - deductCredits will log but not deduct
+      // Unlimited user - no page limit; deductCredits will log but not deduct
       await deductCredits(user.userId, 0, `Web scan: ${url}`)
     } else {
       // Check if user has enough credits

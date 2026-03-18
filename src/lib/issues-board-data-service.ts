@@ -1,4 +1,5 @@
 import { pool } from './database'
+import { getStandardTagsFromAxeTags } from './standard-tags'
 
 interface IssueData {
   id: string
@@ -10,6 +11,7 @@ interface IssueData {
   priority: string
   assignee_name?: string
   labels: string[]
+  standard_tags?: string[] | null
   total_occurrences: number
   last_seen: string
   created_at: string
@@ -74,6 +76,7 @@ export class IssuesBoardDataService {
           i.priority,
           i.assignee_id,
           i.labels,
+          i.standard_tags,
           i.total_occurrences as occurrence_count,
           i.affected_pages,
           i.created_at,
@@ -279,13 +282,15 @@ export class IssuesBoardDataService {
               }
               linked++
             } else {
+              const standardTags = getStandardTagsFromAxeTags(issue.tags)
+              const wcagLevel = (issue.tags && Array.isArray(issue.tags) && issue.tags.find((t: string) => t.startsWith('wcag'))) || 'A'
               // Create new issue
               const createQuery = `
                 INSERT INTO issues (
-                  issue_key, rule_id, rule_name, description, impact, wcag_level,
+                  issue_key, rule_id, rule_name, description, impact, wcag_level, standard_tags,
                   help_text, help_url, first_seen_scan_id, last_seen_scan_id,
                   total_occurrences, affected_pages
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                 RETURNING id
               `
 
@@ -296,7 +301,8 @@ export class IssuesBoardDataService {
                 issue.description,
                 issue.description,
                 issue.impact,
-                'A', // Default WCAG level
+                typeof wcagLevel === 'string' ? wcagLevel : 'A',
+                standardTags.length > 0 ? standardTags : null,
                 issue.help,
                 issue.helpUrl,
                 scan.id,

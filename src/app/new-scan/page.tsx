@@ -9,6 +9,7 @@ import DetailedReport from '@/components/DetailedReport'
 import CollapsibleIssue from '@/components/CollapsibleIssue'
 import { authenticatedFetch } from '@/lib/auth-utils'
 import { validateWebsiteUrl } from '@/lib/url-utils'
+import { STANDARD_DISPLAY_NAMES } from '@/lib/standard-tags'
 import { AlertModal, ConfirmationModal } from '@/components/AccessibleModal'
 import { useModal } from '@/hooks/useModal'
 import { useScan } from '@/contexts/ScanContext'
@@ -54,8 +55,8 @@ function NewScanContent() {
   const [wcagLevel, setWcagLevel] = useState<'A' | 'AA' | 'AAA'>('AA')
   const [selectedTags, setSelectedTags] = useState<string[]>([
     'wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa',
-    'best-practice', 'section508', 'EN-301-549'
-  ]) // WCAG + Best Practices, Section 508, EN 301 549 — all run by default with axe-core
+    'best-practice', 'section508', 'EN-301-549', 'ACT', 'TTv5', 'RGAAv4'
+  ]) // WCAG + Best Practices, Section 508, EN 301 549, W3C ACT, Trusted Tester v5, RGAA — run by default with axe-core
   const [isScanning, setIsScanning] = useState(false)
   const { addScan, updateScan, removeScan, getActiveScan, activeScans } = useScan()
   const [activeScanId, setActiveScanId] = useState<string | null>(null)
@@ -79,7 +80,7 @@ function NewScanContent() {
   const hasAutoStartedRef = useRef(false)
 
   // Always-on tags (not user-configurable)
-  const ALWAYS_ON_TAGS = ['best-practice', 'section508', 'EN-301-549'] as const
+  const ALWAYS_ON_TAGS = ['best-practice', 'section508', 'EN-301-549', 'ACT', 'TTv5', 'RGAAv4'] as const
   
   // Modal management
   const { modalState, showAlert, showConfirm, closeModal, handleConfirm } = useModal()
@@ -96,30 +97,23 @@ function NewScanContent() {
     restoreDiscoveredPagesFromStorage()
   }, [searchParams])
 
-  // Restore discovered pages from localStorage
+  // Restore discovered pages from localStorage (do not pre-fill URL so page loads clear)
   const restoreDiscoveredPagesFromStorage = () => {
     try {
       const saved = localStorage.getItem('discoveredPages')
       if (saved) {
         const data = JSON.parse(saved)
-        // Check if the saved data is recent (within 7 days) and matches current URL if set
+        // Check if the saved data is recent (within 7 days)
         if (data.timestamp && Date.now() - data.timestamp < 7 * 24 * 60 * 60 * 1000) {
-          if (!url || data.url === url) {
-            if (data.discoveredPages && data.discoveredPages.length > 0) {
-              setDiscoveredPages(data.discoveredPages)
-              // Restore selected pages if available
-              if (data.selectedPages) {
-                setSelectedPages(data.selectedPages)
-              }
-              // Set URL if it was saved
-              if (data.url && !url) {
-                setUrl(data.url)
-              }
-              console.log('✅ Restored discovered pages from localStorage:', data.discoveredPages.length, 'pages')
+          // Only restore pages when user has already entered the same URL (don't set URL on load)
+          if (url && data.url === url && data.discoveredPages && data.discoveredPages.length > 0) {
+            setDiscoveredPages(data.discoveredPages)
+            if (data.selectedPages) {
+              setSelectedPages(data.selectedPages)
             }
+            console.log('✅ Restored discovered pages from localStorage:', data.discoveredPages.length, 'pages')
           }
         } else {
-          // Clear old data
           localStorage.removeItem('discoveredPages')
         }
       }
@@ -305,10 +299,7 @@ function NewScanContent() {
       setActiveScanId(activeScan.scanId)
       setIsScanning(activeScan.status === 'scanning' || activeScan.status === 'analyzing' || activeScan.status === 'crawling')
       
-      // Restore URL and pages if available
-      if (activeScan.url && !url) {
-        setUrl(activeScan.url)
-      }
+      // Do not pre-fill URL input on load so the page stays clear when refreshed
       
       // If scan is complete, show results
       if (activeScan.status === 'complete') {
@@ -377,11 +368,7 @@ function NewScanContent() {
             setIsScanning(true)
             
             // Scan progress is automatically restored via getActiveScan(activeScanId)
-            
-            // Restore URL if available
-            if (activeScan.url) {
-              setUrl(activeScan.url)
-            }
+            // Do not pre-fill URL input so the page stays clear when refreshed
             
             console.log('Resumed active scan:', activeScan.scanId)
           }
@@ -1431,36 +1418,10 @@ function NewScanContent() {
                         </h3>
                         <div className="mt-2 text-sm text-blue-700">
                           <p className="mb-2">
-                            <strong>Standards:</strong> {selectedTags.filter(tag => tag.startsWith('wcag')).map(tag => {
-                              switch(tag) {
-                                case 'wcag2a': return 'WCAG 2.0 Level A';
-                                case 'wcag2aa': return 'WCAG 2.0 Level AA';
-                                case 'wcag21aa': return 'WCAG 2.1 Level AA';
-                                case 'wcag22aa': return 'WCAG 2.2 Level AA';
-                                case 'wcag2aaa': return 'WCAG 2.0 Level AAA';
-                                case 'wcag21aaa': return 'WCAG 2.1 Level AAA';
-                                case 'wcag22aaa': return 'WCAG 2.2 Level AAA';
-                                case 'wcag21a': return 'WCAG 2.1 Level A';
-                                case 'wcag21aa': return 'WCAG 2.1 Level AA';
-                                case 'wcag21aaa': return 'WCAG 2.1 Level AAA';
-                                case 'wcag2a': return 'WCAG 2.0 Level A';
-                                case 'wcag2aa': return 'WCAG 2.0 Level AA';
-                                case 'wcag2aaa': return 'WCAG 2.0 Level AAA';
-                                default: return tag;
-                              }
-                            }).join(', ')}
-                            {selectedTags.filter(tag => !tag.startsWith('wcag')).length > 0 && (
-                              <span>, {selectedTags.filter(tag => !tag.startsWith('wcag')).map(tag => {
-                                switch(tag) {
-                                  case 'best-practice': return 'Best Practices';
-                                  case 'section508': return 'Section 508';
-                                  case 'EN-301-549': return 'EN 301 549';
-                                  case 'ACT': return 'W3C ACT';
-                                  case 'experimental': return 'Experimental';
-                                  default: return tag;
-                                }
-                              }).join(', ')}</span>
-                            )}
+                            <strong>Standards:</strong>{' '}
+                            {selectedTags
+                              .map((tag) => STANDARD_DISPLAY_NAMES[tag as keyof typeof STANDARD_DISPLAY_NAMES] ?? tag)
+                              .join(', ')}
                           </p>
                           <div className="text-xs">
                             <p className="mb-1"><strong>Includes checks for:</strong></p>
@@ -1865,8 +1826,9 @@ function NewScanContent() {
                       <span
                         key={tag}
                         className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                        title={tag}
                       >
-                        {tag}
+                        {STANDARD_DISPLAY_NAMES[tag as keyof typeof STANDARD_DISPLAY_NAMES] ?? tag}
                       </span>
                     ))}
                   </div>

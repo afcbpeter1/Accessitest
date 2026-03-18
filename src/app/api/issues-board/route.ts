@@ -9,14 +9,51 @@ export async function GET(request: NextRequest) {
     // Require authentication
     const user = await getAuthenticatedUser(request)
 
-    // Get query parameters for pagination
+    // Get query parameters for pagination and filters
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const offset = (page - 1) * limit
-    
+    const status = searchParams.get('status') || ''
+    const priority = searchParams.get('priority') || ''
+    const impact = searchParams.get('impact') || ''
+    const standard = searchParams.get('standard') || '' // best-practice | section508 | EN-301-549
+    const search = searchParams.get('search') || ''
+
+    const conditions = ['i.user_id = $1']
+    const params: any[] = [user.userId]
+    let paramIndex = 2
+    if (status) {
+      conditions.push(`i.status = $${paramIndex}`)
+      params.push(status)
+      paramIndex++
+    }
+    if (priority) {
+      conditions.push(`i.priority = $${paramIndex}`)
+      params.push(priority)
+      paramIndex++
+    }
+    if (impact) {
+      conditions.push(`i.impact = $${paramIndex}`)
+      params.push(impact)
+      paramIndex++
+    }
+    if (standard) {
+      conditions.push(`$${paramIndex} = ANY(i.standard_tags)`)
+      params.push(standard)
+      paramIndex++
+    }
+    if (search) {
+      conditions.push(`(i.rule_name ILIKE $${paramIndex} OR i.description ILIKE $${paramIndex})`)
+      params.push(`%${search}%`)
+      paramIndex++
+    }
+    const whereClause = conditions.join(' AND ')
+    const limitParam = paramIndex
+    const offsetParam = paramIndex + 1
+    params.push(limit, offset)
+
     // Get issues filtered by user_id to prevent IDOR
-    // Only show issues that belong to the authenticated user
     const result = await pool.query(`
       SELECT 
         i.id,
@@ -25,22 +62,23 @@ export async function GET(request: NextRequest) {
         i.impact,
         i.status,
         i.priority,
+        i.standard_tags,
         i.total_occurrences,
         i.updated_at as last_seen,
         i.created_at,
         i.rank
       FROM issues i
-      WHERE i.user_id = $1
+      WHERE ${whereClause}
       ORDER BY 
         CASE WHEN i.rank IS NOT NULL THEN i.rank ELSE 999999 END ASC,
         i.created_at DESC
-      LIMIT $2 OFFSET $3
-    `, [user.userId, limit, offset])
-    
-    // Get total count for pagination
+      LIMIT $${limitParam} OFFSET $${offsetParam}
+    `, params)
+
+    const countParams = params.slice(0, -2) // exclude limit, offset
     const countResult = await pool.query(
-      'SELECT COUNT(*) as total FROM issues WHERE user_id = $1',
-      [user.userId]
+      `SELECT COUNT(*) as total FROM issues i WHERE ${whereClause}`,
+      countParams
     )
     
     const total = parseInt(countResult.rows[0].total)

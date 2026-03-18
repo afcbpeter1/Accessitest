@@ -1,4 +1,5 @@
 import { pool } from './database'
+import { getStandardTagsFromAxeTags } from './standard-tags'
 
 interface ScanIssue {
   id: string
@@ -9,6 +10,7 @@ interface ScanIssue {
   wcag_level: string
   help_text: string
   help_url: string
+  tags?: string[]
   nodes: Array<{
     html: string
     target: string[]
@@ -38,7 +40,19 @@ export class IssuesDeduplicationService {
     for (const result of scanResults) {
       if (!result.issues || !Array.isArray(result.issues)) continue
 
-      for (const issue of result.issues) {
+      for (const raw of result.issues) {
+        const issue: ScanIssue = {
+          id: raw.id,
+          rule_id: raw.rule_id ?? raw.id,
+          rule_name: raw.rule_name ?? raw.description ?? raw.id,
+          description: raw.description ?? '',
+          impact: raw.impact ?? 'moderate',
+          wcag_level: raw.wcag_level ?? (raw.tags && Array.isArray(raw.tags) && raw.tags.find((t: string) => t.startsWith('wcag'))) ?? 'AA',
+          help_text: raw.help_text ?? raw.help ?? '',
+          help_url: raw.help_url ?? raw.helpUrl ?? '',
+          tags: raw.tags,
+          nodes: raw.nodes ?? []
+        }
         const deduplicationResult = await this.findOrCreateIssue(
           scanId,
           result.url,
@@ -305,12 +319,13 @@ export class IssuesDeduplicationService {
     issue: ScanIssue
   ): Promise<{ id: string }> {
     const issueKey = `${issue.rule_id}:${Date.now()}:${Math.random().toString(36).substr(2, 9)}`
+    const standardTags = getStandardTagsFromAxeTags(issue.tags)
     
     const insertQuery = `
       INSERT INTO issues (
-        issue_key, rule_id, rule_name, description, impact, wcag_level,
+        issue_key, rule_id, rule_name, description, impact, wcag_level, standard_tags,
         help_text, help_url, first_seen_scan_id, last_seen_scan_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING id
     `
 
@@ -321,6 +336,7 @@ export class IssuesDeduplicationService {
       issue.description,
       issue.impact,
       issue.wcag_level,
+      standardTags.length > 0 ? standardTags : null,
       issue.help_text,
       issue.help_url,
       scanId,

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
+import { STANDARD_DISPLAY_NAMES } from '@/lib/standard-tags'
 import { 
   X, 
   ExternalLink, 
@@ -159,6 +160,18 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                           {issue.wcag_level}
                         </span>
                       </div>
+                      {issue.standard_tags && issue.standard_tags.length > 0 && (
+                        <div>
+                          <span className="font-medium text-gray-700">Standards:</span>
+                          <span className="ml-2 flex flex-wrap gap-1">
+                            {issue.standard_tags.map((tag: string) => (
+                              <span key={tag} className="px-2 py-0.5 text-xs font-medium bg-slate-100 text-slate-700 rounded border border-slate-200">
+                                {STANDARD_DISPLAY_NAMES[tag as keyof typeof STANDARD_DISPLAY_NAMES] ?? tag}
+                              </span>
+                            ))}
+                          </span>
+                        </div>
+                      )}
                       <div>
                         <span className="font-medium text-gray-700">Occurrences:</span>
                         <span className="ml-2 text-gray-600">{issue.scan_data?.total_occurrences || 'N/A'}</span>
@@ -273,69 +286,79 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                     </div>
                   )}
 
-                  {/* Suggested Fix */}
+                  {/* AI-Generated Suggested Fix (or placeholder when none) */}
                   {(() => {
                     // Get suggestions from scan_data, or fallback to top-level suggestions, or notes field
                     const suggestions = issue.scan_data?.suggestions || issue.suggestions || []
                     const hasNotes = issue.failure_summary || issue.notes
                     const isDocumentScan = issue.domain === 'document-scan' || (issue.url && typeof issue.url === 'string' && issue.url.startsWith('Document:'))
-                    
+                    const normalizedSuggestions = [...suggestions]
+
                     // For document scans, if no suggestions but we have notes, create a suggestion from notes
-                    if (suggestions.length === 0 && isDocumentScan && hasNotes) {
-                      suggestions.push({
+                    if (normalizedSuggestions.length === 0 && isDocumentScan && hasNotes) {
+                      normalizedSuggestions.push({
                         description: issue.failure_summary || issue.notes,
                         type: 'ai_suggestion'
                       })
                     }
-                    
-                    return suggestions.length > 0 ? (
+
+                    return (
                       <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
                         <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                           <span>🔧</span>
                           <span>AI-Generated Suggested Fix</span>
                         </h4>
-                        <div className="space-y-4">
-                          {suggestions.map((suggestion: any, index: number) => (
-                            <div key={index} className="bg-white border border-gray-200 rounded p-3">
-                              <div className="flex items-center gap-2 mb-2">
-                              </div>
-                              <div className="text-gray-700 mb-3">
-                                {suggestion.description ? (
-                                  <div className="whitespace-pre-line">
-                                    {suggestion.description
-                                      .replace(/2\. Specific code fix:\s*/g, '')
-                                      .replace(/3\./g, '2.')
-                                    }
+                        {normalizedSuggestions.length > 0 ? (
+                          <div className="space-y-4">
+                            {normalizedSuggestions.map((suggestion: any, index: number) => (
+                              <div key={index} className="bg-white border border-gray-200 rounded p-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                </div>
+                                <div className="text-gray-700 mb-3">
+                                  {suggestion.description ? (
+                                    <div className="whitespace-pre-line">
+                                      {suggestion.description
+                                        .replace(/2\. Specific code fix:\s*/g, '')
+                                        .replace(/3\./g, '2.')
+                                      }
+                                    </div>
+                                  ) : (
+                                    'No description available'
+                                  )}
+                                </div>
+
+                                {/* Affected Element Code */}
+                                {suggestion.affectedElement && (
+                                  <div className="mb-3">
+                                    <p className="text-sm text-gray-600 mb-2 font-medium">🔍 Affected Element:</p>
+                                    <pre className="bg-gray-100 border border-gray-200 text-gray-800 p-3 rounded text-sm overflow-x-auto">
+                                      <code>{suggestion.affectedElement}</code>
+                                    </pre>
                                   </div>
-                                ) : (
-                                  'No description available'
+                                )}
+
+                                {/* Suggested Fix Code */}
+                                {suggestion.codeExample && (
+                                  <div>
+                                    <p className="text-sm text-gray-600 mb-2 font-medium">💻 Suggested Fix:</p>
+                                    <pre className="bg-gray-900 text-white p-3 rounded text-sm overflow-x-auto">
+                                      <code>{suggestion.codeExample}</code>
+                                    </pre>
+                                  </div>
                                 )}
                               </div>
-                            
-                            {/* Affected Element Code */}
-                            {suggestion.affectedElement && (
-                              <div className="mb-3">
-                                <p className="text-sm text-gray-600 mb-2 font-medium">🔍 Affected Element:</p>
-                                <pre className="bg-gray-100 border border-gray-200 text-gray-800 p-3 rounded text-sm overflow-x-auto">
-                                  <code>{suggestion.affectedElement}</code>
-                                </pre>
-                              </div>
-                            )}
-
-                            {/* Suggested Fix Code */}
-                            {suggestion.codeExample && (
-                              <div>
-                                <p className="text-sm text-gray-600 mb-2 font-medium">💻 Suggested Fix:</p>
-                                <pre className="bg-gray-900 text-white p-3 rounded text-sm overflow-x-auto">
-                                  <code>{suggestion.codeExample}</code>
-                                </pre>
-                              </div>
-                            )}
+                            ))}
                           </div>
-                        ))}
+                        ) : (
+                          <div className="bg-amber-50 border border-amber-200 rounded p-3 text-sm text-amber-800">
+                            <p className="font-medium mb-1">No AI suggestions were saved for this issue.</p>
+                            <p className="text-amber-700">
+                              Issues added from CI or older scans may not include AI-generated fixes. Run a <strong>full scan from the app</strong> (New Scan or single-page scan with AI analysis) to get suggested code fixes for this rule, or use the <strong>Help link</strong> below for axe guidance.
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    ) : null
+                    )
                   })()}
 
                   {/* Visual Evidence */}

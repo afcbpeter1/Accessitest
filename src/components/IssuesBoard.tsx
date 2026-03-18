@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import IssueDetailsModal from './IssueDetailsModal'
 import { authenticatedFetch } from '@/lib/auth-utils'
+import { STANDARD_DISPLAY_NAMES } from '@/lib/standard-tags'
 
 interface Issue {
   id: string
@@ -26,6 +27,7 @@ interface Issue {
   impact: 'critical' | 'serious' | 'moderate' | 'minor'
   status: 'open' | 'in_progress' | 'resolved' | 'deferred' | 'duplicate'
   priority: 'critical' | 'high' | 'medium' | 'low'
+  standard_tags?: string[] | null
   total_occurrences: number
   last_seen: string
   assignee_id?: string
@@ -45,6 +47,7 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
     status: '',
     priority: '',
     impact: '',
+    standard: '', // best-practice | section508 | EN-301-549
     assignee: '',
     label: '',
     search: ''
@@ -524,6 +527,43 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
             </div>
 
             <div>
+              <label htmlFor="standard-filter" className="block text-sm font-medium text-gray-700 mb-2">Standard</label>
+              <select
+                id="standard-filter"
+                value={filters.standard}
+                onChange={(e) => setFilters({...filters, standard: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                aria-label="Filter by accessibility standard"
+              >
+                <option value="">All Standards</option>
+                <optgroup label="WCAG 2.0">
+                  <option value="wcag2a">WCAG 2.0 Level A</option>
+                  <option value="wcag2aa">WCAG 2.0 Level AA</option>
+                  <option value="wcag2aaa">WCAG 2.0 Level AAA</option>
+                </optgroup>
+                <optgroup label="WCAG 2.1">
+                  <option value="wcag21a">WCAG 2.1 Level A</option>
+                  <option value="wcag21aa">WCAG 2.1 Level AA</option>
+                  <option value="wcag21aaa">WCAG 2.1 Level AAA</option>
+                </optgroup>
+                <optgroup label="WCAG 2.2">
+                  <option value="wcag22a">WCAG 2.2 Level A</option>
+                  <option value="wcag22aa">WCAG 2.2 Level AA</option>
+                  <option value="wcag22aaa">WCAG 2.2 Level AAA</option>
+                </optgroup>
+                <optgroup label="Other standards">
+                  <option value="best-practice">Best Practices</option>
+                  <option value="section508">Section 508</option>
+                  <option value="EN-301-549">EN 301 549</option>
+                  <option value="ACT">W3C ACT</option>
+                  <option value="TTv5">Trusted Tester v5</option>
+                  <option value="RGAAv4">RGAA</option>
+                  <option value="experimental">Experimental</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div>
               <label htmlFor="search-filter" className="block text-sm font-medium text-gray-700 mb-2">Search</label>
               <div className="relative">
                 <input
@@ -737,6 +777,21 @@ export default function IssuesBoard({ className = '' }: IssuesBoardProps) {
                           >
                             {issue.priority.toUpperCase()}
                           </span>
+
+                          {issue.standard_tags && issue.standard_tags.length > 0 && (
+                            <span className="flex flex-wrap gap-1" aria-label="Accessibility standards">
+                              {issue.standard_tags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200"
+                                  title={STANDARD_DISPLAY_NAMES[tag as keyof typeof STANDARD_DISPLAY_NAMES] || tag}
+                                >
+                                  <Tag className="h-3 w-3 mr-1" aria-hidden />
+                                  {STANDARD_DISPLAY_NAMES[tag as keyof typeof STANDARD_DISPLAY_NAMES] || tag}
+                                </span>
+                              ))}
+                            </span>
+                          )}
 
                           <span className="inline-flex items-center text-xs text-gray-500" aria-label={`Occurrences: ${issue.total_occurrences}`}>
                             <BarChart3 className="h-3 w-3 mr-1" aria-hidden="true" />

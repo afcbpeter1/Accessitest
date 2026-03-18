@@ -158,7 +158,7 @@ export async function autoSyncIssuesToJira(
         // Also get the URL from scan_history to help match issues
         const issue = await queryOne(
           `SELECT 
-            i.id, i.issue_key, i.rule_id, i.rule_name, i.description, i.impact, i.wcag_level,
+            i.id, i.issue_key, i.rule_id, i.rule_name, i.description, i.impact, i.wcag_level, i.standard_tags,
             i.priority, i.total_occurrences, i.affected_pages, i.help_url, i.help_text, i.notes,
             sh.scan_results, sh.scan_type, sh.file_name, sh.url as scan_url
           FROM issues i
