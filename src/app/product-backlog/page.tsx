@@ -576,7 +576,7 @@ ${item.element_html || 'N/A'}
 
   const deleteItem = async (itemId: string) => {
     try {
-      const response = await authenticatedFetch(`/api/backlog/${itemId}`, {
+      const response = await authenticatedFetch(`/api/product-backlog/${itemId}`, {
         method: 'DELETE'
       })
       
@@ -637,7 +637,7 @@ ${item.element_html || 'N/A'}
 
     try {
       const itemIds = Array.from(selectedItems)
-      const response = await authenticatedFetch('/api/backlog/bulk-delete', {
+      const response = await authenticatedFetch('/api/product-backlog/bulk-delete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
