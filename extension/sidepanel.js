@@ -7,6 +7,7 @@
   var lastScanTags = [];
   var lastWcagLevel = 'AA';
   var isMultiScan = false;
+  var currentMultiScanId = null;
   var scanOverlayVisible = false;
 
   function getIframe() {
@@ -52,6 +53,7 @@
     if (overlay) overlay.classList.remove('visible');
     scanOverlayVisible = false;
     isMultiScan = false;
+    currentMultiScanId = null;
   }
 
   function getAppUrl(cb) {
@@ -92,7 +94,8 @@
             issues: msg.issues || [],
             summary: msg.summary || {},
             wcagLevel: lastWcagLevel,
-            selectedTags: lastScanTags
+            selectedTags: lastScanTags,
+            multiScanId: currentMultiScanId
           }, '*');
         }
         if (!isMultiScan) hideScanOverlay();
@@ -137,6 +140,7 @@
     if (data.type === 'ACCESSSCAN_RUN_SCAN') {
       isMultiScan = false;
       showScanOverlay(false);
+      currentMultiScanId = null;
       var tags = Array.isArray(data.tags) ? data.tags : [];
       lastScanTags = tags;
       lastWcagLevel = (data.wcagLevel === 'A' || data.wcagLevel === 'AAA') ? data.wcagLevel : 'AA';
@@ -173,6 +177,7 @@
     if (data.type === 'ACCESSSCAN_RUN_MULTI_SCAN') {
       var urls = Array.isArray(data.urls) ? data.urls : [];
       isMultiScan = true;
+      currentMultiScanId = 'ms_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
       showScanOverlay(true, 1, urls.length, urls[0] || '');
       var tagsMulti = Array.isArray(data.tags) ? data.tags : [];
       lastScanTags = tagsMulti;

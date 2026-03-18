@@ -34,7 +34,7 @@ export default function ExtensionSessionPage() {
       if (event.origin !== window.location.origin) return
       const data = event.data
       if (data?.type === 'ACCESSSCAN_SUBMIT_SCAN' && typeof data.id !== 'undefined' && data.url) {
-        const { id, url, issues = [], summary = {} } = data
+        const { id, url, issues = [], summary = {}, multiScanId } = data
         const token = localStorage.getItem('accessToken')
         if (!token) {
           respond(id, { success: false, error: 'Not logged in' })
@@ -47,7 +47,7 @@ export default function ExtensionSessionPage() {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`
             },
-            body: JSON.stringify({ url, issues, summary })
+            body: JSON.stringify({ url, issues, summary, multiScanId })
           })
           const json = await res.json().catch(() => ({}))
           respond(id, json)

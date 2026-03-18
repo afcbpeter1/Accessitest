@@ -357,6 +357,91 @@ export class AccessibilityScanner {
 
   private async captureAndUploadScreenshots(page: any, issues: AccessibilityIssue[]): Promise<ScanResult['screenshots']> {
     try {
+      // Wait until the DOM is "quiet" to avoid capturing LOADING placeholders.
+      await page.evaluate(({ timeoutMs, quietMs }: { timeoutMs: number; quietMs: number }) => {
+        return new Promise<void>((resolve) => {
+          let settled = false
+          let timeoutHandle: any = null
+          let quietHandle: any = null
+          let obs: MutationObserver | null = null
+
+          const done = () => {
+            if (settled) return
+            settled = true
+            if (timeoutHandle) clearTimeout(timeoutHandle)
+            if (quietHandle) clearTimeout(quietHandle)
+            if (obs) obs.disconnect()
+            resolve()
+          }
+
+          timeoutHandle = setTimeout(done, timeoutMs)
+          quietHandle = setTimeout(done, quietMs)
+
+          obs = new MutationObserver(() => {
+            if (quietHandle) clearTimeout(quietHandle)
+            quietHandle = setTimeout(done, quietMs)
+          })
+
+          try {
+            obs.observe(document.documentElement || document.body, {
+              subtree: true,
+              childList: true,
+              attributes: true,
+              characterData: true
+            })
+          } catch {
+            // If observation fails, we still resolve via timeout/quiet timer.
+          }
+        })
+      }, { timeoutMs: 20000, quietMs: 1500 })
+
+      // Add redaction masks before taking the full/viewport "page reference" screenshots.
+      // We mask common sensitive fields (inputs/passwords) so the reference screenshot is safer.
+      await page.evaluate(() => {
+        const existing = document.getElementById('__accessscan_mask_layer')
+        if (existing) existing.remove()
+
+        const layer = document.createElement('div')
+        layer.id = '__accessscan_mask_layer'
+        layer.setAttribute('aria-hidden', 'true')
+        layer.style.position = 'absolute'
+        layer.style.left = '0'
+        layer.style.top = '0'
+        layer.style.width = '100%'
+        layer.style.height = '100%'
+        layer.style.zIndex = '2147483647'
+        layer.style.pointerEvents = 'none'
+
+        const selectors = ['input', 'textarea', 'select', 'input[type="password"]']
+        const els = Array.from(document.querySelectorAll(selectors.join(','))).slice(0, 40) as HTMLElement[]
+
+        for (const el of els) {
+          const rect = el.getBoundingClientRect()
+          const style = window.getComputedStyle(el)
+          if (!rect || rect.width <= 0 || rect.height <= 0) continue
+          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue
+
+          const left = rect.left + window.scrollX
+          const top = rect.top + window.scrollY
+
+          const box = document.createElement('div')
+          box.style.position = 'absolute'
+          box.style.left = `${left}px`
+          box.style.top = `${top}px`
+          box.style.width = `${rect.width}px`
+          box.style.height = `${rect.height}px`
+          box.style.background = 'rgba(0,0,0,0.85)'
+          box.style.borderRadius = '2px'
+
+          layer.appendChild(box)
+        }
+
+        const host = document.body || document.documentElement
+        host.appendChild(layer)
+      })
+
+      await page.waitForTimeout(150)
+
       const fullPageScreenshot = await page.screenshot({
         fullPage: true,
         encoding: 'base64',
@@ -369,6 +454,13 @@ export class AccessibilityScanner {
         quality: 80,
         type: 'jpeg'
       }) as string;
+
+      // Remove masks so affected element screenshots are not overly obscured.
+      await page.evaluate(() => {
+        const existing = document.getElementById('__accessscan_mask_layer')
+        if (existing) existing.remove()
+      })
+
       const elementScreenshots: Array<{ selector: string; issueId: string; severity: string; screenshot: string; boundingBox: any }> = [];
       for (const issue of issues.slice(0, 5)) {
         for (const node of issue.nodes || []) {
@@ -694,6 +786,22 @@ export class AccessibilityScanner {
     const html = firstNode.html;
     const target = firstNode.target[0]; // CSS selector
     const failureSummary = firstNode.failureSummary;
+
+    // Rule-specific overrides to avoid "no-op" suggestions.
+    // For example, `empty-table-header` issues should produce a meaningful label,
+    // not echo back an empty `<th></th>`.
+    if (issue.id === 'empty-table-header') {
+      const scopeMatch = html.match(/scope=["'](col|row)["']/i)
+      const scope = (scopeMatch?.[1] || 'col').toLowerCase()
+      const openTag = html.match(/<th[^>]*>/i)?.[0]
+      const safeOpenTag = openTag || `<th scope="${scope}">`
+      return [{
+        type: 'fix',
+        description: 'Ensure table headers have discernible text so screen readers can identify the column/row.',
+        codeExample: `${safeOpenTag}Header text</th>`,
+        priority: 'high'
+      }]
+    }
 
     // Try to get AI-powered suggestion first (most valuable)
     try {
@@ -1283,6 +1391,18 @@ ${html}`,
    */
   private getBestRuleBasedSuggestion(issueId: string, html: string, target: string, failureSummary: string, impact: string): RemediationSuggestion | null {
     switch (issueId) {
+      case 'empty-table-header': {
+        const scopeMatch = html.match(/scope=["'](col|row)["']/i)
+        const scope = (scopeMatch?.[1] || 'col').toLowerCase()
+        const openTag = html.match(/<th[^>]*>/i)?.[0]
+        const safeOpenTag = openTag || `<th scope="${scope}">`
+        return {
+          type: 'fix',
+          description: 'Ensure table headers have discernible text so screen readers can identify the column/row.',
+          codeExample: `${safeOpenTag}Header text</th>`,
+          priority: 'high'
+        }
+      }
       case 'heading-order':
         const headingSuggestions = this.generateHeadingOrderSuggestions(html, target, failureSummary);
         return headingSuggestions.length > 0 ? headingSuggestions[0] : null;
@@ -1323,6 +1443,14 @@ ${html}`,
   private generateGenericCodeExample(html: string, issueId: string): string {
     // Provide a basic template based on the issue type
     switch (issueId) {
+      case 'empty-table-header': {
+        const scopeMatch = html.match(/scope=["'](col|row)["']/i)
+        const scope = (scopeMatch?.[1] || 'col').toLowerCase()
+        const openTag = html.match(/<th[^>]*>/i)?.[0]
+        const safeOpenTag = openTag || `<th scope="${scope}">`
+        return `<!-- Ensure table headers have discernible text -->
+${safeOpenTag}Header text</th>`
+      }
       case 'aria-allowed-attr':
         return `<!-- Remove invalid ARIA attributes -->
 <div role="button" tabindex="0">Click me</div>`;

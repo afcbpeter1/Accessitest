@@ -7,6 +7,10 @@ import { autoCreateBacklogItemsWithHistoryId } from '@/lib/backlog-from-scan'
 import { AccessibilityScanner } from '@/lib/accessibility-scanner'
 import type { AccessibilityIssue } from '@/lib/accessibility-scanner'
 import { isValidUrl } from '@/lib/url-utils'
+import { screenshotService } from '@/lib/screenshot-service'
+import { CloudinaryService } from '@/lib/cloudinary-service'
+import { ClaudeAPI } from '@/lib/claude-api'
+import { ensureRuleLevelLearnedSuggestionAtScanTime, isNoOpOrInvalidCodeExample } from '@/lib/runtime-learned-suggestion'
 import {
   getLearnedSuggestion,
   logPipelineSuggestion,
@@ -20,6 +24,19 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
 }
 
+// Dedupe multi-page extension scans so we only deduct credits once per scan session.
+// This is intentionally in-memory; if the server restarts, users may be charged again.
+const CHARGE_DEDUP_WINDOW_MS = 60 * 60 * 1000 // 1 hour
+const chargedMultiScanIds = new Map<string, number>()
+
+function pruneChargedMultiScanIds(now: number) {
+  for (const [key, timestamp] of chargedMultiScanIds.entries()) {
+    if (now - timestamp > CHARGE_DEDUP_WINDOW_MS) {
+      chargedMultiScanIds.delete(key)
+    }
+  }
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
 }
@@ -30,7 +47,7 @@ export async function POST(request: NextRequest) {
   try {
     const user = await getAuthenticatedUser(request)
     const body = await request.json().catch(() => ({}))
-    const { url, issues = [], summary = {}, wcagLevel: reqWcagLevel, selectedTags: reqSelectedTags } = body
+    const { url, issues = [], summary = {}, wcagLevel: reqWcagLevel, selectedTags: reqSelectedTags, multiScanId } = body
 
     if (!url || typeof url !== 'string') {
       return NextResponse.json(
@@ -57,19 +74,29 @@ export async function POST(request: NextRequest) {
     const moderateIssues = Number(summary.moderate) ?? issues.filter((i: any) => i.impact === 'moderate').length
     const minorIssues = Number(summary.minor) ?? issues.filter((i: any) => i.impact === 'minor').length
 
-    const creditData = await getUserCredits(user.userId)
-    if (!creditData.unlimited_credits && creditData.credits_remaining < 1) {
-      await NotificationService.notifyInsufficientCredits(user.userId)
-      return NextResponse.json(
-        { success: false, error: 'Insufficient credits', canScan: false },
-        { status: 402, headers }
-      )
-    }
+    const now = Date.now()
+    pruneChargedMultiScanIds(now)
+    const dedupeKey = typeof multiScanId === 'string' && multiScanId.trim().length > 0 ? multiScanId : null
+    const shouldDeductCredits = !dedupeKey || !chargedMultiScanIds.has(dedupeKey)
     const scanId = `extension_scan_${Date.now()}`
-    await deductCredits(user.userId, 1, `Web scan: ${url}`, scanId)
+
+    if (shouldDeductCredits) {
+      const creditData = await getUserCredits(user.userId)
+      if (!creditData.unlimited_credits && creditData.credits_remaining < 1) {
+        await NotificationService.notifyInsufficientCredits(user.userId)
+        return NextResponse.json(
+          { success: false, error: 'Insufficient credits', canScan: false },
+          { status: 402, headers }
+        )
+      }
+      await deductCredits(user.userId, 1, `Web scan: ${url}`, scanId)
+      if (dedupeKey) chargedMultiScanIds.set(dedupeKey, now)
+    }
 
     // Normalize issues and use learned suggestions (same as pipeline) + rule-based fallback; log for cron to update daily
     const scanner = new AccessibilityScanner()
+    const claude = new ClaudeAPI()
+    const inflightRuleLearns = new Map<string, Promise<any>>()
     const normalizedIssues: AccessibilityIssue[] = issues.map((i: any) => ({
       id: i.id || 'unknown',
       impact: (i.impact === 'critical' || i.impact === 'serious' || i.impact === 'moderate' || i.impact === 'minor' ? i.impact : 'moderate') as AccessibilityIssue['impact'],
@@ -92,9 +119,40 @@ export async function POST(request: NextRequest) {
       const patternHash = computePatternHash(issue.id, html)
       const learned = await getLearnedSuggestion(issue.id, patternHash)
       const priority = (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : issue.impact === 'moderate' ? 'medium' : 'low') as 'high' | 'medium' | 'low'
-      if (learned) {
-        const ruleBased = scanner.getRuleBasedSuggestion(issue)
-        const firstSuggestion = ruleBased.length > 0 ? ruleBased[0] : null
+
+      const ruleBased = scanner.getRuleBasedSuggestion(issue)
+      const firstSuggestion = ruleBased.length > 0 ? ruleBased[0] : null
+
+      const learnedInvalid = learned ? isNoOpOrInvalidCodeExample(issue.id, learned.codeExample) : false
+      if (!learned || learnedInvalid) {
+        // Learn immediately for new rules and persist to learned_suggestions.
+        const key = issue.id
+        let p = inflightRuleLearns.get(key)
+        if (!p) {
+          p = (async () => {
+            if (!firstSuggestion) return null
+            return ensureRuleLevelLearnedSuggestionAtScanTime({
+              claude,
+              ruleId: key,
+              currentDescription: firstSuggestion.description,
+              currentCodeExample: firstSuggestion.codeExample
+            })
+          })()
+          inflightRuleLearns.set(key, p)
+        }
+        const ensured = await p
+
+        if (ensured?.codeExample) {
+          ;(issue as any).suggestions = [{
+            type: 'fix',
+            description: ensured.description,
+            codeExample: ensured.codeExample ?? undefined,
+            priority
+          }]
+        } else if (ruleBased.length > 0) {
+          ;(issue as any).suggestions = ruleBased
+        }
+      } else {
         const fallbackCode: string | undefined = firstSuggestion?.codeExample
         ;(issue as any).suggestions = [{
           type: 'fix',
@@ -102,9 +160,6 @@ export async function POST(request: NextRequest) {
           codeExample: learned.codeExample ?? fallbackCode ?? undefined,
           priority
         }]
-      } else {
-        const ruleBased = scanner.getRuleBasedSuggestion(issue)
-        if (ruleBased.length > 0) (issue as any).suggestions = ruleBased
       }
       const sugg = (issue as any).suggestions?.[0]
       await logPipelineSuggestion(issue.id, patternHash, computeSuggestionSignature(sugg?.description, sugg?.codeExample)).catch(() => {})
@@ -154,12 +209,30 @@ export async function POST(request: NextRequest) {
       minorIssues
     }
 
+    // Capture a redacted page reference screenshot for extension scans (best-effort).
+    // The screenshot is masked (inputs/passwords) to reduce sensitive data leakage.
+    let screenshots: { viewport?: string; fullPage?: string } | undefined = undefined
+    try {
+      const screenshotResult = await screenshotService.captureScreenshots(url, [], { fullPage: false, viewport: true })
+      if (screenshotResult.viewport) {
+        const viewportUpload = await CloudinaryService.uploadBase64Image(
+          screenshotResult.viewport,
+          'a11ytest/screenshots',
+          { public_id: `${scanId}_viewport` }
+        )
+        screenshots = { viewport: viewportUpload.secure_url }
+      }
+    } catch (screenshotErr) {
+      console.warn('Extension screenshot capture failed (non-fatal):', screenshotErr)
+    }
+
     const finalResults = {
       url,
       pagesScanned: 1,
       results,
       complianceSummary,
-      remediationReport
+      remediationReport,
+      screenshots
     }
 
     // Store exactly like the main app (a11ytest): same title format and scanSettings shape

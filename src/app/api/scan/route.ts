@@ -11,6 +11,9 @@ import {
   computePatternHash,
   computeSuggestionSignature
 } from '@/lib/learned-suggestions-service'
+import { ClaudeAPI } from '@/lib/claude-api'
+import { ensureRuleLevelLearnedSuggestionAtScanTime, isNoOpOrInvalidCodeExample } from '@/lib/runtime-learned-suggestion'
+import { AccessibilityScanner } from '@/lib/accessibility-scanner'
 
 export async function POST(request: NextRequest) {
   try {
@@ -87,6 +90,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Enrich with learned suggestions (same as extension/scan-progress) and log for cron
+    const scanner = new AccessibilityScanner()
+    const claude = new ClaudeAPI()
+    const inflightRuleLearns = new Map<string, Promise<any>>()
     for (const result of results) {
       if (result.issues && result.issues.length > 0) {
         for (const issue of result.issues) {
@@ -94,7 +100,39 @@ export async function POST(request: NextRequest) {
           const patternHash = computePatternHash(issue.id, html)
           const learned = await getLearnedSuggestion(issue.id, patternHash)
           const priority = (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : issue.impact === 'moderate' ? 'medium' : 'low') as 'high' | 'medium' | 'low'
-          if (learned) {
+
+          const ruleBased = scanner.getRuleBasedSuggestion(issue)
+          const firstRule = ruleBased.length > 0 ? ruleBased[0] : null
+
+          const learnedInvalid = learned ? isNoOpOrInvalidCodeExample(issue.id, learned.codeExample) : false
+          if (!learned || learnedInvalid) {
+            const key = issue.id
+            let p = inflightRuleLearns.get(key)
+            if (!p) {
+              p = (async () => {
+                if (!firstRule) return null
+                return ensureRuleLevelLearnedSuggestionAtScanTime({
+                  claude,
+                  ruleId: key,
+                  currentDescription: firstRule.description,
+                  currentCodeExample: firstRule.codeExample
+                })
+              })()
+              inflightRuleLearns.set(key, p)
+            }
+
+            const ensured = await p
+            if (ensured?.codeExample) {
+              issue.suggestions = [{
+                type: 'fix',
+                description: ensured.description,
+                codeExample: ensured.codeExample ?? undefined,
+                priority
+              }]
+            } else if (ruleBased.length > 0) {
+              issue.suggestions = ruleBased
+            }
+          } else if (learned) {
             issue.suggestions = [{
               type: 'fix',
               description: learned.description,
@@ -102,6 +140,7 @@ export async function POST(request: NextRequest) {
               priority
             }]
           }
+
           const sugg = issue.suggestions?.[0]
           await logPipelineSuggestion(issue.id, patternHash, computeSuggestionSignature(sugg?.description, sugg?.codeExample)).catch(() => {})
         }

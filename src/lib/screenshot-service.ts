@@ -15,9 +15,9 @@ async function getPuppeteer() {
 }
 
 export interface ScreenshotResult {
-  fullPage: string // base64 encoded screenshot
-  viewport: string // base64 encoded viewport screenshot
-  elements: Array<{
+  fullPage?: string // base64 encoded screenshot
+  viewport?: string // base64 encoded viewport screenshot
+  elements?: Array<{
     selector: string
     screenshot: string // base64 encoded element screenshot
     boundingBox: {
@@ -52,7 +52,106 @@ export class ScreenshotService {
     }
   }
 
-  async captureScreenshots(url: string, selectors: string[] = []): Promise<ScreenshotResult> {
+  private async waitForStableDom(timeoutMs: number = 20000, quietMs: number = 1500, puppeteerPage: any): Promise<void> {
+    await puppeteerPage.evaluate(
+      ({ timeoutMs, quietMs }: { timeoutMs: number; quietMs: number }) =>
+        new Promise<void>((resolve) => {
+          let settled = false
+          let timeoutHandle: any = null
+          let quietHandle: any = null
+          let obs: MutationObserver | null = null
+
+          const done = () => {
+            if (settled) return
+            settled = true
+            if (timeoutHandle) clearTimeout(timeoutHandle)
+            if (quietHandle) clearTimeout(quietHandle)
+            if (obs) obs.disconnect()
+            resolve()
+          }
+
+          timeoutHandle = setTimeout(done, timeoutMs)
+          obs = new MutationObserver(() => {
+            if (quietHandle) clearTimeout(quietHandle)
+            quietHandle = setTimeout(done, quietMs)
+          })
+
+          try {
+            obs.observe(document.documentElement || document.body, {
+              subtree: true,
+              childList: true,
+              attributes: true,
+              characterData: true
+            })
+          } catch {
+            // If observation fails, fall back to timeout only.
+          }
+
+          // Start the quiet timer immediately.
+          quietHandle = setTimeout(done, quietMs)
+        }),
+      { timeoutMs, quietMs }
+    )
+  }
+
+  private async applyRedactionMasks(puppeteerPage: any): Promise<void> {
+    await puppeteerPage.evaluate(() => {
+      const existing = document.getElementById('__accessscan_mask_layer')
+      if (existing) existing.remove()
+
+      const layer = document.createElement('div')
+      layer.id = '__accessscan_mask_layer'
+      layer.setAttribute('aria-hidden', 'true')
+      layer.style.position = 'absolute'
+      layer.style.left = '0'
+      layer.style.top = '0'
+      layer.style.width = '100%'
+      layer.style.height = '100%'
+      layer.style.zIndex = '2147483647'
+      layer.style.pointerEvents = 'none'
+
+      const selectors = ['input', 'textarea', 'select', 'input[type="password"]']
+      const els = Array.from(document.querySelectorAll(selectors.join(','))).slice(0, 40) as HTMLElement[]
+
+      for (const el of els) {
+        const rect = el.getBoundingClientRect()
+        const style = window.getComputedStyle(el)
+        if (!rect || rect.width <= 0 || rect.height <= 0) continue
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue
+
+        const left = rect.left + window.scrollX
+        const top = rect.top + window.scrollY
+
+        const box = document.createElement('div')
+        box.style.position = 'absolute'
+        box.style.left = `${left}px`
+        box.style.top = `${top}px`
+        box.style.width = `${rect.width}px`
+        box.style.height = `${rect.height}px`
+        box.style.background = 'rgba(0,0,0,0.85)'
+        box.style.borderRadius = '2px'
+
+        layer.appendChild(box)
+      }
+
+      // Ensure there's a parent to attach to even if body isn't ready.
+      const host = document.body || document.documentElement
+      host.appendChild(layer)
+    })
+  }
+
+  private async removeRedactionMasks(puppeteerPage: any): Promise<void> {
+    await puppeteerPage.evaluate(() => {
+      const existing = document.getElementById('__accessscan_mask_layer')
+      if (existing) existing.remove()
+    })
+  }
+
+  async captureScreenshots(
+    url: string,
+    selectors: string[] = [],
+    options: { fullPage?: boolean; viewport?: boolean } = { fullPage: true, viewport: true }
+  ): Promise<ScreenshotResult> {
     await this.initialize()
     
     if (!this.browser) {
@@ -73,20 +172,34 @@ export class ScreenshotService {
         timeout: 30000 
       })
 
-      // Wait for page to load
-      await page.waitForTimeout(2000)
+      // Wait for page content to settle (avoids LOADING placeholders)
+      await this.waitForStableDom(20000, 1500, page)
 
-      // Capture full page screenshot
-      const fullPageScreenshot = await page.screenshot({
-        fullPage: true,
-        encoding: 'base64'
-      }) as string
+      // Add redaction masks before capturing "page reference" screenshots.
+      // This is best-effort: we mask common sensitive fields (input/textarea/select/password).
+      await this.applyRedactionMasks(page)
+      await page.waitForTimeout(150)
 
-      // Capture viewport screenshot
-      const viewportScreenshot = await page.screenshot({
-        fullPage: false,
-        encoding: 'base64'
-      }) as string
+      // Capture full page screenshot (optional)
+      const fullPageScreenshot =
+        options.fullPage === false
+          ? undefined
+          : ((await page.screenshot({
+            fullPage: true,
+            encoding: 'base64'
+          })) as string)
+
+      // Capture viewport screenshot (optional)
+      const viewportScreenshot =
+        options.viewport === false
+          ? undefined
+          : ((await page.screenshot({
+            fullPage: false,
+            encoding: 'base64'
+          })) as string)
+
+      // Remove masks before element screenshots so we can still show the affected element.
+      await this.removeRedactionMasks(page)
 
       // Capture element screenshots
       const elementScreenshots = []

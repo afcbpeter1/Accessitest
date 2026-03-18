@@ -426,6 +426,14 @@ function ScanDetailsContent() {
                 {(() => {
                   // Handle different data structures and deduplicate so we show each unique issue once (like product backlog)
                   let rawIssues: any[] = []
+                  const pageEvidenceScreenshots =
+                    scan.remediationReport?.[0]?.screenshots ||
+                    scan.scanResults?.results?.[0]?.screenshots ||
+                    scan.scanResults?.screenshots
+
+                  const pageEvidenceImage =
+                    pageEvidenceScreenshots?.viewport ||
+                    pageEvidenceScreenshots?.fullPage
 
                   if (scan.scanResults) {
                     if (scan.scanType === 'document') {
@@ -460,18 +468,54 @@ function ScanDetailsContent() {
 
                   if (rawIssues.length === 0) {
                     return (
-                      <div className="text-center py-8">
-                        <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Issues Found</h3>
-                        <p className="text-gray-500">
-                          Great! No accessibility issues were detected in this scan.
-                        </p>
-                      </div>
+                      <>
+                        {pageEvidenceImage && (
+                          <div className="mb-6">
+                            <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-blue-600" />
+                              Page Evidence (redacted)
+                            </h4>
+                            <div className="border border-gray-200 rounded overflow-hidden max-w-full">
+                              <img
+                                src={pageEvidenceImage}
+                                alt="Redacted screenshot of the scanned page"
+                                className="w-full h-auto max-h-56 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => window.open(pageEvidenceImage, '_blank')}
+                              />
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">Click to view full size</div>
+                          </div>
+                        )}
+                        <div className="text-center py-8">
+                          <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                          <h3 className="text-lg font-medium text-gray-900 mb-2">No Issues Found</h3>
+                          <p className="text-gray-500">
+                            Great! No accessibility issues were detected in this scan.
+                          </p>
+                        </div>
+                      </>
                     )
                   }
 
                   return (
                     <div className="space-y-6">
+                      {pageEvidenceImage && (
+                        <div>
+                          <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-blue-600" />
+                            Page Evidence (redacted)
+                          </h4>
+                          <div className="border border-gray-200 rounded overflow-hidden max-w-full">
+                            <img
+                              src={pageEvidenceImage}
+                              alt="Redacted screenshot of the scanned page"
+                              className="w-full h-auto max-h-56 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => window.open(pageEvidenceImage, '_blank')}
+                            />
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">Click to view full size</div>
+                        </div>
+                      )}
                       {rawIssues.map((issue: any, issueIndex: number) => {
                         const issueId = issue.id || issue.rule_id || `issue-${issueIndex}`
                         const matchingReport = scan.remediationReport?.find((r: any) => r.issueId === issueId)

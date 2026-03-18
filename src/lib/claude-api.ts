@@ -761,7 +761,15 @@ Return ONLY valid JSON:
     currentDescription: string,
     currentCodeExample?: string | null
   ): Promise<{ description: string; codeExample: string | null }> {
-    const systemPrompt = `You are an expert web accessibility consultant. You must output a suggestion for ONE accessibility rule only. Do not include suggestions or code examples for any other rule. Output: (1) a brief description (1-3 sentences) for this rule only, then (2) exactly one markdown code block (\`\`\`html or \`\`\`css) that shows ONLY a good, correct code example—something developers should follow. Do not include bad examples, "before", "avoid", or "incorrect" code. Only show correct, accessible code. Operational use only.`;
+    const systemPrompt = `You are an expert web accessibility consultant. You must output a suggestion for ONE accessibility rule only. Do not include suggestions or code examples for any other rule.
+
+CRITICAL OUTPUT RULES:
+1. Output (1) a brief description (1-3 sentences) for this rule only, then (2) exactly one markdown code block (\`\`\`html or \`\`\`css).
+2. The code block must be the actual fix for the issue (not a generic template), and it must be meaningful for the rule.
+3. The codeExample MUST NOT be empty, placeholder, or a no-op.
+   - If the current code is missing required text/labels (e.g. empty table headers like \`<th></th>\` or empty aria-label values), you MUST replace it with a corrected snippet containing non-empty, discernible content.
+4. Do not include bad examples, "before", "avoid", or "incorrect" code.
+Only show correct, accessible code. Operational use only.`;
     const current = currentDescription
       ? `Current suggestion: ${currentDescription}${currentCodeExample ? `\nCurrent code:\n${currentCodeExample}` : ''}`
       : 'No existing suggestion.'

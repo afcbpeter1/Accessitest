@@ -9,6 +9,8 @@ import {
   computePatternHash,
   computeSuggestionSignature
 } from '@/lib/learned-suggestions-service'
+import { ClaudeAPI } from '@/lib/claude-api'
+import { ensureRuleLevelLearnedSuggestionAtScanTime, isNoOpOrInvalidCodeExample } from '@/lib/runtime-learned-suggestion'
 
 const RAPIDAPI_PROXY_SECRET = process.env.RAPIDAPI_PROXY_SECRET
 const CI_SCAN_TIMEOUT_MS = 90000
@@ -142,6 +144,8 @@ export async function POST(request: NextRequest) {
       || (forwardedHost ? `${forwardedProto}://${forwardedHost}` : null)
       || request.nextUrl.origin
     const scanService = new ScanService()
+    const claude = new ClaudeAPI()
+    const inflightRuleLearns = new Map<string, Promise<any>>()
     const results: Array<{
       url: string
       passed: boolean
@@ -193,19 +197,85 @@ export async function POST(request: NextRequest) {
           const html = issue.nodes?.[0]?.html ?? ''
           const patternHash = computePatternHash(issue.id, html)
           const learned = await getLearnedSuggestion(issue.id, patternHash)
-          const suggestions = learned
-            ? [{
+          const priority = (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : issue.impact === 'moderate' ? 'medium' : 'low') as 'high' | 'medium' | 'low'
+
+          const learnedInvalid = learned ? isNoOpOrInvalidCodeExample(issue.id, learned.codeExample) : false
+          if (learned && !learnedInvalid) {
+            return {
+              id: issue.id,
+              impact: issue.impact,
+              description: issue.description,
+              help: issue.help,
+              helpUrl: issue.helpUrl,
+              nodes: (issue.nodes ?? []).map((node: any) => ({
+                target: node.target,
+                html: node.html,
+                failureSummary: node.failureSummary
+              })),
+              suggestions: [{
                 type: 'fix',
                 description: learned.description,
                 codeExample: learned.codeExample ?? undefined,
-                priority: (issue.impact === 'critical' || issue.impact === 'serious' ? 'high' : issue.impact === 'moderate' ? 'medium' : 'low') as 'high' | 'medium' | 'low'
+                priority
               }]
-            : (issue.suggestions ?? []).map((s: any) => ({
-                type: s.type,
-                description: s.description,
-                codeExample: s.codeExample,
-                priority: s.priority
-              }))
+            }
+          }
+
+          // Learned missing: immediately improve rule-based suggestion via Claude and persist.
+          const ruleBasedSuggestions = issue.suggestions ?? []
+          const current = ruleBasedSuggestions[0]
+          if (current && current.description) {
+            const key = issue.id
+            let p = inflightRuleLearns.get(key)
+            if (!p) {
+              p = ensureRuleLevelLearnedSuggestionAtScanTime({
+                claude,
+                ruleId: key,
+                currentDescription: current.description,
+                currentCodeExample: current.codeExample
+              })
+              inflightRuleLearns.set(key, p)
+            }
+            const ensured = await p
+            const learnedSuggestion = ensured?.codeExample
+              ? [{
+                  type: 'fix',
+                  description: ensured.description,
+                  codeExample: ensured.codeExample ?? undefined,
+                  priority
+                }]
+              : (ruleBasedSuggestions ?? []).map((s: any) => ({
+                  type: s.type,
+                  description: s.description,
+                  codeExample: s.codeExample,
+                  priority: s.priority
+                }))
+
+            const issuePayload = {
+              id: issue.id,
+              impact: issue.impact,
+              description: issue.description,
+              help: issue.help,
+              helpUrl: issue.helpUrl,
+              nodes: (issue.nodes ?? []).map((node: any) => ({
+                target: node.target,
+                html: node.html,
+                failureSummary: node.failureSummary
+              })),
+              suggestions: learnedSuggestion
+            }
+
+            await logPipelineSuggestion(issue.id, patternHash, computeSuggestionSignature(learnedSuggestion[0]?.description, learnedSuggestion[0]?.codeExample)).catch(() => {})
+            return issuePayload
+          }
+
+          const fallbackSuggestions = (issue.suggestions ?? []).map((s: any) => ({
+            type: s.type,
+            description: s.description,
+            codeExample: s.codeExample,
+            priority: s.priority
+          }))
+
           const issuePayload = {
             id: issue.id,
             impact: issue.impact,
@@ -217,9 +287,10 @@ export async function POST(request: NextRequest) {
               html: node.html,
               failureSummary: node.failureSummary
             })),
-            suggestions
+            suggestions: fallbackSuggestions
           }
-          await logPipelineSuggestion(issue.id, patternHash, computeSuggestionSignature(suggestions[0]?.description, suggestions[0]?.codeExample)).catch(() => {})
+
+          await logPipelineSuggestion(issue.id, patternHash, computeSuggestionSignature(fallbackSuggestions[0]?.description, fallbackSuggestions[0]?.codeExample)).catch(() => {})
           return issuePayload
         })
       )

@@ -425,7 +425,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
                       <div className="mt-2">
                         <div className="text-xs font-medium text-gray-700 mb-1">Code / snippet</div>
                         <pre className="text-xs bg-gray-800 text-gray-100 p-3 rounded-lg overflow-x-auto max-h-40 overflow-y-auto border border-gray-700">
-                          <code className="whitespace-pre-wrap break-all">{(element.html || (element as any).html || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</code>
+                          <code className="whitespace-pre-wrap break-all">{(element.html || (element as any).html || '')}</code>
                         </pre>
                       </div>
                     )}
