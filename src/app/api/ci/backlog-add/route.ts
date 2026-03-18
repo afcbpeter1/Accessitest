@@ -124,11 +124,14 @@ export async function POST(request: NextRequest) {
         if (!url) continue
 
         const ruleName: string = issue?.ruleName || issue?.id || issue?.rule_id || 'unknown'
+        const helpText = typeof issue?.help === 'string' ? issue.help : null
+        const helpUrl = typeof issue?.helpUrl === 'string' ? issue.helpUrl : null
         const node0 = Array.isArray(issue?.nodes) ? issue.nodes[0] : null
         const elementSelector =
           node0?.target?.[0] != null ? String(node0.target[0]) : (issue?.elementSelector ?? '')
         const elementHtml = node0?.html ?? issue?.elementHtml ?? null
         const failureSummary = node0?.failureSummary ?? issue?.failureSummary ?? issue?.description ?? ''
+        const suggestions = Array.isArray(issue?.suggestions) ? issue.suggestions : null
 
         // Your CI scan route does not currently return wcag_level/tags, so default to AA.
         const wcagLevel = issue?.wcag_level ?? issue?.wcagLevel ?? 'AA'
@@ -193,9 +196,10 @@ export async function POST(request: NextRequest) {
         await query(
           `INSERT INTO product_backlog (
             user_id, issue_id, rule_name, description, impact, wcag_level,
+            help_text, help_url, suggestions,
             element_selector, element_html, failure_summary, url, domain,
             priority_rank, status, last_scan_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'backlog', NOW())`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15, 'backlog', NOW())`,
           [
             userId,
             issueId,
@@ -203,6 +207,9 @@ export async function POST(request: NextRequest) {
             String(issue?.description ?? issue?.help ?? '').slice(0, 5000),
             finalImpact,
             finalWcag,
+            helpText ? String(helpText).slice(0, 5000) : null,
+            helpUrl ? String(helpUrl).slice(0, 2000) : null,
+            suggestions ? JSON.stringify(suggestions).slice(0, 200000) : null,
             String(elementSelector || '').slice(0, 2000),
             elementHtml ? String(elementHtml).slice(0, 10000) : null,
             String(failureSummary).slice(0, 5000),

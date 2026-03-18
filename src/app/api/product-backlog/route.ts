@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
         description,
         impact,
         wcag_level,
+        help_text,
+        help_url,
+        suggestions,
         element_selector,
         element_html,
         failure_summary,
@@ -35,10 +38,32 @@ export async function GET(request: NextRequest) {
       [user.userId]
     )
 
+    const items = (result.rows || []).map((row: any) => {
+      const offending = [{
+        target: row.element_selector ? [row.element_selector] : [],
+        html: row.element_html || null,
+        failureSummary: row.failure_summary || null,
+        impact: row.impact,
+        url: row.url
+      }]
+      return {
+        ...row,
+        scan_data: {
+          help_text: row.help_text ?? null,
+          help_url: row.help_url ?? null,
+          suggestions: row.suggestions ?? null,
+          offending_elements: offending,
+          affected_pages: row.url ? [row.url] : [],
+          total_occurrences: 1,
+          screenshots: null
+        }
+      }
+    })
+
     return NextResponse.json({
       success: true,
-      items: result.rows,
-      total: result.rows.length
+      items,
+      total: items.length
     })
   } catch (error) {
     if ((error as Error).message?.includes('Authentication')) {
