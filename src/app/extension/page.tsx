@@ -89,6 +89,64 @@ export default function ExtensionPage() {
   const [multiScanPage, setMultiScanPage] = useState<{ current: number; total: number; url: string } | null>(null)
   const [issuesPageTab, setIssuesPageTab] = useState(0)
 
+  /**
+   * Matches backend backlog de-dupe logic (generateIssueId) but without hashing:
+   *   issue_key = `${ruleName}|${elementSelector}|${url}`
+   *
+   * Where elementSelector uses the first node target: issue.nodes?.[0]?.target?.[0]
+   */
+  const getIssueElementSelector = (issue: any): string => {
+    const t = issue?.nodes?.[0]?.target
+    return Array.isArray(t) ? String(t[0] ?? '') : ''
+  }
+
+  const getIssueDedupKey = (ruleName: string, elementSelector: string, url: string): string => {
+    return `${ruleName || 'unknown'}|${elementSelector || ''}|${url || ''}`
+  }
+
+  const countUniqueIssueKeysForIssues = (issues: any[], url: string): number => {
+    const seen = new Set<string>()
+    for (const issue of issues || []) {
+      const ruleName = String(issue?.id ?? issue?.ruleName ?? 'unknown')
+      const elementSelector = getIssueElementSelector(issue)
+      seen.add(getIssueDedupKey(ruleName, elementSelector, url))
+    }
+    return seen.size
+  }
+
+  const countUniqueIssueKeysForScan = (scan: typeof scanResult): number => {
+    if (!scan) return 0
+    if (Array.isArray(scan.pages) && scan.pages.length > 0) {
+      const seen = new Set<string>()
+      for (const p of scan.pages) {
+        for (const issue of p.issues || []) {
+          const ruleName = String(issue?.id ?? issue?.ruleName ?? 'unknown')
+          const elementSelector = getIssueElementSelector(issue)
+          seen.add(getIssueDedupKey(ruleName, elementSelector, p.url))
+        }
+      }
+      return seen.size
+    }
+    return countUniqueIssueKeysForIssues(scan.issues || [], scan.url)
+  }
+
+  const dedupeRemediationReports = (reports: any[], fallbackUrl: string): any[] => {
+    const seen = new Set<string>()
+    const out: any[] = []
+    for (const r of reports || []) {
+      const ruleName = String(r?.issueId ?? r?.ruleName ?? 'unknown')
+      const elementSelector = Array.isArray(r?.offendingElements)
+        ? String(r?.offendingElements?.[0]?.target?.[0] ?? '')
+        : ''
+      const url = String(r?.affectedUrls?.[0] ?? r?._pageUrl ?? fallbackUrl ?? '')
+      const key = getIssueDedupKey(ruleName, elementSelector, url)
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(r)
+    }
+    return out
+  }
+
   useEffect(() => {
     isMultiScanningRef.current = isMultiScanning
   }, [isMultiScanning])
@@ -474,7 +532,8 @@ export default function ExtensionPage() {
           <>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
               <p className="text-sm text-gray-700 mb-3">
-                Scan complete. {scanResult.issues.length} issue{scanResult.issues.length !== 1 ? 's' : ''} found.
+                Scan complete. {countUniqueIssueKeysForScan(scanResult)} unique issue
+                {countUniqueIssueKeysForScan(scanResult) !== 1 ? 's' : ''} found.
                 {scanResult.backlogAddedDetail && (
                   <span className="block mt-1 text-gray-600">
                     Backlog: {scanResult.backlogAddedDetail.added ?? 0} added, {scanResult.backlogAddedDetail.reopened ?? 0} reopened, {scanResult.backlogAddedDetail.skipped ?? 0} already in backlog.
@@ -575,7 +634,10 @@ export default function ExtensionPage() {
                             return `Page ${idx + (allPagesCombined ? 0 : 1)}`
                           }
                         })()
-                  const count = p.issues?.length ?? 0
+                  const count =
+                    p.url === '__all__'
+                      ? countUniqueIssueKeysForScan(scanResult)
+                      : countUniqueIssueKeysForIssues(p.issues || [], p.url)
                   const isActive = issuesPageTab === idx
                   return (
                     <button
@@ -608,7 +670,7 @@ export default function ExtensionPage() {
                   <p className="text-sm text-gray-500 py-4">No violations found for this page.</p>
                 ) : (pageReport && pageReport.length > 0 ? (
                 <ul className="space-y-4">
-                  {pageReport.map((report: any, index: number) => {
+                  {dedupeRemediationReports(pageReport || [], reportUrl || '').map((report: any, index: number) => {
                     const id = `report-${issuesPageTab}-${index}-${report.issueId || index}`
                     const isExpanded = expandedId === id
                     const offendingElements = report.offendingElements || []
