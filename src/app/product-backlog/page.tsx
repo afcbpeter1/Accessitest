@@ -364,7 +364,7 @@ export default function ProductBacklog() {
   const fetchBacklogItems = async () => {
     try {
       setLoading(true)
-      const response = await authenticatedFetch('/api/backlog')
+      const response = await authenticatedFetch('/api/product-backlog')
       const data = await response.json()
       if (data.success) {
         // Ensure we set ALL items - no filtering
