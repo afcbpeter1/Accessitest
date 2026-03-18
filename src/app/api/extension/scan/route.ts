@@ -287,7 +287,11 @@ export async function POST(request: NextRequest) {
         scanHistoryId,
         reportUrl,
         remediationReport,
-        backlogAdded: {
+        // Backwards/forwards compatible payload:
+        // - extension UI expects `backlogAdded` as a number
+        // - and `backlogAddedDetail` as an object
+        backlogAdded: backlogAdded.added,
+        backlogAddedDetail: {
           added: backlogAdded.added,
           reopened: backlogAdded.reopened,
           skipped: backlogAdded.skipped
