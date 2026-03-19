@@ -101,7 +101,7 @@ export default function CreditDisplay({ className = '', showBuyButton = true }: 
 
     return (
       <div className="flex items-center space-x-2">
-        <div className={`flex items-center space-x-1 ${isNoCredits ? 'text-red-600' : isLowCredits ? 'text-orange-600' : 'text-blue-600'}`}>
+        <div className={`flex items-center space-x-1 ${isNoCredits ? 'text-red-600' : isLowCredits ? 'text-orange-600' : 'text-blue-800'}`}>
           {isNoCredits ? (
             <AlertTriangle className="h-5 w-5" />
           ) : (
@@ -127,7 +127,7 @@ export default function CreditDisplay({ className = '', showBuyButton = true }: 
       {showBuyButton && !creditData.unlimitedCredits && (
         <Link
           href="/pricing"
-          className="flex items-center justify-center gap-1 px-3 py-2 sm:py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors min-h-[44px] sm:min-h-0 whitespace-nowrap"
+          className="flex items-center justify-center gap-1 px-3 py-2 sm:py-1 bg-blue-800 text-white text-sm rounded-md hover:bg-blue-900 transition-colors min-h-[44px] sm:min-h-0 whitespace-nowrap"
         >
           <Plus className="h-4 w-4 flex-shrink-0" />
           <span>Buy Credits</span>
