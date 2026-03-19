@@ -367,7 +367,7 @@ export default function Sidebar({ children }: SidebarProps) {
     
     return (
       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
-        <div className="flex items-center gap-1 text-blue-800 flex-shrink-0">
+        <div className="flex items-center gap-1 text-blue-900 flex-shrink-0" style={{ color: '#1e3a8a' }}>
           <CreditCard className="h-4 w-4" />
           <span className="text-sm font-medium">{user.creditsRemaining}</span>
         </div>
