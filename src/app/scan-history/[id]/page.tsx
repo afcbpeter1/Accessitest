@@ -243,7 +243,7 @@ function ScanDetailsContent() {
             <p className="text-red-600 mb-4">{error || 'Scan not found'}</p>
             <Link
               href="/scan-history"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="inline-flex items-center px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to History
@@ -264,7 +264,7 @@ function ScanDetailsContent() {
           <div className="flex flex-col gap-3 min-w-0">
             <Link
               href="/scan-history"
-              className="inline-flex items-center text-gray-600 hover:text-gray-900 w-fit"
+              className="inline-flex items-center text-gray-800 hover:text-gray-950 w-fit"
             >
               <ArrowLeft className="h-5 w-5 mr-2 flex-shrink-0" />
               Back to History
@@ -285,7 +285,7 @@ function ScanDetailsContent() {
                   {scan.scanTitle}
                 </span>
               </h1>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 mt-1">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-700 mt-1">
                 <div className="flex items-center flex-shrink-0">
                   <Calendar className="h-4 w-4 mr-1 flex-shrink-0" />
                   {formatDate(scan.createdAt)}
@@ -315,7 +315,7 @@ function ScanDetailsContent() {
             <button
               onClick={handleRerunScan}
               disabled={rerunning}
-              className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              className="inline-flex items-center px-4 py-2 bg-green-800 text-white rounded-lg hover:bg-green-900 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
               {rerunning ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2 flex-shrink-0" />
@@ -329,7 +329,7 @@ function ScanDetailsContent() {
                 href={scan.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex-shrink-0"
+                className="inline-flex items-center px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 flex-shrink-0"
               >
                 <ExternalLink className="h-4 w-4 mr-2 flex-shrink-0" />
                 Visit Site
@@ -368,7 +368,7 @@ function ScanDetailsContent() {
             
             <div className="text-right">
               <div className="text-3xl font-bold text-gray-900">{scan.totalIssues}</div>
-              <div className="text-sm text-gray-500">Total Issues</div>
+              <div className="text-sm text-gray-700">Total Issues</div>
             </div>
           </div>
         </div>
@@ -379,7 +379,7 @@ function ScanDetailsContent() {
             <div className="flex items-center">
               <AlertTriangle className="h-8 w-8 text-red-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Critical</p>
+                <p className="text-sm font-medium text-gray-700">Critical</p>
                 <p className="text-2xl font-bold text-red-600">{scan.criticalIssues}</p>
               </div>
             </div>
@@ -389,7 +389,7 @@ function ScanDetailsContent() {
             <div className="flex items-center">
               <AlertTriangle className="h-8 w-8 text-orange-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Serious</p>
+                <p className="text-sm font-medium text-gray-700">Serious</p>
                 <p className="text-2xl font-bold text-orange-600">{scan.seriousIssues}</p>
               </div>
             </div>
@@ -399,7 +399,7 @@ function ScanDetailsContent() {
             <div className="flex items-center">
               <AlertTriangle className="h-8 w-8 text-yellow-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Moderate</p>
+                <p className="text-sm font-medium text-gray-700">Moderate</p>
                 <p className="text-2xl font-bold text-yellow-600">{scan.moderateIssues}</p>
               </div>
             </div>
@@ -409,7 +409,7 @@ function ScanDetailsContent() {
             <div className="flex items-center">
               <AlertTriangle className="h-8 w-8 text-blue-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Minor</p>
+                <p className="text-sm font-medium text-gray-700">Minor</p>
                 <p className="text-2xl font-bold text-blue-600">{scan.minorIssues}</p>
               </div>
             </div>
@@ -616,7 +616,7 @@ function ScanDetailsContent() {
             <button
               type="button"
               onClick={() => setShowExtensionRerunModal(false)}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              className="px-4 py-2 text-sm font-medium text-white bg-primary-800 hover:bg-primary-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
             >
               OK
             </button>

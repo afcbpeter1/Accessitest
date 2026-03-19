@@ -499,9 +499,10 @@ export default function SprintBoard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
+        <h1 className="sr-only">Sprint Board</h1>
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading sprint board...</p>
+          <p className="text-gray-800">Loading sprint board...</p>
         </div>
       </div>
     )
@@ -514,26 +515,26 @@ export default function SprintBoard() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Sprint Board</h1>
-            <p className="text-sm sm:text-base text-gray-600">Manage your accessibility sprints</p>
+            <p className="text-sm sm:text-base text-gray-700">Manage your accessibility sprints</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button 
               onClick={() => setShowTemplatesModal(true)}
-              className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm min-h-[44px]"
+              className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-purple-800 text-white rounded-lg hover:bg-purple-900 transition-colors text-sm min-h-[44px]"
             >
               <Calendar className="h-4 w-4 flex-shrink-0" />
               <span className="whitespace-nowrap">Templates</span>
             </button>
             <button 
               onClick={() => setShowSettingsModal(true)}
-              className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm min-h-[44px]"
+              className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-green-800 text-white rounded-lg hover:bg-green-900 transition-colors text-sm min-h-[44px]"
             >
               <Plus className="h-4 w-4 flex-shrink-0" />
               <span className="whitespace-nowrap">New Sprint</span>
             </button>
             <button 
               onClick={() => setShowSettingsModal(true)}
-              className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm min-h-[44px]"
+              className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors text-sm min-h-[44px]"
             >
               <Settings className="h-4 w-4 flex-shrink-0" />
               <span className="whitespace-nowrap">Settings</span>
@@ -541,7 +542,7 @@ export default function SprintBoard() {
             {selectedSprint && (
               <button 
                 onClick={() => setShowBurndownModal(true)}
-                className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm min-h-[44px]"
+                className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-purple-800 text-white rounded-lg hover:bg-purple-900 transition-colors text-sm min-h-[44px]"
               >
                 <BarChart3 className="h-4 w-4 flex-shrink-0" />
                 <span className="whitespace-nowrap">Burndown</span>
@@ -556,8 +557,9 @@ export default function SprintBoard() {
         <div className="bg-white border-b border-gray-200 px-6 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <label className="text-sm font-medium text-gray-700">Active Sprint:</label>
+              <label htmlFor="active-sprint-select" className="text-sm font-medium text-gray-700">Active Sprint:</label>
               <select
+                id="active-sprint-select"
                 value={selectedSprint?.id || ''}
                 onChange={(e) => {
                   const sprint = sprints.find(s => s.id === e.target.value)
@@ -618,11 +620,11 @@ export default function SprintBoard() {
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Target className="h-8 w-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Sprints Yet</h3>
-            <p className="text-gray-500 mb-6">Create your first sprint to start managing accessibility issues</p>
+            <h2 className="text-lg font-medium text-gray-900 mb-2">No Sprints Yet</h2>
+            <p className="text-gray-700 mb-6">Create your first sprint to start managing accessibility issues</p>
             <button 
               onClick={() => setShowSettingsModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors"
             >
               <Plus className="h-4 w-4" />
               Create Your First Sprint
@@ -640,7 +642,7 @@ export default function SprintBoard() {
               <div>
                 <h2 className="text-xl font-bold text-gray-900">{selectedSprint.name}</h2>
                 <p className="text-gray-600">{selectedSprint.description}</p>
-                <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
+                <div className="flex items-center gap-4 mt-2 text-sm text-gray-700">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-4 w-4" />
                     {new Date(selectedSprint.start_date).toLocaleDateString()} - {new Date(selectedSprint.end_date).toLocaleDateString()}
@@ -656,7 +658,7 @@ export default function SprintBoard() {
               <div className="flex items-center gap-4">
                 <div className="text-right">
                   <div className="text-2xl font-bold text-gray-900">{issues.length}</div>
-                  <div className="text-sm text-gray-500">Total Issues</div>
+                  <div className="text-sm text-gray-700">Total Issues</div>
                 </div>
                 
                 {/* Sprint Status Management */}
@@ -676,7 +678,7 @@ export default function SprintBoard() {
                   {selectedSprint.status === 'planning' && (
                     <button
                       onClick={() => handleSprintStatusUpdate(selectedSprint.id, 'active')}
-                      className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
+                      className="px-3 py-1 bg-green-800 text-white text-xs rounded-lg hover:bg-green-900 transition-colors"
                     >
                       Start Sprint
                     </button>
@@ -738,7 +740,7 @@ export default function SprintBoard() {
                       </span>
                     </div>
                     {column.wip_limit && (
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-gray-700">
                         {getIssuesForColumn(column.id).length}/{column.wip_limit}
                       </div>
                     )}
@@ -771,7 +773,8 @@ export default function SprintBoard() {
                               e.stopPropagation()
                               setShowIssueMenu(showIssueMenu === sprintIssue.issue_id ? null : sprintIssue.issue_id)
                             }}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-gray-600 transition-opacity"
+                            aria-label={`Issue options for ${sprintIssue.rule_name}`}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-gray-700 hover:text-gray-900 transition-opacity"
                           >
                             <MoreHorizontal className="h-4 w-4" />
                           </button>
@@ -876,7 +879,7 @@ export default function SprintBoard() {
                       </div>
 
                       {/* Card Footer */}
-                      <div className="flex items-center justify-between text-xs text-gray-500">
+                      <div className="flex items-center justify-between text-xs text-gray-700">
                         <div className="flex items-center gap-1">
                           <span>{sprintIssue.total_occurrences}</span>
                         </div>
@@ -889,7 +892,7 @@ export default function SprintBoard() {
                   
                   {/* Empty State */}
                   {getIssuesForColumn(column.id).length === 0 && (
-                    <div className="text-center text-gray-400 py-8">
+                    <div className="text-center text-gray-700 py-8">
                       <div className="text-4xl mb-2">📋</div>
                       <p className="text-sm">No issues in this column</p>
                     </div>
@@ -907,11 +910,11 @@ export default function SprintBoard() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="text-6xl mb-4">🏃‍♂️</div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No Sprints Yet</h3>
-            <p className="text-gray-600 mb-4">Create your first sprint to start managing accessibility issues</p>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">No Sprints Yet</h2>
+            <p className="text-gray-700 mb-4">Create your first sprint to start managing accessibility issues</p>
             <button 
               onClick={() => setShowSettingsModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900"
             >
               Create Sprint
             </button>
@@ -956,7 +959,8 @@ export default function SprintBoard() {
                   <h3 className="text-lg font-semibold text-gray-900">Move to Sprint</h3>
                   <button
                     onClick={() => setShowMoveToSprintModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    aria-label="Close move to sprint dialog"
+                    className="text-gray-700 hover:text-gray-900"
                   >
                     <X className="h-5 w-5" />
                   </button>

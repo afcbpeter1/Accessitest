@@ -49,6 +49,17 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
 
   if (!isOpen || !issue) return null
 
+  const formatWcagLevel = (level: string): string => {
+    if (!level) return 'A'
+    const normalized = level.toLowerCase().trim()
+    if (normalized === 'wcag2aaa' || normalized === 'aaa') return 'AAA'
+    if (normalized === 'wcag2aa' || normalized === 'aa') return 'AA'
+    if (normalized === 'wcag2a' || normalized === 'a') return 'A'
+    const match = normalized.match(/wcag\d*(a+)/)
+    if (match) return match[1].toUpperCase()
+    return level.toUpperCase()
+  }
+
   const getImpactColor = (impact: string) => {
     switch (impact) {
       case 'critical': return 'bg-red-100 text-red-800 border-red-200'
@@ -156,8 +167,8 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                       </div>
                       <div>
                         <span className="font-medium text-gray-700">WCAG Level:</span>
-                        <span className="ml-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                          {issue.wcag_level}
+                        <span className="ml-2 px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full border border-purple-200">
+                          WCAG 2 {formatWcagLevel(issue.wcag_level)}
                         </span>
                       </div>
                       {issue.standard_tags && issue.standard_tags.length > 0 && (
@@ -199,7 +210,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                       <li>Review the affected elements listed below</li>
                       <li>Apply the CSS fixes provided in the code examples</li>
                       <li>Test the changes using browser developer tools</li>
-                      <li>Verify color contrast meets WCAG {issue.wcag_level} standards</li>
+                      <li>Verify color contrast meets WCAG 2 {formatWcagLevel(issue.wcag_level)} standards</li>
                       <li>Test with screen readers and accessibility tools</li>
                       <li>Re-scan the page to confirm the issue is resolved</li>
                     </ol>

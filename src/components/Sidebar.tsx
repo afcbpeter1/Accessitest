@@ -86,6 +86,7 @@ export default function Sidebar({ children }: SidebarProps) {
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [loading, setLoading] = useState(true)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
   const menuButtonRef = useRef<HTMLButtonElement>(null)
   const firstMenuItemRef = useRef<HTMLAnchorElement>(null)
   const notificationButtonRef = useRef<HTMLButtonElement>(null)
@@ -126,6 +127,15 @@ export default function Sidebar({ children }: SidebarProps) {
     return () => {
       window.removeEventListener('refreshUserData', handleRefreshUserData)
     }
+  }, [])
+
+  // Track desktop viewport to correctly manage aria-hidden on the sidebar
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 1024px)')
+    setIsDesktop(mediaQuery.matches)
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mediaQuery.addEventListener('change', handler)
+    return () => mediaQuery.removeEventListener('change', handler)
   }, [])
 
   // Close dropdowns when clicking outside (notifications dropdown is in a portal so it needs its own class)
@@ -348,7 +358,7 @@ export default function Sidebar({ children }: SidebarProps) {
           <div className="flex items-center gap-1 text-green-600 flex-shrink-0">
             <span className="text-lg font-bold">∞</span>
             {user.creditsRemaining > 0 && (
-              <span className="text-xs text-gray-500 whitespace-nowrap">({user.creditsRemaining} saved)</span>
+              <span className="text-xs text-gray-700 whitespace-nowrap">({user.creditsRemaining} saved)</span>
             )}
           </div>
         </div>
@@ -382,16 +392,15 @@ export default function Sidebar({ children }: SidebarProps) {
       )}
 
       {/* Sidebar - Hidden on mobile, shown as drawer */}
-      <aside 
+      <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-50
           w-64 bg-white shadow-sm flex flex-col border-r border-gray-200
           transform transition-transform duration-300 ease-in-out
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
-        role="navigation"
-        aria-label="Main navigation"
-        aria-hidden={!mobileMenuOpen ? 'true' : undefined}
+        aria-hidden={(!mobileMenuOpen && !isDesktop) ? 'true' : undefined}
+        inert={(!mobileMenuOpen && !isDesktop) ? true : undefined}
       >
         {/* Logo */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
@@ -443,7 +452,7 @@ export default function Sidebar({ children }: SidebarProps) {
                   }}
                   className={`group flex items-center px-3 py-3 text-sm font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                     isActive
-                      ? 'bg-blue-600 text-white border-r-2 border-blue-400'
+                      ? 'bg-blue-800 text-white border-r-2 border-blue-600'
                       : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                   aria-current={isActive ? 'page' : undefined}
@@ -676,7 +685,7 @@ export default function Sidebar({ children }: SidebarProps) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 sm:p-6 overflow-y-auto overflow-x-hidden min-w-0">
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto overflow-x-hidden min-w-0" tabIndex={0} id="main-content">
           {children}
         </main>
       </div>

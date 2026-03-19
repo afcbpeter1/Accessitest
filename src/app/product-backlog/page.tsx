@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
-import { Plus, MessageSquare, Copy, Trash2, Edit3, CheckCircle, Clock, XCircle, MoreHorizontal, ChevronDown, ExternalLink, CheckSquare, Loader2 } from 'lucide-react'
+import { Plus, MessageSquare, Copy, Trash2, Edit3, CheckCircle, Clock, XCircle, MoreHorizontal, ChevronDown, ExternalLink, CheckSquare, Loader2, GripVertical } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import IssueDetailModal from '@/components/IssueDetailModal'
@@ -29,6 +29,17 @@ interface BacklogItem {
   comment_count: number
   total_occurrences?: number
   last_scan_at?: string
+  scan_data?: {
+    suggestions?: Array<{ description?: string; codeExample?: string; code?: string }>
+    offending_elements?: Array<{
+      html?: string
+      target?: string[]
+      failureSummary?: string
+      impact?: string
+      url?: string
+    }>
+    affected_pages?: string[]
+  }
 }
 
 interface Comment {
@@ -50,11 +61,23 @@ interface Sprint {
 
 const FIBONACCI_POINTS = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
 
+const formatWcagLevel = (level: string): string => {
+  if (!level) return 'A'
+  const normalized = level.toLowerCase().trim()
+  if (normalized === 'wcag2aaa' || normalized === 'aaa') return 'AAA'
+  if (normalized === 'wcag2aa' || normalized === 'aa') return 'AA'
+  if (normalized === 'wcag2a' || normalized === 'a') return 'A'
+  // Already a formatted label like "wcag2aa" but with numbers mixed in
+  const match = normalized.match(/wcag(\d+)(a+)/)
+  if (match) return match[2].toUpperCase()
+  return level.toUpperCase()
+}
+
 const getImpactColor = (impact: string) => {
   switch (impact) {
     case 'critical': return 'text-red-800 bg-red-50 border-red-200'
-    case 'serious': return 'text-orange-800 bg-orange-50 border-orange-200'
-    case 'moderate': return 'text-yellow-800 bg-yellow-50 border-yellow-200'
+    case 'serious': return 'text-orange-900 bg-orange-50 border-orange-200'
+    case 'moderate': return 'text-yellow-900 bg-yellow-50 border-yellow-200'
     case 'minor': return 'text-blue-800 bg-blue-50 border-blue-200'
     default: return 'text-gray-800 bg-gray-50 border-gray-200'
   }
@@ -537,18 +560,81 @@ export default function ProductBacklog() {
     }
   }
 
-  const copyTicket = (item: BacklogItem) => {
-    const ticketText = `
+  const buildTicketText = (item: BacklogItem) => {
+    const offendingElements = Array.isArray(item.scan_data?.offending_elements)
+      ? item.scan_data!.offending_elements!
+      : []
+    const affectedPages = Array.isArray(item.scan_data?.affected_pages)
+      ? item.scan_data!.affected_pages!
+      : []
+    const suggestions = Array.isArray(item.scan_data?.suggestions)
+      ? item.scan_data!.suggestions!
+      : []
+
+    const offendingElementsText = offendingElements.length > 0
+      ? offendingElements.map((el, idx) => {
+          const selector = Array.isArray(el.target) && el.target.length > 0 ? el.target.join(', ') : (item.element_selector || 'N/A')
+          const elementUrl = el.url || item.url || 'N/A'
+          const failure = el.failureSummary || item.failure_summary || 'N/A'
+          const html = el.html || item.element_html || 'N/A'
+          return `
+ELEMENT ${idx + 1}
+${(el.impact || item.impact || 'moderate').toUpperCase()}
+HTML Code:
+\`\`\`html
+${html}
+\`\`\`
+CSS Selector:
+${selector}
+Issue Description:
+${failure}
+URL:
+${elementUrl}`.trim()
+        }).join('\n\n')
+      : `ELEMENT 1
+${item.impact.toUpperCase()}
+HTML Code:
+\`\`\`html
+${item.element_html || 'N/A'}
+\`\`\`
+CSS Selector:
+${item.element_selector || 'N/A'}
+Issue Description:
+${item.failure_summary || 'N/A'}
+URL:
+${item.url || 'N/A'}`
+
+    const aiSuggestion = suggestions[0]?.description || 'No AI suggestion available.'
+    const aiCode = suggestions[0]?.codeExample || suggestions[0]?.code || 'N/A'
+
+    return `
 **Accessibility Issue Ticket**
 
+📋 Issue Summary
 **Rule:** ${item.rule_name}
 **Impact:** ${item.impact.toUpperCase()}
-**WCAG Level:** ${item.wcag_level}
-**URL:** ${item.url}
-**Element:** ${item.element_selector || 'N/A'}
+**WCAG Level:** WCAG 2 ${formatWcagLevel(item.wcag_level)}
+**Occurrences:** ${item.total_occurrences || 1}
+**Affected Pages:** ${affectedPages.length > 0 ? affectedPages.length : 1}
 
+🚨 Problem Description
 **Description:**
 ${item.description}
+
+🔍 Offending Elements
+${offendingElementsText}
+
+🔧 AI-Generated Suggested Fix
+${aiSuggestion}
+
+💻 Suggested Fix:
+\`\`\`html
+${aiCode}
+\`\`\`
+
+📝 Additional Details
+**Primary URL:** ${item.url}
+**Element:** ${item.element_selector || 'N/A'}
 
 **Failure Summary:**
 ${item.failure_summary || 'N/A'}
@@ -556,17 +642,33 @@ ${item.failure_summary || 'N/A'}
 **Story Points:** ${item.story_points || 'Not assigned'}
 **Status:** ${item.status}
 
-**HTML Element:**
-\`\`\`html
-${item.element_html || 'N/A'}
-\`\`\`
-
 ---
 *Generated from AccessiTest Product Backlog*
     `.trim()
+  }
 
-    navigator.clipboard.writeText(ticketText)
+  const copyTicket = (item: BacklogItem) => {
+    navigator.clipboard.writeText(buildTicketText(item))
     showToast('Ticket copied to clipboard!', 'success')
+  }
+
+  const copyAllTickets = async () => {
+    if (backlogItems.length === 0) {
+      showToast('No backlog items to copy', 'error')
+      return
+    }
+
+    const bulkText = backlogItems
+      .map((item, index) => `${buildTicketText(item)}\n\n${'='.repeat(80)}\nIssue ${index + 1} of ${backlogItems.length}`)
+      .join('\n\n')
+
+    try {
+      await navigator.clipboard.writeText(bulkText)
+      showToast(`Copied ${backlogItems.length} backlog issue(s) as plain text`, 'success')
+    } catch (error) {
+      console.error('Error copying all tickets:', error)
+      showToast('Failed to copy backlog issues', 'error')
+    }
   }
 
   const handleDeleteClick = (itemId: string) => {
@@ -718,13 +820,15 @@ ${item.element_html || 'N/A'}
                 <div className="bg-white rounded-lg shadow">
                   <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={backlogItems.length > 0 && selectedItems.size === backlogItems.length}
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                        title="Select all"
-                      />
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={backlogItems.length > 0 && selectedItems.size === backlogItems.length}
+                          onChange={(e) => handleSelectAll(e.target.checked)}
+                          className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          aria-label="Select all items"
+                        />
+                      </label>
                       <h2 className="text-base sm:text-lg font-semibold text-gray-900">
                         Backlog Items ({backlogItems.length})
                       </h2>
@@ -734,8 +838,16 @@ ${item.element_html || 'N/A'}
                         </span>
                       )}
                     </div>
-                    {selectedItems.size > 0 && (
-                      <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={copyAllTickets}
+                        className="px-4 py-2 text-sm font-medium text-white bg-gray-700 rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 flex items-center gap-2"
+                      >
+                        <Copy className="h-4 w-4" />
+                        Copy all as text ({backlogItems.length})
+                      </button>
+                      {selectedItems.size > 0 && (
+                        <>
                         {jiraIntegration && (
                           <button
                             onClick={handleAddSelectedToJira}
@@ -781,8 +893,9 @@ ${item.element_html || 'N/A'}
                           <Trash2 className="h-4 w-4" />
                           Delete Selected ({selectedItems.size})
                         </button>
-                      </div>
-                    )}
+                        </>
+                      )}
+                    </div>
                   </div>
                   
                   <DragDropContext onDragEnd={handleDragEnd}>
@@ -794,7 +907,7 @@ ${item.element_html || 'N/A'}
                           className="divide-y divide-gray-200"
                         >
                           {backlogItems.length === 0 ? (
-                            <div className="p-8 text-center text-gray-500">
+                            <div className="p-8 text-center text-gray-700">
                               No backlog items found. Check the console for debug info.
                             </div>
                           ) : (
@@ -804,38 +917,49 @@ ${item.element_html || 'N/A'}
                                 <div
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  className={`p-4 sm:p-6 hover:bg-gray-50 transition-colors cursor-pointer ${
+                                  className={`flex items-stretch hover:bg-gray-50 transition-colors ${
                                     snapshot.isDragging ? 'bg-blue-50 shadow-lg' : ''
                                   } ${selectedItems.has(item.id) ? 'bg-blue-50' : ''}`}
-                                  onClick={() => {
-                                    setSelectedItem(item)
-                                    setShowDetailModal(true)
-                                  }}
                                 >
+                                  <div
+                                    {...provided.dragHandleProps}
+                                    className="flex items-center px-2 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing flex-shrink-0"
+                                    aria-label={`Drag to reorder: ${item.rule_name}`}
+                                  >
+                                    <GripVertical className="h-4 w-4" />
+                                  </div>
+                                  <div
+                                    className={`flex-1 p-4 sm:p-6 cursor-pointer min-w-0`}
+                                    onClick={() => {
+                                      setSelectedItem(item)
+                                      setShowDetailModal(true)
+                                    }}
+                                  >
                                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedItems.has(item.id)}
-                                        onChange={(e) => {
-                                          e.stopPropagation()
-                                          handleItemSelect(item.id, e.target.checked)
-                                        }}
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-1 flex-shrink-0"
-                                        title="Select item"
-                                      />
+                                      <label className="flex items-start cursor-pointer flex-shrink-0 mt-1" onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedItems.has(item.id)}
+                                          onChange={(e) => {
+                                            e.stopPropagation()
+                                            handleItemSelect(item.id, e.target.checked)
+                                          }}
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 flex-shrink-0"
+                                          aria-label={`Select ${item.rule_name}`}
+                                        />
+                                      </label>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex flex-wrap items-center gap-2 mb-2">
-                                        <span className="text-sm font-medium text-gray-500 flex-shrink-0">
+                                        <span className="text-sm font-medium text-gray-600 flex-shrink-0">
                                           #{index + 1}
                                         </span>
                                         <span className={`px-2 py-1 text-xs font-medium rounded-full border flex-shrink-0 whitespace-nowrap ${getImpactColor(item.impact)}`}>
                                           {item.impact.toUpperCase()}
                                         </span>
-                                        <span className="text-xs text-gray-500 flex-shrink-0">
-                                          {item.wcag_level}
+                                        <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full border border-purple-200 flex-shrink-0">
+                                          WCAG 2 {formatWcagLevel(item.wcag_level)}
                                         </span>
                                         {/* Show duplicate indicator if this issue appears multiple times */}
                                         {item.total_occurrences && item.total_occurrences > 1 && (
@@ -849,7 +973,7 @@ ${item.element_html || 'N/A'}
                                       <h3 className="font-medium text-gray-900 mb-1 break-words">
                                         {item.rule_name}
                                         {item.total_occurrences && item.total_occurrences > 1 && (
-                                          <span className="ml-2 text-xs font-normal text-purple-600">
+                                          <span className="ml-2 text-xs font-normal text-purple-800">
                                             (appears {item.total_occurrences} times)
                                           </span>
                                         )}
@@ -859,14 +983,14 @@ ${item.element_html || 'N/A'}
                                         {item.description}
                                       </p>
                                       
-                                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+                                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-600">
                                         <span className="truncate max-w-full">Domain: {item.domain}</span>
                                         <span>•</span>
                                         <span>{new Date(item.created_at).toLocaleDateString()}</span>
                                         {item.last_scan_at && (
                                           <>
                                             <span>•</span>
-                                            <span className="text-blue-600">Auto-created</span>
+                                            <span className="text-primary-700">Auto-created</span>
                                           </>
                                         )}
                                       </div>
@@ -887,11 +1011,21 @@ ${item.element_html || 'N/A'}
                                         onClick={(e) => {
                                           e.stopPropagation()
                                           setSelectedItem(item)
+                                          setShowDetailModal(true)
+                                        }}
+                                        className="p-2 sm:p-1 text-gray-400 hover:text-gray-600 rounded min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
+                                        aria-label={`View details for ${item.rule_name}`}
+                                      >
+                                        <ExternalLink className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          setSelectedItem(item)
                                           setShowComments(true)
                                           fetchComments(item.id)
                                         }}
                                         className="p-2 sm:p-1 text-gray-400 hover:text-blue-600 rounded min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
-                                        title="Comments"
                                         aria-label="Comments"
                                       >
                                         <MessageSquare className="h-4 w-4" />
@@ -1019,6 +1153,7 @@ ${item.element_html || 'N/A'}
                                         </div>
                                       )}
                                     </div>
+                                  </div>
                                   </div>
                                 </div>
                               )}

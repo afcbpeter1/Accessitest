@@ -141,13 +141,14 @@ export default function SprintBurndownChart({
         <div className="flex items-center gap-3">
           <button
             onClick={fetchBurndownData}
-            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            className="px-3 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors text-sm"
           >
             🔄 Refresh
           </button>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Close burndown chart"
+            className="text-gray-700 hover:text-gray-900 transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -189,7 +190,7 @@ export default function SprintBurndownChart({
               <Line 
                 type="monotone" 
                 dataKey="ideal" 
-                stroke="#94a3b8" 
+                stroke="#475569" 
                 strokeWidth={2}
                 strokeDasharray="5 5"
                 name="Target"
@@ -198,10 +199,10 @@ export default function SprintBurndownChart({
               <Line 
                 type="monotone" 
                 dataKey="actual" 
-                stroke="#3b82f6" 
+                stroke="#1e3a8a" 
                 strokeWidth={3}
                 name="Actual"
-                dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                dot={{ fill: '#1e3a8a', strokeWidth: 2, r: 4 }}
                 activeDot={{ r: 6 }}
               />
             </LineChart>

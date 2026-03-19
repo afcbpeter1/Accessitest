@@ -101,7 +101,8 @@ export default function SprintSettingsModal({ isOpen, onClose, sprint, onSave }:
               </div>
               <button
                 onClick={onClose}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close sprint settings"
+                className="p-2 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -120,10 +121,11 @@ export default function SprintSettingsModal({ isOpen, onClose, sprint, onSave }:
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="sprint-name" className="block text-sm font-medium text-gray-700 mb-2">
                       Sprint Name *
                     </label>
                     <input
+                      id="sprint-name"
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
@@ -134,10 +136,11 @@ export default function SprintSettingsModal({ isOpen, onClose, sprint, onSave }:
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="sprint-status" className="block text-sm font-medium text-gray-700 mb-2">
                       Status
                     </label>
                     <select
+                      id="sprint-status"
                       value={formData.status}
                       onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -186,10 +189,11 @@ export default function SprintSettingsModal({ isOpen, onClose, sprint, onSave }:
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="sprint-start-date" className="block text-sm font-medium text-gray-700 mb-2">
                       Start Date *
                     </label>
                     <input
+                      id="sprint-start-date"
                       type="date"
                       value={formData.start_date}
                       onChange={(e) => setFormData(prev => ({ ...prev, start_date: e.target.value }))}
@@ -199,10 +203,11 @@ export default function SprintSettingsModal({ isOpen, onClose, sprint, onSave }:
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="sprint-duration" className="block text-sm font-medium text-gray-700 mb-2">
                       Duration (Days)
                     </label>
                     <select
+                      id="sprint-duration"
                       value={formData.duration_days}
                       onChange={(e) => handleDurationChange(parseInt(e.target.value))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -215,10 +220,11 @@ export default function SprintSettingsModal({ isOpen, onClose, sprint, onSave }:
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="sprint-end-date" className="block text-sm font-medium text-gray-700 mb-2">
                       End Date
                     </label>
                     <input
+                      id="sprint-end-date"
                       type="date"
                       value={formData.end_date}
                       onChange={(e) => setFormData(prev => ({ ...prev, end_date: e.target.value }))}
@@ -239,10 +245,11 @@ export default function SprintSettingsModal({ isOpen, onClose, sprint, onSave }:
                 <div className="bg-gray-50 rounded-lg p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <label className="text-sm font-medium text-gray-700">Auto Rollover Incomplete Issues</label>
-                      <p className="text-xs text-gray-500">Move unfinished issues to next sprint</p>
+                      <label htmlFor="auto-rollover" className="text-sm font-medium text-gray-700">Auto Rollover Incomplete Issues</label>
+                      <p className="text-xs text-gray-700">Move unfinished issues to next sprint</p>
                     </div>
                     <input
+                      id="auto-rollover"
                       type="checkbox"
                       checked={sprintSettings.auto_rollover}
                       onChange={(e) => setSprintSettings(prev => ({ ...prev, auto_rollover: e.target.checked }))}
@@ -252,10 +259,11 @@ export default function SprintSettingsModal({ isOpen, onClose, sprint, onSave }:
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="wip-in-progress" className="block text-sm font-medium text-gray-700 mb-2">
                         In Progress WIP Limit
                       </label>
                       <input
+                        id="wip-in-progress"
                         type="number"
                         value={sprintSettings.wip_limits.in_progress}
                         onChange={(e) => setSprintSettings(prev => ({
@@ -269,10 +277,11 @@ export default function SprintSettingsModal({ isOpen, onClose, sprint, onSave }:
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="wip-in-review" className="block text-sm font-medium text-gray-700 mb-2">
                         In Review WIP Limit
                       </label>
                       <input
+                        id="wip-in-review"
                         type="number"
                         value={sprintSettings.wip_limits.in_review}
                         onChange={(e) => setSprintSettings(prev => ({

@@ -1296,6 +1296,7 @@ export default function OrganizationPage() {
     return (
       <Sidebar>
         <div className="flex items-center justify-center h-screen">
+          <h1 className="sr-only">Organisation</h1>
           <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
         </div>
       </Sidebar>
@@ -1310,7 +1311,7 @@ export default function OrganizationPage() {
           <div className="flex justify-between items-center mb-8">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Organisation</h1>
-              <p className="text-gray-600 mt-1">Manage your teams, members, and billing</p>
+              <p className="text-gray-700 mt-1">Manage your teams, members, and billing</p>
             </div>
           </div>
 
@@ -1344,7 +1345,7 @@ export default function OrganizationPage() {
                 <div className="bg-white rounded-lg shadow min-w-0 overflow-hidden">
                   {/* Tabs: scroll on small screens so labels don't clip */}
                   <div className="border-b border-gray-200 overflow-x-auto overflow-y-hidden">
-                      <nav className="flex flex-wrap sm:flex-nowrap gap-x-6 gap-y-0 px-4 sm:px-6 min-w-0 -mb-px">
+                      <nav aria-label="Organisation sections" className="flex flex-wrap sm:flex-nowrap gap-x-6 gap-y-0 px-4 sm:px-6 min-w-0 -mb-px">
                         {[
                           { id: 'overview', name: 'Overview', icon: Building2, roles: ['owner', 'admin', 'user'] },
                           { id: 'billing', name: 'Billing', icon: CreditCard, roles: ['owner', 'admin'] },
@@ -1365,8 +1366,8 @@ export default function OrganizationPage() {
                               onClick={() => setActiveTab(tab.id as any)}
                               className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap flex-shrink-0 ${
                                 activeTab === tab.id
-                                  ? 'border-primary-600 text-primary-600'
-                                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                  ? 'border-primary-800 text-primary-800'
+                                  : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'
                               }`}
                             >
                               <Icon className="h-5 w-5 mr-2 flex-shrink-0" />
@@ -1382,7 +1383,7 @@ export default function OrganizationPage() {
                       {activeTab === 'overview' && (
                         <div className="space-y-6">
                           <div>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">{currentOrg.name}</h3>
+                            <h2 className="text-lg font-semibold text-gray-900 mb-2">{currentOrg.name}</h2>
                             <p className="text-gray-600">Created {new Date(currentOrg.created_at).toLocaleDateString()}</p>
                           </div>
 
@@ -1408,10 +1409,10 @@ export default function OrganizationPage() {
                       {activeTab === 'members' && (
                         <div className="space-y-4">
                           <div className="flex justify-between items-center">
-                            <h3 className="text-lg font-semibold text-gray-900">Members</h3>
+                            <h2 className="text-lg font-semibold text-gray-900">Members</h2>
                             <button
                               onClick={() => setShowInviteModal(true)}
-                              className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                              className="flex items-center px-4 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-900"
                             >
                               <UserPlus className="h-5 w-5 mr-2" />
                               Invite Member
@@ -1422,12 +1423,12 @@ export default function OrganizationPage() {
                             <table className="min-w-full divide-y divide-gray-200">
                               <thead className="bg-gray-50">
                                 <tr>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Team</th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
-                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Name</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Email</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Team</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Role</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Joined</th>
+                                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">Actions</th>
                                 </tr>
                               </thead>
                               <tbody className="bg-white divide-y divide-gray-200">
@@ -1446,6 +1447,7 @@ export default function OrganizationPage() {
                                           <select
                                             value={member.team_id || ''}
                                             onChange={(e) => handleAssignToTeam(member.user_id, e.target.value || null)}
+                                            aria-label={`Team for ${member.first_name} ${member.last_name}`}
                                             className="text-sm border border-gray-300 rounded px-2 py-1"
                                           >
                                             <option value="">No Team</option>
@@ -1468,6 +1470,7 @@ export default function OrganizationPage() {
                                             <select
                                               value={member.role}
                                               onChange={(e) => handleUpdateRole(member.user_id, e.target.value as 'owner' | 'admin' | 'user')}
+                                              aria-label={`Role for ${member.first_name} ${member.last_name}`}
                                               className="ml-2 text-sm border border-gray-300 rounded px-2 py-1"
                                             >
                                               <option value="user">User</option>
@@ -1486,8 +1489,8 @@ export default function OrganizationPage() {
                                           {isAdminOrOwner && member.role !== 'owner' && (
                                             <button
                                               onClick={() => handleRemoveMember(member.user_id)}
+                                              aria-label={`Remove ${member.first_name} ${member.last_name} from organisation`}
                                               className="text-red-600 hover:text-red-800"
-                                              title="Remove member"
                                             >
                                               <Trash2 className="h-5 w-5" />
                                             </button>
@@ -1506,10 +1509,10 @@ export default function OrganizationPage() {
                       {activeTab === 'teams' && (
                         <div className="space-y-4">
                           <div className="flex justify-between items-center">
-                            <h3 className="text-lg font-semibold text-gray-900">Teams</h3>
+                            <h2 className="text-lg font-semibold text-gray-900">Teams</h2>
                             <button
                               onClick={() => setShowCreateTeam(true)}
-                              className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                              className="flex items-center px-4 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-900"
                             >
                               <Plus className="h-5 w-5 mr-2" />
                               Create Team
@@ -1525,7 +1528,7 @@ export default function OrganizationPage() {
                               {teams.map((team) => (
                                 <div key={team.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                                   <div className="flex justify-between items-start mb-2">
-                                    <h4 className="font-semibold text-gray-900">{team.name}</h4>
+                                    <h3 className="font-semibold text-gray-900">{team.name}</h3>
                                     <button
                                       onClick={async () => {
                                         if (confirm('Delete this team? This cannot be undone.')) {
@@ -1547,6 +1550,7 @@ export default function OrganizationPage() {
                                           }
                                         }
                                       }}
+                                      aria-label={`Delete team ${team.name}`}
                                       className="text-red-600 hover:text-red-800"
                                     >
                                       <Trash2 className="h-4 w-4" />
@@ -1580,8 +1584,8 @@ export default function OrganizationPage() {
                                             <button
                                               onClick={() => loadAvailableProjects(true)}
                                               disabled={refreshingProjects}
-                                              className="text-xs text-blue-600 hover:text-blue-800 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                                              title="Refresh projects from integrations"
+                                              className="text-xs text-blue-800 hover:text-blue-900 flex items-center space-x-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                              aria-label="Refresh projects from integrations"
                                             >
                                               <RefreshCw className={`h-3 w-3 ${refreshingProjects ? 'animate-spin' : ''}`} />
                                               <span>{refreshingProjects ? 'Refreshing...' : 'Refresh'}</span>
@@ -1607,6 +1611,7 @@ export default function OrganizationPage() {
                                           <select
                                             value={team.jira_project_key || ''}
                                             onChange={(e) => handleAssignProjectToTeam(team.id, 'jira', e.target.value || null)}
+                                            aria-label={`Jira project for ${team.name}`}
                                             className="w-full text-sm px-2 py-1 border border-gray-300 rounded"
                                           >
                                             <option value="">None</option>
@@ -1616,7 +1621,7 @@ export default function OrganizationPage() {
                                               </option>
                                             ))}
                                           </select>
-                                          <p className="text-xs text-gray-500 mt-1">
+                                          <p className="text-xs text-gray-700 mt-1">
                                             {availableJiraProjects.length} project{availableJiraProjects.length !== 1 ? 's' : ''} available
                                           </p>
                                           {team.jira_project_key && (
@@ -1630,6 +1635,7 @@ export default function OrganizationPage() {
                                                     ? (pendingTeamChanges[team.id].jira_issue_type || '')
                                                     : (team.jira_issue_type || '')}
                                                   onChange={(e) => updatePendingTeamChange(team.id, 'jira_issue_type', e.target.value || null)}
+                                                  aria-label={`Jira issue type for ${team.name}`}
                                                   className="w-full text-sm px-2 py-1 border border-gray-300 rounded"
                                                 >
                                                   <option value="">Use integration default</option>
@@ -1650,7 +1656,7 @@ export default function OrganizationPage() {
                                                   className="w-full text-sm px-2 py-1 border border-gray-300 rounded"
                                                 />
                                               )}
-                                              <p className="text-xs text-gray-500 mt-1">
+                                              <p className="text-xs text-gray-700 mt-1">
                                                 Leave empty to use integration default
                                               </p>
                                             </div>
@@ -1665,6 +1671,7 @@ export default function OrganizationPage() {
                                           <select
                                             value={team.azure_devops_project || ''}
                                             onChange={(e) => handleAssignProjectToTeam(team.id, 'azure', e.target.value || null)}
+                                            aria-label={`Azure DevOps project for ${team.name}`}
                                             className="w-full text-sm px-2 py-1 border border-gray-300 rounded"
                                           >
                                             <option value="">None</option>
@@ -1674,7 +1681,7 @@ export default function OrganizationPage() {
                                               </option>
                                             ))}
                                           </select>
-                                          <p className="text-xs text-gray-500 mt-1">
+                                          <p className="text-xs text-gray-700 mt-1">
                                             {availableAzureDevOpsProjects.length} project{availableAzureDevOpsProjects.length !== 1 ? 's' : ''} available
                                           </p>
                                           {team.azure_devops_project && (
@@ -1691,7 +1698,7 @@ export default function OrganizationPage() {
                                                 placeholder="e.g., Bug, Task, Product Backlog Item"
                                                 className="w-full text-sm px-2 py-1 border border-gray-300 rounded"
                                               />
-                                              <p className="text-xs text-gray-500 mt-1">
+                                              <p className="text-xs text-gray-700 mt-1">
                                                 Enter the exact work item type name. Leave empty to use integration default.
                                               </p>
                                             </div>
@@ -1699,7 +1706,7 @@ export default function OrganizationPage() {
                                         </div>
                                       )}
                                       {availableJiraProjects.length === 0 && availableAzureDevOpsProjects.length === 0 && (
-                                        <p className="text-xs text-gray-500">
+                                        <p className="text-xs text-gray-700">
                                           {jiraIntegration || azureDevOpsIntegration 
                                             ? 'No projects found. Click Refresh to reload from integrations.'
                                             : 'Configure integrations to assign projects to teams'
@@ -1719,13 +1726,13 @@ export default function OrganizationPage() {
                         <div className="space-y-6">
                           {/* Integration Sub-tabs */}
                           <div className="border-b border-gray-200">
-                            <nav className="-mb-px flex space-x-8">
+                            <nav aria-label="Integration type" className="-mb-px flex space-x-8">
                               <button
                                 onClick={() => setIntegrationSubTab('jira')}
                                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                                   integrationSubTab === 'jira'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-blue-800 text-blue-800'
+                                    : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'
                                 }`}
                               >
                                 Jira
@@ -1734,8 +1741,8 @@ export default function OrganizationPage() {
                                 onClick={() => setIntegrationSubTab('azure')}
                                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                                   integrationSubTab === 'azure'
-                                    ? 'border-blue-500 text-blue-600'
-                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-blue-800 text-blue-800'
+                                    : 'border-transparent text-gray-600 hover:text-gray-800 hover:border-gray-300'
                                 }`}
                               >
                                 Azure DevOps
@@ -1755,7 +1762,7 @@ export default function OrganizationPage() {
                                   <div className="flex items-center justify-between">
                                     <div className="flex-1">
                                       <div className="flex items-center space-x-2 mb-2">
-                                        <CheckCircle className="h-5 w-5 text-green-600" />
+                                        <CheckCircle className="h-5 w-5 text-green-800" />
                                         <span className="font-semibold text-green-900 text-lg">✓ Jira Integration Active</span>
                                       </div>
                                       <div className="space-y-1 text-sm text-green-800">
@@ -1770,7 +1777,7 @@ export default function OrganizationPage() {
                                           <span className="font-medium"> Issue Type:</span> {jiraIntegration.issueType || 'Not set'}
                                         </p>
                                         {jiraIntegration.lastVerifiedAt && (
-                                          <p className="text-xs text-green-600 mt-2">
+                                          <p className="text-xs text-green-800 mt-2">
                                             Last verified: {new Date(jiraIntegration.lastVerifiedAt).toLocaleString()}
                                           </p>
                                         )}
@@ -1827,30 +1834,27 @@ export default function OrganizationPage() {
                                       onChange={(e) => setJiraForm({ ...jiraForm, apiToken: e.target.value })}
                                       key={`jira-token-${jiraIntegration?.id || 'new'}`}
                                     />
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-xs text-gray-700 mt-1">
                                       {jiraIntegration 
                                         ? "Leave blank to keep your existing token, or enter a new one to update it."
-                                        : "Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens"
+                                        : "Create an API token at "
                                       }
                                       {!jiraIntegration && (
-                                        <>
-                                          {' '}
-                                          <a
-                                            href="https://id.atlassian.com/manage-profile/security/api-tokens"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-blue-600 hover:underline"
-                                          >
-                                            https://id.atlassian.com/manage-profile/security/api-tokens
-                                          </a>
-                                        </>
+                                        <a
+                                          href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-blue-800 underline"
+                                        >
+                                          https://id.atlassian.com/manage-profile/security/api-tokens
+                                        </a>
                                       )}
                                     </p>
                                   </div>
                                   
                                   <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                      Project (Default) {jiraForm.projectKey && <span className="text-green-600">✓</span>}
+                                      Project (Default) {jiraForm.projectKey && <span className="text-green-800">✓</span>}
                                     </label>
                                     {jiraProjects.length > 0 ? (
                                       <select
@@ -1882,17 +1886,18 @@ export default function OrganizationPage() {
                                         />
                                     )}
                                     {jiraForm.projectKey && (
-                                      <p className="text-xs text-green-600 mt-1">
+                                      <p className="text-xs text-green-800 mt-1">
                                         ✓ Default project: {jiraForm.projectKey} (teams can override this)
                                       </p>
                                     )}
                                   </div>
 
                                   <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                      Issue Type (Optional - Default) {jiraForm.issueType && <span className="text-green-600">✓</span>}
+                                    <label htmlFor="org-jira-issue-type" className="block text-sm font-medium text-gray-700 mb-1">
+                                      Issue Type (Optional - Default) {jiraForm.issueType && <span className="text-green-800">✓</span>}
                                     </label>
                                       <select
+                                        id="org-jira-issue-type"
                                         className="input-field"
                                         value={jiraForm.issueType}
                                         onChange={(e) => setJiraForm({ ...jiraForm, issueType: e.target.value })}
@@ -1921,12 +1926,12 @@ export default function OrganizationPage() {
                                         )}
                                       </select>
                                       {jiraForm.issueType && (
-                                        <p className="text-xs text-green-600 mt-1">
+                                        <p className="text-xs text-green-800 mt-1">
                                           ✓ Default issue type: {jiraForm.issueType} (teams can override this)
                                         </p>
                                       )}
                                       {!jiraForm.issueType && (
-                                        <p className="text-xs text-gray-500 mt-1">
+                                        <p className="text-xs text-gray-700 mt-1">
                                           Optional: If not set, will default to "Bug". Teams can set their own issue type in the Teams section.
                                         </p>
                                       )}
@@ -2114,7 +2119,7 @@ export default function OrganizationPage() {
                                         value={jiraForm.apiToken}
                                         onChange={(e) => setJiraForm({ ...jiraForm, apiToken: e.target.value })}
                                       />
-                                      <p className="text-xs text-gray-500 mt-1">
+                                      <p className="text-xs text-gray-700 mt-1">
                                         {jiraIntegration 
                                           ? "Leave blank to keep your existing token, or enter a new one to update it."
                                           : "Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens"
@@ -2214,7 +2219,7 @@ export default function OrganizationPage() {
                                   <div className="flex items-center justify-between">
                                     <div className="flex-1">
                                       <div className="flex items-center space-x-2 mb-2">
-                                        <CheckCircle className="h-5 w-5 text-green-600" />
+                                        <CheckCircle className="h-5 w-5 text-green-800" />
                                         <span className="font-semibold text-green-900 text-lg">✓ Azure DevOps Integration Active</span>
                                       </div>
                                       <div className="space-y-1 text-sm text-green-800">
@@ -2226,7 +2231,7 @@ export default function OrganizationPage() {
                                           <span className="font-medium"> Work Item Type:</span> {azureDevOpsIntegration.workItemType || 'Not set'}
                                         </p>
                                         {azureDevOpsIntegration.lastVerifiedAt && (
-                                          <p className="text-xs text-green-600 mt-2">
+                                          <p className="text-xs text-green-800 mt-2">
                                             Last verified: {new Date(azureDevOpsIntegration.lastVerifiedAt).toLocaleString()}
                                           </p>
                                         )}
@@ -2255,7 +2260,7 @@ export default function OrganizationPage() {
                                     value={azureDevOpsForm.organization}
                                     onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, organization: e.target.value })}
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">
+                                  <p className="text-xs text-gray-700 mt-1">
                                     Your Azure DevOps organisation name (e.g., "a11ytest" from https://dev.azure.com/a11ytest)
                                   </p>
                                 </div>
@@ -2270,7 +2275,7 @@ export default function OrganizationPage() {
                                     value={azureDevOpsForm.pat}
                                     onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, pat: e.target.value })}
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">
+                                  <p className="text-xs text-gray-700 mt-1">
                                     {azureDevOpsIntegration 
                                       ? "Leave blank to keep your existing token, or enter a new one to update it."
                                       : "Create a PAT at https://dev.azure.com/{organization}/_usersSettings/tokens with 'Work Items (Read & Write)' scope"}
@@ -2281,7 +2286,7 @@ export default function OrganizationPage() {
                                           href={`https://dev.azure.com/${(azureDevOpsForm.organization || 'your-org').replace(/^https?:\/\/dev\.azure\.com\/?/i, '').split('/')[0]}/_usersSettings/tokens`}
                                           target="_blank"
                                           rel="noopener noreferrer"
-                                          className="text-blue-600 hover:underline"
+                                          className="text-blue-800 underline"
                                         >
                                           Create PAT
                                         </a>
@@ -2291,7 +2296,7 @@ export default function OrganizationPage() {
                                 </div>
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Project (Default) {azureDevOpsForm.project && <span className="text-green-600">✓</span>}
+                                    Project (Default) {azureDevOpsForm.project && <span className="text-green-800">✓</span>}
                                   </label>
                                   {azureDevOpsProjects && azureDevOpsProjects.length > 0 ? (
                                     <select
@@ -2317,24 +2322,24 @@ export default function OrganizationPage() {
                                     />
                                   )}
                                   {azureDevOpsForm.project && (
-                                    <p className="text-xs text-green-600 mt-1">
+                                    <p className="text-xs text-green-800 mt-1">
                                       ✓ Default project: {azureDevOpsForm.project} (teams can override this)
                                     </p>
                                   )}
                                   {(!azureDevOpsProjects || azureDevOpsProjects.length === 0) && !azureDevOpsForm.project && (
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-xs text-gray-700 mt-1">
                                       Test connection to load available projects. This will be used as a default if teams don't have a project assigned.
                                     </p>
                                   )}
                                   {azureDevOpsProjects && azureDevOpsProjects.length > 0 && (
-                                    <p className="text-xs text-blue-600 mt-1">
+                                    <p className="text-xs text-blue-800 mt-1">
                                       ✓ {azureDevOpsProjects.length} project(s) loaded - select from dropdown above
                                     </p>
                                   )}
                                 </div>
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Work Item Type (Optional - Default) {azureDevOpsForm.workItemType && <span className="text-green-600">✓</span>}
+                                    Work Item Type (Optional - Default) {azureDevOpsForm.workItemType && <span className="text-green-800">✓</span>}
                                   </label>
                                   <input
                                     type="text"
@@ -2343,17 +2348,17 @@ export default function OrganizationPage() {
                                     onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, workItemType: e.target.value })}
                                     placeholder="e.g., Bug, Task, Product Backlog Item, Issue"
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">
+                                  <p className="text-xs text-gray-700 mt-1">
                                     Optional: Enter the default work item type name. Teams can override this with their own work item type. 
                                     Common types: Bug, Task, Product Backlog Item, User Story, Issue, Epic, Feature.
                                   </p>
                                   {azureDevOpsForm.workItemType && (
-                                    <p className="text-xs text-green-600 mt-1">
+                                    <p className="text-xs text-green-800 mt-1">
                                       ✓ Default work item type: {azureDevOpsForm.workItemType} (teams can override this)
                                     </p>
                                   )}
                                   {!azureDevOpsForm.workItemType && (
-                                    <p className="text-xs text-gray-500 mt-1">
+                                    <p className="text-xs text-gray-700 mt-1">
                                       If not set, will default to "Bug". Teams can set their own work item type in the Teams section.
                                     </p>
                                   )}
@@ -2491,7 +2496,7 @@ export default function OrganizationPage() {
               </button>
               <button
                 onClick={handleInviteUser}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                className="px-4 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-900"
               >
                 Send Invitation
               </button>
@@ -2532,7 +2537,7 @@ export default function OrganizationPage() {
               </button>
               <button
                 onClick={handleCreateTeam}
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                className="px-4 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-900"
               >
                 Create
               </button>
@@ -2805,7 +2810,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Billing & Users</h3>
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">Billing &amp; Users</h2>
         <p className="text-gray-600">Manage your organization's user limits and billing</p>
       </div>
 
@@ -2834,7 +2839,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
       {billingDetails && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <div className="flex items-start justify-between mb-4">
-            <h4 className="text-lg font-semibold text-gray-900">Billing Summary</h4>
+            <h3 className="text-lg font-semibold text-gray-900">Billing Summary</h3>
             <button 
               onClick={() => setBillingDetails(null)} 
               className="text-gray-400 hover:text-gray-600"
@@ -2873,7 +2878,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
             </div>
             
             {billingDetails.nextBillingDate && (
-              <div className="text-xs text-gray-500 mt-2">
+              <div className="text-xs text-gray-700 mt-2">
                 Next billing date: {new Date(billingDetails.nextBillingDate).toLocaleDateString('en-US', {
                   year: 'numeric',
                   month: 'long',
@@ -2882,7 +2887,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
               </div>
             )}
             
-            <div className="text-xs text-gray-500 mt-2 bg-blue-100 p-2 rounded">
+            <div className="text-xs text-gray-700 mt-2 bg-blue-100 p-2 rounded">
               <strong>Note:</strong> The prorated charge covers the remaining time until your next billing date. 
               Your next invoice will include both the prorated amount and the full charge for the next billing period.
             </div>
@@ -2896,7 +2901,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
             <div>
               <div className="text-sm text-gray-600">Active Users</div>
               <div className="text-2xl font-bold text-gray-900">{billingStatus.currentUsers}</div>
-              <div className="text-xs text-gray-500 mt-1">(Owner is free)</div>
+              <div className="text-xs text-gray-700 mt-1">(Owner is free)</div>
             </div>
             <div>
               <div className="text-sm text-gray-600">Max Users</div>
@@ -2927,7 +2932,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
           )}
 
           <div className="border-t border-gray-200 pt-6">
-            <h4 className="font-semibold text-gray-900 mb-4">Add Users</h4>
+            <h3 className="font-semibold text-gray-900 mb-4">Add Users</h3>
             
             {/* When owner has no subscription: only show subscribe CTA (no add-user form) */}
             {!billingStatus?.ownerBillingPeriod && (
@@ -2938,12 +2943,12 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                     <p className="text-sm text-amber-900 font-medium mb-1">
                       Subscription required to add users
                     </p>
-                    <p className="text-sm text-amber-800 mb-3">
+                    <p className="text-sm text-amber-900 mb-3">
                       You need an active monthly or yearly plan before you can add seats. Subscribe first, then return here to add users.
                     </p>
                     <a
                       href="/pricing"
-                      className="inline-flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium"
+                      className="inline-flex items-center justify-center px-4 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-900 font-medium"
                     >
                       Subscribe now
                     </a>
@@ -2967,7 +2972,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                       <div className="font-semibold text-gray-900 capitalize">
                         {billingStatus.ownerBillingPeriod}
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-xs text-gray-700 mt-1">
                         Matches your subscription plan
                       </div>
                     </div>
@@ -3009,7 +3014,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                     £{((billingStatus.pricing[billingStatus.ownerBillingPeriod]!.amount) * usersToAdd).toFixed(2)}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500 mt-1">
+                <div className="text-xs text-gray-700 mt-1">
                   Billed {billingStatus.ownerBillingPeriod}: {usersToAdd} × £{billingStatus.pricing[billingStatus.ownerBillingPeriod]!.amount.toFixed(2)} = £{((billingStatus.pricing[billingStatus.ownerBillingPeriod]!.amount) * usersToAdd).toFixed(2)}
                 </div>
               </div>
@@ -3058,11 +3063,11 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                         <span className="text-gray-700 font-medium">Total at next renewal</span>
                         <span className="font-semibold text-gray-900">{currencySym}{fullTotalAtRenewal.toFixed(2)}/{periodLabel}</span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">Your plan plus seats on one bill: {currencySym}{basePlanAtRenewal.toFixed(2)} + {currencySym}{totalSeatsAtRenewal.toFixed(2)} = {currencySym}{fullTotalAtRenewal.toFixed(2)}/{periodLabel}</p>
+                      <p className="text-xs text-gray-700 mt-1">Your plan plus seats on one bill: {currencySym}{basePlanAtRenewal.toFixed(2)} + {currencySym}{totalSeatsAtRenewal.toFixed(2)} = {currencySym}{fullTotalAtRenewal.toFixed(2)}/{periodLabel}</p>
                     </>
                   )}
                   {addPreview.nextBillingDate && (
-                    <p className="text-xs text-gray-500 mt-2">Next billing date: {new Date(addPreview.nextBillingDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                    <p className="text-xs text-gray-700 mt-2">Next billing date: {new Date(addPreview.nextBillingDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                   )}
                 </div>
                 <p className="text-xs text-gray-600 mb-3">
@@ -3088,7 +3093,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                   <button
                     onClick={handleConfirmAndPay}
                     disabled={addingUsers || !agreeToCharges}
-                    className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center px-4 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-900 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {addingUsers ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Sending you to Stripe... </> : `Continue to Stripe – pay ${currencySym}${prorationOnly.toFixed(2)}`}
                   </button>
@@ -3104,7 +3109,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                   <button
                     onClick={handleReviewAdd}
                     disabled={addingUsers}
-                    className="flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center px-4 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-900 disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     {addingUsers ? (
                       <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading... </>
@@ -3143,7 +3148,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
               onClick={() => {
                 loadBillingStatus()
               }}
-              className="mt-4 text-sm text-primary-600 hover:text-primary-700 underline"
+              className="mt-4 text-sm text-primary-800 hover:text-primary-900 underline"
             >
               Refresh Status
             </button>
@@ -3151,7 +3156,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
             {/* Reduce users */}
             {billingStatus?.maxUsers != null && billingStatus.maxUsers > 1 && (
               <div className="border-t border-gray-200 pt-6 mt-6">
-                <h4 className="font-semibold text-gray-900 mb-4">Reduce licences</h4>
+                <h3 className="font-semibold text-gray-900 mb-4">Reduce licences</h3>
                 <p className="text-sm text-gray-600 mb-3">
                   Lower your licence count. The reduction takes effect <strong>the month after your next payment</strong>—your next invoice will still be for your current seat count; from the following billing date you will be charged for the new count. You cannot set seats below your current number of active members ({billingStatus.currentUsers}).
                 </p>
@@ -3191,7 +3196,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
                           type="button"
                           onClick={handleReduceSeats}
                           disabled={reducingUsers}
-                          className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                          className="px-4 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-900 disabled:opacity-50"
                         >
                           {reducingUsers ? <><Loader2 className="h-4 w-4 mr-2 animate-spin inline" /> Reducing... </> : 'Confirm reduce'}
                         </button>
@@ -3216,7 +3221,7 @@ function BillingTab({ organization }: { organization: Organization | null }) {
         <div className="flex items-start">
           <CreditCard className="h-5 w-5 text-blue-600 mr-2 mt-0.5" />
           <div>
-            <h4 className="font-semibold text-blue-900 mb-1">Billing Information</h4>
+            <h3 className="font-semibold text-blue-900 mb-1">Billing Information</h3>
             <p className="text-sm text-blue-800">
               User seats are billed monthly or yearly based on your subscription plan. 
               Each additional user gives access to shared credits, team integrations, and collaborative features.

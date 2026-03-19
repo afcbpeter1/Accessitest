@@ -85,11 +85,11 @@ export default function CreditDisplay({ className = '', showBuyButton = true }: 
           <div className="flex items-center gap-1 text-green-600 flex-shrink-0">
             <span className="text-xl font-bold">∞</span>
             {creditData.credits && creditData.credits > 0 && (
-              <span className="text-xs text-gray-500 whitespace-nowrap">({creditData.credits} saved)</span>
+              <span className="text-xs text-gray-700 whitespace-nowrap">({creditData.credits} saved)</span>
             )}
           </div>
           <div className="h-4 w-px bg-gray-300 flex-shrink-0 hidden sm:block" aria-hidden />
-          <span className="text-sm text-gray-600 font-medium whitespace-nowrap">
+          <span className="text-sm text-gray-700 font-medium whitespace-nowrap">
             {getPlanDisplayName(creditData.planType)}
           </span>
         </div>
@@ -113,7 +113,7 @@ export default function CreditDisplay({ className = '', showBuyButton = true }: 
           )}
         </div>
         <div className="h-4 w-px bg-gray-300"></div>
-        <span className="text-sm text-gray-600 font-medium">
+        <span className="text-sm text-gray-700 font-medium">
           {getPlanDisplayName(creditData.planType)}
         </span>
       </div>

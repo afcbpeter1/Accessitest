@@ -195,22 +195,33 @@ interface CollapsibleIssueProps {
   scanType?: 'web' | 'document'
 }
 
+const formatWcagLevel = (level: string): string => {
+  if (!level) return 'A'
+  const normalized = level.toLowerCase().trim()
+  if (normalized === 'wcag2aaa' || normalized === 'aaa') return 'AAA'
+  if (normalized === 'wcag2aa' || normalized === 'aa') return 'AA'
+  if (normalized === 'wcag2a' || normalized === 'a') return 'A'
+  const match = normalized.match(/wcag\d*(a+)/)
+  if (match) return match[1].toUpperCase()
+  return level.toUpperCase()
+}
+
 const getImpactColor = (impact: string) => {
   switch (impact) {
-    case 'critical': return 'text-red-800 bg-red-50 border-red-200'
-    case 'serious': return 'text-orange-800 bg-orange-50 border-orange-200'
-    case 'moderate': return 'text-yellow-800 bg-yellow-50 border-yellow-200'
-    case 'minor': return 'text-blue-800 bg-blue-50 border-blue-200'
+    case 'critical': return 'text-red-900 bg-red-50 border-red-200'
+    case 'serious': return 'text-orange-900 bg-orange-50 border-orange-200'
+    case 'moderate': return 'text-yellow-900 bg-yellow-50 border-yellow-200'
+    case 'minor': return 'text-blue-900 bg-blue-50 border-blue-200'
     default: return 'text-gray-800 bg-gray-50 border-gray-200'
   }
 }
 
 const getPriorityColor = (priority: string) => {
   switch (priority) {
-    case 'high': return 'text-red-600 bg-red-50'
-    case 'medium': return 'text-yellow-600 bg-yellow-50'
-    case 'low': return 'text-blue-600 bg-blue-50'
-    default: return 'text-gray-600 bg-gray-50'
+    case 'high': return 'text-red-900 bg-red-50'
+    case 'medium': return 'text-yellow-900 bg-yellow-50'
+    case 'low': return 'text-blue-900 bg-blue-50'
+    default: return 'text-gray-800 bg-gray-50'
   }
 }
 
@@ -254,7 +265,7 @@ export default function CollapsibleIssue({
     const issueText = `Issue: ${ruleName}
 Description: ${description}
 Impact: ${impact.toUpperCase()}
-WCAG Level: ${wcag22Level}
+WCAG Level: WCAG 2 ${formatWcagLevel(wcag22Level)}
 Help: ${help}
 Occurrences: ${totalOccurrences}
 Affected URLs: ${affectedUrls.join(', ')}`
@@ -271,27 +282,25 @@ Affected URLs: ${affectedUrls.join(', ')}`
   return (
     <div className="bg-white border border-gray-200 rounded-lg mb-6 overflow-hidden shadow-sm hover:shadow-md transition-shadow min-w-0">
       {/* Collapsible Header */}
-      <div 
-        className="p-4 cursor-pointer hover:bg-gray-50 transition-colors border-b border-gray-100 focus:bg-gray-50 focus:outline-none"
+      <div
+        className="p-4 cursor-pointer hover:bg-gray-50 transition-colors border-b border-gray-100"
         onClick={() => setIsExpanded(!isExpanded)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault()
-            setIsExpanded(!isExpanded)
-          }
-        }}
-        aria-expanded={isExpanded}
-        aria-controls={`issue-content-${issueId}`}
-        aria-label={`${isExpanded ? 'Collapse' : 'Expand'} issue: ${ruleName}`}
       >
         <div className="flex flex-wrap sm:flex-nowrap items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <button className="flex-shrink-0 text-gray-400 hover:text-gray-600">
+            <button
+              className="flex-shrink-0 text-gray-700 hover:text-gray-900"
+              aria-expanded={isExpanded}
+              aria-controls={`issue-content-${issueId}`}
+              aria-label={`${isExpanded ? 'Collapse' : 'Expand'} issue: ${ruleName}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsExpanded(!isExpanded)
+              }}
+            >
               {isExpanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
             </button>
-            
+
             <div className="flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2 mb-2">
                 <h3 className="text-base font-semibold text-gray-900 break-words">{ruleName}</h3>
@@ -299,13 +308,13 @@ Affected URLs: ${affectedUrls.join(', ')}`
                   {impact.toUpperCase()}
                 </span>
                 <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full border border-purple-200 flex-shrink-0">
-                  WCAG 2.2 {wcag22Level}
+                  WCAG 2 {formatWcagLevel(wcag22Level)}
                 </span>
                 <span className={`px-2 py-1 text-xs font-medium rounded-full border flex-shrink-0 ${getPriorityColor(priority || 'medium')} bg-opacity-10`}>
                   {(priority || 'medium').toUpperCase()} PRIORITY
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-700">
                 <span className="flex items-center gap-1 flex-shrink-0">
                   <AlertTriangle className="h-3 w-3 flex-shrink-0" />
                   {totalOccurrences} occurrence{totalOccurrences !== 1 ? 's' : ''}
@@ -324,8 +333,8 @@ Affected URLs: ${affectedUrls.join(', ')}`
                 e.stopPropagation()
                 handleCopy()
               }}
-              className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-              title="Copy issue details"
+              className="p-2 text-gray-700 hover:text-gray-900 transition-colors"
+              aria-label="Copy issue details"
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
             </button>
@@ -348,7 +357,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-medium text-blue-700 uppercase tracking-wide">Description</label>
+                    <label className="text-xs font-medium text-blue-900 uppercase tracking-wide">Description</label>
                     <div className="text-sm text-blue-900 mt-1 leading-relaxed">
                       {help}
                     </div>
@@ -357,7 +366,7 @@ Affected URLs: ${affectedUrls.join(', ')}`
                         href={helpUrl} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 mt-2 font-medium"
+                        className="inline-flex items-center text-xs text-blue-900 hover:text-blue-900 mt-2 font-medium underline"
                       >
                         <ExternalLink className="h-3 w-3 mr-1" />
                         Learn more about this issue

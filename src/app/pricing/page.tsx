@@ -317,7 +317,7 @@ export default function Pricing() {
                 >
                   {plan.popular && (
                     <div className="flex justify-center mb-4">
-                      <span className="bg-primary-500 text-white px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap shadow-md">
+                      <span className="bg-primary-800 text-white px-4 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap shadow-md">
                         Most Popular
                       </span>
                     </div>
@@ -325,7 +325,7 @@ export default function Pricing() {
 
                   <div className="text-center mb-6">
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">{plan.name}</h3>
-                    <p className="text-gray-500 text-sm mb-3">Monthly billing</p>
+                    <p className="text-gray-600 text-sm mb-3">Monthly billing</p>
                     <p className="text-gray-700 mb-4 text-sm">{plan.description}</p>
                     <div className="mb-2">
                       <span className="text-4xl font-bold text-gray-900">
@@ -347,7 +347,7 @@ export default function Pricing() {
                   <button
                     onClick={() => handleSubscribe(plan, 'monthly')}
                     disabled={selectedPlan === plan.name}
-                    className="w-full py-3 px-4 bg-primary-600 text-white rounded-lg font-medium transition-colors hover:bg-primary-700 mt-auto disabled:opacity-70"
+                    className="w-full py-3 px-4 bg-primary-800 text-white rounded-lg font-medium transition-colors hover:bg-primary-900 mt-auto disabled:opacity-70"
                   >
                     {selectedPlan === plan.name ? 'Processing…' : 'Get Started'}
                   </button>
@@ -359,14 +359,14 @@ export default function Pricing() {
                   className="bg-white rounded-lg shadow-lg border-2 border-gray-200 p-6 flex flex-col h-full"
                 >
                   <div className="flex justify-center mb-4">
-                    <span className="px-3 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                    <span className="px-3 py-1 text-xs font-medium bg-green-100 text-green-900 rounded-full">
                       Save 20%
                     </span>
                   </div>
 
                   <div className="text-center mb-6">
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">{plan.name}</h3>
-                    <p className="text-gray-500 text-sm mb-3">Yearly billing</p>
+                    <p className="text-gray-600 text-sm mb-3">Yearly billing</p>
                     <p className="text-gray-700 mb-4 text-sm">{plan.description}</p>
                     <div className="mb-2">
                       <span className="text-4xl font-bold text-gray-900">
@@ -392,7 +392,7 @@ export default function Pricing() {
                   <button
                     onClick={() => handleSubscribe(plan, 'yearly')}
                     disabled={selectedPlan === plan.name}
-                    className="w-full py-3 px-4 bg-primary-600 text-white rounded-lg font-medium transition-colors hover:bg-primary-700 mt-auto disabled:opacity-70"
+                    className="w-full py-3 px-4 bg-primary-800 text-white rounded-lg font-medium transition-colors hover:bg-primary-900 mt-auto disabled:opacity-70"
                   >
                     {selectedPlan === plan.name ? 'Processing…' : 'Get Started'}
                   </button>
@@ -436,7 +436,7 @@ export default function Pricing() {
                 </div>
                 <button
                   onClick={() => handleBuyCredits(creditPackage)}
-                  className="w-full py-3 px-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
+                  className="w-full py-3 px-4 bg-primary-800 text-white rounded-lg hover:bg-primary-900 transition-colors font-medium"
                 >
                   Buy Credits
                 </button>

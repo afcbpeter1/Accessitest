@@ -277,7 +277,7 @@ function DashboardContent() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Accessibility Dashboard</h1>
-            <p className="text-sm sm:text-base text-gray-600">Track and analyse your website accessibility over time</p>
+            <p className="text-sm sm:text-base text-gray-700">Track and analyse your website accessibility over time</p>
           </div>
           <div className="flex items-center space-x-2 sm:space-x-4">
             <button
@@ -289,7 +289,7 @@ function DashboardContent() {
             </button>
             <Link
               href="/new-scan"
-              className="inline-flex items-center px-4 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-md hover:bg-primary-700 min-h-[44px]"
+              className="inline-flex items-center px-4 py-2.5 bg-primary-800 text-white text-sm font-medium rounded-md hover:bg-primary-900 min-h-[44px]"
             >
               <Globe className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">New Scan</span>
@@ -307,8 +307,9 @@ function DashboardContent() {
             </div>
             
             <div className="flex items-center space-x-2">
-              <label className="text-sm text-gray-600">Website:</label>
+              <label htmlFor="dashboard-website-filter" className="text-sm text-gray-600">Website:</label>
               <select
+                id="dashboard-website-filter"
                 value={selectedWebsite}
                 onChange={(e) => setSelectedWebsite(e.target.value)}
                 className="text-sm border border-gray-300 rounded-md px-2 py-1"
@@ -352,8 +353,9 @@ function DashboardContent() {
             </div>
             
             <div className="flex items-center space-x-2">
-              <label className="text-sm text-gray-600">Time Range:</label>
+              <label htmlFor="dashboard-time-range-filter" className="text-sm text-gray-600">Time Range:</label>
               <select
+                id="dashboard-time-range-filter"
                 value={timeRange}
                 onChange={(e) => setTimeRange(e.target.value)}
                 className="text-sm border border-gray-300 rounded-md px-2 py-1"
@@ -447,7 +449,7 @@ function DashboardContent() {
                               )}
                             </div>
                             {data.pagesAnalyzed > 1 && (
-                              <div className="text-xs text-gray-500 mt-1">
+                              <div className="text-xs text-gray-600 mt-1">
                                 {data.pagesAnalyzed} page{data.pagesAnalyzed !== 1 ? 's' : ''} analysed
                               </div>
                             )}
@@ -455,7 +457,7 @@ function DashboardContent() {
                           <div className="flex items-center gap-3 sm:gap-4 sm:ml-4 flex-shrink-0">
                             <div className="text-left sm:text-right">
                               <div className="text-sm font-medium text-gray-900">{data.total} total</div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-gray-600">
                                 {data.critical}C {data.serious}S {data.moderate}M {data.minor}m
                               </div>
                             </div>
@@ -546,7 +548,7 @@ function DashboardContent() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Recent Scans</h3>
-            <Link href="/scan-history" className="text-primary-600 hover:text-primary-700 text-sm font-medium">
+            <Link href="/scan-history" className="text-primary-800 hover:text-primary-900 text-sm font-medium">
               View All
             </Link>
           </div>
@@ -554,12 +556,12 @@ function DashboardContent() {
           {isLoading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-500">Loading recent scans...</p>
+              <p className="text-gray-700">Loading recent scans...</p>
             </div>
           ) : analytics && analytics.recentScans.length === 0 ? (
             <div className="text-center py-8">
               <Eye className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <p className="text-gray-500">
+              <p className="text-gray-700">
                 No scans found for the selected filters. Start a new scan to see results here.
               </p>
             </div>
@@ -602,7 +604,7 @@ function DashboardContent() {
                         }`}>
                           {scan.scanType === 'document' ? 'Document' : 'Web'}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-600">
                           {new Date(scan.createdAt).toLocaleDateString()}
                         </span>
                       </div>
@@ -631,7 +633,7 @@ function DashboardContent() {
                       </div>
                       <Link 
                         href={`/scan-history/${scan.id}`}
-                        className="text-xs text-primary-600 hover:text-primary-700"
+                        className="text-xs text-primary-800 hover:text-primary-900"
                       >
                         View Details
                       </Link>
@@ -648,7 +650,7 @@ function DashboardContent() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Website Scans</h3>
-              <Link href="/new-scan" className="text-primary-600 hover:text-primary-700 font-medium">
+              <Link href="/new-scan" className="text-primary-800 hover:text-primary-900 font-medium">
                 New scan
               </Link>
             </div>
@@ -657,7 +659,7 @@ function DashboardContent() {
             </p>
             <Link 
               href="/new-scan"
-              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-900 transition-colors"
             >
               <Globe className="h-4 w-4 mr-2" />
               Start Website Scan
@@ -667,7 +669,7 @@ function DashboardContent() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Document Scans</h3>
-              <Link href="/document-scan" className="text-primary-600 hover:text-primary-700 font-medium">
+              <Link href="/document-scan" className="text-primary-800 hover:text-primary-900 font-medium">
                 New scan
               </Link>
             </div>
@@ -676,7 +678,7 @@ function DashboardContent() {
             </p>
             <Link 
               href="/document-scan"
-              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-primary-800 text-white rounded-lg hover:bg-primary-900 transition-colors"
             >
               <Upload className="h-4 w-4 mr-2" />
               Start Document Scan

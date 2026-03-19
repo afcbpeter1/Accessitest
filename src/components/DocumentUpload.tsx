@@ -1713,7 +1713,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                  !canScan ? 'Insufficient credits to scan documents' :
                  'Drop files here or click to upload'}
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-600">
                 {!canScan ? 'Purchase credits or upgrade to unlimited plan' :
                  'PDF files up to 50MB • Costs 1 token per scan'}
               </p>

@@ -340,11 +340,11 @@ function ScanHistoryContent() {
               <History className="h-6 w-6 mr-3" />
               Scan History
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-gray-700 mt-1">
               View and manage your accessibility scans
             </p>
           </div>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-gray-700">
             {totalScans} scan{totalScans !== 1 ? 's' : ''} total
           </div>
         </div>
@@ -356,7 +356,7 @@ function ScanHistoryContent() {
             <div className="flex items-center">
               <Globe className="h-8 w-8 text-blue-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Web Scans</p>
+                <p className="text-sm font-medium text-gray-600">Web Scans</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {scans.filter(s => s.scanType === 'web').length}
                 </p>
@@ -368,7 +368,7 @@ function ScanHistoryContent() {
             <div className="flex items-center">
               <FileText className="h-8 w-8 text-green-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Document Scans</p>
+                <p className="text-sm font-medium text-gray-600">Document Scans</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {scans.filter(s => s.scanType === 'document').length}
                 </p>
@@ -380,13 +380,13 @@ function ScanHistoryContent() {
             <div className="flex items-center">
               <AlertTriangle className="h-8 w-8 text-red-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Unique Issues</p>
+                <p className="text-sm font-medium text-gray-600">Unique Issues</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {scans.length > 0 ? 
                     (scans[0].criticalIssues || 0) + (scans[0].seriousIssues || 0) + (scans[0].moderateIssues || 0) + (scans[0].minorIssues || 0) 
                     : 0}
                 </p>
-                <p className="text-xs text-gray-500">From most recent scan</p>
+                <p className="text-xs text-gray-600">From most recent scan</p>
               </div>
             </div>
           </div>
@@ -395,7 +395,7 @@ function ScanHistoryContent() {
             <div className="flex items-center">
               <CheckCircle className="h-8 w-8 text-green-600" />
               <div className="ml-3">
-                <p className="text-sm font-medium text-gray-500">Compliant Scans</p>
+                <p className="text-sm font-medium text-gray-600">Compliant Scans</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {scans.filter(s => {
                     const totalIssues = (s.criticalIssues || 0) + (s.seriousIssues || 0) + (s.moderateIssues || 0) + (s.minorIssues || 0)
@@ -436,7 +436,7 @@ function ScanHistoryContent() {
           <div className="bg-white rounded-lg border border-gray-200 min-w-0 overflow-hidden">
             <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <h2 className="text-lg font-medium text-gray-900">Recent Scans</h2>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-600">
                 Showing {((currentPage - 1) * scansPerPage) + 1}-{Math.min(currentPage * scansPerPage, totalScans)} of {totalScans}
               </span>
             </div>
@@ -459,11 +459,11 @@ function ScanHistoryContent() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0">
-                          <span className="text-sm font-medium text-gray-500 uppercase flex-shrink-0">
+                          <span className="text-sm font-medium text-gray-600 uppercase flex-shrink-0">
                             {scan.scanType === 'web' ? 'Web Scan' : 'Document Scan'}
                           </span>
                           {scan.source === 'extension' && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200 flex-shrink-0">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-900 border border-amber-200 flex-shrink-0">
                               Extension
                             </span>
                           )}
@@ -476,10 +476,10 @@ function ScanHistoryContent() {
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mt-1">
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-gray-600">
                             {formatDate(scan.createdAt)}
                           </span>
-                          <span className="flex items-center gap-1.5 text-sm text-primary-600 font-medium flex-shrink-0">
+                          <span className="flex items-center gap-1.5 text-sm text-primary-800 font-medium flex-shrink-0">
                             <Eye className="h-4 w-4" aria-hidden />
                             View Details
                           </span>

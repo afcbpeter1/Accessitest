@@ -1138,7 +1138,7 @@ export default function SettingsPage() {
         <div className="flex space-x-8">
           {/* Sidebar */}
           <div className="w-64">
-            <nav className="space-y-1">
+            <nav aria-label="Settings sections" className="space-y-1">
               {tabs.map((tab) => {
                 const Icon = tab.icon
                 return (
@@ -1147,8 +1147,8 @@ export default function SettingsPage() {
                     onClick={() => setActiveTab(tab.id)}
                     className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
                       activeTab === tab.id
-                        ? 'bg-primary-50 text-primary-700 border-r-2 border-primary-600'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        ? 'bg-primary-50 text-primary-800 border-r-2 border-primary-800'
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
                     <Icon className="mr-3 h-5 w-5" />
@@ -1167,8 +1167,9 @@ export default function SettingsPage() {
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Account Settings</h2>
                 <form onSubmit={handleAccountUpdate} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">First Name</label>
+                    <label htmlFor="settings-first-name" className="block text-sm font-medium text-gray-700">First Name</label>
                     <input 
+                      id="settings-first-name"
                       type="text" 
                       className="input-field mt-1" 
                       value={accountForm.firstName}
@@ -1177,8 +1178,9 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Last Name</label>
+                    <label htmlFor="settings-last-name" className="block text-sm font-medium text-gray-700">Last Name</label>
                     <input 
+                      id="settings-last-name"
                       type="text" 
                       className="input-field mt-1" 
                       value={accountForm.lastName}
@@ -1187,18 +1189,20 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Email</label>
+                    <label htmlFor="settings-email" className="block text-sm font-medium text-gray-700">Email</label>
                     <input 
+                      id="settings-email"
                       type="email" 
                       className="input-field mt-1 bg-gray-50" 
                       value={user?.email || ''}
                       disabled
                     />
-                    <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                    <p className="text-xs text-gray-600 mt-1">Email cannot be changed</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Company</label>
+                    <label htmlFor="settings-company" className="block text-sm font-medium text-gray-700">Company</label>
                     <input 
+                      id="settings-company"
                       type="text" 
                       className="input-field mt-1" 
                       value={accountForm.company}
@@ -1235,14 +1239,14 @@ export default function SettingsPage() {
                             <div className="flex items-center justify-between mb-4">
                               <div>
                                 <h3 className="text-lg font-medium text-gray-900">{subscription.planName}</h3>
-                                <p className="text-sm text-gray-500 mt-1">
+                                <p className="text-sm text-gray-700 mt-1">
                                   {subscription.amount} per {subscription.billingPeriod === 'monthly' ? 'month' : 'year'}
                                 </p>
                               </div>
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                 subscription.cancelAtPeriodEnd 
-                                  ? 'bg-amber-100 text-amber-800' 
-                                  : 'bg-green-100 text-green-800'
+                                  ? 'bg-amber-100 text-amber-900' 
+                                  : 'bg-green-100 text-green-900'
                               }`}>
                                 {subscription.cancelAtPeriodEnd ? 'Cancelling' : 'Active'}
                               </span>
@@ -1330,9 +1334,9 @@ export default function SettingsPage() {
                             <div className="flex items-center justify-between">
                               <div>
                                 <h3 className="text-lg font-medium text-gray-900">Pay as You Go</h3>
-                                <p className="text-sm text-gray-500">3 free credits to get started</p>
+                                <p className="text-sm text-gray-700">3 free credits to get started</p>
                               </div>
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-900">
                                 Active
                               </span>
                             </div>
@@ -1404,7 +1408,7 @@ export default function SettingsPage() {
                         <div className="flex items-start">
                           <div className="flex-1">
                             <h4 className="text-sm font-medium text-blue-900 mb-1">Payment Confirmation Emails</h4>
-                            <p className="text-sm text-blue-700">
+                            <p className="text-sm text-blue-900">
                               You'll receive an email each time your subscription payment is processed (monthly or yearly). 
                               This includes payment details, invoice ID, and your next billing date.
                             </p>
@@ -1415,7 +1419,7 @@ export default function SettingsPage() {
                         <div className="flex items-start">
                           <div className="flex-1">
                             <h4 className="text-sm font-medium text-amber-900 mb-1">Cancellation Emails</h4>
-                            <p className="text-sm text-amber-700">
+                            <p className="text-sm text-amber-900">
                               If you cancel your subscription, you'll receive an email confirming the cancellation, 
                               when your access ends, and information about any saved credits you have.
                             </p>
@@ -1451,10 +1455,11 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-medium text-gray-900">Scan Completion</h3>
-                      <p className="text-sm text-gray-500">Get notified when scans are completed</p>
+                      <p className="text-sm text-gray-700">Get notified when scans are completed</p>
                     </div>
                     <input 
                       type="checkbox" 
+                      aria-label="Notify when scans are completed"
                       checked={notificationPrefs?.scanCompletion ?? true}
                       onChange={(e) => setNotificationPrefs({...notificationPrefs, scanCompletion: e.target.checked})}
                       className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" 
@@ -1463,10 +1468,11 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-medium text-gray-900">Critical Issues</h3>
-                      <p className="text-sm text-gray-500">Get notified about critical accessibility issues</p>
+                      <p className="text-sm text-gray-700">Get notified about critical accessibility issues</p>
                     </div>
                     <input 
                       type="checkbox" 
+                      aria-label="Notify about critical accessibility issues"
                       checked={notificationPrefs?.criticalIssues ?? true}
                       onChange={(e) => setNotificationPrefs({...notificationPrefs, criticalIssues: e.target.checked})}
                       className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" 
@@ -1475,10 +1481,11 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-medium text-gray-900">Weekly Reports</h3>
-                      <p className="text-sm text-gray-500">Receive weekly summary reports</p>
+                      <p className="text-sm text-gray-700">Receive weekly summary reports</p>
                     </div>
                     <input 
                       type="checkbox" 
+                      aria-label="Receive weekly summary reports"
                       checked={notificationPrefs?.weeklyReports ?? false}
                       onChange={(e) => setNotificationPrefs({...notificationPrefs, weeklyReports: e.target.checked})}
                       className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" 
@@ -1487,10 +1494,11 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-medium text-gray-900">Security Alerts</h3>
-                      <p className="text-sm text-gray-500">Get notified about security-related events</p>
+                      <p className="text-sm text-gray-700">Get notified about security-related events</p>
                     </div>
                     <input 
                       type="checkbox" 
+                      aria-label="Notify about security-related events"
                       checked={notificationPrefs?.securityAlerts ?? true}
                       onChange={(e) => setNotificationPrefs({...notificationPrefs, securityAlerts: e.target.checked})}
                       className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded" 
@@ -1512,13 +1520,13 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 {/* Integration Sub-tabs */}
                 <div className="border-b border-gray-200">
-                  <nav className="-mb-px flex space-x-8">
+                  <nav aria-label="Integration type" className="-mb-px flex space-x-8">
                     <button
                       onClick={() => setIntegrationSubTab('jira')}
                       className={`py-4 px-1 border-b-2 font-medium text-sm ${
                         integrationSubTab === 'jira'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          ? 'border-blue-800 text-blue-800'
+                          : 'border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300'
                       }`}
                     >
                       Jira
@@ -1527,8 +1535,8 @@ export default function SettingsPage() {
                       onClick={() => setIntegrationSubTab('azure')}
                       className={`py-4 px-1 border-b-2 font-medium text-sm ${
                         integrationSubTab === 'azure'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          ? 'border-blue-800 text-blue-800'
+                          : 'border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300'
                       }`}
                     >
                       Azure DevOps
@@ -1555,7 +1563,7 @@ export default function SettingsPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
-                            <CheckCircle className="h-5 w-5 text-green-600" />
+                            <CheckCircle className="h-5 w-5 text-green-800" />
                             <span className="font-semibold text-green-900 text-lg">✓ Jira Integration Active</span>
                           </div>
                           <div className="space-y-1 text-sm text-green-800">
@@ -1570,7 +1578,7 @@ export default function SettingsPage() {
                               <span className="font-medium"> Issue Type:</span> {jiraIntegration.issueType || 'Not set'}
                             </p>
                             {jiraIntegration.lastVerifiedAt && (
-                              <p className="text-xs text-green-600 mt-2">
+                              <p className="text-xs text-green-800 mt-2">
                                 Last verified: {new Date(jiraIntegration.lastVerifiedAt).toLocaleString()}
                               </p>
                             )}
@@ -1627,23 +1635,20 @@ export default function SettingsPage() {
                           onChange={(e) => setJiraForm({ ...jiraForm, apiToken: e.target.value })}
                           key={`jira-token-${jiraIntegration?.id || 'new'}`}
                         />
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-700 mt-1">
                           {jiraIntegration 
                             ? "Leave blank to keep your existing token, or enter a new one to update it."
-                            : "Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens"
+                            : "Create an API token at "
                           }
                           {!jiraIntegration && (
-                            <>
-                              {' '}
-                              <a
-                                href="https://id.atlassian.com/manage-profile/security/api-tokens"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:underline"
-                              >
-                                https://id.atlassian.com/manage-profile/security/api-tokens
-                              </a>
-                            </>
+                            <a
+                              href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-800 underline"
+                            >
+                              https://id.atlassian.com/manage-profile/security/api-tokens
+                            </a>
                           )}
                         </p>
                       </div>
@@ -1651,7 +1656,7 @@ export default function SettingsPage() {
                       {/* Always show project field if we have saved data or if user is entering new data */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Project {jiraForm.projectKey && <span className="text-green-600">✓</span>}
+                          Project {jiraForm.projectKey && <span className="text-green-800">✓</span>}
                         </label>
                         {jiraProjects.length > 0 ? (
                           <select
@@ -1683,7 +1688,7 @@ export default function SettingsPage() {
                             />
                         )}
                         {jiraForm.projectKey && (
-                          <p className="text-xs text-green-600 mt-1">
+                          <p className="text-xs text-green-800 mt-1">
                             ✓ Saved project: {jiraForm.projectKey}
                           </p>
                         )}
@@ -1692,10 +1697,11 @@ export default function SettingsPage() {
                       {/* Always show issue type field if we have saved data or project is selected */}
                       {(jiraForm.projectKey || jiraForm.issueType) && (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Issue Type {jiraForm.issueType && <span className="text-green-600">✓</span>}
+                          <label htmlFor="settings-jira-issue-type" className="block text-sm font-medium text-gray-700 mb-1">
+                            Issue Type {jiraForm.issueType && <span className="text-green-800">✓</span>}
                           </label>
                           <select
+                            id="settings-jira-issue-type"
                             className="input-field"
                             value={jiraForm.issueType}
                             onChange={(e) => setJiraForm({ ...jiraForm, issueType: e.target.value })}
@@ -1724,7 +1730,7 @@ export default function SettingsPage() {
                             )}
                           </select>
                           {jiraForm.issueType && (
-                            <p className="text-xs text-green-600 mt-1">
+                            <p className="text-xs text-green-800 mt-1">
                               ✓ Saved issue type: {jiraForm.issueType}
                             </p>
                           )}
@@ -1915,7 +1921,7 @@ export default function SettingsPage() {
                             value={jiraForm.apiToken}
                             onChange={(e) => setJiraForm({ ...jiraForm, apiToken: e.target.value })}
                           />
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-gray-700 mt-1">
                             {jiraIntegration 
                               ? "Leave blank to keep your existing token, or enter a new one to update it."
                               : "Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens"
@@ -2022,7 +2028,7 @@ export default function SettingsPage() {
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-2">
-                              <CheckCircle className="h-5 w-5 text-green-600" />
+                              <CheckCircle className="h-5 w-5 text-green-800" />
                               <span className="font-semibold text-green-900 text-lg">✓ Azure DevOps Integration Active</span>
                             </div>
                             <div className="space-y-1 text-sm text-green-800">
@@ -2034,7 +2040,7 @@ export default function SettingsPage() {
                                 <span className="font-medium"> Work Item Type:</span> {azureDevOpsIntegration.workItemType || 'Not set'}
                               </p>
                               {azureDevOpsIntegration.lastVerifiedAt && (
-                                <p className="text-xs text-green-600 mt-2">
+                                <p className="text-xs text-green-800 mt-2">
                                   Last verified: {new Date(azureDevOpsIntegration.lastVerifiedAt).toLocaleString()}
                                 </p>
                               )}
@@ -2063,7 +2069,7 @@ export default function SettingsPage() {
                           value={azureDevOpsForm.organization}
                           onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, organization: e.target.value })}
                         />
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-700 mt-1">
                           Your Azure DevOps organisation name (e.g., "a11ytest" from https://dev.azure.com/a11ytest)
                         </p>
                       </div>
@@ -2078,7 +2084,7 @@ export default function SettingsPage() {
                           value={azureDevOpsForm.pat}
                           onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, pat: e.target.value })}
                         />
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-700 mt-1">
                           {azureDevOpsIntegration 
                             ? "Leave blank to keep your existing token, or enter a new one to update it."
                             : "Create a PAT at https://dev.azure.com/{organization}/_usersSettings/tokens with 'Work Items (Read & Write)' scope"}
@@ -2089,7 +2095,7 @@ export default function SettingsPage() {
                                 href={`https://dev.azure.com/${(azureDevOpsForm.organization || 'your-org').replace(/^https?:\/\/dev\.azure\.com\/?/i, '').split('/')[0]}/_usersSettings/tokens`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-blue-600 hover:underline"
+                                className="text-blue-800 underline"
                               >
                                 Create PAT
                               </a>
@@ -2099,7 +2105,7 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Project {azureDevOpsForm.project && <span className="text-green-600">✓</span>}
+                          Project {azureDevOpsForm.project && <span className="text-green-800">✓</span>}
                         </label>
                         {azureDevOpsProjects && azureDevOpsProjects.length > 0 ? (
                           <select
@@ -2125,27 +2131,28 @@ export default function SettingsPage() {
                           />
                         )}
                         {azureDevOpsForm.project && (
-                          <p className="text-xs text-green-600 mt-1">
+                          <p className="text-xs text-green-800 mt-1">
                             ✓ Saved project: {azureDevOpsForm.project}
                           </p>
                         )}
                         {(!azureDevOpsProjects || azureDevOpsProjects.length === 0) && !azureDevOpsForm.project && (
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-gray-700 mt-1">
                             Test connection to load available projects
                           </p>
                         )}
                         {azureDevOpsProjects && azureDevOpsProjects.length > 0 && (
-                          <p className="text-xs text-blue-600 mt-1">
+                          <p className="text-xs text-blue-800 mt-1">
                             ✓ {azureDevOpsProjects.length} project(s) loaded - select from dropdown above
                           </p>
                         )}
                       </div>
                       {(azureDevOpsForm.project || azureDevOpsForm.workItemType) && (
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Work Item Type {azureDevOpsForm.workItemType && <span className="text-green-600">✓</span>}
+                          <label htmlFor="settings-ado-work-item-type" className="block text-sm font-medium text-gray-700 mb-1">
+                            Work Item Type {azureDevOpsForm.workItemType && <span className="text-green-800">✓</span>}
                           </label>
                           <select
+                            id="settings-ado-work-item-type"
                             className="input-field"
                             value={azureDevOpsForm.workItemType}
                             onChange={(e) => setAzureDevOpsForm({ ...azureDevOpsForm, workItemType: e.target.value })}
@@ -2173,7 +2180,7 @@ export default function SettingsPage() {
                             )}
                           </select>
                           {azureDevOpsForm.workItemType && (
-                            <p className="text-xs text-green-600 mt-1">
+                            <p className="text-xs text-green-800 mt-1">
                               ✓ Saved work item type: {azureDevOpsForm.workItemType}
                             </p>
                           )}
@@ -2270,8 +2277,8 @@ export default function SettingsPage() {
             {activeTab === 'api-keys' && (
               <div className="card">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">API Keys</h2>
-                <p className="text-sm text-gray-600 mb-4">
-                  Use API keys to run accessibility scans from CI/CD pipelines. Send <code className="bg-gray-100 px-1 rounded">Authorization: Bearer &lt;key&gt;</code> or <code className="bg-gray-100 px-1 rounded">X-API-Key: &lt;key&gt;</code> to <code className="bg-gray-100 px-1 rounded">POST /api/ci/scan</code>.
+                <p className="text-sm text-gray-700 mb-4">
+                  Use API keys to run accessibility scans from CI/CD pipelines. Send <code className="bg-gray-100 px-1 rounded text-gray-900">Authorization: Bearer &lt;key&gt;</code> or <code className="bg-gray-100 px-1 rounded text-gray-900">X-API-Key: &lt;key&gt;</code> to <code className="bg-gray-100 px-1 rounded text-gray-900">POST /api/ci/scan</code>.
                 </p>
 
                 <div className="mb-6 p-4 rounded-lg bg-white border border-gray-200">
@@ -2282,13 +2289,13 @@ export default function SettingsPage() {
                   </p>
                   <div className="text-sm text-gray-700 space-y-3">
                     <p>
-                      Put your key into Azure Pipelines secrets as <code className="bg-gray-100 px-1 rounded text-xs">A11YTEST_API_KEY</code> (and optionally <code className="bg-gray-100 px-1 rounded text-xs">API_URL</code> = <span className="font-mono">https://a11ytest.ai</span>).
+                      Put your key into Azure Pipelines secrets as <code className="bg-gray-100 px-1 rounded text-xs text-gray-900">A11YTEST_API_KEY</code> (and optionally <code className="bg-gray-100 px-1 rounded text-xs text-gray-900">API_URL</code> = <span className="font-mono">https://a11ytest.ai</span>).
                     </p>
 
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-gray-900">1) Scan endpoint</p>
-                      <p className="text-xs text-gray-500">
-                        Endpoint: <code className="bg-gray-100 px-1 rounded text-xs">POST /api/ci/scan</code>
+                      <p className="text-xs text-gray-700">
+                        Endpoint: <code className="bg-gray-100 px-1 rounded text-xs text-gray-900">POST /api/ci/scan</code>
                       </p>
                       <pre className="bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto text-xs">
 {`# Request body: use "urls" (multiple pages in one report/tabs)
@@ -2300,10 +2307,10 @@ export default function SettingsPage() {
 
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-gray-900">2) Auto-add to product backlog</p>
-                      <p className="text-xs text-gray-500">
-                        Endpoint: <code className="bg-gray-100 px-1 rounded text-xs">POST /api/ci/backlog-add</code>
+                      <p className="text-xs text-gray-700">
+                        Endpoint: <code className="bg-gray-100 px-1 rounded text-xs text-gray-900">POST /api/ci/backlog-add</code>
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-700">
                         This uses the same API key to determine which user’s backlog to write to. You must be signed in to that user to view it in the UI.
                       </p>
                     </div>
@@ -2365,8 +2372,8 @@ json.dump(issues, open('backlog-issues.json','w'))"
   displayName: 'Add scan issues to product backlog (optional)'`}
                     </pre>
 
-                    <p className="text-xs text-gray-500">
-                      Important: use only one key in the scan request: either <code className="bg-gray-100 px-1 rounded text-xs">url</code> (single page) or <code className="bg-gray-100 px-1 rounded text-xs">urls</code> (multiple pages). Don’t send both.
+                    <p className="text-xs text-gray-700">
+                      Important: use only one key in the scan request: either <code className="bg-gray-100 px-1 rounded text-xs text-gray-900">url</code> (single page) or <code className="bg-gray-100 px-1 rounded text-xs text-gray-900">urls</code> (multiple pages). Don’t send both.
                     </p>
                   </div>
                 </div>
@@ -2405,19 +2412,19 @@ json.dump(issues, open('backlog-issues.json','w'))"
                 )}
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Your API keys</h3>
                 {loadingApiKeys ? (
-                  <div className="flex items-center gap-2 text-gray-500">
+                  <div className="flex items-center gap-2 text-gray-700">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Loading...
                   </div>
                 ) : apiKeys.length === 0 ? (
-                  <p className="text-sm text-gray-500">No API keys yet. Create one above.</p>
+                  <p className="text-sm text-gray-700">No API keys yet. Create one above.</p>
                 ) : (
                   <ul className="space-y-2">
                     {apiKeys.map((k) => (
                       <li key={k.id} className="flex items-center justify-between py-2 px-3 rounded-md bg-gray-50 gap-3">
                         <div className="min-w-0 flex items-center gap-3 flex-1">
                           <span className="font-mono text-sm text-gray-700 whitespace-nowrap">{k.key_prefix}…</span>
-                          <span className="text-sm text-gray-500 whitespace-nowrap">{k.name || 'Unnamed'}</span>
+                          <span className="text-sm text-gray-700 whitespace-nowrap">{k.name || 'Unnamed'}</span>
                         </div>
                         <div className="flex items-center gap-4">
                           <span className="text-xs text-gray-400 whitespace-nowrap">
@@ -2462,8 +2469,9 @@ json.dump(issues, open('backlog-issues.json','w'))"
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">Security Settings</h2>
                   <form onSubmit={handlePasswordChange} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Current Password</label>
+                      <label htmlFor="current-password" className="block text-sm font-medium text-gray-700">Current Password</label>
                       <input 
+                        id="current-password"
                         type="password" 
                         className="input-field mt-1" 
                         value={passwordForm.currentPassword}
@@ -2472,8 +2480,9 @@ json.dump(issues, open('backlog-issues.json','w'))"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">New Password</label>
+                      <label htmlFor="new-password" className="block text-sm font-medium text-gray-700">New Password</label>
                       <input 
+                        id="new-password"
                         type="password" 
                         className="input-field mt-1" 
                         value={passwordForm.newPassword}
@@ -2481,13 +2490,14 @@ json.dump(issues, open('backlog-issues.json','w'))"
                         required
                         minLength={8}
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                      Password must be at least 8 characters long and contain at least one number and one special character
-                    </p>
+                      <p className="text-xs text-gray-700 mt-1">
+                        Password must be at least 8 characters long and contain at least one number and one special character
+                      </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                      <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">Confirm New Password</label>
                       <input 
+                        id="confirm-password"
                         type="password" 
                         className="input-field mt-1" 
                         value={passwordForm.confirmPassword}
@@ -2510,7 +2520,7 @@ json.dump(issues, open('backlog-issues.json','w'))"
                 <div className="card border-red-200 bg-red-50">
                   <div className="border-b border-red-200 pb-4 mb-4">
                     <h2 className="text-lg font-semibold text-red-900">Delete Account</h2>
-                    <p className="text-sm text-red-700 mt-1">
+                    <p className="text-sm text-red-900 mt-1">
                       Permanently delete your account and all associated data. This action cannot be undone.
                     </p>
                   </div>

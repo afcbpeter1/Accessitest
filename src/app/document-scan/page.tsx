@@ -14,7 +14,7 @@ export default function DocumentScan() {
         {/* Header */}
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">AI Document Accessibility Scanner</h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-700 mt-1">
             Upload documents to scan for accessibility issues. AI will analyze each issue and provide detailed step-by-step suggestions for fixing them.
           </p>
         </div>

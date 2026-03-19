@@ -968,7 +968,7 @@ function NewScanContent() {
       <div className="space-y-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">New Accessibility Scan</h1>
-          <p className="text-gray-600 mt-1">Configure and start a new accessibility scan for your website</p>
+          <p className="text-gray-700 mt-1">Configure and start a new accessibility scan for your website</p>
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
@@ -994,7 +994,7 @@ function NewScanContent() {
                         Include subdomains (blog.example.com, shop.example.com, etc.)
                       </label>
                     </div>
-                    <p className="text-xs text-gray-500 ml-6">
+                    <p className="text-xs text-gray-600 ml-6">
                       {includeSubdomains 
                         ? "When discovering pages, also include pages from subdomains of your website"
                         : "Only scan the exact URL you entered - no page discovery or subdomain crawling"
@@ -1031,7 +1031,7 @@ function NewScanContent() {
                       </button>
                     </div>
                   </div>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-1 text-sm text-gray-600">
                     Enter the domain you want to scan for accessibility issues
                   </p>
                 </div>
@@ -1325,20 +1325,20 @@ function NewScanContent() {
                  )}
 
                  {/* ADA & WCAG 2.2 Compliance Level */}
-                 <div className={`${discoveredPages.length === 0 ? 'opacity-50 pointer-events-none' : ''}`}>
+                 <div>
                    <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                      <div className="flex items-center space-x-2">
-                       <CheckCircle className="h-5 w-5 text-blue-700" />
+                       <CheckCircle className="h-5 w-5 text-blue-800" />
                        <div>
-                         <p className="text-sm font-medium text-blue-800">ADA Compliant Scans</p>
-                         <p className="text-xs text-blue-700">Meets Americans with Disabilities Act requirements through WCAG 2.2 AA compliance</p>
+                         <p className="text-sm font-medium text-blue-900">ADA Compliant Scans</p>
+                         <p className="text-xs text-blue-800">Meets Americans with Disabilities Act requirements through WCAG 2.2 AA compliance</p>
                        </div>
                      </div>
                    </div>
-                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                   <label className={`block text-sm font-medium mb-2 ${discoveredPages.length === 0 ? 'text-gray-600' : 'text-gray-700'}`}>
                      WCAG 2.2 Compliance Level
                    </label>
-                   <div className="space-y-2">
+                   <div className={`space-y-2 ${discoveredPages.length === 0 ? 'opacity-50' : ''}`}>
                      <div className="flex items-center">
                        <input
                          id="wcag-a"
@@ -1683,14 +1683,14 @@ function NewScanContent() {
           <div className="space-y-6">
             {/* Previous Scans */}
             <div className="card">
-              <h3 className="text-lg font-medium text-gray-900 mb-3">Previous Scans</h3>
+              <h2 className="text-lg font-medium text-gray-900 mb-3">Previous Scans</h2>
               {loadingPreviousScans ? (
                 <div className="text-center py-4">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="text-xs text-gray-500 mt-2">Loading...</p>
+                  <p className="text-xs text-gray-700 mt-2">Loading...</p>
                 </div>
               ) : previousScans.length > 0 ? (
-                <div className="space-y-2 max-h-96 overflow-y-auto">
+                <div className="space-y-2 max-h-96 overflow-y-auto" tabIndex={0} aria-label="Previous scans list">
                   {previousScans.map((scan) =>
                     scan.source === 'extension' ? (
                       <div
@@ -1704,14 +1704,14 @@ function NewScanContent() {
                               {scan.url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || 'Unknown URL'}
                             </p>
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-gray-600">
                                 {scan.pageCount || 0} pages
                               </span>
                               <span className="text-xs text-gray-400">•</span>
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-gray-600">
                                 {new Date(scan.createdAt).toLocaleDateString()}
                               </span>
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-900 border border-amber-200">
                                 Extension
                               </span>
                             </div>
@@ -1731,11 +1731,11 @@ function NewScanContent() {
                               {scan.url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || 'Unknown URL'}
                             </p>
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-gray-600">
                                 {scan.pageCount || 0} pages
                               </span>
                               <span className="text-xs text-gray-400">•</span>
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-gray-600">
                                 {new Date(scan.createdAt).toLocaleDateString()}
                               </span>
                             </div>
@@ -1761,28 +1761,28 @@ function NewScanContent() {
                    <CheckCircle className="h-5 w-5 text-blue-700 mt-0.5" />
                    <div>
                      <p className="text-sm font-medium text-gray-900">WCAG 2.2 Compliance</p>
-                    <p className="text-xs text-gray-500">Level {wcagLevel} standards selected</p>
+                    <p className="text-xs text-gray-600">Level {wcagLevel} standards selected</p>
                    </div>
                  </div>
                 <div className="flex items-start space-x-3">
                   <CheckCircle className="h-5 w-5 text-blue-700 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Screen Reader Support</p>
-                    <p className="text-xs text-gray-500">Alt text, ARIA labels</p>
+                    <p className="text-xs text-gray-600">Alt text, ARIA labels</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <CheckCircle className="h-5 w-5 text-blue-700 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Keyboard Navigation</p>
-                    <p className="text-xs text-gray-500">Tab order, focus indicators</p>
+                    <p className="text-xs text-gray-600">Tab order, focus indicators</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
                   <CheckCircle className="h-5 w-5 text-blue-700 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">Colour Contrast</p>
-                    <p className="text-xs text-gray-500">Text readability</p>
+                    <p className="text-xs text-gray-600">Text readability</p>
                   </div>
                 </div>
               </div>
