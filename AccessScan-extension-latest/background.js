@@ -4,6 +4,8 @@ chrome.action.onClicked.addListener(function (tab) {
   }
 });
 
+var multiScanPendingNext = null;
+
 function injectAndRunScan(tabId, tags, callback) {
   // Inject axe and content script (axe first so it's in scope); avoids page CSP blocking CDN
   chrome.scripting.executeScript({ target: { tabId: tabId }, files: ['axe.min.js', 'content-scan.js'] }, function () {
@@ -106,6 +108,13 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     return true;
   }
 
+  if (msg.type === 'MULTI_SCAN_PAGE_SUBMIT_DONE') {
+    if (typeof multiScanPendingNext === 'function') {
+      multiScanPendingNext();
+    }
+    return false;
+  }
+
   if (msg.type === 'RUN_MULTI_SCAN') {
     var urls = Array.isArray(msg.urls) ? msg.urls.filter(function (u) { return typeof u === 'string' && u && /^https?:\/\//.test(u); }) : [];
     var tagsMulti = Array.isArray(msg.tags) ? msg.tags : [];
@@ -139,17 +148,26 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
             return;
           }
 
-          var listener = function (updatedTabId, changeInfo, updatedTab) {
-            if (updatedTabId === tabId && changeInfo.status === 'complete') {
-              chrome.tabs.onUpdated.removeListener(listener);
-              injectAndRunScan(tabId, tagsMulti, function () {
-                // Ignore individual errors, continue to next URL
-                runNext();
-              });
-            }
-          };
+          var currentPage = index;
+          var totalPages = urls.length;
 
-          chrome.tabs.onUpdated.addListener(listener);
+          chrome.runtime.sendMessage({
+            type: 'MULTI_SCAN_PAGE_START',
+            currentPage: currentPage,
+            totalPages: totalPages,
+            url: targetUrl
+          }).catch(function () {});
+
+          // Wait for page to render, then run axe. After axe completes we wait for the backend
+          // (AI suggestions, store, backlog) before moving to next page – see MULTI_SCAN_PAGE_SUBMIT_DONE.
+          setTimeout(function () {
+            injectAndRunScan(tabId, tagsMulti, function () {
+              multiScanPendingNext = function () {
+                multiScanPendingNext = null;
+                runNext();
+              };
+            });
+          }, 4000);
         });
       }
 
