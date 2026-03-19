@@ -364,16 +364,17 @@ export default function ProductBacklog() {
   const fetchBacklogItems = async () => {
     try {
       setLoading(true)
-      const response = await authenticatedFetch('/api/product-backlog')
+      // Use issues-based backlog (extension + web scan write here); same as at c5bd2e0
+      const response = await authenticatedFetch('/api/backlog')
       const data = await response.json()
       if (data.success) {
-        // Ensure we set ALL items - no filtering
-        setBacklogItems(data.items || [])
-        
-        // Log diagnostics if available
-        if (data.diagnostics) {
-
-        }
+        const items = (data.items || []) as BacklogItem[]
+        // Map issues table status (resolved, closed) to display status (done, cancelled)
+        setBacklogItems(items.map(item => {
+          const s = item.status as string
+          const status: BacklogItem['status'] = s === 'resolved' ? 'done' : s === 'closed' ? 'cancelled' : (s as BacklogItem['status'])
+          return { ...item, status }
+        }))
       } else {
         console.error('❌ API returned success: false', data)
         setBacklogItems([])
@@ -415,9 +416,8 @@ export default function ProductBacklog() {
 
     setBacklogItems(updatedItems)
 
-    // Update all items' ranks in the database
+    // Update all items' ranks in the database (issues table)
     try {
-      // Update all items with their new ranks
       const updatePromises = updatedItems.map((item, index) => {
         return authenticatedFetch(`/api/backlog/${item.id}`, {
           method: 'PUT',
@@ -576,7 +576,7 @@ ${item.element_html || 'N/A'}
 
   const deleteItem = async (itemId: string) => {
     try {
-      const response = await authenticatedFetch(`/api/product-backlog/${itemId}`, {
+      const response = await authenticatedFetch(`/api/backlog/${itemId}`, {
         method: 'DELETE'
       })
       
@@ -637,7 +637,7 @@ ${item.element_html || 'N/A'}
 
     try {
       const itemIds = Array.from(selectedItems)
-      const response = await authenticatedFetch('/api/product-backlog/bulk-delete', {
+      const response = await authenticatedFetch('/api/backlog/bulk-delete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

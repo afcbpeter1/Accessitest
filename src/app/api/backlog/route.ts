@@ -414,9 +414,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Temporarily bypass authentication to restore access
-    const user = { userId: '09d7030b-e612-4226-b695-beefb3e97936' }
-    
+    const user = await getAuthenticatedUser(request)
     // Update the issue in the issues table
     const result = await pool.query(`
       UPDATE issues 

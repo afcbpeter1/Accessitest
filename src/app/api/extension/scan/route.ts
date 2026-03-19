@@ -4,6 +4,7 @@ import { ScanHistoryService } from '@/lib/scan-history-service'
 import { getUserCredits, deductCredits } from '@/lib/credit-service'
 import { NotificationService } from '@/lib/notification-service'
 import { autoCreateBacklogItemsWithHistoryId } from '@/lib/backlog-from-scan'
+import { addScanResultsToProductBacklog } from '@/lib/product-backlog-from-scan'
 import { AccessibilityScanner } from '@/lib/accessibility-scanner'
 import type { AccessibilityIssue } from '@/lib/accessibility-scanner'
 import { isValidUrl } from '@/lib/url-utils'
@@ -222,8 +223,14 @@ export async function POST(request: NextRequest) {
         )
         screenshots = { viewport: viewportUpload.secure_url }
       }
-    } catch (screenshotErr) {
-      console.warn('Extension screenshot capture failed (non-fatal):', screenshotErr)
+    } catch (screenshotErr: any) {
+      const msg = screenshotErr?.message ?? String(screenshotErr)
+      if (msg.includes('Execution context was destroyed') || msg.includes('Protocol error')) {
+        // Page/tab closed or navigated before screenshot; expected in some flows, no need to log fully
+        console.warn('Extension screenshot skipped (page context no longer available)')
+      } else {
+        console.warn('Extension screenshot capture failed (non-fatal):', screenshotErr)
+      }
     }
 
     const finalResults = {
@@ -262,10 +269,16 @@ export async function POST(request: NextRequest) {
     let backlogAdded = { added: 0, reopened: 0, skipped: 0 }
     let backlogError: string | null = null
     try {
-      backlogAdded = await autoCreateBacklogItemsWithHistoryId(user.userId, results, scanHistoryId)
+      await autoCreateBacklogItemsWithHistoryId(user.userId, results, scanHistoryId)
     } catch (backlogErr) {
-      console.error('Extension scan: backlog creation error', backlogErr)
-      backlogError = backlogErr instanceof Error ? backlogErr.message : 'Backlog creation failed'
+      console.error('Extension scan: issues/board backlog creation error', backlogErr)
+    }
+    try {
+      backlogAdded = await addScanResultsToProductBacklog(user.userId, results)
+    } catch (productBacklogErr) {
+      console.error('Extension scan: product backlog creation error', productBacklogErr)
+      backlogError =
+        productBacklogErr instanceof Error ? productBacklogErr.message : 'Product backlog creation failed'
     }
 
     try {

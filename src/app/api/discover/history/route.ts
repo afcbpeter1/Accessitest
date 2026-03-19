@@ -75,9 +75,13 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    if (message === 'Authentication required' || message === 'Invalid or expired token' || message === 'Email verification required') {
+      return NextResponse.json({ error: message }, { status: message === 'Email verification required' ? 403 : 401 })
+    }
     console.error('Error fetching discovery history:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch discovery history', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch discovery history', details: message },
       { status: 500 }
     )
   }

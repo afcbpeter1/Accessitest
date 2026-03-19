@@ -611,6 +611,12 @@ export async function POST(request: NextRequest) {
                 console.log('🎫 Auto-creating backlog items for unique issues...')
                 await autoCreateBacklogItemsWithHistoryId(user.userId, finalResults.results, scanHistoryId)
                 try {
+                  const { addScanResultsToProductBacklog } = await import('@/lib/product-backlog-from-scan')
+                  await addScanResultsToProductBacklog(user.userId, finalResults.results)
+                } catch (productBacklogErr) {
+                  console.error('❌ Error adding web scan to product backlog:', productBacklogErr)
+                }
+                try {
                   const { autoSyncIssuesToJira, getIssueIdsFromScan } = await import('@/lib/jira-sync-service')
                   const issueIds = await getIssueIdsFromScan(scanHistoryId)
                   if (issueIds.length > 0) {
