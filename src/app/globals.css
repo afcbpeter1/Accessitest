@@ -420,7 +420,7 @@ html[data-grayscale="true"] {
 /* Enforce AAA contrast for credit widgets across pages (defensive override). */
 .text-blue-600.gap-1.flex-shrink-0 > span,
 .text-blue-600.gap-1.flex-shrink-0 > .font-medium,
-.space-x-1 > .font-medium {
+.text-blue-900.space-x-1 > .font-medium {
   color: #1e3a8a !important;
 }
 
