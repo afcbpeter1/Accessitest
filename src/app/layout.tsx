@@ -40,6 +40,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script
+          src="https://analytics.ahrefs.com/analytics.js"
+          data-key="aWiU18FD0RD4XBrDgOBg6Q"
+          async
+        ></script>
+      </head>
       <body className="bg-gray-50 min-h-screen overflow-x-hidden">
         <AuthProvider>
           <ScanProvider>
