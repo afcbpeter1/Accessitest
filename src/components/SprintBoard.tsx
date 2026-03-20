@@ -729,13 +729,13 @@ export default function SprintBoard() {
                 {/* Column Header */}
                 <div className="p-3 bg-white rounded-t-lg border-b border-gray-300">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
                       <div 
                         className="w-3 h-3 rounded-full" 
                         style={{ backgroundColor: column.color }}
                       ></div>
-                      <h3 className="font-semibold text-gray-900">{column.name}</h3>
-                      <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
+                        <h3 className="font-semibold text-gray-900 whitespace-nowrap flex-shrink-0">{column.name}</h3>
+                        <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full flex-shrink-0">
                         {getIssuesForColumn(column.id).length}
                       </span>
                     </div>
