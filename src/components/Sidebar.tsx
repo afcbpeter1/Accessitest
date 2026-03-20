@@ -450,7 +450,7 @@ export default function Sidebar({ children }: SidebarProps) {
                     setMobileMenuOpen(false)
                     menuButtonRef.current?.focus()
                   }}
-                  className={`group flex items-center min-w-0 px-3 py-3 text-sm font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                  className={`group flex flex-nowrap items-center min-w-0 px-3 py-3 text-sm font-medium rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                     isActive
                       ? 'bg-blue-800 text-white border-r-2 border-blue-600'
                       : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
@@ -463,7 +463,12 @@ export default function Sidebar({ children }: SidebarProps) {
                     }`}
                     aria-hidden="true"
                   />
-                  <span className="whitespace-nowrap flex-shrink-0 overflow-hidden text-ellipsis">{item.name}</span>
+                  <span
+                    className="whitespace-nowrap flex-shrink-0 overflow-hidden text-ellipsis break-normal hyphens-none"
+                    style={{ overflowWrap: 'normal', wordBreak: 'normal', whiteSpace: 'nowrap' }}
+                  >
+                    {item.name}
+                  </span>
                 </Link>
               )
             })}
