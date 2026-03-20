@@ -171,14 +171,18 @@
   width: 100%;
 }
 
-/* Prevent text from breaking layout */
-p, span, div, h1, h2, h3, h4, h5, h6 {
-  /* Allow text to wrap */
+/* Prevent only long paragraphs/blocks from overflowing */
+p, div {
   word-wrap: break-word;
   overflow-wrap: break-word;
   hyphens: auto;
-  /* Use relative units */
-  font-size: inherit;
+}
+
+/* Avoid per-letter wrapping for inline labels/buttons/headings */
+span, h1, h2, h3, h4, h5, h6, button, a {
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
 }
 
 /* Flexible grid and flex layouts */
