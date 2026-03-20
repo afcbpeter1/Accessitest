@@ -20,9 +20,9 @@
   /* Use rem/em for spacing to scale with font size */
   body {
     line-height: 1.6;
-    /* Allow text to wrap and prevent horizontal overflow */
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    /* Avoid per-letter wrapping; let components control wrapping */
+    word-wrap: normal;
+    overflow-wrap: normal;
   }
 }
 
@@ -222,7 +222,8 @@ button, .btn-primary, .btn-secondary {
   min-height: 2.5em;
   /* Allow button text to wrap if needed */
   white-space: normal;
-  word-wrap: break-word;
+  word-wrap: normal;
+  overflow-wrap: normal;
 }
 
 /* Cards and containers */
