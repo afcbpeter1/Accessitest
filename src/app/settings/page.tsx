@@ -1136,24 +1136,28 @@ export default function SettingsPage() {
         )}
 
         <div className="flex flex-col md:flex-row md:space-x-8 gap-4">
-          {/* Mobile: settings section picker */}
+          {/* Mobile: settings section grid */}
           <div className="md:hidden">
-            <label htmlFor="settings-section" className="block text-sm font-medium text-gray-700 mb-2">
-              Settings
-            </label>
-            <select
-              id="settings-section"
-              value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
-              aria-label="Select settings section"
-            >
-              {tabs.map((tab) => (
-                <option key={tab.id} value={tab.id}>
-                  {tab.name}
-                </option>
-              ))}
-            </select>
+            <p className="text-sm font-medium text-gray-700 mb-2">Settings</p>
+            <nav className="grid grid-cols-2 gap-2" aria-label="Settings sections (mobile)">
+              {tabs.map((tab) => {
+                const Icon = tab.icon
+                return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium border transition-colors ${
+                    activeTab === tab.id
+                      ? 'bg-primary-50 text-primary-800 border-primary-800'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{tab.name}</span>
+                </button>
+              )})}
+            </nav>
           </div>
 
           {/* Sidebar (desktop/tablet only) */}
@@ -1584,7 +1588,7 @@ export default function SettingsPage() {
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
                             <CheckCircle className="h-5 w-5 text-green-800" />
-                            <span className="font-semibold text-green-900 text-lg">✓ Jira Integration Active</span>
+                            <span className="font-semibold text-green-900 text-lg">Jira Integration Active</span>
                           </div>
                           <div className="space-y-1 text-sm text-green-800">
                             <p>
@@ -1676,7 +1680,7 @@ export default function SettingsPage() {
                       {/* Always show project field if we have saved data or if user is entering new data */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Project {jiraForm.projectKey && <span className="text-green-800">✓</span>}
+                          Project {jiraForm.projectKey && <span className="text-green-800">Saved</span>}
                         </label>
                         {jiraProjects.length > 0 ? (
                           <select
@@ -1709,7 +1713,7 @@ export default function SettingsPage() {
                         )}
                         {jiraForm.projectKey && (
                           <p className="text-xs text-green-800 mt-1">
-                            ✓ Saved project: {jiraForm.projectKey}
+                            Saved project: {jiraForm.projectKey}
                           </p>
                         )}
                       </div>
@@ -1718,7 +1722,7 @@ export default function SettingsPage() {
                       {(jiraForm.projectKey || jiraForm.issueType) && (
                         <div>
                           <label htmlFor="settings-jira-issue-type" className="block text-sm font-medium text-gray-700 mb-1">
-                            Issue Type {jiraForm.issueType && <span className="text-green-800">✓</span>}
+                            Issue Type {jiraForm.issueType && <span className="text-green-800">Saved</span>}
                           </label>
                           <select
                             id="settings-jira-issue-type"
@@ -1751,7 +1755,7 @@ export default function SettingsPage() {
                           </select>
                           {jiraForm.issueType && (
                             <p className="text-xs text-green-800 mt-1">
-                              ✓ Saved issue type: {jiraForm.issueType}
+                              Saved issue type: {jiraForm.issueType}
                             </p>
                           )}
                         </div>
@@ -2049,7 +2053,7 @@ export default function SettingsPage() {
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-2">
                               <CheckCircle className="h-5 w-5 text-green-800" />
-                              <span className="font-semibold text-green-900 text-lg">✓ Azure DevOps Integration Active</span>
+                              <span className="font-semibold text-green-900 text-lg">Azure DevOps Integration Active</span>
                             </div>
                             <div className="space-y-1 text-sm text-green-800">
                               <p>
@@ -2125,7 +2129,7 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Project {azureDevOpsForm.project && <span className="text-green-800">✓</span>}
+                          Project {azureDevOpsForm.project && <span className="text-green-800">Saved</span>}
                         </label>
                         {azureDevOpsProjects && azureDevOpsProjects.length > 0 ? (
                           <select
@@ -2152,7 +2156,7 @@ export default function SettingsPage() {
                         )}
                         {azureDevOpsForm.project && (
                           <p className="text-xs text-green-800 mt-1">
-                            ✓ Saved project: {azureDevOpsForm.project}
+                            Saved project: {azureDevOpsForm.project}
                           </p>
                         )}
                         {(!azureDevOpsProjects || azureDevOpsProjects.length === 0) && !azureDevOpsForm.project && (
@@ -2162,14 +2166,14 @@ export default function SettingsPage() {
                         )}
                         {azureDevOpsProjects && azureDevOpsProjects.length > 0 && (
                           <p className="text-xs text-blue-800 mt-1">
-                            ✓ {azureDevOpsProjects.length} project(s) loaded - select from dropdown above
+                            {azureDevOpsProjects.length} project(s) loaded - select from dropdown above
                           </p>
                         )}
                       </div>
                       {(azureDevOpsForm.project || azureDevOpsForm.workItemType) && (
                         <div>
                           <label htmlFor="settings-ado-work-item-type" className="block text-sm font-medium text-gray-700 mb-1">
-                            Work Item Type {azureDevOpsForm.workItemType && <span className="text-green-800">✓</span>}
+                            Work Item Type {azureDevOpsForm.workItemType && <span className="text-green-800">Saved</span>}
                           </label>
                           <select
                             id="settings-ado-work-item-type"
@@ -2201,7 +2205,7 @@ export default function SettingsPage() {
                           </select>
                           {azureDevOpsForm.workItemType && (
                             <p className="text-xs text-green-800 mt-1">
-                              ✓ Saved work item type: {azureDevOpsForm.workItemType}
+                              Saved work item type: {azureDevOpsForm.workItemType}
                             </p>
                           )}
                         </div>

@@ -487,21 +487,21 @@ export default function HomePage() {
               href="/playground" 
               className="bg-[#0B1220] text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-800 transition-colors flex items-center justify-center"
             >
-              🎓 Try Playground
+              Try Playground
               <Code className="ml-2 h-5 w-5" />
             </Link>
             <Link 
               href="/accessibility-issues" 
               className="bg-white text-[#0B1220] px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
             >
-              🔍 See Issues Demo
+              See Issues Demo
               <AlertTriangle className="ml-2 h-5 w-5" />
             </Link>
             <Link 
               href="/logo-contrast-checker" 
               className="bg-[#0B1220] text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-800 transition-colors flex items-center justify-center"
             >
-              🎨 Logo Contrast Checker
+              Logo Contrast Checker
               <Contrast className="ml-2 h-5 w-5" />
             </Link>
           </div>
@@ -954,7 +954,7 @@ export default function HomePage() {
                 <div className="bg-[#0B1220] text-white p-6 rounded-lg max-w-2xl mx-auto mb-8">
                   <div className="flex items-center justify-center space-x-3 mb-3">
                     <Code className="h-8 w-8" />
-                    <h3 className="text-2xl font-bold">🎓 Learn Accessibility Hands-On</h3>
+                    <h3 className="text-2xl font-bold">Learn Accessibility Hands-On</h3>
                   </div>
                   <p className="text-gray-200 mb-4">
                     Practice fixing real accessibility issues with our interactive playground. Perfect for developers, designers, and content creators!

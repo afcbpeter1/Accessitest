@@ -879,7 +879,7 @@ function NewScanContent() {
                   const criticalIssues = data.results.complianceSummary.criticalIssues
                   const seriousIssues = data.results.complianceSummary.seriousIssues
                   
-                  setSuccessMessage(`Scan completed successfully! 📊\n\n• Pages scanned: ${data.results.pagesScanned}\n• Total issues: ${totalIssues}\n• Critical issues: ${criticalIssues}\n• Serious issues: ${seriousIssues}\n\nCheck the results below for detailed analysis.`)
+                  setSuccessMessage(`Scan completed successfully!\n\n• Pages scanned: ${data.results.pagesScanned}\n• Total issues: ${totalIssues}\n• Critical issues: ${criticalIssues}\n• Serious issues: ${seriousIssues}\n\nCheck the results below for detailed analysis.`)
                   setShowSuccessNotification(true)
                   
                   // Auto-hide notification after 8 seconds
@@ -936,7 +936,7 @@ function NewScanContent() {
                   const criticalIssues = data.results.complianceSummary.criticalIssues
                   const seriousIssues = data.results.complianceSummary.seriousIssues
                   
-                  setSuccessMessage(`Scan completed successfully! 📊\n\n• Pages scanned: ${data.results.pagesScanned}\n• Total issues: ${totalIssues}\n• Critical issues: ${criticalIssues}\n• Serious issues: ${seriousIssues}\n\nCheck the results below for detailed analysis.`)
+                  setSuccessMessage(`Scan completed successfully!\n\n• Pages scanned: ${data.results.pagesScanned}\n• Total issues: ${totalIssues}\n• Critical issues: ${criticalIssues}\n• Serious issues: ${seriousIssues}\n\nCheck the results below for detailed analysis.`)
                   setShowSuccessNotification(true)
                   
                   // Refresh user data to update credits
@@ -1574,7 +1574,7 @@ function NewScanContent() {
                     {scanProgress && scanProgress.status === 'crawling' && (
                       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-blue-800 font-semibold">🔍 Live Discovery Progress</span>
+                          <span className="text-blue-800 font-semibold">Live Discovery Progress</span>
                           <span className="text-blue-600 font-medium">
                             {scanProgress.totalPages > 0 
                             ? `${scanProgress.currentPage} / ${scanProgress.totalPages}` 
@@ -1588,7 +1588,7 @@ function NewScanContent() {
                           </div>
                         </div>
                         <div className="mt-3 text-xs text-blue-600">
-                          💡 This process is working! The system is actively discovering pages on your website.
+                          This process is working. The system is actively discovering pages on your website.
                         </div>
                         
                         {/* Discovery Log */}
@@ -1611,7 +1611,7 @@ function NewScanContent() {
                     {scanProgress && (scanProgress.status === 'scanning' || scanProgress.status === 'analyzing') && (
                       <div className="bg-slate-50 border-l-4 border-green-600 border border-slate-200 rounded-lg p-4 mb-4">
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-slate-900 font-semibold">🔍 Live Scanning Progress</span>
+                          <span className="text-slate-900 font-semibold">Live Scanning Progress</span>
                           <span className="text-slate-700 font-medium">
                             {scanProgress.currentPage} / {scanProgress.totalPages}
                           </span>
@@ -1623,12 +1623,12 @@ function NewScanContent() {
                           </div>
                           {scanProgress.url && (
                             <div className="text-xs text-slate-600 mt-2">
-                              📄 Scanning: {scanProgress.url}
+                              Scanning: {scanProgress.url}
                             </div>
                           )}
                         </div>
                         <div className="mt-3 text-xs text-slate-600">
-                          💡 The system is actively scanning each page for accessibility issues. This may take a few minutes.
+                          The system is actively scanning each page for accessibility issues. This may take a few minutes.
                         </div>
                       </div>
                     )}

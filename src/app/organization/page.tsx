@@ -1763,7 +1763,7 @@ export default function OrganizationPage() {
                                     <div className="flex-1">
                                       <div className="flex items-center space-x-2 mb-2">
                                         <CheckCircle className="h-5 w-5 text-green-800" />
-                                        <span className="font-semibold text-green-900 text-lg">✓ Jira Integration Active</span>
+                                        <span className="font-semibold text-green-900 text-lg">Jira Integration Active</span>
                                       </div>
                                       <div className="space-y-1 text-sm text-green-800">
                                         <p>
@@ -1854,7 +1854,7 @@ export default function OrganizationPage() {
                                   
                                   <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                      Project (Default) {jiraForm.projectKey && <span className="text-green-800">✓</span>}
+                                      Project (Default) {jiraForm.projectKey && <span className="text-green-800">Saved</span>}
                                     </label>
                                     {jiraProjects.length > 0 ? (
                                       <select
@@ -1887,14 +1887,14 @@ export default function OrganizationPage() {
                                     )}
                                     {jiraForm.projectKey && (
                                       <p className="text-xs text-green-800 mt-1">
-                                        ✓ Default project: {jiraForm.projectKey} (teams can override this)
+                                        Default project: {jiraForm.projectKey} (teams can override this)
                                       </p>
                                     )}
                                   </div>
 
                                   <div>
                                     <label htmlFor="org-jira-issue-type" className="block text-sm font-medium text-gray-700 mb-1">
-                                      Issue Type (Optional - Default) {jiraForm.issueType && <span className="text-green-800">✓</span>}
+                                      Issue Type (Optional - Default) {jiraForm.issueType && <span className="text-green-800">Saved</span>}
                                     </label>
                                       <select
                                         id="org-jira-issue-type"
@@ -1927,7 +1927,7 @@ export default function OrganizationPage() {
                                       </select>
                                       {jiraForm.issueType && (
                                         <p className="text-xs text-green-800 mt-1">
-                                          ✓ Default issue type: {jiraForm.issueType} (teams can override this)
+                                          Default issue type: {jiraForm.issueType} (teams can override this)
                                         </p>
                                       )}
                                       {!jiraForm.issueType && (
@@ -2220,7 +2220,7 @@ export default function OrganizationPage() {
                                     <div className="flex-1">
                                       <div className="flex items-center space-x-2 mb-2">
                                         <CheckCircle className="h-5 w-5 text-green-800" />
-                                        <span className="font-semibold text-green-900 text-lg">✓ Azure DevOps Integration Active</span>
+                                        <span className="font-semibold text-green-900 text-lg">Azure DevOps Integration Active</span>
                                       </div>
                                       <div className="space-y-1 text-sm text-green-800">
                                         <p>
@@ -2296,7 +2296,7 @@ export default function OrganizationPage() {
                                 </div>
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Project (Default) {azureDevOpsForm.project && <span className="text-green-800">✓</span>}
+                                    Project (Default) {azureDevOpsForm.project && <span className="text-green-800">Saved</span>}
                                   </label>
                                   {azureDevOpsProjects && azureDevOpsProjects.length > 0 ? (
                                     <select
@@ -2323,7 +2323,7 @@ export default function OrganizationPage() {
                                   )}
                                   {azureDevOpsForm.project && (
                                     <p className="text-xs text-green-800 mt-1">
-                                      ✓ Default project: {azureDevOpsForm.project} (teams can override this)
+                                      Default project: {azureDevOpsForm.project} (teams can override this)
                                     </p>
                                   )}
                                   {(!azureDevOpsProjects || azureDevOpsProjects.length === 0) && !azureDevOpsForm.project && (
@@ -2333,13 +2333,13 @@ export default function OrganizationPage() {
                                   )}
                                   {azureDevOpsProjects && azureDevOpsProjects.length > 0 && (
                                     <p className="text-xs text-blue-800 mt-1">
-                                      ✓ {azureDevOpsProjects.length} project(s) loaded - select from dropdown above
+                                      {azureDevOpsProjects.length} project(s) loaded - select from dropdown above
                                     </p>
                                   )}
                                 </div>
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Work Item Type (Optional - Default) {azureDevOpsForm.workItemType && <span className="text-green-800">✓</span>}
+                                    Work Item Type (Optional - Default) {azureDevOpsForm.workItemType && <span className="text-green-800">Saved</span>}
                                   </label>
                                   <input
                                     type="text"
@@ -2354,7 +2354,7 @@ export default function OrganizationPage() {
                                   </p>
                                   {azureDevOpsForm.workItemType && (
                                     <p className="text-xs text-green-800 mt-1">
-                                      ✓ Default work item type: {azureDevOpsForm.workItemType} (teams can override this)
+                                      Default work item type: {azureDevOpsForm.workItemType} (teams can override this)
                                     </p>
                                   )}
                                   {!azureDevOpsForm.workItemType && (

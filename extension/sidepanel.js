@@ -9,10 +9,47 @@
   var isMultiScan = false;
   var currentMultiScanId = null;
   var scanOverlayVisible = false;
+  var currentAppBaseUrl = DEFAULT_APP_URL;
+  var focusReaderEnabled = false;
+  var focusReaderAllowed = false;
+  var focusReaderLoggedIn = false;
 
   function getIframe() {
     return document.getElementById(IFRAME_ID);
   }
+
+  function updateFocusReaderToggle() {
+    var btn = document.getElementById('focus-reader-toggle');
+    if (!btn) return;
+    btn.style.display = 'inline-block';
+    btn.disabled = false;
+    btn.title = 'Announce focused element as you tab';
+    btn.textContent = focusReaderEnabled ? 'Reader: On' : 'Reader: Off';
+    btn.classList.toggle('on', focusReaderEnabled);
+    btn.setAttribute('aria-pressed', focusReaderEnabled ? 'true' : 'false');
+  }
+
+  function setFocusReader(enabled) {
+    chrome.runtime.sendMessage({ type: 'SET_FOCUS_READER', enabled: !!enabled }, function (response) {
+      focusReaderEnabled = !!(response && response.enabled);
+      updateFocusReaderToggle();
+    });
+  }
+
+  function initFocusReaderToggle() {
+    var btn = document.getElementById('focus-reader-toggle');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      setFocusReader(!focusReaderEnabled);
+    });
+    chrome.runtime.sendMessage({ type: 'GET_FOCUS_READER_STATE' }, function (response) {
+      focusReaderEnabled = !!(response && response.enabled);
+      updateFocusReaderToggle();
+    });
+  }
+
+  initFocusReaderToggle();
+
 
   function showScanOverlay(multiScan, currentPage, totalPages, url) {
     var overlay = document.getElementById('scan-overlay');
@@ -70,6 +107,8 @@
     const iframe = getIframe();
     if (iframe) {
       const base = url.replace(/\/$/, '');
+      currentAppBaseUrl = base;
+      chrome.runtime.sendMessage({ type: 'SET_EXTENSION_APP_BASE_URL', baseUrl: base }, function () {});
       iframe.src = base + '/login?redirect=' + encodeURIComponent('/extension');
     }
   }
@@ -134,6 +173,27 @@
 
     if (data.type === 'ACCESSSCAN_GET_CURRENT_TAB') {
       chrome.runtime.sendMessage({ type: 'GET_CURRENT_TAB' }, function () {});
+      return;
+    }
+
+    if (data.type === 'ACCESSSCAN_READER_ENTITLEMENT') {
+      focusReaderLoggedIn = !!data.loggedIn;
+      focusReaderAllowed = !!data.readerAllowed;
+      if (!focusReaderAllowed && focusReaderEnabled) {
+        setFocusReader(false);
+      } else {
+        updateFocusReaderToggle();
+      }
+      return;
+    }
+
+    if (data.type === 'ACCESSSCAN_SET_AUTH_TOKEN') {
+      chrome.runtime.sendMessage({ type: 'SET_EXTENSION_AUTH', token: data.token || '' }, function () {});
+      return;
+    }
+
+    if (data.type === 'ACCESSSCAN_SET_FOCUS_READER') {
+      setFocusReader(!!data.enabled);
       return;
     }
 

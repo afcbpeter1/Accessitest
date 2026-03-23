@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AccessScan",
+  "name": "a11ytest.ai",
   "version": "1.0.0",
-  "description": "Scan the current tab for accessibility issues and add them to your AccessScan product backlog.",
+  "description": "Scan the current tab for accessibility issues and add them to your a11ytest.ai backlog.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -19,7 +19,7 @@
     "default_path": "sidepanel.html"
   },
   "action": {
-    "default_title": "Open AccessScan"
+    "default_title": "Open a11ytest.ai"
   },
   "options_ui": {
     "page": "options.html"

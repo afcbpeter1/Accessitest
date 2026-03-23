@@ -561,22 +561,22 @@ export default function LogoContrastChecker() {
             <div className={`px-4 py-2 rounded-full text-sm font-medium ${
               contrastRatio >= 4.5 ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
             }`}>
-              AA {contrastRatio >= 4.5 ? '✓' : '✗'}
+              AA {contrastRatio >= 4.5 ? 'Pass' : 'Fail'}
             </div>
             <div className={`px-4 py-2 rounded-full text-sm font-medium ${
               contrastRatio >= 7.0 ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
             }`}>
-              AAA {contrastRatio >= 7.0 ? '✓' : '✗'}
+              AAA {contrastRatio >= 7.0 ? 'Pass' : 'Fail'}
             </div>
             <div className={`px-4 py-2 rounded-full text-sm font-medium ${
               contrastRatio >= 3.0 ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
             }`}>
-              AA18pt {contrastRatio >= 3.0 ? '✓' : '✗'}
+              AA18pt {contrastRatio >= 3.0 ? 'Pass' : 'Fail'}
             </div>
             <div className={`px-4 py-2 rounded-full text-sm font-medium ${
               contrastRatio >= 4.5 ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
             }`}>
-              AAA18pt {contrastRatio >= 4.5 ? '✓' : '✗'}
+              AAA18pt {contrastRatio >= 4.5 ? 'Pass' : 'Fail'}
             </div>
           </div>
         )}

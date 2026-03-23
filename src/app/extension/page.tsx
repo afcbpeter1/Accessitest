@@ -88,10 +88,18 @@ export default function ExtensionPage() {
   const [isMultiScanning, setIsMultiScanning] = useState(false)
   const [multiScanPage, setMultiScanPage] = useState<{ current: number; total: number; url: string } | null>(null)
   const [issuesPageTab, setIssuesPageTab] = useState(0)
+  const [readerLoggedIn, setReaderLoggedIn] = useState(false)
+  const [readerAllowed, setReaderAllowed] = useState(false)
+  const [readerEnabled, setReaderEnabled] = useState(false)
 
   useEffect(() => {
     isMultiScanningRef.current = isMultiScanning
   }, [isMultiScanning])
+
+  const openPricingInNewWindow = () => {
+    const pricingUrl = typeof window !== 'undefined' ? `${window.location.origin}/pricing` : '/pricing'
+    window.open(pricingUrl, '_blank', 'noopener,noreferrer')
+  }
 
   // Request current tab URL on load, when page becomes visible, and on an interval so it stays in sync when user switches tabs
   useEffect(() => {
@@ -143,7 +151,11 @@ export default function ExtensionPage() {
         setIsScanning(false)
       }
       if (event.data?.type === 'ACCESSSCAN_SCAN_ERROR') {
-        setScanError(event.data.error || 'Scan failed')
+        const errorText = String(event.data.error || 'Scan failed')
+        setScanError(errorText)
+        if (errorText.toLowerCase().includes('insufficient credits')) {
+          openPricingInNewWindow()
+        }
         setIsScanning(false)
       }
       if (event.data?.type === 'ACCESSSCAN_LINKS') {
@@ -191,6 +203,67 @@ export default function ExtensionPage() {
     }
     window.addEventListener('message', handler)
     return () => window.removeEventListener('message', handler)
+  }, [])
+
+  useEffect(() => {
+    if (window.parent === window) return
+
+    let mounted = true
+
+    const pushReaderEntitlement = async () => {
+      try {
+        const token = localStorage.getItem('accessToken')
+        let loggedIn = false
+        let readerAllowed = false
+
+        if (token) {
+          window.parent.postMessage({ type: 'ACCESSSCAN_SET_AUTH_TOKEN', token }, '*')
+        }
+
+        // Try cookie/session-based auth first (works when JWT isn't in localStorage).
+        let res = await fetch('/api/user', { credentials: 'include' })
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}))
+          loggedIn = Boolean(data?.success)
+          const planType = String(data?.user?.plan || '').toLowerCase()
+          const hasSubscriptionPlan = planType !== '' && planType !== 'free'
+          readerAllowed = Boolean(data?.success && (data?.user?.unlimitedCredits || hasSubscriptionPlan))
+        } else if (token) {
+          // Fallback to Bearer token flow.
+          res = await fetch('/api/credits', {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+          const data = await res.json().catch(() => ({}))
+          loggedIn = Boolean(data?.success)
+          readerAllowed = Boolean(data?.success && data?.unlimitedCredits)
+        }
+
+        if (mounted) {
+          setReaderLoggedIn(loggedIn)
+          setReaderAllowed(readerAllowed)
+          window.parent.postMessage(
+            { type: 'ACCESSSCAN_READER_ENTITLEMENT', loggedIn, readerAllowed },
+            '*'
+          )
+        }
+      } catch {
+        if (mounted) {
+          setReaderLoggedIn(false)
+          setReaderAllowed(false)
+          window.parent.postMessage(
+            { type: 'ACCESSSCAN_READER_ENTITLEMENT', loggedIn: false, readerAllowed: false },
+            '*'
+          )
+        }
+      }
+    }
+
+    pushReaderEntitlement()
+    const interval = setInterval(pushReaderEntitlement, 30000)
+    return () => {
+      mounted = false
+      clearInterval(interval)
+    }
   }, [])
 
   const getTags = () => {
@@ -283,6 +356,13 @@ export default function ExtensionPage() {
 
   const inExtension = typeof window !== 'undefined' && window.self !== window.top
 
+  const toggleReader = () => {
+    if (!readerLoggedIn || !readerAllowed || window.parent === window) return
+    const nextEnabled = !readerEnabled
+    setReaderEnabled(nextEnabled)
+    window.parent.postMessage({ type: 'ACCESSSCAN_SET_FOCUS_READER', enabled: nextEnabled }, '*')
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 pb-8">
       <div className="max-w-3xl mx-auto space-y-6">
@@ -306,6 +386,31 @@ export default function ExtensionPage() {
           <p className="text-sm text-gray-600 break-all" title={currentTabUrl ?? undefined}>
             {currentTabUrl ? currentTabUrl : 'Open a webpage in another tab to see its URL here. That tab will be scanned when you click Scan page.'}
           </p>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <h2 className="text-sm font-semibold text-gray-900 mb-2">Keyboard reader (Tab mode)</h2>
+          <p className="text-xs text-gray-600 mb-3">
+            Announces the currently focused element as you press Tab (for example: &quot;Submit, button&quot;).
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleReader}
+              disabled={!readerLoggedIn || !readerAllowed}
+              className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-white disabled:opacity-60 disabled:cursor-not-allowed ${
+                readerEnabled ? 'bg-blue-900 hover:bg-blue-950' : 'bg-gray-700 hover:bg-gray-800'
+              }`}
+            >
+              {readerEnabled ? 'Reader On' : 'Reader Off'}
+            </button>
+            {!readerLoggedIn && (
+              <span className="text-xs text-amber-700">Log in to use reader mode.</span>
+            )}
+            {readerLoggedIn && !readerAllowed && (
+              <span className="text-xs text-amber-700">An active subscription is required.</span>
+            )}
+          </div>
         </div>
 
         {/* Multi-page scan (no manual URL pasting; use links from current page) */}
@@ -339,7 +444,7 @@ export default function ExtensionPage() {
               type="button"
               onClick={fetchLinks}
               disabled={loadingLinks || isMultiScanning || isScanning}
-              className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md bg-blue-900 text-white hover:bg-blue-950 disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {loadingLinks ? 'Finding links…' : 'Find links on this page'}
             </button>
@@ -382,7 +487,7 @@ export default function ExtensionPage() {
                   type="button"
                   onClick={runMultiScan}
                   disabled={isMultiScanning || isScanning || selectedLinkUrls.size === 0}
-                  className="inline-flex items-center px-4 py-2.5 bg-primary-600 text-white text-xs font-medium rounded-md hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="inline-flex items-center px-4 py-2.5 bg-blue-900 text-white text-xs font-medium rounded-md hover:bg-blue-950 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isMultiScanning ? 'Scanning selected pages…' : `Scan selected (${selectedLinkUrls.size})`}
                 </button>
@@ -451,7 +556,7 @@ export default function ExtensionPage() {
             type="button"
             onClick={runScan}
             disabled={isScanning || isMultiScanning}
-            className="inline-flex items-center px-4 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-md hover:bg-primary-700 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-4 py-2.5 bg-blue-900 text-white text-sm font-medium rounded-md hover:bg-blue-950 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Globe className="h-4 w-4 mr-2" />
             {isScanning ? 'Scanning…' : 'Scan page'}

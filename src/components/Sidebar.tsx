@@ -465,7 +465,6 @@ export default function Sidebar({ children }: SidebarProps) {
                   />
                   <span
                     className="whitespace-nowrap flex-shrink-0 overflow-hidden text-ellipsis break-normal hyphens-none"
-                    style={{ overflowWrap: 'normal', wordBreak: 'normal', whiteSpace: 'nowrap' }}
                   >
                     {item.name}
                   </span>

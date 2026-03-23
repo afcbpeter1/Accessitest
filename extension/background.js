@@ -5,6 +5,10 @@ chrome.action.onClicked.addListener(function (tab) {
 });
 
 var multiScanPendingNext = null;
+var focusReaderEnabledByTab = {};
+var extensionAuthToken = null;
+var extensionAppBaseUrl = 'https://a11ytest.ai';
+var readerTtsCache = new Map();
 
 function injectAndRunScan(tabId, tags, callback) {
   // Inject axe and content script (axe first so it's in scope); avoids page CSP blocking CDN
@@ -37,6 +41,108 @@ function injectAndRunScan(tabId, tags, callback) {
 }
 
 chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
+  if (msg.type === 'SET_EXTENSION_AUTH') {
+    extensionAuthToken = (typeof msg.token === 'string' && msg.token.trim()) ? msg.token.trim() : null;
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (msg.type === 'SET_EXTENSION_APP_BASE_URL') {
+    if (typeof msg.baseUrl === 'string' && msg.baseUrl.trim()) {
+      extensionAppBaseUrl = msg.baseUrl.trim().replace(/\/$/, '');
+    }
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (msg.type === 'GENERATE_READER_TTS') {
+    var text = typeof msg.text === 'string' ? msg.text.trim() : '';
+    if (!text) {
+      sendResponse({ ok: false, error: 'Missing text' });
+      return false;
+    }
+    var cacheKey = text.toLowerCase();
+    if (readerTtsCache.has(cacheKey)) {
+      sendResponse({ ok: true, audioBase64: readerTtsCache.get(cacheKey), mimeType: 'audio/mpeg', cached: true });
+      return false;
+    }
+
+    var headers = {
+      'Content-Type': 'application/json'
+    };
+    if (extensionAuthToken) {
+      headers['Authorization'] = 'Bearer ' + extensionAuthToken;
+    }
+
+    fetch(extensionAppBaseUrl + '/api/extension/reader-tts', {
+      method: 'POST',
+      headers: headers,
+      credentials: 'include',
+      body: JSON.stringify({ text: text })
+    })
+      .then(function (res) {
+        if (!res.ok) {
+          throw new Error('TTS API failed with status ' + res.status);
+        }
+        return res.json();
+      })
+      .then(function (data) {
+        if (!data || !data.success || !data.audioBase64) {
+          throw new Error((data && data.error) || 'Invalid TTS response');
+        }
+        // Keep cache bounded.
+        if (readerTtsCache.size > 500) {
+          readerTtsCache.clear();
+        }
+        readerTtsCache.set(cacheKey, data.audioBase64);
+        sendResponse({ ok: true, audioBase64: data.audioBase64, mimeType: data.mimeType || 'audio/mpeg', cached: false });
+      })
+      .catch(function (err) {
+        sendResponse({ ok: false, error: err && err.message ? err.message : 'TTS request failed' });
+      });
+    return true;
+  }
+
+  if (msg.type === 'GET_FOCUS_READER_STATE') {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
+      var tab = tabs[0];
+      sendResponse({ enabled: !!(tab && tab.id && focusReaderEnabledByTab[tab.id]) });
+    });
+    return true;
+  }
+
+  if (msg.type === 'SET_FOCUS_READER') {
+    var enabled = !!msg.enabled;
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
+      var tab = tabs[0];
+      if (!tab || !tab.id) {
+        sendResponse({ enabled: false, error: 'No active tab' });
+        return;
+      }
+      var tabUrl = tab.url;
+      if (!tabUrl || tabUrl.startsWith('chrome://') || tabUrl.startsWith('chrome-extension://') || tabUrl.startsWith('edge://')) {
+        sendResponse({ enabled: false, error: 'Cannot run reader on this page' });
+        return;
+      }
+
+      chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content-reader.js'] }, function () {
+        if (chrome.runtime.lastError) {
+          sendResponse({ enabled: false, error: chrome.runtime.lastError.message || 'Could not inject focus reader' });
+          return;
+        }
+        chrome.tabs.sendMessage(tab.id, { type: enabled ? 'START_FOCUS_READER' : 'STOP_FOCUS_READER' }, function (response) {
+          if (chrome.runtime.lastError) {
+            sendResponse({ enabled: false, error: chrome.runtime.lastError.message || 'Could not update focus reader' });
+            return;
+          }
+          focusReaderEnabledByTab[tab.id] = !!(response && response.enabled);
+          sendResponse({ enabled: !!focusReaderEnabledByTab[tab.id] });
+        });
+      });
+    });
+    return true;
+  }
+
   if (msg.type === 'GET_CURRENT_TAB') {
     // Get the tab that is selected in the user's browser window (the one they want to scan), not the extension context
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {

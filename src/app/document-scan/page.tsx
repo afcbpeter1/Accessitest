@@ -36,7 +36,7 @@ export default function DocumentScan() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">PDF Documents</span>
-                  <span className="text-sm font-medium text-gray-900">✓</span>
+                  <span className="text-sm font-medium text-gray-900">Yes</span>
                 </div>
               </div>
               <div className="mt-3 p-2 bg-blue-50 rounded-lg">

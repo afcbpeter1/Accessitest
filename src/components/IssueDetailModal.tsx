@@ -157,7 +157,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                 <div className="prose prose-sm max-w-none break-words">
                   {/* Issue Summary */}
                   <div className="mb-4 sm:mb-6 p-4 bg-white border border-gray-200 rounded-lg">
-                    <h4 className="font-semibold text-gray-900 mb-2">📋 Issue Summary</h4>
+                    <h4 className="font-semibold text-gray-900 mb-2">Issue Summary</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                       <div>
                         <span className="font-medium text-gray-700">Impact:</span>
@@ -196,7 +196,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
 
                   {/* Problem Description */}
                   <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <h4 className="font-semibold text-gray-900 mb-3">🚨 Problem Description</h4>
+                    <h4 className="font-semibold text-gray-900 mb-3">Problem Description</h4>
                     <p className="text-gray-800 mb-3">{issue.description}</p>
                     {issue.scan_data?.help_text && (
                       <p className="text-gray-700 text-sm">{issue.scan_data.help_text}</p>
@@ -205,7 +205,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
 
                   {/* Implementation Steps */}
                   <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <h4 className="font-semibold text-gray-900 mb-3">✅ Implementation Steps</h4>
+                    <h4 className="font-semibold text-gray-900 mb-3">Implementation Steps</h4>
                     <ol className="list-decimal list-inside space-y-2 text-gray-800">
                       <li>Review the affected elements listed below</li>
                       <li>Apply the CSS fixes provided in the code examples</li>
@@ -219,7 +219,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                   {/* Offending Elements */}
                   {issue.scan_data?.offending_elements && issue.scan_data.offending_elements.length > 0 && (
                     <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-3">🔍 Offending Elements</h4>
+                      <h4 className="font-semibold text-gray-900 mb-3">Offending Elements</h4>
                       <div className="space-y-3">
                         {issue.scan_data.offending_elements.map((element: any, index: number) => (
                           <div key={index} className="bg-white border border-gray-200 rounded p-3">
@@ -265,7 +265,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                             {/* Screenshot */}
                             {element.screenshot && (
                               <div className="mb-3">
-                                <p className="text-sm text-gray-600 mb-2 font-medium">📸 Element Screenshot:</p>
+                                <p className="text-sm text-gray-600 mb-2 font-medium">Element Screenshot:</p>
                                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                                   <img 
                                     src={element.screenshot}
@@ -316,7 +316,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                     return (
                       <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
                         <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                          <span>🔧</span>
+                          <span>Fix</span>
                           <span>AI-Generated Suggested Fix</span>
                         </h4>
                         {normalizedSuggestions.length > 0 ? (
@@ -341,7 +341,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                                 {/* Affected Element Code */}
                                 {suggestion.affectedElement && (
                                   <div className="mb-3">
-                                    <p className="text-sm text-gray-600 mb-2 font-medium">🔍 Affected Element:</p>
+                                    <p className="text-sm text-gray-600 mb-2 font-medium">Affected Element:</p>
                                     <pre className="bg-gray-100 border border-gray-200 text-gray-800 p-3 rounded text-sm overflow-x-auto">
                                       <code>{suggestion.affectedElement}</code>
                                     </pre>
@@ -351,7 +351,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                                 {/* Suggested Fix Code */}
                                 {suggestion.codeExample && (
                                   <div>
-                                    <p className="text-sm text-gray-600 mb-2 font-medium">💻 Suggested Fix:</p>
+                                    <p className="text-sm text-gray-600 mb-2 font-medium">Suggested Fix:</p>
                                     <pre className="bg-gray-900 text-white p-3 rounded text-sm overflow-x-auto">
                                       <code>{suggestion.codeExample}</code>
                                     </pre>
@@ -375,7 +375,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                   {/* Visual Evidence */}
                   {issue.scan_data?.screenshots && (issue.scan_data.screenshots.viewport || issue.scan_data.screenshots.fullPage || (issue.scan_data.screenshots.elements && Array.isArray(issue.scan_data.screenshots.elements))) && (
                     <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-3">📸 Visual Evidence</h4>
+                      <h4 className="font-semibold text-gray-900 mb-3">Visual Evidence</h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {(issue.scan_data.screenshots.viewport || issue.scan_data.screenshots.fullPage) && (
                           <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -415,7 +415,7 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                   {/* Visual Evidence - Fallback when no screenshots */}
                   {(!issue.scan_data?.screenshots || (!issue.scan_data.screenshots.viewport && (!issue.scan_data.screenshots.elements || issue.scan_data.screenshots.elements.length === 0))) && (
                     <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-3">📸 Visual Evidence</h4>
+                      <h4 className="font-semibold text-gray-900 mb-3">Visual Evidence</h4>
                       <div className="text-center py-8">
                         <div className="text-gray-500 mb-2">📷</div>
                         <p className="text-gray-500">No screenshots available for this issue</p>
