@@ -18,37 +18,13 @@
     return document.getElementById(IFRAME_ID);
   }
 
-  function updateFocusReaderToggle() {
-    var btn = document.getElementById('focus-reader-toggle');
-    if (!btn) return;
-    btn.style.display = 'inline-block';
-    btn.disabled = false;
-    btn.title = 'Announce focused element as you tab';
-    btn.textContent = focusReaderEnabled ? 'Reader: On' : 'Reader: Off';
-    btn.classList.toggle('on', focusReaderEnabled);
-    btn.setAttribute('aria-pressed', focusReaderEnabled ? 'true' : 'false');
-  }
-
-  function setFocusReader(enabled) {
+  function setFocusReader(enabled, force) {
+    var nextEnabled = !!enabled;
+    if (!force && nextEnabled && (!focusReaderLoggedIn || !focusReaderAllowed)) return;
     chrome.runtime.sendMessage({ type: 'SET_FOCUS_READER', enabled: !!enabled }, function (response) {
       focusReaderEnabled = !!(response && response.enabled);
-      updateFocusReaderToggle();
     });
   }
-
-  function initFocusReaderToggle() {
-    var btn = document.getElementById('focus-reader-toggle');
-    if (!btn) return;
-    btn.addEventListener('click', function () {
-      setFocusReader(!focusReaderEnabled);
-    });
-    chrome.runtime.sendMessage({ type: 'GET_FOCUS_READER_STATE' }, function (response) {
-      focusReaderEnabled = !!(response && response.enabled);
-      updateFocusReaderToggle();
-    });
-  }
-
-  initFocusReaderToggle();
 
 
   function showScanOverlay(multiScan, currentPage, totalPages, url) {
@@ -179,10 +155,8 @@
     if (data.type === 'ACCESSSCAN_READER_ENTITLEMENT') {
       focusReaderLoggedIn = !!data.loggedIn;
       focusReaderAllowed = !!data.readerAllowed;
-      if (!focusReaderAllowed && focusReaderEnabled) {
-        setFocusReader(false);
-      } else {
-        updateFocusReaderToggle();
+      if ((!focusReaderLoggedIn || !focusReaderAllowed) && focusReaderEnabled) {
+        setFocusReader(false, true);
       }
       return;
     }
@@ -193,7 +167,9 @@
     }
 
     if (data.type === 'ACCESSSCAN_SET_FOCUS_READER') {
-      setFocusReader(!!data.enabled);
+      if (focusReaderLoggedIn && focusReaderAllowed) {
+        setFocusReader(!!data.enabled);
+      }
       return;
     }
 

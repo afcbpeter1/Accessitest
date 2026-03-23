@@ -4,21 +4,34 @@ import { getUserCredits } from '@/lib/credit-service'
 import { queryOne } from '@/lib/database'
 
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+}
+
+function getCorsHeaders(request: NextRequest): Record<string, string> {
+  const origin = request.headers.get('origin') || ''
+  const allowOrigin =
+    origin.startsWith('chrome-extension://') || origin === request.nextUrl.origin
+      ? origin
+      : request.nextUrl.origin
+
+  return {
+    ...CORS_HEADERS,
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Credentials': 'true'
+  }
 }
 
 function toBase64(uint8: Uint8Array): string {
   return Buffer.from(uint8).toString('base64')
 }
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: getCorsHeaders(request) })
 }
 
 export async function POST(request: NextRequest) {
-  const headers: Record<string, string> = { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+  const headers: Record<string, string> = { ...getCorsHeaders(request), 'Content-Type': 'application/json' }
 
   try {
     const user = await getAuthenticatedUser(request)
@@ -45,7 +58,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'TTS is not configured' }, { status: 503, headers })
     }
 
-    const elevenRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`, {
+    const ttsUrl = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=mp3_44100_128`
+    const elevenRes = await fetch(ttsUrl, {
       method: 'POST',
       headers: {
         'xi-api-key': apiKey,
@@ -54,16 +68,21 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         text,
-        model_id: 'eleven_flash_v2_5',
+        model_id: 'eleven_multilingual_v2',
         voice_settings: {
-          stability: 0.55,
-          similarity_boost: 0.8
+          stability: 0.6,
+          similarity_boost: 0.9
         }
       })
     })
 
     if (!elevenRes.ok) {
       const errText = await elevenRes.text().catch(() => '')
+      console.error('ElevenLabs TTS request failed:', {
+        status: elevenRes.status,
+        voiceId,
+        details: errText.slice(0, 300)
+      })
       return NextResponse.json(
         { success: false, error: `ElevenLabs failed (${elevenRes.status})`, details: errText.slice(0, 300) },
         { status: 502, headers }

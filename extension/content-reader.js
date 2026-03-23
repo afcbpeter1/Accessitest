@@ -6,7 +6,8 @@
   var lastSpoken = '';
   var lastSpokenAt = 0;
   var pendingTabAnnounce = null;
-  var activeAudio = null;
+  var activeAudioSource = null;
+  var audioContext = null;
   var speakRequestCounter = 0;
 
   function getRole(el) {
@@ -87,12 +88,64 @@
     window.speechSynthesis.speak(utterance);
   }
 
+  function ensureAudioContext() {
+    if (!audioContext) {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) audioContext = new Ctx();
+    }
+    return audioContext;
+  }
+
+  function unlockAudioContext() {
+    var ctx = ensureAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(function () {});
+    }
+  }
+
   function stopActiveAudio() {
-    if (activeAudio) {
+    if (activeAudioSource) {
       try {
-        activeAudio.pause();
+        activeAudioSource.stop();
       } catch (e) {}
-      activeAudio = null;
+      activeAudioSource = null;
+    }
+  }
+
+  function base64ToArrayBuffer(base64) {
+    var binary = atob(base64);
+    var len = binary.length;
+    var bytes = new Uint8Array(len);
+    for (var i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
+  function playElevenLabsAudio(audioBase64, onFail) {
+    try {
+      var ctx = ensureAudioContext();
+      if (!ctx) {
+        onFail();
+        return;
+      }
+      unlockAudioContext();
+      var buffer = base64ToArrayBuffer(audioBase64);
+      ctx.decodeAudioData(buffer.slice(0))
+        .then(function (decoded) {
+          if (!enabled) return;
+          stopActiveAudio();
+          var source = ctx.createBufferSource();
+          source.buffer = decoded;
+          source.connect(ctx.destination);
+          source.start(0);
+          activeAudioSource = source;
+        })
+        .catch(function () {
+          onFail();
+        });
+    } catch (e) {
+      onFail();
     }
   }
 
@@ -108,34 +161,35 @@
 
     var requestId = ++speakRequestCounter;
     var fallbackUsed = false;
-    var fallbackTimer = setTimeout(function () {
-      if (!enabled || requestId !== speakRequestCounter) return;
-      fallbackUsed = true;
-      speakLocal(text);
-    }, 350);
+    // Fallback voice disabled by request.
+    // var fallbackTimer = setTimeout(function () {
+    //   if (!enabled || requestId !== speakRequestCounter) return;
+    //   fallbackUsed = true;
+    //   speakLocal(text);
+    // }, 5000);
 
     chrome.runtime.sendMessage({ type: 'GENERATE_READER_TTS', text: text }, function (response) {
-      clearTimeout(fallbackTimer);
+      // if (fallbackTimer) clearTimeout(fallbackTimer);
       if (!enabled || requestId !== speakRequestCounter) return;
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.lastError) {
-        if (!fallbackUsed) speakLocal(text);
+        try { console.warn('Reader TTS runtime error:', chrome.runtime.lastError.message); } catch (e) {}
+        // if (!fallbackUsed) speakLocal(text);
         return;
       }
       if (!response || !response.ok || !response.audioBase64) {
-        if (!fallbackUsed) speakLocal(text);
+        try { console.warn('Reader TTS fallback reason:', response && response.error ? response.error : 'unknown'); } catch (e) {}
+        // if (!fallbackUsed) speakLocal(text);
         return;
       }
       try {
-        var mimeType = response.mimeType || 'audio/mpeg';
         if (fallbackUsed && window.speechSynthesis) {
           window.speechSynthesis.cancel();
         }
-        activeAudio = new Audio('data:' + mimeType + ';base64,' + response.audioBase64);
-        activeAudio.play().catch(function () {
-          if (!fallbackUsed) speakLocal(text);
+        playElevenLabsAudio(response.audioBase64, function () {
+          // if (!fallbackUsed) speakLocal(text);
         });
       } catch (e) {
-        if (!fallbackUsed) speakLocal(text);
+        // if (!fallbackUsed) speakLocal(text);
       }
     });
   }
@@ -171,6 +225,7 @@
   function onKeyDown(event) {
     if (!enabled) return;
     if (event.ctrlKey || event.altKey || event.metaKey) return;
+    unlockAudioContext();
 
     // Keep keyboard focus inside the page while reader mode is on.
     // This avoids tabbing into browser/extension chrome.

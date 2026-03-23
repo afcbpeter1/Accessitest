@@ -388,30 +388,29 @@ export default function ExtensionPage() {
           </p>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <h2 className="text-sm font-semibold text-gray-900 mb-2">Keyboard reader (Tab mode)</h2>
-          <p className="text-xs text-gray-600 mb-3">
-            Announces the currently focused element as you press Tab (for example: &quot;Submit, button&quot;).
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={toggleReader}
-              disabled={!readerLoggedIn || !readerAllowed}
-              className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-white disabled:opacity-60 disabled:cursor-not-allowed ${
-                readerEnabled ? 'bg-blue-900 hover:bg-blue-950' : 'bg-gray-700 hover:bg-gray-800'
-              }`}
-            >
-              {readerEnabled ? 'Reader On' : 'Reader Off'}
-            </button>
-            {!readerLoggedIn && (
-              <span className="text-xs text-amber-700">Log in to use reader mode.</span>
-            )}
-            {readerLoggedIn && !readerAllowed && (
-              <span className="text-xs text-amber-700">An active subscription is required.</span>
-            )}
+        {readerLoggedIn && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <h2 className="text-sm font-semibold text-gray-900 mb-2">Keyboard reader (Tab mode)</h2>
+            <p className="text-xs text-gray-600 mb-3">
+              Announces the currently focused element as you press Tab (for example: &quot;Submit, button&quot;).
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleReader}
+                disabled={!readerAllowed}
+                className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded-md text-white disabled:opacity-60 disabled:cursor-not-allowed ${
+                  readerEnabled ? 'bg-blue-900 hover:bg-blue-950' : 'bg-gray-700 hover:bg-gray-800'
+                }`}
+              >
+                {readerEnabled ? 'Reader On' : 'Reader Off'}
+              </button>
+              {!readerAllowed && (
+                <span className="text-xs text-amber-700">An active subscription is required.</span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Multi-page scan (no manual URL pasting; use links from current page) */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
