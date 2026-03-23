@@ -776,13 +776,13 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       
       // Check file type
       if (!supportedFormats.includes(file.type)) {
-        addScanLog(`❌ File ${file.name} has unsupported type: ${file.type}`)
+        addScanLog(`File ${file.name} has unsupported type: ${file.type}`)
         continue
       }
 
       // Check file size (50MB limit)
       if (file.size > 50 * 1024 * 1024) {
-        addScanLog(`❌ File ${file.name} is too large (${formatFileSize(file.size)})`)
+        addScanLog(`File ${file.name} is too large (${formatFileSize(file.size)})`)
         continue
       }
 
@@ -812,8 +812,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
               : doc
           )
         )
-        addScanLog('✅ File processed successfully')
-        addScanLog('📋 Document ready for accessibility scan')
+        addScanLog('File processed successfully')
+        addScanLog('Document ready for accessibility scan')
         
         // Store file content for later scanning
         const fileContent = await new Promise<string>((resolve) => {
@@ -847,7 +847,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
           try {
 
-            addScanLog('📄 Validating PDF page count...')
+            addScanLog('Validating PDF page count...')
             
             // Quick server-side page count check
             const token = localStorage.getItem('accessToken')
@@ -875,8 +875,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                 // Check file size
                 if (fileSize > FILE_SIZE_LIMIT) {
                   const fileSizeMB = Math.round(fileSize / (1024 * 1024))
-                  addScanLog(`❌ PDF exceeds file size limit: ${fileSizeMB}MB (maximum: ${Math.round(FILE_SIZE_LIMIT / (1024 * 1024))}MB)`)
-                  addScanLog(`💡 Please compress the PDF or split it into smaller documents`)
+                  addScanLog(`PDF exceeds file size limit: ${fileSizeMB}MB (maximum: ${Math.round(FILE_SIZE_LIMIT / (1024 * 1024))}MB)`)
+                  addScanLog(`Please compress the PDF or split it into smaller documents`)
                   
                   setUploadedDocuments(prev => 
                     prev.map(doc => 
@@ -898,7 +898,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
               } else {
                 // If check fails, log warning but continue (server will check again)
                 console.warn('⚠️ Could not check page count on server, will validate during scan')
-                addScanLog('⚠️ Page count check unavailable, will validate during scan')
+                addScanLog('Page count check unavailable, will validate during scan')
               }
             }
             
@@ -913,18 +913,18 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
             }
           } catch (error) {
             console.error('❌ Error checking PDF page count:', error)
-            addScanLog(`⚠️ Could not validate PDF page count: ${error instanceof Error ? error.message : 'Unknown error'}`)
-            addScanLog('⚠️ Will validate during scan - file uploaded')
+            addScanLog(`Could not validate PDF page count: ${error instanceof Error ? error.message : 'Unknown error'}`)
+            addScanLog('Will validate during scan - file uploaded')
             // Don't block upload, let server validate during scan
           }
         } else {
 
         }
 
-        addScanLog('🎉 Document upload complete!')
+        addScanLog('Document upload complete!')
 
       } catch (error) {
-        addScanLog(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`)
+        addScanLog(`Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`)
         setUploadedDocuments(prev => 
           prev.map(doc => 
             doc.id === documentId 
@@ -1114,7 +1114,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       setIsScanning(false)
       setScanProgress(0)
       setDocumentPreview(null)
-      addScanLog('🚫 Document removed - scan cancelled')
+      addScanLog('Document removed - scan cancelled')
     }
     
     setUploadedDocuments(prev => prev.filter(doc => doc.id !== documentId))
@@ -1135,7 +1135,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
     try {
       const token = localStorage.getItem('accessToken')
       if (!token) {
-        addScanLog('❌ Authentication required to add issues to backlog')
+        addScanLog('Authentication required to add issues to backlog')
         return
       }
 
@@ -1170,28 +1170,28 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       const data = await response.json()
 
       if (data.success) {
-        addScanLog(`✅ Added ${data.added.length} issues to product backlog`)
+        addScanLog(`Added ${data.added.length} issues to product backlog`)
         if (data.skipped.length > 0) {
-          addScanLog(`ℹ️ Skipped ${data.skipped.length} duplicate issues`)
+          addScanLog(`Skipped ${data.skipped.length} duplicate issues`)
         }
       } else {
-        addScanLog(`❌ Failed to add issues to backlog: ${data.error}`)
+        addScanLog(`Failed to add issues to backlog: ${data.error}`)
       }
     } catch (error) {
       console.error('Error adding issues to backlog:', error)
-      addScanLog('❌ Error adding issues to backlog')
+      addScanLog('Error adding issues to backlog')
     }
   }
 
   const startScan = async (documentId: string) => {
     const document = uploadedDocuments.find(doc => doc.id === documentId)
     if (!document) {
-      addScanLog('❌ Document not found')
+      addScanLog('Document not found')
       return
     }
 
     if (!document.fileContent) {
-      addScanLog('❌ Document content is missing - please re-upload the document')
+      addScanLog('Document content is missing - please re-upload the document')
       return
     }
 
@@ -1204,8 +1204,8 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       )
     )
 
-    addScanLog('🔍 Starting document accessibility scan...')
-    addScanLog('🤖 AI will analyse issues and provide suggestions')
+    addScanLog('Starting document accessibility scan...')
+    addScanLog('AI will analyse issues and provide suggestions')
     
     // Track scan started (only if analytics enabled)
     const scanStartTime = Date.now()
@@ -1244,13 +1244,13 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       fileName: document.name
     })
     
-    addScanLog('🔄 Initializing scan engine...')
+    addScanLog('Initializing scan engine...')
 
     try {
       // Call the API for 508 compliance scan
       const token = localStorage.getItem('accessToken')
       if (!token) {
-        addScanLog('❌ Authentication required. Please log in again.')
+        addScanLog('Authentication required. Please log in again.')
         setIsScanning(false)
         setCurrentScanId(null)
         setUploadedDocuments(prev => 
@@ -1294,9 +1294,9 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         // Show detailed error message if available
         const errorMessage = errorData.details || errorData.error || 'Scan failed'
         if (errorData.pageCount && errorData.maxPages) {
-          addScanLog(`❌ ${errorMessage}`)
+          addScanLog(`${errorMessage}`)
           if (errorData.suggestion) {
-            addScanLog(`💡 ${errorData.suggestion}`)
+            addScanLog(`${errorData.suggestion}`)
           }
         }
         throw new Error(errorMessage)
@@ -1305,13 +1305,13 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       const result = await response.json()
       
       if (result.autoFixUnavailableReason) {
-        addScanLog(`ℹ️ ${result.autoFixUnavailableReason}`)
+        addScanLog(`${result.autoFixUnavailableReason}`)
       }
       
       if (!result.success) {
         // Check if it was cancelled
         if (result.cancelled) {
-          addScanLog('🚫 Scan was cancelled by user')
+          addScanLog('Scan was cancelled by user')
           setUploadedDocuments(prev => 
             prev.map(doc => 
               doc.id === documentId 
@@ -1360,20 +1360,20 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       
       // Show scan results
       if (scanResult.issues && scanResult.issues.length > 0) {
-        addScanLog(`✅ Scan Complete!`)
-        addScanLog(`📋 Found ${scanResult.issues.length} accessibility issue${scanResult.issues.length !== 1 ? 's' : ''}`)
-        addScanLog(`💡 AI suggestions generated for all issues`)
+        addScanLog(`Scan Complete!`)
+        addScanLog(`Found ${scanResult.issues.length} accessibility issue${scanResult.issues.length !== 1 ? 's' : ''}`)
+        addScanLog(`AI suggestions generated for all issues`)
         const backlogAdded = result.backlogAdded
         if (backlogAdded?.added > 0) {
-          addScanLog(`📦 Added ${backlogAdded.added} issue${backlogAdded.added !== 1 ? 's' : ''} to product backlog`)
+          addScanLog(`Added ${backlogAdded.added} issue${backlogAdded.added !== 1 ? 's' : ''} to product backlog`)
         } else if (!backlogAdded || backlogAdded.added === 0 || backlogAdded.error) {
-          addScanLog(`📦 Adding issues to product backlog...`)
+          addScanLog(`Adding issues to product backlog...`)
           await addIssuesToBacklog(scanResult.issues, document.name)
         } else {
-          addScanLog(`📦 Issues added to product backlog`)
+          addScanLog(`Issues added to product backlog`)
         }
       } else {
-        addScanLog('✅ Document has no accessibility issues!')
+        addScanLog('Document has no accessibility issues!')
       }
       
       // Track scan completed (only if analytics enabled)
@@ -1428,7 +1428,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
       
     } catch (error) {
       console.error('❌ Document scan error:', error)
-      addScanLog(`❌ Error: ${error instanceof Error ? error.message : 'Failed to scan document'}`)
+      addScanLog(`Error: ${error instanceof Error ? error.message : 'Failed to scan document'}`)
       
       setUploadedDocuments(prev => 
         prev.map(doc => 
@@ -1460,11 +1460,11 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
 
   const cancelScan = async () => {
     if (currentScanId) {
-      addScanLog('🚫 User requested scan cancellation...')
+      addScanLog('User requested scan cancellation...')
       try {
         const token = localStorage.getItem('accessToken')
         if (!token) {
-          addScanLog('❌ Authentication required for cancellation')
+          addScanLog('Authentication required for cancellation')
           return
         }
 
@@ -1476,9 +1476,9 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
         })
         setCurrentScanId(null)
         setIsScanning(false)
-        addScanLog('✅ Scan cancellation request sent successfully')
+        addScanLog('Scan cancellation request sent successfully')
       } catch (error) {
-        addScanLog(`❌ Failed to cancel scan: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        addScanLog(`Failed to cancel scan: ${error instanceof Error ? error.message : 'Unknown error'}`)
         console.error('Failed to cancel scan:', error)
       }
     }
@@ -1809,7 +1809,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                     {document.scanResults.comparisonReport && (
                       <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg shadow-sm">
                         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                          <span className="mr-2">📊</span>
+                          <span className="mr-2">Report</span>
                           Fix Comparison Report
                         </h3>
                         
@@ -1867,7 +1867,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                             <ul className="space-y-1 text-xs text-gray-700">
                               {document.scanResults.comparisonReport.fixed.issues.map((issue: any, idx: number) => (
                                 <li key={idx} className="flex items-start">
-                                  <span className="text-green-600 mr-2">✓</span>
+                                  <span className="text-green-600 mr-2">-</span>
                                   <span><strong>{issue.rule}</strong> - {issue.description}</span>
                                 </li>
                               ))}
@@ -1879,7 +1879,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                         {document.scanResults.comparisonReport.remaining.issues.length > 0 && (
                           <div className="mt-4 bg-white p-4 rounded-lg border border-orange-200">
                             <h4 className="text-sm font-semibold text-orange-800 mb-2 flex items-center">
-                              <span className="mr-1">⚠️</span>
+                              <span className="mr-1">Warning:</span>
                               Remaining Issues ({document.scanResults.comparisonReport.remaining.issues.length})
                             </h4>
                             <ul className="space-y-1 text-xs text-gray-700">
@@ -1959,13 +1959,13 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                                     {/* Show duplicate indicator if this is a grouped issue */}
                                     {issue.occurrences && issue.occurrences > 1 && (
                                       <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded border border-purple-200 flex items-center gap-1" title={`This issue appears ${issue.occurrences} times in the document`}>
-                                        <span>🔄</span>
+                                        <span>Duplicate</span>
                                         <span>Duplicate ({issue.occurrences}x)</span>
                                       </span>
                                     )}
                                     {issue.elementType === 'multiple' && (
                                       <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded border border-purple-200 flex items-center gap-1" title="This is a grouped duplicate issue">
-                                        <span>🔄</span>
+                                        <span>Duplicate</span>
                                         <span>Grouped Duplicate</span>
                                       </span>
                                     )}
@@ -2048,7 +2048,7 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                           <CheckCircle className="h-5 w-5 text-green-600" />
                           <div>
                             <h4 className="text-sm font-semibold text-green-900 mb-1">
-                              ✅ No Accessibility Issues Found
+                              No Accessibility Issues Found
                             </h4>
                             <p className="text-xs text-green-700">
                               This document appears to be accessible and compliant with WCAG 2.1 AA standards.

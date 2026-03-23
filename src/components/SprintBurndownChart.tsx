@@ -117,7 +117,7 @@ export default function SprintBurndownChart({
   if (error) {
     return (
       <div className="text-center py-8">
-        <div className="text-red-600 mb-4">⚠️ {error}</div>
+        <div className="text-red-600 mb-4">{error}</div>
         <button 
           onClick={fetchBurndownData}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -143,7 +143,7 @@ export default function SprintBurndownChart({
             onClick={fetchBurndownData}
             className="px-3 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors text-sm"
           >
-            🔄 Refresh
+            Refresh
           </button>
           <button
             onClick={onClose}

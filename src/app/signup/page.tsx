@@ -378,7 +378,7 @@ function SignupPageContent() {
               )}
               {formData.confirmPassword && formData.password === formData.confirmPassword && formData.password.length >= 8 && (
                 <p className="mt-1 text-xs text-green-600">
-                  ✓ Passwords match
+                  Passwords match
                 </p>
               )}
               <p className="mt-1 text-xs text-gray-500">

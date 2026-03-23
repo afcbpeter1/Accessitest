@@ -428,7 +428,7 @@ export default function AccessibilityPlayground() {
         <div className="space-y-4">
           {/* Hero Section */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-lg">
-            <h1 className="text-2xl font-bold mb-2">🎓 Accessibility Playground</h1>
+            <h1 className="text-2xl font-bold mb-2">Accessibility Playground</h1>
             <p className="text-blue-100 text-sm mb-3">
               Learn accessibility by fixing real issues! Practice makes perfect.
             </p>
@@ -525,7 +525,7 @@ export default function AccessibilityPlayground() {
 
                   {showHints && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <h3 className="font-medium text-yellow-900 mb-2">💡 Hint</h3>
+                      <h3 className="font-medium text-yellow-900 mb-2">Hint</h3>
                       <p className="text-yellow-900">{selectedIssue.hint}</p>
                     </div>
                   )}
@@ -587,7 +587,7 @@ export default function AccessibilityPlayground() {
           {completedIssues.length === issues.length && (
             <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white p-8 rounded-lg text-center">
               <CheckCircle className="h-16 w-16 mx-auto mb-4" />
-              <h2 className="text-3xl font-bold mb-4">🎉 Congratulations!</h2>
+              <h2 className="text-3xl font-bold mb-4">Congratulations!</h2>
               <p className="text-xl mb-6">
                 You've successfully fixed all accessibility issues! You're well on your way to becoming an accessibility expert.
               </p>

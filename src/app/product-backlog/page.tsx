@@ -610,29 +610,29 @@ ${item.url || 'N/A'}`
     return `
 **Accessibility Issue Ticket**
 
-📋 Issue Summary
+Issue Summary
 **Rule:** ${item.rule_name}
 **Impact:** ${item.impact.toUpperCase()}
 **WCAG Level:** WCAG 2 ${formatWcagLevel(item.wcag_level)}
 **Occurrences:** ${item.total_occurrences || 1}
 **Affected Pages:** ${affectedPages.length > 0 ? affectedPages.length : 1}
 
-🚨 Problem Description
+Problem Description
 **Description:**
 ${item.description}
 
-🔍 Offending Elements
+Offending Elements
 ${offendingElementsText}
 
-🔧 AI-Generated Suggested Fix
+AI-Generated Suggested Fix
 ${aiSuggestion}
 
-💻 Suggested Fix:
+Suggested Fix:
 \`\`\`html
 ${aiCode}
 \`\`\`
 
-📝 Additional Details
+Additional Details
 **Primary URL:** ${item.url}
 **Element:** ${item.element_selector || 'N/A'}
 
@@ -964,7 +964,7 @@ ${item.failure_summary || 'N/A'}
                                         {/* Show duplicate indicator if this issue appears multiple times */}
                                         {item.total_occurrences && item.total_occurrences > 1 && (
                                           <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full border border-purple-200 inline-flex items-center gap-1 whitespace-nowrap" title={`This issue appears ${item.total_occurrences} times`}>
-                                            <span>🔄</span>
+                                            <span>Duplicate</span>
                                             <span>Duplicate ({item.total_occurrences}x)</span>
                                           </span>
                                         )}

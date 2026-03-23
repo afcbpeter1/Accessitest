@@ -893,7 +893,7 @@ export default function SprintBoard() {
                   {/* Empty State */}
                   {getIssuesForColumn(column.id).length === 0 && (
                     <div className="text-center text-gray-700 py-8">
-                      <div className="text-4xl mb-2">📋</div>
+                      <div className="text-2xl mb-2 font-semibold">Board</div>
                       <p className="text-sm">No issues in this column</p>
                     </div>
                   )}
@@ -909,7 +909,7 @@ export default function SprintBoard() {
       {!selectedSprint && sprints.length === 0 && (
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <div className="text-6xl mb-4">🏃‍♂️</div>
+            <div className="text-2xl mb-4 font-semibold">Sprint</div>
             <h2 className="text-lg font-semibold text-gray-900 mb-2">No Sprints Yet</h2>
             <p className="text-gray-700 mb-4">Create your first sprint to start managing accessibility issues</p>
             <button 

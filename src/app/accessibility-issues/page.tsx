@@ -136,7 +136,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-red-50 border-l-4 border-red-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-red-800 mb-3">❌ Common Broken Examples:</h4>
+                <h4 className="text-lg font-semibold text-red-800 mb-3">Common Broken Examples:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <img src="/allytest.png" className="w-32 h-32 object-cover rounded border mb-2" />
@@ -170,7 +170,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-green-50 border-l-4 border-green-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-green-800 mb-3">✅ Proper Implementation Examples:</h4>
+                <h4 className="text-lg font-semibold text-green-800 mb-3">Proper Implementation Examples:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <img src="/allytest.png" alt="MacBook Pro 16-inch laptop showing the keyboard and trackpad" className="w-32 h-32 object-cover rounded border mb-2" />
@@ -231,7 +231,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                <h4 className="text-lg font-semibold text-yellow-800 mb-2">💡 Pro Tip:</h4>
+                <h4 className="text-lg font-semibold text-yellow-800 mb-2">Pro Tip:</h4>
                 <p className="text-yellow-700">
                   Test your alt text by reading it aloud. If it makes sense and provides useful information without the image, 
                   you're on the right track. If it sounds awkward or unhelpful, revise it until it clearly conveys the image's purpose.
@@ -304,7 +304,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-red-50 border-l-4 border-red-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-red-800 mb-3">❌ Common Contrast Failures:</h4>
+                <h4 className="text-lg font-semibold text-red-800 mb-3">Common Contrast Failures:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <p className="text-gray-400 text-lg mb-2">This light grey text on white background is nearly invisible</p>
@@ -336,7 +336,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-green-50 border-l-4 border-green-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-green-800 mb-3">✅ Proper Contrast Examples:</h4>
+                <h4 className="text-lg font-semibold text-green-800 mb-3">Proper Contrast Examples:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <p className="text-gray-900 text-lg mb-2">Dark grey text on white background</p>
@@ -426,7 +426,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                <h4 className="text-lg font-semibold text-yellow-800 mb-2">💡 Pro Tip:</h4>
+                <h4 className="text-lg font-semibold text-yellow-800 mb-2">Pro Tip:</h4>
                 <p className="text-yellow-700">
                   Test your designs in different lighting conditions and on various devices. What looks good on your high-resolution monitor in a dark room might be unreadable on a mobile device in bright sunlight. Always test with real users when possible, especially those with visual impairments.
                 </p>
@@ -470,7 +470,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-red-50 border-l-4 border-red-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-red-800 mb-3">❌ Common Label Failures:</h4>
+                <h4 className="text-lg font-semibold text-red-800 mb-3">Common Label Failures:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <input type="text" placeholder="Enter your name" className="w-full px-3 py-2 border border-gray-300 rounded-md" />
@@ -503,7 +503,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-green-50 border-l-4 border-green-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-green-800 mb-3">✅ Proper Label Implementation:</h4>
+                <h4 className="text-lg font-semibold text-green-800 mb-3">Proper Label Implementation:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
@@ -626,7 +626,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                <h4 className="text-lg font-semibold text-yellow-800 mb-2">💡 Pro Tip:</h4>
+                <h4 className="text-lg font-semibold text-yellow-800 mb-2">Pro Tip:</h4>
                 <p className="text-yellow-700">
                   Test your forms by navigating through them using only the Tab key and listening to what screen readers announce. If you can't understand what each field is for without looking at the screen, your labels need improvement. The goal is to make forms completely usable without any visual context.
                 </p>
@@ -698,7 +698,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-red-50 border-l-4 border-red-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-red-800 mb-3">❌ Common Heading Structure Failures:</h4>
+                <h4 className="text-lg font-semibold text-red-800 mb-3">Common Heading Structure Failures:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <h1 className="text-2xl font-bold mb-2">Page Title</h1>
@@ -736,7 +736,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-green-50 border-l-4 border-green-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-green-800 mb-3">✅ Proper Heading Structure:</h4>
+                <h4 className="text-lg font-semibold text-green-800 mb-3">Proper Heading Structure:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <h1 className="text-2xl font-bold mb-2">Web Accessibility Guide</h1>
@@ -826,7 +826,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                <h4 className="text-lg font-semibold text-yellow-800 mb-2">💡 Pro Tip:</h4>
+                <h4 className="text-lg font-semibold text-yellow-800 mb-2">Pro Tip:</h4>
                 <p className="text-yellow-700">
                   Think of your headings as a table of contents. If you can create a meaningful outline from your headings alone, your structure is likely good. If your outline doesn't make sense or is confusing, your heading structure needs improvement. The goal is to make your content's organisation immediately clear to all users.
                 </p>
@@ -850,7 +850,7 @@ export default function AccessibilityIssuesPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-lg font-semibold text-red-800 mb-3">❌ No Focus Indicators:</h3>
+                <h3 className="text-lg font-semibold text-red-800 mb-3">No Focus Indicators:</h3>
                 <div className="space-y-4">
                   <div>
                     <button className="bg-blue-600 text-white px-4 py-2 rounded-md focus:outline-none">
@@ -875,7 +875,7 @@ export default function AccessibilityIssuesPage() {
               </div>
               
               <div>
-                <h3 className="text-lg font-semibold text-green-800 mb-3">✅ Good Focus Indicators:</h3>
+                <h3 className="text-lg font-semibold text-green-800 mb-3">Good Focus Indicators:</h3>
                 <div className="space-y-4">
                   <div>
                     <button className="bg-blue-600 text-white px-4 py-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
@@ -925,7 +925,7 @@ export default function AccessibilityIssuesPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-lg font-semibold text-red-800 mb-3">❌ Unclear Link Text:</h3>
+                <h3 className="text-lg font-semibold text-red-800 mb-3">Unclear Link Text:</h3>
                 <div className="space-y-4">
                   <div className="p-4 bg-red-50 rounded border border-red-200">
                     <p>Learn about accessibility <a href="#" className="text-blue-600 hover:underline">click here</a></p>
@@ -946,7 +946,7 @@ export default function AccessibilityIssuesPage() {
               </div>
               
               <div>
-                <h3 className="text-lg font-semibold text-green-800 mb-3">✅ Clear Link Text:</h3>
+                <h3 className="text-lg font-semibold text-green-800 mb-3">Clear Link Text:</h3>
                 <div className="space-y-4">
                   <div className="p-4 bg-green-50 rounded border border-green-200">
                     <p>Learn about <a href="#" className="text-blue-600 hover:underline">WCAG accessibility guidelines</a></p>
@@ -992,21 +992,21 @@ export default function AccessibilityIssuesPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-lg font-semibold text-red-800 mb-3">❌ Inaccessible Buttons:</h3>
+                <h3 className="text-lg font-semibold text-red-800 mb-3">Inaccessible Buttons:</h3>
                 <div className="space-y-4">
                   <div className="p-4 bg-red-50 rounded border border-red-200">
                     <button className="bg-green-600 text-white px-4 py-2 rounded-md">
-                      ✓
+                      OK
                     </button>
                     <p className="text-sm text-red-600 mt-1">Button with only symbol</p>
-                    <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button&gt;✓&lt;/button&gt;</code>
+                    <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button&gt;OK&lt;/button&gt;</code>
                   </div>
                   <div className="p-4 bg-red-50 rounded border border-red-200">
                     <button className="bg-red-600 text-white px-4 py-2 rounded-md">
-                      ✗
+                      X
                     </button>
                     <p className="text-sm text-red-600 mt-1">Button with only symbol</p>
-                    <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button&gt;✗&lt;/button&gt;</code>
+                    <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button&gt;X&lt;/button&gt;</code>
                   </div>
                   <div className="p-4 bg-red-50 rounded border border-red-200">
                     <button className="bg-blue-600 text-white px-4 py-2 rounded-md">
@@ -1019,21 +1019,21 @@ export default function AccessibilityIssuesPage() {
               </div>
               
               <div>
-                <h3 className="text-lg font-semibold text-green-800 mb-3">✅ Accessible Buttons:</h3>
+                <h3 className="text-lg font-semibold text-green-800 mb-3">Accessible Buttons:</h3>
                 <div className="space-y-4">
                   <div className="p-4 bg-green-50 rounded border border-green-200">
                     <button className="bg-green-600 text-white px-4 py-2 rounded-md" aria-label="Approve">
-                      ✓
+                      OK
                     </button>
                     <p className="text-sm text-green-600 mt-1">Button with aria-label</p>
-                    <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button aria-label="Approve"&gt;✓&lt;/button&gt;</code>
+                    <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button aria-label="Approve"&gt;OK&lt;/button&gt;</code>
                   </div>
                   <div className="p-4 bg-green-50 rounded border border-green-200">
                     <button className="bg-red-600 text-white px-4 py-2 rounded-md" aria-label="Reject">
-                      ✗
+                      X
                     </button>
                     <p className="text-sm text-green-600 mt-1">Button with aria-label</p>
-                    <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button aria-label="Reject"&gt;✗&lt;/button&gt;</code>
+                    <code className="text-xs bg-gray-100 p-2 block mt-1">&lt;button aria-label="Reject"&gt;X&lt;/button&gt;</code>
                   </div>
                   <div className="p-4 bg-green-50 rounded border border-green-200">
                     <button className="bg-blue-600 text-white px-4 py-2 rounded-md" aria-label="Send message">
@@ -1071,7 +1071,7 @@ export default function AccessibilityIssuesPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h3 className="text-lg font-semibold text-red-800 mb-3">❌ Table Without Headers:</h3>
+                <h3 className="text-lg font-semibold text-red-800 mb-3">Table Without Headers:</h3>
                 <div className="p-4 bg-red-50 rounded border border-red-200">
                   <table className="w-full border border-gray-300">
                     <tbody>
@@ -1098,7 +1098,7 @@ export default function AccessibilityIssuesPage() {
               </div>
               
               <div>
-                <h3 className="text-lg font-semibold text-green-800 mb-3">✅ Table With Headers:</h3>
+                <h3 className="text-lg font-semibold text-green-800 mb-3">Table With Headers:</h3>
                 <div className="p-4 bg-green-50 rounded border border-green-200">
                   <table className="w-full border border-gray-300">
                     <caption className="text-left font-semibold mb-2">Accessibility Statistics</caption>
@@ -1197,7 +1197,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-red-50 border-l-4 border-red-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-red-800 mb-3">❌ Common List Structure Failures:</h4>
+                <h4 className="text-lg font-semibold text-red-800 mb-3">Common List Structure Failures:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <p className="text-gray-700 mb-2">Common accessibility issues:</p>
@@ -1244,7 +1244,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-green-50 border-l-4 border-green-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-green-800 mb-3">✅ Proper List Implementation:</h4>
+                <h4 className="text-lg font-semibold text-green-800 mb-3">Proper List Implementation:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <p className="text-gray-700 mb-2">Common accessibility issues:</p>
@@ -1348,7 +1348,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                <h4 className="text-lg font-semibold text-yellow-800 mb-2">💡 Pro Tip:</h4>
+                <h4 className="text-lg font-semibold text-yellow-800 mb-2">Pro Tip:</h4>
                 <p className="text-yellow-700">
                   Test your lists by navigating through them using screen reader list navigation shortcuts. If you can't easily jump from item to item or understand the list's structure, your list implementation needs improvement. The goal is to make list navigation as smooth and intuitive as possible.
                 </p>
@@ -1387,7 +1387,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-red-50 border-l-4 border-red-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-red-800 mb-3">❌ Keyboard Navigation Failures:</h4>
+                <h4 className="text-lg font-semibold text-red-800 mb-3">Keyboard Navigation Failures:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <button className="bg-blue-600 text-white px-4 py-2 rounded-md" tabIndex={-1}>
@@ -1416,7 +1416,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-red-50 border-l-4 border-red-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-red-800 mb-3">❌ Common ARIA Mistakes:</h4>
+                <h4 className="text-lg font-semibold text-red-800 mb-3">Common ARIA Mistakes:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <button aria-label="Submit form" aria-describedby="help-text">
@@ -1448,7 +1448,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-red-50 border-l-4 border-red-400 p-6 mb-6">
-                <h4 className="text-lg font-semibold text-red-800 mb-3">❌ Semantic HTML Problems:</h4>
+                <h4 className="text-lg font-semibold text-red-800 mb-3">Semantic HTML Problems:</h4>
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded border">
                     <div className="text-2xl font-bold mb-2">Page Title</div>
@@ -1506,7 +1506,7 @@ export default function AccessibilityIssuesPage() {
               </p>
 
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                <h4 className="text-lg font-semibold text-yellow-800 mb-2">💡 Pro Tip:</h4>
+                <h4 className="text-lg font-semibold text-yellow-800 mb-2">Pro Tip:</h4>
                 <p className="text-yellow-700">
                   Start with semantic HTML and progressive enhancement. If you build with proper HTML structure first, many accessibility issues are automatically resolved. Then use ARIA and JavaScript to enhance the experience, not to fix fundamental problems.
                 </p>

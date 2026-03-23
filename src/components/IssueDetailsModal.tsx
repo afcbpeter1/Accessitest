@@ -151,49 +151,49 @@ export default function IssueDetailsModal({ isOpen, onClose, issue, onStatusChan
 
   const generateDefectTicket = () => {
     const statusEmoji = {
-      'open': '🔴',
-      'in_progress': '🟡', 
-      'resolved': '✅',
-      'deferred': '⏸️'
+      'open': '[Open]',
+      'in_progress': '[In Progress]',
+      'resolved': '[Resolved]',
+      'deferred': '[Deferred]'
     }
 
     const priorityEmoji = {
-      'critical': '🚨',
-      'high': '🔴',
-      'medium': '🟡',
-      'low': '🟢'
+      'critical': '[Critical]',
+      'high': '[High]',
+      'medium': '[Medium]',
+      'low': '[Low]'
     }
 
     const impactEmoji = {
-      'critical': '🚨',
-      'serious': '⚠️',
-      'moderate': '🟡',
-      'minor': '🟢'
+      'critical': '[Critical]',
+      'serious': '[Serious]',
+      'moderate': '[Moderate]',
+      'minor': '[Minor]'
     }
 
     return `# Accessibility Issue: ${issue.rule_name}
 
-## 📋 Issue Details
+## Issue Details
 - **Status**: ${statusEmoji[issueStatus.status as keyof typeof statusEmoji]} ${issueStatus.status.toUpperCase()}
 - **Priority**: ${priorityEmoji[issue.priority as keyof typeof priorityEmoji]} ${issue.priority.toUpperCase()}
 - **Impact**: ${impactEmoji[issue.impact as keyof typeof impactEmoji]} ${issue.impact.toUpperCase()}
 - **Occurrences**: ${issue.total_occurrences || 1}
 - **Last Seen**: ${new Date(issue.last_seen).toLocaleDateString()}
 
-## 🎯 Description
+## Description
 ${issue.description}
 
-## 🔧 WCAG Guidelines
+## WCAG Guidelines
 - **Level**: ${issue.wcag_level || 'A'}
 - **Help URL**: ${issue.help_url || 'N/A'}
 ${issue.standard_tags && issue.standard_tags.length > 0 ? `- **Standards**: ${issue.standard_tags.map((t: string) => STANDARD_DISPLAY_NAMES[t as keyof typeof STANDARD_DISPLAY_NAMES] ?? t).join(', ')}` : ''}
 
-## 📝 Notes
+## Notes
 ${issueStatus.notes || 'No additional notes'}
 
-${issueStatus.status === 'deferred' ? `## ⏸️ Deferred Reason\n${issueStatus.deferredReason}\n` : ''}
+${issueStatus.status === 'deferred' ? `## Deferred Reason\n${issueStatus.deferredReason}\n` : ''}
 
-## 🏷️ Tags
+## Tags
 - Impact: ${issue.impact}
 - Priority: ${issue.priority}
 - Status: ${issueStatus.status}
