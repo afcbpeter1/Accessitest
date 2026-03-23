@@ -441,13 +441,16 @@ export default function HomePage() {
       <main id="main-content" className="pt-20 bg-gradient-to-br from-[#06B6D4] to-[#0B1220] text-white" role="main">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-5xl font-bold mb-4">
-            Professional Accessibility Testing Platform
+            A11y Test Accessibility Testing Platform, WCAG Checker & Color Contrast Checker
           </h1>
           <h2 className="text-2xl font-semibold mb-6 text-white/90">
             No more hiding from accessibility.
           </h2>
           <p className="text-xl mb-8 max-w-3xl mx-auto">
-            A11ytest.ai is a leading accessibility testing platform. We help your documents and websites meet <strong>ADA compliance</strong>, Section 508, and WCAG 2.2 AA standards. Our AI runs full accessibility audits on PDFs and websites. You get legal compliance and inclusive digital experiences for everyone.
+            A11ytest.ai is a leading <strong>a11y</strong> and accessibility testing platform. We help your documents and websites meet <strong>ADA compliance</strong>, Section 508, and WCAG 2.2 AA standards. Our AI runs full accessibility audits on PDFs and websites. You get legal compliance and inclusive digital experiences for everyone, including people with disabilities.
+          </p>
+          <p className="text-base mb-8 max-w-4xl mx-auto text-white/90">
+            Use our browser extension and manual tests to review color combinations, color schemes, and contrast checker results against accessibility standards. Verify foreground and background color, minimum contrast ratio targets, and support for screen readers and other assistive technology so your team can provide equal access.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
@@ -577,7 +580,7 @@ export default function HomePage() {
                 Instant actionable Accessibility
               </h3>
               <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-                Get a quick accessibility assessment of your website's homepage. See what issues we find, then sign up for detailed recommendations and remediation steps.
+                Get a quick accessibility assessment of your website's homepage. Run an a11y test and accessibility test for large text (18 point and 14 point), color blindness scenarios, and WCAG contrast requirements including Level AAA checks. See what issues we find, then sign up for detailed recommendations and remediation steps.
               </p>
             </div>
 
