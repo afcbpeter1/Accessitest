@@ -392,6 +392,29 @@ export default function HomePage() {
     }
   ]
 
+  const faqItems = [
+    {
+      question: 'What is an a11y test and how does it support WCAG compliance?',
+      answer:
+        'An a11y test is an accessibility test that checks whether your website or document can be used by people with disabilities. Our platform evaluates your content against WCAG requirements, including keyboard navigation, semantic structure, labels, landmarks, and color contrast ratio checks for foreground and background color combinations.',
+    },
+    {
+      question: 'How does your color contrast checker work?',
+      answer:
+        'Our color contrast checker measures the minimum contrast ratio between text and its background and reports pass or fail results for normal and large text. You can validate 14 point and 18 point text targets, review color schemes, and test color combinations for Level AA and Level AAA guidance.',
+    },
+    {
+      question: 'Do I still need manual tests if I run automated scans?',
+      answer:
+        'Yes. Automated checks are essential, but manual tests help you catch usability and assistive technology issues that rules cannot always detect. Teams typically combine automated scanning with screen readers, keyboard-only checks, and task-based QA to provide equal access.',
+    },
+    {
+      question: 'Can your browser extension help with accessibility testing?',
+      answer:
+        'Yes. The browser extension helps you run fast page-level accessibility testing in real workflows, then review issues and remediation guidance. It is useful for developers, QA teams, and content editors who need repeatable a11y test coverage during day-to-day delivery.',
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-white" lang="en">
       {/* Skip Links for Keyboard Navigation */}
@@ -1272,6 +1295,27 @@ export default function HomePage() {
               <h3 className="text-xl font-semibold text-gray-900 mt-4 mb-2">Azure DevOps</h3>
               <p className="text-sm text-gray-600 text-center max-w-[200px]">Create work items in your Azure DevOps projects</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SEO FAQ Section */}
+      <section className="py-16 bg-gray-50 border-t border-gray-200" aria-label="Accessibility testing FAQ">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Accessibility Testing FAQ</h2>
+            <p className="text-lg text-gray-700 max-w-3xl mx-auto">
+              Learn how to use an accessibility test process, WCAG checker workflows, and color contrast checker validation to build inclusive digital experiences.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {faqItems.map((item) => (
+              <article key={item.question} className="bg-white border border-gray-200 rounded-lg p-6">
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">{item.question}</h3>
+                <p className="text-gray-700 leading-relaxed">{item.answer}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
