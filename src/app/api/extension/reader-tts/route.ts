@@ -53,7 +53,8 @@ export async function POST(request: NextRequest) {
     }
 
     const apiKey = process.env.ELEVENLABS_API_KEY
-    const voiceId = process.env.ELEVENLABS_VOICE_ID
+    // Use env first; fall back to your provided Irish voice ID.
+    const voiceId = process.env.ELEVENLABS_VOICE_ID || 'hmMWXCj9K7N5mCPcRkfC'
     if (!apiKey || !voiceId) {
       return NextResponse.json({ success: false, error: 'TTS is not configured' }, { status: 503, headers })
     }
@@ -83,8 +84,9 @@ export async function POST(request: NextRequest) {
         voiceId,
         details: errText.slice(0, 300)
       })
+      const details = errText.slice(0, 300)
       return NextResponse.json(
-        { success: false, error: `ElevenLabs failed (${elevenRes.status})`, details: errText.slice(0, 300) },
+        { success: false, error: `ElevenLabs failed (${elevenRes.status})`, details },
         { status: 502, headers }
       )
     }

@@ -79,15 +79,6 @@
     return parts.join(', ');
   }
 
-  function speakLocal(text) {
-    if (!text || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    var utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-    window.speechSynthesis.speak(utterance);
-  }
-
   function ensureAudioContext() {
     if (!audioContext) {
       var Ctx = window.AudioContext || window.webkitAudioContext;
@@ -261,23 +252,23 @@
     if (!isEditableElement(target)) return;
     if (isPasswordField(target)) return;
 
-    // Speak characters as typed, plus a few common editing keys.
+    // Speak characters as typed, plus a few common editing keys (ElevenLabs only).
     var key = event.key;
     if (!key) return;
     if (key.length === 1) {
-      speakLocal(key === ' ' ? 'space' : key);
+      speak(key === ' ' ? 'space' : key);
       return;
     }
     if (key === 'Backspace') {
-      speakLocal('backspace');
+      speak('backspace');
       return;
     }
     if (key === 'Delete') {
-      speakLocal('delete');
+      speak('delete');
       return;
     }
     if (key === 'Enter') {
-      speakLocal('enter');
+      speak('enter');
     }
   }
 

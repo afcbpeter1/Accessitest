@@ -7,6 +7,23 @@
   <style>
     html, body { margin: 0; padding: 0; height: 100%; position: relative; }
     #app-iframe { width: 100%; height: 100%; border: none; display: block; }
+    #website-link {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 30;
+      font-size: 12px;
+      font-weight: 600;
+      color: #0891b2;
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #67e8f9;
+      border-radius: 6px;
+      padding: 4px 8px;
+    }
+    #website-link:hover {
+      background: #ecfeff;
+    }
     #scan-overlay {
       display: none;
       position: absolute;
@@ -21,13 +38,14 @@
     }
     #scan-overlay.visible { display: flex; pointer-events: auto; }
     #scan-overlay:not(.visible) { pointer-events: none; }
-    #scan-overlay .title { font-size: 1rem; font-weight: 600; color: #1e3a5f; margin-bottom: 0.5rem; }
+    #scan-overlay .title { font-size: 1rem; font-weight: 600; color: #0e7490; margin-bottom: 0.5rem; }
     #scan-overlay .progress-bar { width: 100%; max-width: 240px; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; margin: 0.5rem 0; }
-    #scan-overlay .progress-fill { height: 100%; background: #2563eb; border-radius: 4px; transition: width 0.2s; width: 0%; }
+    #scan-overlay .progress-fill { height: 100%; background: #06b6d4; border-radius: 4px; transition: width 0.2s; width: 0%; }
     #scan-overlay .url { font-size: 0.75rem; color: #4b5563; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   </style>
 </head>
 <body>
+  <a id="website-link" href="https://a11ytest.ai" target="_blank" rel="noopener noreferrer">a11ytest.ai</a>
   <iframe id="app-iframe" title="AccessScan app"></iframe>
   <div id="scan-overlay" aria-live="polite">
     <span class="title" id="scan-overlay-title">Scanning…</span>

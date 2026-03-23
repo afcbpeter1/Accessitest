@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "a11ytest.ai",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Scan the current tab for accessibility issues and add them to your a11ytest.ai backlog.",
   "permissions": [
     "activeTab",

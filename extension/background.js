@@ -82,7 +82,10 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
     })
       .then(function (res) {
         if (!res.ok) {
-          throw new Error('TTS API failed with status ' + res.status);
+          return res.json().catch(function () { return {}; }).then(function (payload) {
+            var reason = payload && (payload.details || payload.error) ? (payload.details || payload.error) : ('status ' + res.status);
+            throw new Error('TTS API failed (' + res.status + '): ' + reason);
+          });
         }
         return res.json();
       })
