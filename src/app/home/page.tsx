@@ -478,10 +478,17 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 
               href="/signup" 
-              className="bg-white text-[#0B1220] px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
+              className="bg-[#0B1220] text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-800 transition-colors flex items-center justify-center"
             >
               Get Started
               <ArrowRight className="ml-2 h-5 w-5" />
+            </Link>
+            <Link 
+              href="/a11y"
+              className="bg-[#0B1220] text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-800 transition-colors flex items-center justify-center"
+            >
+              Free A11y Resource
+              <FileText className="ml-2 h-5 w-5" />
             </Link>
             <Link 
               href="/playground" 
@@ -492,7 +499,7 @@ export default function HomePage() {
             </Link>
             <Link 
               href="/accessibility-issues" 
-              className="bg-white text-[#0B1220] px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-100 transition-colors flex items-center justify-center"
+              className="bg-[#0B1220] text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-800 transition-colors flex items-center justify-center"
             >
               See Issues Demo
               <AlertTriangle className="ml-2 h-5 w-5" />
@@ -592,7 +599,7 @@ export default function HomePage() {
       </section>
 
       {/* Free Scan Section - Always Visible */}
-      <section className="py-16 bg-white">
+      <section id="free-scanner" className="py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="space-y-12">
             <div className="text-center">

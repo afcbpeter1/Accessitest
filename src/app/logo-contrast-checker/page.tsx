@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
-import Link from 'next/link'
 import { 
   Upload, 
   FileImage, 
@@ -12,7 +11,6 @@ import {
   CheckCircle,
   Download,
   Home,
-  ArrowLeft,
   Search,
   FileText,
   BarChart3,
@@ -26,6 +24,7 @@ import {
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useScreenReaderAnnounce } from '../../hooks/useScreenReaderAnnounce'
 import Footer from '../../components/Footer'
+import ToolingTopNav from '@/components/ToolingTopNav'
 
 interface LogoColor {
   hex: string
@@ -259,25 +258,7 @@ export default function LogoContrastChecker() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-12">
-            <div className="flex items-center space-x-4">
-              <Link href="/" className="flex items-center space-x-2 text-gray-600 hover:text-gray-900">
-                <ArrowLeft className="h-5 w-5" />
-                <span>Back to Home</span>
-              </Link>
-              <div className="h-6 w-px bg-gray-300"></div>
-              <img src="/allytest.png" alt="AccessScan" className="h-8 w-auto" />
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link href="/login" className="text-gray-600 hover:text-gray-900">Sign In</Link>
-              <Link href="/signup" className="bg-[#0B1220] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800">Get Started</Link>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ToolingTopNav />
 
       <main className="px-4 sm:px-6 lg:px-8 py-8" role="main">
         <div className="max-w-6xl mx-auto">

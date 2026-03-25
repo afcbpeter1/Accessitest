@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>A11y Resource — Complete Web Accessibility Reference | a11ytest.ai</title>
+    <meta
+      name="description"
+      content="The complete web accessibility reference. Code examples for every WCAG criterion, ARIA pattern, keyboard navigation, forms, focus management and more. Plus AI-powered answers to any a11y question."
+    />
+    <meta
+      name="keywords"
+      content="a11y, accessibility, WCAG, ARIA, screen reader, keyboard navigation, web accessibility, accessibility testing"
+    />
+    <link rel="canonical" href="https://a11ytest.ai/a11y" />
+    <meta property="og:title" content="A11y Resource — Complete Web Accessibility Reference" />
+    <meta property="og:description" content="Code examples for every accessibility pattern. Ask any a11y question and get an instant answer." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --bg: #ffffff;
+        --surface: #f3f2ee;
+        --surface-2: #eae9e4;
+        --border: #e0dfd9;
+        --border-strong: #c8c6bf;
+        --text: #0B1220;
+        --text-2: #111827;
+        --text-3: #334155;
+        --accent: #0B1220;
+        --accent-light: #e0f2fe;
+        --accent-mid: #06B6D4;
+        --green: #166534;
+        --green-bg: #dcfce7;
+        --amber: #92400e;
+        --amber-bg: #fef3c7;
+        --red: #991b1b;
+        --red-bg: #fee2e2;
+        --code-bg: #1c1c24;
+        --radius: 8px;
+        --radius-lg: 12px;
+        --nav-w: 256px;
+        --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+      }
+
+      html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+
+      body {
+        font-family: 'DM Sans', system-ui, sans-serif;
+        font-size: 16px;
+        line-height: 1.7;
+        color: var(--text);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+
+      .sr-only {
+        position: absolute !important;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      /* Top Nav */
+      .topnav {
+        position: sticky; top: 0; z-index: 100;
+        background: rgba(255,255,255,.95);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 2rem; height: 60px;
+      }
+      .topnav-logo { display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 800; font-size: 15px; text-decoration: none; }
+      .topnav-links { display: flex; align-items: center; gap: 18px; font-size: 14px; list-style: none; padding: 0; margin: 0; }
+      .topnav-links a { color: var(--text-2); text-decoration: none; padding: 6px 10px; border-radius: 8px; font-weight: 700; }
+      .topnav-links a:hover { color: var(--text); text-decoration: none; background: var(--accent-light); }
+      .topnav-cta { background: var(--accent); color: #ffffff !important; padding: 7px 16px; border-radius: var(--radius); font-weight: 800; font-size: 13px; text-decoration: none; }
+      .topnav-cta:hover { background: #081a33; text-decoration: none !important; }
+
+      /* Hero */
+      .hero {
+        background: linear-gradient(135deg, #06B6D4 0%, #0B1220 100%);
+        border-bottom: 1px solid var(--border);
+        padding: 4rem 2rem 3.5rem;
+        text-align: center;
+      }
+      .hero-tag { display: inline-block; background: var(--accent-light); color: var(--accent); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 100px; letter-spacing: .5px; margin-bottom: 1.25rem; text-transform: uppercase; }
+      .hero h1, .hero h2 { font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 600; letter-spacing: -.5px; line-height: 1.15; color: #fff; margin-bottom: .75rem; }
+      .hero h1 span, .hero h2 span { color: var(--accent-mid); }
+      .hero p { font-size: 1.125rem; color: rgba(255,255,255,.92); max-width: 600px; margin: 0 auto 2rem; }
+
+      /* AI Ask */
+      .ai-ask-wrap { max-width: 680px; margin: 0 auto; }
+      .ai-ask-box {
+        display: flex; gap: 8px;
+        background: #fff; border: 1.5px solid var(--border-strong);
+        border-radius: var(--radius-lg); padding: 8px;
+        box-shadow: var(--shadow);
+        transition: border-color .2s;
+      }
+      .ai-ask-box:focus-within { border-color: var(--accent-mid); box-shadow: 0 0 0 3px rgba(79,116,212,.15); }
+      #ai-input {
+        flex: 1; border: none; background: transparent; font-family: inherit;
+        font-size: 15px; color: var(--text); padding: 4px 8px; outline: none;
+      }
+      #ai-input::placeholder { color: var(--text-3); }
+      #ai-btn {
+        background: var(--accent); color: #fff; border: none; cursor: pointer;
+        padding: 9px 20px; border-radius: var(--radius); font-family: inherit;
+        font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 6px;
+        transition: background .15s, transform .1s;
+        white-space: nowrap;
+      }
+      #ai-btn:hover { background: #081a33; }
+      #ai-btn:active { transform: scale(.98); }
+      #ai-btn:disabled { background: var(--text-3); cursor: wait; }
+
+      .ai-hint { font-size: 12px; color: rgba(255,255,255,.95); margin-top: .5rem; text-align: center; }
+      .ai-hint span {
+        background: #ffffff;
+        border: 1px solid var(--border-strong);
+        border-radius: 4px;
+        padding: 1px 6px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        margin: 0 2px;
+        cursor: pointer;
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .ai-hint span:hover { background: var(--accent-light); color: var(--accent); }
+      .ai-hint span:focus-visible {
+        outline: 3px solid var(--accent-mid);
+        outline-offset: 2px;
+      }
+
+      /* AI Result */
+      #ai-result { max-width: 680px; margin: 1.5rem auto 0; }
+      .ai-result-inner {
+        background: #fff; border: 1px solid var(--border);
+        border-radius: var(--radius-lg); overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+      .ai-result-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: .75rem 1.25rem; background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        font-size: 13px; font-weight: 500; color: var(--text-2);
+      }
+      .ai-badge { background: var(--accent-light); color: var(--accent); padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: .3px; }
+      .ai-result-body { padding: 1.25rem; font-size: 15px; line-height: 1.7; color: var(--text); }
+      .ai-result-body p { margin-bottom: .75rem; }
+      .ai-result-body p:last-child { margin-bottom: 0; }
+      .ai-result-body code { font-family: 'JetBrains Mono', monospace; font-size: 13px; background: #1c1c24; border: 1px solid #2a2a35; padding: 1px 5px; border-radius: 3px; color: #f1f1ff; }
+      .ai-result-body pre { margin: .75rem 0; border-radius: var(--radius); overflow: hidden; background: #1c1c24; border: 1px solid #2a2a35; }
+      .ai-result-body pre code { background: none; border: none; padding: 0; font-size: 13px; color: #f1f1ff !important; }
+      /* Ensure highlighted tokens remain readable on dark backgrounds. */
+      .ai-result-body pre code.hljs { color: #f1f1ff !important; }
+      .ai-result-body pre code.hljs span { color: #f1f1ff !important; }
+
+      /* Hard readability: never allow AI answer code tokens to render
+         with light backgrounds + light/white token colors. */
+      #ai-answer-body pre,
+      #ai-answer-body pre code,
+      #ai-answer-body pre code.hljs {
+        background: #1c1c24 !important;
+        color: #f1f1ff !important;
+      }
+      #ai-answer-body pre code.hljs span,
+      #ai-answer-body pre code span {
+        background: transparent !important;
+        color: #f1f1ff !important;
+      }
+
+      /* Readability fallback for non-code AI text (keep code dark-mode). */
+      #ai-answer-body,
+      #ai-answer-body p,
+      #ai-answer-body strong,
+      #ai-answer-body em,
+      #ai-answer-body a,
+      #ai-answer-body li {
+        color: var(--text) !important;
+      }
+      .ai-close { background: none; border: none; cursor: pointer; color: var(--text-3); font-size: 18px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+      .ai-close:hover { background: var(--surface-2); color: var(--text); }
+
+      /* Quick Tags */
+      .quick-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 1.5rem 2rem; border-bottom: 1px solid var(--border); background: var(--bg); }
+      .qtag {
+        background: #fff; border: 1px solid var(--border); border-radius: 100px;
+        padding: 5px 14px; font-size: 13px; color: var(--text-2);
+        cursor: pointer; transition: all .15s;
+        text-decoration: none;
+      }
+      .qtag:hover { background: var(--accent-light); border-color: var(--accent-mid); color: var(--accent); text-decoration: none; }
+
+      /* Layout */
+      .layout { display: grid; grid-template-columns: var(--nav-w) 1fr; min-height: calc(100vh - 200px); max-width: 1300px; margin: 0 auto; }
+
+      /* Sidebar */
+      .sidebar {
+        position: sticky; top: 60px; height: calc(100vh - 60px);
+        overflow-y: auto; padding: 1.5rem 1rem 2rem;
+        border-right: 1px solid var(--border);
+      }
+      .sidebar::-webkit-scrollbar { width: 4px; }
+      .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+      .sidebar-section { margin-bottom: 1.5rem; }
+      .sidebar-heading { font-size: 10px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text-3); padding: 0 8px; margin-bottom: .5rem; }
+      .sidebar-link {
+        display: block; padding: 5px 8px; font-size: 13.5px; color: var(--text-2);
+        border-radius: 6px; text-decoration: none; transition: all .1s;
+        line-height: 1.4;
+      }
+      .sidebar-link:hover { background: var(--surface); color: var(--text); text-decoration: none; }
+      .sidebar-link.active { background: var(--accent-light); color: var(--accent); font-weight: 500; }
+
+      /* Content */
+      .content { padding: 2.5rem 3rem; max-width: 840px; }
+      .section { margin-bottom: 4rem; padding-top: 1rem; }
+      .section-header { margin-bottom: 1.5rem; }
+      .section-tag { font-size: 11px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--accent); margin-bottom: .4rem; }
+      .section h2 { font-size: 1.625rem; font-weight: 600; letter-spacing: -.3px; line-height: 1.25; color: var(--text); }
+      .section-intro { font-size: 15px; color: var(--text-2); margin-top: .5rem; line-height: 1.65; }
+      .subsection { margin: 2rem 0; }
+      .subsection h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: .5rem; }
+      p { margin-bottom: 1rem; color: var(--text-2); font-size: 15px; }
+
+      /* Code Blocks */
+      .code-block { margin: 1rem 0; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid #2a2a35; }
+      .code-header {
+        display: flex; align-items: center; justify-content: space-between;
+        background: #252530; padding: .5rem 1rem;
+        font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8888a0;
+      }
+      .code-label { display: flex; align-items: center; gap: 8px; }
+      .code-dot { width: 8px; height: 8px; border-radius: 50%; }
+      .code-dot.html { background: #e34c26; }
+      .code-dot.css { background: #264de4; }
+      .code-dot.js { background: #f0db4f; }
+      .code-dot.jsx { background: #61dafb; }
+      .copy-btn {
+        background: none; border: 1px solid #3a3a50; color: #8888a0;
+        padding: 3px 10px; border-radius: 4px; font-family: 'JetBrains Mono', monospace;
+        font-size: 11px; cursor: pointer; transition: all .15s;
+      }
+      .copy-btn:hover { background: #3a3a50; color: #c0c0d0; }
+      .copy-btn.copied { border-color: #22c55e; color: #22c55e; }
+      .code-block pre { margin: 0; border-radius: 0; }
+      .code-block pre code.hljs { padding: 1.25rem !important; font-size: 13.5px !important; font-family: 'JetBrains Mono', monospace !important; line-height: 1.6 !important; }
+
+      /* Callout */
+      .callout { display: flex; gap: 12px; padding: 1rem 1.25rem; border-radius: var(--radius); margin: 1rem 0; }
+      .callout.tip { background: var(--green-bg); border-left: 3px solid var(--green); }
+      .callout.warn { background: var(--amber-bg); border-left: 3px solid var(--amber); }
+      .callout.bad { background: var(--red-bg); border-left: 3px solid var(--red); }
+      .callout.info { background: var(--accent-light); border-left: 3px solid var(--accent-mid); }
+      .callout-icon { font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+      .callout-body { font-size: 14px; color: var(--text); line-height: 1.6; }
+      .callout-body strong { font-weight: 600; }
+      .callout-body code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,.07); padding: 1px 4px; border-radius: 3px; }
+
+      /* WCAG Table */
+      .wcag-table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 1rem 0; }
+      .wcag-table th { background: var(--surface); padding: .6rem .9rem; text-align: left; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); border-bottom: 1px solid var(--border); }
+      .wcag-table td { padding: .65rem .9rem; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text-2); }
+      .wcag-table tr:hover td { background: var(--surface); }
+      .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: .3px; }
+      .badge.a { background: #dbeafe; color: #1e40af; }
+      .badge.aa { background: var(--accent-light); color: var(--accent); }
+      .badge.aaa { background: #ede9fe; color: #5b21b6; }
+      .badge.new { background: #dcfce7; color: #166534; }
+
+      /* Divider */
+      hr.section-div { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+
+      /* Skip Link */
+      .skip-link {
+        position: absolute; top: -60px; left: 1rem;
+        background: var(--accent); color: #fff; padding: .5rem 1rem;
+        border-radius: 0 0 var(--radius) var(--radius); font-weight: 500; font-size: 14px;
+        transition: top .15s; z-index: 200;
+      }
+      .skip-link:focus { top: 0; }
+
+      /* Footer */
+      footer { background: var(--surface); border-top: 1px solid var(--border); padding: 2rem; text-align: center; font-size: 13px; color: var(--text-3); }
+      footer a { color: var(--text-2); }
+
+      /* Responsive */
+      @media (max-width: 900px) {
+        .layout { grid-template-columns: 1fr; }
+        .sidebar { display: none; }
+        .content { padding: 1.5rem; }
+      }
+      @media (max-width: 640px) {
+        .topnav-links { display: none; }
+        .hero { padding: 2.5rem 1.25rem 2rem; }
+      }
+
+      /* Loading spinner */
+      .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <a href="#main" class="skip-link">Skip to main content</a>
+
+    <!-- Top Nav -->
+    <nav class="topnav" role="navigation" aria-label="Site navigation">
+      <a href="/" class="topnav-logo" aria-label="a11ytest.ai home" target="_top">
+        <img src="/allytest.png" alt="a11ytest.ai" style="height: 32px; width: auto; object-fit: contain;" />
+      </a>
+      <ul class="topnav-links" role="list" aria-label="Top navigation">
+        <li role="listitem">
+          <a href="/accessibility-issues" target="_top">Issues Demo</a>
+        </li>
+        <li role="listitem">
+          <a href="/logo-contrast-checker" target="_top">Logo Checker</a>
+        </li>
+        <li role="listitem">
+          <a href="/playground" target="_top">Playground</a>
+        </li>
+        <li role="listitem">
+          <a href="/signup" class="topnav-cta" target="_top">Get started →</a>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- Hero -->
+    <header class="hero" role="banner">
+      <h1>The Complete <span>A11y</span> Reference</h1>
+      <p>
+        Every accessibility pattern, code example, and WCAG criterion in one place. Ask any question and get an instant
+        answer with working code.
+      </p>
+
+      <div class="ai-ask-wrap">
+        <div class="ai-ask-box" role="search">
+          <label
+            for="ai-input"
+            class="sr-only"
+            style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)"
+          >
+            Ask an accessibility question
+          </label>
+          <input
+            type="text"
+            id="ai-input"
+            placeholder="e.g. How do I make a modal dialog accessible?"
+            autocomplete="off"
+            aria-label="Ask an accessibility question"
+          />
+          <button id="ai-btn" aria-label="Ask question" type="button">
+            <span id="ai-btn-content">Ask A11y AI</span>
+          </button>
+        </div>
+        <p class="ai-hint">
+          Try:
+          <span onclick="askQuestion('How do I make a custom dropdown accessible?')">custom dropdown</span>
+          <span onclick="askQuestion('What ARIA attributes does a modal need?')">modal ARIA</span>
+          <span onclick="askQuestion('How to test keyboard navigation?')">keyboard testing</span>
+          <span onclick="askQuestion('What is WCAG 2.2 and what changed?')">WCAG 2.2</span>
+        </p>
+      </div>
+
+      <div id="ai-result" aria-live="polite" aria-atomic="true"></div>
+    </header>
+
+    <!-- Quick nav tags -->
+    <nav class="quick-tags" aria-label="Jump to topic">
+      <a href="#semantic-html" class="qtag">Semantic HTML</a>
+      <a href="#aria-landmarks" class="qtag">ARIA Landmarks</a>
+      <a href="#aria-roles" class="qtag">ARIA Roles</a>
+      <a href="#keyboard-nav" class="qtag">Keyboard Navigation</a>
+      <a href="#focus" class="qtag">Focus Management</a>
+      <a href="#skip-links" class="qtag">Skip Links</a>
+      <a href="#forms" class="qtag">Forms &amp; Labels</a>
+      <a href="#images" class="qtag">Images &amp; Alt Text</a>
+      <a href="#colour-contrast" class="qtag">Colour Contrast</a>
+      <a href="#live-regions" class="qtag">Live Regions</a>
+      <a href="#modals" class="qtag">Modals</a>
+      <a href="#tabs" class="qtag">Tabs</a>
+      <a href="#accordion" class="qtag">Accordion</a>
+      <a href="#wcag" class="qtag">WCAG Quick Ref</a>
+    </nav>
+
+    <!-- Layout -->
+    <div class="layout">
+      <!-- Sidebar -->
+      <aside class="sidebar" aria-label="Section navigation">
+        <div class="sidebar-section">
+          <p class="sidebar-heading">Foundations</p>
+          <a href="#semantic-html" class="sidebar-link">Semantic HTML</a>
+          <a href="#aria-landmarks" class="sidebar-link">ARIA Landmarks</a>
+          <a href="#aria-roles" class="sidebar-link">ARIA Roles</a>
+          <a href="#aria-states" class="sidebar-link">ARIA States &amp; Properties</a>
+        </div>
+        <div class="sidebar-section">
+          <p class="sidebar-heading">Interaction</p>
+          <a href="#keyboard-nav" class="sidebar-link">Keyboard Navigation</a>
+          <a href="#focus" class="sidebar-link">Focus Management</a>
+          <a href="#skip-links" class="sidebar-link">Skip Links</a>
+        </div>
+        <div class="sidebar-section">
+          <p class="sidebar-heading">Content</p>
+          <a href="#forms" class="sidebar-link">Forms &amp; Labels</a>
+          <a href="#images" class="sidebar-link">Images &amp; Alt Text</a>
+          <a href="#colour-contrast" class="sidebar-link">Colour Contrast</a>
+          <a href="#live-regions" class="sidebar-link">Live Regions</a>
+        </div>
+        <div class="sidebar-section">
+          <p class="sidebar-heading">Components</p>
+          <a href="#modals" class="sidebar-link">Modals &amp; Dialogs</a>
+          <a href="#tabs" class="sidebar-link">Tabs</a>
+          <a href="#accordion" class="sidebar-link">Accordion</a>
+          <a href="#dropdown" class="sidebar-link">Dropdown / Combobox</a>
+        </div>
+        <div class="sidebar-section">
+          <p class="sidebar-heading">Reference</p>
+          <a href="#wcag" class="sidebar-link">WCAG Quick Reference</a>
+          <a href="#testing" class="sidebar-link">Testing Checklist</a>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main id="main" class="content">
+        <!-- NOTE: Full Claude template content inserted below. -->
+
+        <!-- ── Semantic HTML ── -->
+        <section class="section" id="semantic-html">
+          <div class="section-header">
+            <p class="section-tag">Foundations</p>
+            <h2>Semantic HTML</h2>
+            <p class="section-intro">
+              The most powerful accessibility tool is already built into HTML. Using the right element for the right job gives screen
+              readers, search engines, and browsers the context they need — for free, with no ARIA required.
+            </p>
+          </div>
+
+          <div class="subsection">
+            <h3>Document structure</h3>
+            <p>A well-structured document uses landmark elements to divide the page into navigable regions.</p>
+            <div class="code-block">
+              <div class="code-header">
+                <div class="code-label"><span class="code-dot html"></span> HTML</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code class="language-html">&lt;!-- Good: landmark regions give structure --&gt;
+&lt;header&gt;
+  &lt;nav aria-label="Main navigation"&gt;
+    &lt;ul&gt;
+      &lt;li&gt;&lt;a href="/"&gt;Home&lt;/a&gt;&lt;/li&gt;
+      &lt;li&gt;&lt;a href="/about"&gt;About&lt;/a&gt;&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/nav&gt;
+&lt;/header&gt;
+
+&lt;main id="main-content"&gt;
+  &lt;article&gt;
+    &lt;h1&gt;Page title&lt;/h1&gt;
+    &lt;section aria-labelledby="section-heading"&gt;
+      &lt;h2 id="section-heading"&gt;Section title&lt;/h2&gt;
+      &lt;p&gt;Content...&lt;/p&gt;
+    &lt;/section&gt;
+  &lt;/article&gt;
+  &lt;aside aria-label="Related links"&gt;...&lt;/aside&gt;
+&lt;/main&gt;
+
+&lt;footer&gt;
+  &lt;p&gt;&amp;copy; 2025 Company&lt;/p&gt;
+&lt;/footer&gt;</code></pre>
+            </div>
+          </div>
+
+          <div class="subsection">
+            <h3>Heading hierarchy</h3>
+            <div class="callout warn">
+              <span class="callout-icon">⚠</span>
+              <div class="callout-body">
+                <strong>Never skip heading levels.</strong> Going from <code>h1</code> &rarr; <code>h3</code> confuses screen reader
+                users who navigate by headings. Use CSS to control size, not heading levels.
+              </div>
+            </div>
+            <div class="code-block">
+              <div class="code-header">
+                <div class="code-label"><span class="code-dot html"></span> HTML</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code class="language-html">&lt;!-- Bad: skipping heading levels --&gt;
+&lt;h1&gt;Page title&lt;/h1&gt;
+&lt;h3&gt;Section&lt;/h3&gt;   &lt;!-- jumped from h1 to h3 --&gt;
+
+&lt;!-- Good: logical hierarchy --&gt;
+&lt;h1&gt;Page title&lt;/h1&gt;
+  &lt;h2&gt;Section&lt;/h2&gt;
+    &lt;h3&gt;Subsection&lt;/h3&gt;
+  &lt;h2&gt;Another section&lt;/h2&gt;</code></pre>
+            </div>
+          </div>
+
+          <div class="subsection">
+            <h3>Interactive elements</h3>
+            <div class="code-block">
+              <div class="code-header">
+                <div class="code-label"><span class="code-dot html"></span> HTML</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code class="language-html">&lt;!-- Bad: div used as button --&gt;
+&lt;div onclick="submit()"&gt;Submit&lt;/div&gt;
+
+&lt;!-- Good: use the native element --&gt;
+&lt;button type="submit"&gt;Submit&lt;/button&gt;
+
+&lt;!-- Bad: span used as link --&gt;
+&lt;span onclick="navigate('/about')"&gt;About us&lt;/span&gt;
+
+&lt;!-- Good: use a real anchor --&gt;
+&lt;a href="/about"&gt;About us&lt;/a&gt;
+
+&lt;!-- If you MUST use a div as a button --&gt;
+&lt;div role="button" tabindex="0"
+     onkeydown="if(e.key==='Enter'||e.key===' ')submit()"
+     onclick="submit()"&gt;
+  Submit
+&lt;/div&gt;</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── ARIA Landmarks ── -->
+        <section class="section" id="aria-landmarks">
+          <div class="section-header">
+            <p class="section-tag">Foundations</p>
+            <h2>ARIA Landmarks</h2>
+            <p class="section-intro">
+              Landmarks carve the page into navigable sections. Screen reader users rely on them to jump around quickly — similar to how sighted users scan visually.
+            </p>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot html"></span> HTML</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-html">&lt;!-- HTML5 elements map to landmark roles automatically --&gt;
+&lt;header&gt;     &lt;!-- role="banner" (only when top-level) --&gt;
+&lt;nav&gt;        &lt;!-- role="navigation" --&gt;
+&lt;main&gt;       &lt;!-- role="main" --&gt;
+&lt;aside&gt;      &lt;!-- role="complementary" --&gt;
+&lt;footer&gt;     &lt;!-- role="contentinfo" (only when top-level) --&gt;
+&lt;section&gt;    &lt;!-- role="region" only when given a label --&gt;
+&lt;form&gt;       &lt;!-- role="form" only when given a label --&gt;
+
+&lt;!-- When you have multiple navs, label them --&gt;
+&lt;nav aria-label="Main navigation"&gt;...&lt;/nav&gt;
+&lt;nav aria-label="Breadcrumb"&gt;...&lt;/nav&gt;
+&lt;nav aria-label="Pagination"&gt;...&lt;/nav&gt;
+
+&lt;!-- Section needs a label to become a landmark --&gt;
+&lt;section aria-labelledby="news-heading"&gt;
+  &lt;h2 id="news-heading"&gt;Latest news&lt;/h2&gt;
+&lt;/section&gt;</code></pre>
+          </div>
+
+          <div class="callout tip">
+            <span class="callout-icon">✓</span>
+            <div class="callout-body">
+              <strong>Rule of thumb:</strong> one <code>&lt;main&gt;</code> per page. Multiple <code>&lt;nav&gt;</code> elements are fine — just label each one uniquely with <code>aria-label</code> or <code>aria-labelledby</code>.
+            </div>
+          </div>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── ARIA Roles ── -->
+        <section class="section" id="aria-roles">
+          <div class="section-header">
+            <p class="section-tag">Foundations</p>
+            <h2>ARIA Roles</h2>
+            <p class="section-intro">
+              When native HTML doesn't cover a pattern, ARIA roles let you communicate the purpose of custom components to assistive technology.
+            </p>
+          </div>
+
+          <div class="callout warn">
+            <span class="callout-icon">⚠</span>
+            <div class="callout-body">
+              <strong>First rule of ARIA:</strong> don't use ARIA when native HTML works. Adding ARIA to a <code>&lt;button&gt;</code> is redundant. Adding <code>role="button"</code> to a <code>&lt;div&gt;</code> still requires you to manually handle keyboard events, focus, and state.
+            </div>
+          </div>
+
+          <div class="subsection">
+            <h3>Common roles reference</h3>
+            <div class="code-block">
+              <div class="code-header">
+                <div class="code-label"><span class="code-dot html"></span> HTML</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code class="language-html">&lt;!-- Widget roles --&gt;
+&lt;div role="button"&gt;           &lt;!-- interactive button --&gt;
+&lt;div role="checkbox"&gt;         &lt;!-- checkable item --&gt;
+&lt;div role="combobox"&gt;         &lt;!-- editable dropdown --&gt;
+&lt;div role="listbox"&gt;          &lt;!-- list of selectable options --&gt;
+&lt;div role="menu"&gt;             &lt;!-- context/action menu --&gt;
+&lt;div role="menuitem"&gt;         &lt;!-- item in a menu --&gt;
+&lt;div role="option"&gt;           &lt;!-- option in a listbox/combobox --&gt;
+&lt;div role="progressbar"&gt;      &lt;!-- progress indicator --&gt;
+&lt;div role="radio"&gt;            &lt;!-- radio button --&gt;
+&lt;div role="scrollbar"&gt;        &lt;!-- scrollbar --&gt;
+&lt;div role="searchbox"&gt;        &lt;!-- text input for search --&gt;
+&lt;div role="slider"&gt;           &lt;!-- range input --&gt;
+&lt;div role="spinbutton"&gt;        &lt;!-- numeric spinner --&gt;
+&lt;div role="switch"&gt;           &lt;!-- toggle on/off --&gt;
+&lt;div role="tab"&gt;              &lt;!-- a tab in a tablist --&gt;
+&lt;div role="tablist"&gt;          &lt;!-- container of tabs --&gt;
+&lt;div role="tabpanel"&gt;         &lt;!-- content for a tab --&gt;
+&lt;div role="textbox"&gt;          &lt;!-- editable text field --&gt;
+&lt;div role="tooltip"&gt;          &lt;!-- tooltip --&gt;
+&lt;div role="treeitem"&gt;         &lt;!-- item in a tree --&gt;
+
+&lt;!-- Document structure roles --&gt;
+&lt;div role="alert"&gt;            &lt;!-- urgent message (assertive) --&gt;
+&lt;div role="dialog"&gt;           &lt;!-- modal or non-modal dialog --&gt;
+&lt;div role="status"&gt;           &lt;!-- non-urgent status message --&gt;
+&lt;div role="log"&gt;              &lt;!-- chat log, history --&gt;
+&lt;div role="marquee"&gt;          &lt;!-- scrolling news ticker --&gt;
+&lt;div role="timer"&gt;            &lt;!-- countdown/timer --&gt;</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── ARIA States ── -->
+        <section class="section" id="aria-states">
+          <div class="section-header">
+            <p class="section-tag">Foundations</p>
+            <h2>ARIA States &amp; Properties</h2>
+            <p class="section-intro">
+              States describe the current condition of a component (selected, expanded, checked). Properties describe its nature (label, description, required). Both must be updated dynamically as the UI changes.
+            </p>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot html"></span> HTML + JS</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-html">&lt;!-- Labelling --&gt;
+&lt;button aria-label="Close dialog"&gt;✕&lt;/button&gt;
+&lt;input aria-labelledby="label-id"&gt;
+&lt;input aria-describedby="help-text-id"&gt;
+
+&lt;!-- State --&gt;
+&lt;button aria-expanded="false"&gt;Show more&lt;/button&gt;
+&lt;div aria-hidden="true"&gt;Decorative, hidden from screen readers&lt;/div&gt;
+&lt;li role="option" aria-selected="true"&gt;Option A&lt;/li&gt;
+&lt;input type="checkbox" aria-checked="mixed"&gt;  &lt;!-- indeterminate --&gt;
+&lt;button aria-disabled="true"&gt;Can't do this&lt;/button&gt;
+&lt;input aria-required="true"&gt;
+&lt;input aria-invalid="true" aria-describedby="err"&gt;
+&lt;span id="err" role="alert"&gt;Required field&lt;/span&gt;
+
+&lt;!-- Dynamic update in JS --&gt;
+const btn = document.querySelector('#toggle');
+btn.addEventListener('click', () =&gt; {
+  const expanded = btn.getAttribute('aria-expanded') === 'true';
+  btn.setAttribute('aria-expanded', !expanded);
+  document.getElementById('panel').hidden = expanded;
+});
+
+&lt;!-- Progress --&gt;
+&lt;div role="progressbar"
+     aria-valuenow="65"
+     aria-valuemin="0"
+     aria-valuemax="100"
+     aria-label="Upload progress"&gt;
+  65%
+&lt;/div&gt;</code></pre>
+          </div>
+
+          <div class="callout tip">
+            <span class="callout-icon">✓</span>
+            <div class="callout-body">
+              <strong>Keep states in sync:</strong> whenever a component changes visually, update its ARIA state immediately. <code>aria-expanded</code> on a closed panel must be <code>"false"</code>, not absent.
+            </div>
+          </div>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── Keyboard Navigation ── -->
+        <section class="section" id="keyboard-nav">
+          <div class="section-header">
+            <p class="section-tag">Interaction</p>
+            <h2>Keyboard Navigation</h2>
+            <p class="section-intro">
+              All functionality must be operable by keyboard alone. WCAG 2.1.1 (Level A) requires no mouse dependency. Use standard keyboard conventions so experienced keyboard users can predict behaviour.
+            </p>
+          </div>
+
+          <div class="subsection">
+            <h3>Standard keyboard conventions</h3>
+            <table class="wcag-table">
+              <thead><tr><th>Key</th><th>Expected action</th></tr></thead>
+              <tbody>
+                <tr><td><code>Tab</code></td><td>Move focus to next focusable element</td></tr>
+                <tr><td><code>Shift+Tab</code></td><td>Move focus to previous focusable element</td></tr>
+                <tr><td><code>Enter</code></td><td>Activate a button, link, or submit a form</td></tr>
+                <tr><td><code>Space</code></td><td>Activate a button; toggle a checkbox</td></tr>
+                <tr><td><code>Arrow keys</code></td><td>Navigate within a widget (tabs, menus, sliders)</td></tr>
+                <tr><td><code>Escape</code></td><td>Close a dialog, menu, or tooltip</td></tr>
+                <tr><td><code>Home / End</code></td><td>Jump to first/last item in a list</td></tr>
+                <tr><td><code>Page Up / Down</code></td><td>Scroll or move by large increments</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="subsection">
+            <h3>tabindex rules</h3>
+            <div class="code-block">
+              <div class="code-header">
+                <div class="code-label"><span class="code-dot html"></span> HTML</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code class="language-html">&lt;!-- tabindex="0" — add to tab order (natural DOM position) --&gt;
+&lt;div role="button" tabindex="0"&gt;Custom button&lt;/div&gt;
+
+&lt;!-- tabindex="-1" — focusable by script, not by Tab --&gt;
+&lt;div id="panel" tabindex="-1"&gt;Dialog panel&lt;/div&gt;
+&lt;script&gt;
+  document.getElementById('panel').focus(); // programmatic focus
+&lt;/script&gt;
+
+&lt;!-- tabindex="1+" — AVOID. Forces unnatural tab order --&gt;
+&lt;button tabindex="3"&gt;Don't do this&lt;/button&gt;
+
+&lt;!-- Remove from tab order when not visible --&gt;
+&lt;nav id="menu" aria-hidden="true"&gt;
+  &lt;!-- All children with tabindex or focusable elements
+       must also be set to tabindex="-1" when menu is hidden --&gt;
+  &lt;a href="/home" tabindex="-1"&gt;Home&lt;/a&gt;
+&lt;/nav&gt;</code></pre>
+            </div>
+          </div>
+
+          <div class="subsection">
+            <h3>Keyboard event handling</h3>
+            <div class="code-block">
+              <div class="code-header">
+                <div class="code-label"><span class="code-dot js"></span> JavaScript</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code class="language-javascript">// Handling both Enter and Space for custom buttons
+element.addEventListener('keydown', (e) =&gt; {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault(); // prevent page scroll on Space
+    handleAction();
+  }
+});
+
+// Arrow key navigation in a menu
+const items = menu.querySelectorAll('[role="menuitem"]');
+let currentIndex = 0;
+
+menu.addEventListener('keydown', (e) =&gt; {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    currentIndex = (currentIndex + 1) % items.length;
+    items[currentIndex].focus();
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    currentIndex = (currentIndex - 1 + items.length) % items.length;
+    items[currentIndex].focus();
+  }
+  if (e.key === 'Home') { currentIndex = 0; items[0].focus(); }
+  if (e.key === 'End')  { currentIndex = items.length - 1; items[currentIndex].focus(); }
+  if (e.key === 'Escape') closeMenu();
+});</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── Focus Management ── -->
+        <section class="section" id="focus">
+          <div class="section-header">
+            <p class="section-tag">Interaction</p>
+            <h2>Focus Management</h2>
+            <p class="section-intro">Managing focus means moving it deliberately when the UI changes — opening a modal, loading new content, or completing a task. Without this, keyboard users get lost.</p>
+          </div>
+
+          <div class="subsection">
+            <h3>Visible focus styles</h3>
+            <div class="callout bad">
+              <span class="callout-icon">✕</span>
+              <div class="callout-body">
+                <strong>Never do this:</strong> <code>:focus { outline: none; }</code> — this removes focus visibility for keyboard and switch device users. WCAG 2.4.11 (AA) now requires visible focus indicators.
+              </div>
+            </div>
+
+            <div class="code-block">
+              <div class="code-header">
+                <div class="code-label"><span class="code-dot css"></span> CSS</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code class="language-css">/* Good: visible and branded focus styles */
+:focus-visible {
+  outline: 3px solid #1746a2;
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+/* Remove default only when you're adding better styles */
+button:focus { outline: none; }          /* remove default */
+button:focus-visible {                   /* add better */
+  outline: 3px solid #1746a2;
+  outline-offset: 2px;
+}
+
+/* For dark backgrounds — use a light outline + dark box shadow */
+.dark-bg-element:focus-visible {
+  outline: 3px solid #fff;
+  box-shadow: 0 0 0 5px #1746a2;
+}</code></pre>
+            </div>
+          </div>
+
+          <div class="subsection">
+            <h3>Focus trapping (modals)</h3>
+            <div class="code-block">
+              <div class="code-header">
+                <div class="code-label"><span class="code-dot js"></span> JavaScript</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code class="language-javascript">function trapFocus(element) {
+  const focusableSelectors = [
+    'a[href]', 'button:not([disabled])', 'textarea',
+    'input:not([type="hidden"])', 'select', '[tabindex]:not([tabindex="-1"])'
+  ].join(', ');
+
+  const focusable = [...element.querySelectorAll(focusableSelectors)];
+  const firstFocusable = focusable[0];
+  const lastFocusable = focusable[focusable.length - 1];
+
+  element.addEventListener('keydown', (e) =&gt; {
+    if (e.key !== 'Tab') return;
+
+    if (e.shiftKey) {
+      if (document.activeElement === firstFocusable) {
+        lastFocusable.focus();
+        e.preventDefault();
+      }
+    } else {
+      if (document.activeElement === lastFocusable) {
+        firstFocusable.focus();
+        e.preventDefault();
+      }
+    }
+  });
+}
+
+// Usage
+const modal = document.getElementById('modal');
+modal.addEventListener('open', () =&gt; {
+  trapFocus(modal);
+  modal.querySelector('[autofocus], :first-child').focus();
+});</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── Skip Links ── -->
+        <section class="section" id="skip-links">
+          <div class="section-header">
+            <p class="section-tag">Interaction</p>
+            <h2>Skip Links</h2>
+            <p class="section-intro">
+              Skip links let keyboard users jump past repeated navigation to the main content. Required by WCAG 2.4.1 (Level A). They should be the very first focusable element on the page.
+            </p>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot html"></span> HTML</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-html">&lt;!-- First element in &lt;body&gt; --&gt;
+&lt;a href="#main-content" class="skip-link"&gt;Skip to main content&lt;/a&gt;
+
+&lt;!-- Multiple skip links if needed --&gt;
+&lt;a href="#main-content" class="skip-link"&gt;Skip to content&lt;/a&gt;
+&lt;a href="#site-nav" class="skip-link"&gt;Skip to navigation&lt;/a&gt;
+&lt;a href="#site-search" class="skip-link"&gt;Skip to search&lt;/a&gt;
+
+&lt;!-- The target must be focusable --&gt;
+&lt;main id="main-content" tabindex="-1"&gt;
+  &lt;h1&gt;Page title&lt;/h1&gt;
+&lt;/main&gt;</code></pre>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot css"></span> CSS</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-css">/* Hidden until focused — visible to keyboard users */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 1rem;
+  padding: .5rem 1rem;
+  background: #1746a2;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 0 0 8px 8px;
+  z-index: 9999;
+  transition: top 0.15s;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* The target: hide browser outline since focus is intentional */
+#main-content:focus {
+  outline: none;
+}</code></pre>
+          </div>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── Forms ── -->
+        <section class="section" id="forms">
+          <div class="section-header">
+            <p class="section-tag">Content</p>
+            <h2>Forms &amp; Labels</h2>
+            <p class="section-intro">
+              Forms are a high-failure area for accessibility. Every input must have a programmatic label, errors must be clearly associated with their fields, and required fields must be communicated to all users.
+            </p>
+          </div>
+
+          <div class="subsection">
+            <h3>Labelling inputs</h3>
+            <div class="code-block">
+              <div class="code-header">
+                <div class="code-label"><span class="code-dot html"></span> HTML</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code class="language-html">&lt;!-- Method 1: explicit label (preferred) --&gt;
+&lt;label for="email"&gt;Email address&lt;/label&gt;
+&lt;input type="email" id="email" name="email"&gt;
+
+&lt;!-- Method 2: wrapping label --&gt;
+&lt;label&gt;
+  Email address
+  &lt;input type="email" name="email"&gt;
+&lt;/label&gt;
+
+&lt;!-- Method 3: aria-label (when no visible label) --&gt;
+&lt;input type="search" aria-label="Search products"&gt;
+
+&lt;!-- Method 4: aria-labelledby --&gt;
+&lt;h2 id="billing"&gt;Billing address&lt;/h2&gt;
+&lt;input type="text" aria-labelledby="billing" name="billing-street"&gt;
+
+&lt;!-- Placeholder is NOT a label -- it disappears on input --&gt;
+&lt;input placeholder="Email"&gt; &lt;!-- bad alone —&gt; pair with a label --&gt;</code></pre>
+            </div>
+          </div>
+
+          <div class="subsection">
+            <h3>Required fields and errors</h3>
+            <div class="code-block">
+              <div class="code-header">
+                <div class="code-label"><span class="code-dot html"></span> HTML</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code class="language-html">&lt;!-- Required fields --&gt;
+&lt;label for="name"&gt;
+  Full name &lt;span aria-hidden="true"&gt;*&lt;/span&gt;
+&lt;/label&gt;
+&lt;input type="text" id="name" required aria-required="true"
+       aria-describedby="name-hint"&gt;
+&lt;p id="name-hint" class="hint"&gt;As it appears on your ID&lt;/p&gt;
+&lt;p&gt;&lt;small&gt;* Required fields&lt;/small&gt;&lt;/p&gt;
+
+&lt;!-- Error state --&gt;
+&lt;label for="email"&gt;Email address&lt;/label&gt;
+&lt;input type="email" id="email"
+       aria-invalid="true"
+       aria-describedby="email-error"&gt;
+&lt;p id="email-error" role="alert"&gt;
+  Enter a valid email address
+&lt;/p&gt;
+
+&lt;!-- Group related inputs --&gt;
+&lt;fieldset&gt;
+  &lt;legend&gt;Notification preferences&lt;/legend&gt;
+  &lt;label&gt;&lt;input type="checkbox" name="email-notify"&gt; Email&lt;/label&gt;
+  &lt;label&gt;&lt;input type="checkbox" name="sms-notify"&gt; SMS&lt;/label&gt;
+&lt;/fieldset&gt;</code></pre>
+            </div>
+          </div>
+
+          <div class="subsection">
+            <h3>Accessible form summary (on submit)</h3>
+            <div class="code-block">
+              <div class="code-header">
+                <div class="code-label"><span class="code-dot js"></span> JavaScript</div>
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              </div>
+              <pre><code class="language-javascript">// On form submit, collect errors and announce them
+function handleSubmit(e) {
+  e.preventDefault();
+  const errors = validateForm();
+
+  if (errors.length) {
+    // Move focus to error summary
+    const summary = document.getElementById('error-summary');
+    summary.innerHTML = `
+      &lt;h2&gt;${errors.length} error(s) found&lt;/h2&gt;
+      &lt;ul&gt;${errors.map(err =&gt;
+        `&lt;li&gt;&lt;a href="#${err.id}"&gt;${err.message}&lt;/a&gt;&lt;/li&gt;`
+      ).join('')}&lt;/ul&gt;
+    `;
+    summary.hidden = false;
+    summary.focus(); // move focus to the summary
+  }
+}</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- ── Images ── -->
+        <hr class="section-div" />
+
+        <section class="section" id="images">
+          <div class="section-header">
+            <p class="section-tag">Content</p>
+            <h2>Images &amp; Alt Text</h2>
+            <p class="section-intro">
+              Every meaningful image needs alternative text. The quality of alt text matters as much as its presence &mdash; it should convey purpose, not just describe literally.
+            </p>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot html"></span> HTML</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-html">&lt;!-- Meaningful image: describe purpose, not appearance --&gt;
+&lt;img src="logo.png" alt="a11ytest.ai"&gt;
+
+&lt;!-- Decorative image: empty alt suppresses from screen readers --&gt;
+&lt;img src="decoration.svg" alt=""&gt;
+
+&lt;!-- Functional image (inside a link): describe destination --&gt;
+&lt;a href="/dashboard"&gt;
+  &lt;img src="icon-dashboard.svg" alt="Dashboard"&gt;
+&lt;/a&gt;
+
+&lt;!-- Complex image: link to long description --&gt;
+&lt;figure&gt;
+  &lt;img src="chart.png"
+       alt="Sales chart for Q3 2025"
+       aria-describedby="chart-desc"&gt;
+  &lt;figcaption id="chart-desc"&gt;
+    Line chart showing revenue growing from £120k in July
+    to £180k in September, with a peak of £210k in August.
+  &lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;!-- Inline SVG: use title + desc --&gt;
+&lt;svg role="img" aria-labelledby="svg-title svg-desc"&gt;
+  &lt;title id="svg-title"&gt;Upload progress&lt;/title&gt;
+  &lt;desc id="svg-desc"&gt;65% of file uploaded&lt;/desc&gt;
+  &lt;!-- paths -- --&gt;
+&lt;/svg&gt;
+
+&lt;!-- Decorative SVG: hide completely --&gt;
+&lt;svg aria-hidden="true" focusable="false"&gt;...&lt;/svg&gt;
+
+&lt;!-- CSS background images: add screen reader text --&gt;
+&lt;div class="hero-image"&gt;
+  &lt;span class="sr-only"&gt;Team photo from the 2025 conference&lt;/span&gt;
+&lt;/div&gt;</code></pre>
+          </div>
+
+          <div class="callout info">
+            <span class="callout-icon">ℹ</span>
+            <div class="callout-body">
+              <strong>Alt text tips:</strong> Don't start with "Image of" or "Photo of" &mdash; screen readers already say "image". Keep alt text concise (under 150 chars). For logos, just use the brand name.
+            </div>
+          </div>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── Colour Contrast ── -->
+        <section class="section" id="colour-contrast">
+          <div class="section-header">
+            <p class="section-tag">Content</p>
+            <h2>Colour &amp; Contrast</h2>
+            <p class="section-intro">
+              Roughly 300 million people have colour vision deficiency. WCAG contrast requirements ensure text is readable for users with low vision or on poor-quality screens.
+            </p>
+          </div>
+
+          <div class="subsection">
+            <h3>Contrast ratio requirements</h3>
+            <table class="wcag-table">
+              <thead>
+                <tr>
+                  <th>Content type</th>
+                  <th>Level AA</th>
+                  <th>Level AAA</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Normal text (under 18pt / 14pt bold)</td><td>4.5:1</td><td>7:1</td></tr>
+                <tr><td>Large text (18pt+ or 14pt+ bold)</td><td>3:1</td><td>4.5:1</td></tr>
+                <tr><td>UI components &amp; graphics (WCAG 1.4.11)</td><td>3:1</td><td>—</td></tr>
+                <tr><td>Focus indicator (WCAG 2.4.11 — new in 2.2)</td><td>3:1</td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot js"></span> JavaScript — contrast ratio calculation</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-javascript">function getRelativeLuminance(hex) {
+  const rgb = hex.match(/\w\w/g).map(c =&gt; parseInt(c, 16) / 255);
+  return rgb.map(c =&gt;
+    c &lt;= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+  ).reduce((acc, c, i) =&gt; acc + c * [0.2126, 0.7152, 0.0722][i], 0);
+}
+
+function getContrastRatio(hex1, hex2) {
+  const l1 = getRelativeLuminance(hex1);
+  const l2 = getRelativeLuminance(hex2);
+  const lighter = Math.max(l1, l2);
+  const darker  = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+const ratio = getContrastRatio('1746a2', 'ffffff');
+console.log(ratio.toFixed(2)); // → 6.71 (passes AA)
+
+// Check WCAG levels
+const passes = {
+  AA_normal: ratio &gt;= 4.5,
+  AA_large:  ratio &gt;= 3,
+  AAA_normal: ratio &gt;= 7,
+  AAA_large: ratio &gt;= 4.5,
+};</code></pre>
+          </div>
+
+          <div class="callout warn">
+            <span class="callout-icon">⚠</span>
+            <div class="callout-body">
+              <strong>Don't rely on colour alone.</strong> WCAG 1.4.1: if colour is the only way to convey information (e.g. red = error), users with colour blindness will miss it. Add icons, patterns, or text labels alongside colour.
+            </div>
+          </div>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── Live Regions ── -->
+        <section class="section" id="live-regions">
+          <div class="section-header">
+            <p class="section-tag">Content</p>
+            <h2>Live Regions</h2>
+            <p class="section-intro">
+              Live regions announce dynamic content changes to screen reader users without requiring a page reload or focus change. Use them for status messages, errors, and real-time updates.
+            </p>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot html"></span> HTML</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-html">&lt;!-- aria-live="polite": waits for user to finish, then announces --&gt;
+&lt;div aria-live="polite" aria-atomic="true" id="status"&gt;&lt;/div&gt;
+
+&lt;!-- aria-live="assertive": interrupts immediately (use sparingly) --&gt;
+&lt;div aria-live="assertive" id="urgent"&gt;&lt;/div&gt;
+
+&lt;!-- role="status" = polite live region (shorthand) --&gt;
+&lt;div role="status"&gt;3 results found&lt;/div&gt;
+
+&lt;!-- role="alert" = assertive live region (shorthand) --&gt;
+&lt;div role="alert"&gt;Error: session expired&lt;/div&gt;
+
+&lt;!-- aria-atomic: announce the whole region, not just changed parts --&gt;
+&lt;div aria-live="polite" aria-atomic="true"&gt;
+  Page &lt;span id="current-page"&gt;2&lt;/span&gt; of 10
+&lt;/div&gt;
+
+&lt;!-- aria-relevant: what to announce (default: "additions text") --&gt;
+&lt;div aria-live="polite" aria-relevant="additions removals"&gt;
+  Chat messages
+&lt;/div&gt;</code></pre>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot js"></span> JavaScript — usage patterns</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-javascript">// Inject content AFTER the live region is in the DOM
+// Not during page load — region must exist before updates
+
+function announce(message, priority = 'polite') {
+  const el = document.createElement('div');
+  el.setAttribute('aria-live', priority);
+  el.setAttribute('aria-atomic', 'true');
+  el.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)';
+  document.body.appendChild(el);
+
+  // Small delay ensures screen reader registers the region
+  setTimeout(() =&gt; { el.textContent = message; }, 100);
+  setTimeout(() =&gt; { el.remove(); }, 5000);
+}
+
+// Usage
+announce('Form submitted successfully');
+announce('Error: email already in use', 'assertive');
+announce('3 items added to cart');</code></pre>
+          </div>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── Modals ── -->
+        <section class="section" id="modals">
+          <div class="section-header">
+            <p class="section-tag">Components</p>
+            <h2>Modals &amp; Dialogs</h2>
+            <p class="section-intro">
+              Accessible modals require three things: moving focus in on open, trapping focus inside, and returning focus to
+              the trigger on close.
+            </p>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot html"></span> HTML</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-html">&lt;!-- Trigger --&gt;
+&lt;button id="open-modal"&gt;Open dialog&lt;/button&gt;
+
+&lt;!-- Dialog --&gt;
+&lt;div role="dialog"
+     id="my-modal"
+     aria-modal="true"
+     aria-labelledby="modal-title"
+     aria-describedby="modal-desc"
+     hidden&gt;
+
+  &lt;h2 id="modal-title"&gt;Confirm deletion&lt;/h2&gt;
+  &lt;p id="modal-desc"&gt;This action cannot be undone.&lt;/p&gt;
+
+  &lt;button type="button" id="confirm-btn"&gt;Delete&lt;/button&gt;
+  &lt;button type="button" id="cancel-btn"&gt;Cancel&lt;/button&gt;
+  &lt;button type="button" aria-label="Close dialog" id="close-btn"&gt;✕&lt;/button&gt;
+&lt;/div&gt;
+
+&lt;!-- Backdrop (decorative) --&gt;
+&lt;div class="backdrop" aria-hidden="true" hidden&gt;&lt;/div&gt;</code></pre>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot js"></span> JavaScript</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-javascript">const modal = document.getElementById('my-modal');
+const openBtn = document.getElementById('open-modal');
+let previousFocus;
+
+function openModal() {
+  previousFocus = document.activeElement;      // remember trigger
+  modal.hidden = false;
+  document.getElementById('confirm-btn').focus(); // move focus in
+  trapFocus(modal);
+  document.addEventListener('keydown', handleEscape);
+}
+
+function closeModal() {
+  modal.hidden = true;
+  document.removeEventListener('keydown', handleEscape);
+  previousFocus?.focus();                       // return focus to trigger
+}
+
+function handleEscape(e) {
+  if (e.key === 'Escape') closeModal();
+}
+
+openBtn.addEventListener('click', openModal);
+document.getElementById('close-btn').addEventListener('click', closeModal);
+document.getElementById('cancel-btn').addEventListener('click', closeModal);</code></pre>
+          </div>
+
+          <div class="callout tip">
+            <span class="callout-icon">✓</span>
+            <div class="callout-body">
+              <strong>Use the native <code>&lt;dialog&gt;</code> element</strong> where browser support allows. It handles focus
+              trapping, <code>aria-modal</code>, and Escape key behaviour for you. Call <code>dialog.showModal()</code> to open
+              and <code>dialog.close()</code> to close.
+            </div>
+          </div>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── Tabs ── -->
+        <section class="section" id="tabs">
+          <div class="section-header">
+            <p class="section-tag">Components</p>
+            <h2>Tabs</h2>
+            <p class="section-intro">
+              The ARIA tab pattern uses a <code>tablist</code> container, individual <code>tab</code> elements, and associated
+              <code>tabpanel</code> regions. Arrow keys navigate between tabs; Tab moves into the active panel.
+            </p>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot html"></span> HTML</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-html">&lt;div class="tabs"&gt;
+  &lt;div role="tablist" aria-label="Account settings"&gt;
+    &lt;button role="tab"
+            id="tab-profile"
+            aria-controls="panel-profile"
+            aria-selected="true"
+            tabindex="0"&gt;
+      Profile
+    &lt;/button&gt;
+    &lt;button role="tab"
+            id="tab-security"
+            aria-controls="panel-security"
+            aria-selected="false"
+            tabindex="-1"&gt;
+      Security
+    &lt;/button&gt;
+    &lt;button role="tab"
+            id="tab-billing"
+            aria-controls="panel-billing"
+            aria-selected="false"
+            tabindex="-1"&gt;
+      Billing
+    &lt;/button&gt;
+  &lt;/div&gt;
+
+  &lt;div role="tabpanel" id="panel-profile" aria-labelledby="tab-profile"&gt;
+    Profile content...
+  &lt;/div&gt;
+  &lt;div role="tabpanel" id="panel-security" aria-labelledby="tab-security" hidden&gt;
+    Security content...
+  &lt;/div&gt;
+  &lt;div role="tabpanel" id="panel-billing" aria-labelledby="tab-billing" hidden&gt;
+    Billing content...
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot js"></span> JavaScript</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-javascript">const tablist = document.querySelector('[role="tablist"]');
+const tabs = [...tablist.querySelectorAll('[role="tab"]')];
+
+function activateTab(tab) {
+  tabs.forEach(t =&gt; {
+    t.setAttribute('aria-selected', 'false');
+    t.setAttribute('tabindex', '-1');
+    document.getElementById(t.getAttribute('aria-controls')).hidden = true;
+  });
+  tab.setAttribute('aria-selected', 'true');
+  tab.setAttribute('tabindex', '0');
+  document.getElementById(tab.getAttribute('aria-controls')).hidden = false;
+  tab.focus();
+}
+
+tablist.addEventListener('keydown', (e) =&gt; {
+  const i = tabs.indexOf(document.activeElement);
+  if (e.key === 'ArrowRight') activateTab(tabs[(i + 1) % tabs.length]);
+  if (e.key === 'ArrowLeft')  activateTab(tabs[(i - 1 + tabs.length) % tabs.length]);
+  if (e.key === 'Home')       activateTab(tabs[0]);
+  if (e.key === 'End')        activateTab(tabs[tabs.length - 1]);
+});
+
+tabs.forEach(tab =&gt; tab.addEventListener('click', () =&gt; activateTab(tab)));</code></pre>
+          </div>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── Accordion ── -->
+        <section class="section" id="accordion">
+          <div class="section-header">
+            <p class="section-tag">Components</p>
+            <h2>Accordion</h2>
+            <p class="section-intro">
+              Accordion headers are buttons with <code>aria-expanded</code> controlling the visibility of their associated panel.
+              The heading + button pattern is the most robust approach.
+            </p>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot html"></span> HTML</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-html">&lt;div class="accordion"&gt;
+  &lt;h3&gt;
+    &lt;button
+      type="button"
+      aria-expanded="false"
+      aria-controls="panel-1"
+      id="btn-1"&gt;
+      What is WCAG?
+    &lt;/button&gt;
+  &lt;/h3&gt;
+  &lt;div id="panel-1"
+       role="region"
+       aria-labelledby="btn-1"
+       hidden&gt;
+    &lt;p&gt;WCAG stands for Web Content Accessibility Guidelines...&lt;/p&gt;
+  &lt;/div&gt;
+
+  &lt;h3&gt;
+    &lt;button
+      type="button"
+      aria-expanded="false"
+      aria-controls="panel-2"
+      id="btn-2"&gt;
+      What is ARIA?
+    &lt;/button&gt;
+  &lt;/h3&gt;
+  &lt;div id="panel-2"
+       role="region"
+       aria-labelledby="btn-2"
+       hidden&gt;
+    &lt;p&gt;ARIA stands for Accessible Rich Internet Applications...&lt;/p&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot js"></span> JavaScript</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-javascript">document.querySelectorAll('.accordion button').forEach(btn =&gt; {
+  btn.addEventListener('click', () =&gt; {
+    const expanded = btn.getAttribute('aria-expanded') === 'true';
+    const panel = document.getElementById(btn.getAttribute('aria-controls'));
+
+    btn.setAttribute('aria-expanded', !expanded);
+    panel.hidden = expanded;
+  });
+});</code></pre>
+          </div>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── Dropdown ── -->
+        <section class="section" id="dropdown">
+          <div class="section-header">
+            <p class="section-tag">Components</p>
+            <h2>Dropdown / Combobox</h2>
+            <p class="section-intro">
+              Custom dropdowns are one of the hardest components to get right. Use native <code>&lt;select&gt;</code> when you can.
+              If you need a custom one, implement the full ARIA combobox pattern.
+            </p>
+          </div>
+
+          <div class="code-block">
+            <div class="code-header">
+              <div class="code-label"><span class="code-dot html"></span> HTML — Action menu (not a select)</div>
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            </div>
+            <pre><code class="language-html">&lt;div class="menu-wrap"&gt;
+  &lt;button
+    type="button"
+    aria-haspopup="true"
+    aria-expanded="false"
+    aria-controls="action-menu"
+    id="menu-btn"&gt;
+    Actions ▾
+  &lt;/button&gt;
+
+  &lt;ul role="menu"
+      id="action-menu"
+      aria-labelledby="menu-btn"
+      hidden&gt;
+    &lt;li role="menuitem" tabindex="-1"&gt;Edit&lt;/li&gt;
+    &lt;li role="menuitem" tabindex="-1"&gt;Duplicate&lt;/li&gt;
+    &lt;li role="menuitem" tabindex="-1" aria-disabled="true"&gt;Export&lt;/li&gt;
+    &lt;li role="separator" aria-hidden="true"&gt;&lt;/li&gt;
+    &lt;li role="menuitem" tabindex="-1" class="danger"&gt;Delete&lt;/li&gt;
+  &lt;/ul&gt;
+&lt;/div&gt;</code></pre>
+          </div>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── WCAG ── -->
+        <section class="section" id="wcag">
+          <div class="section-header">
+            <p class="section-tag">Reference</p>
+            <h2>WCAG Quick Reference</h2>
+            <p class="section-intro">
+              WCAG 2.2 (current standard, October 2023) has four principles: Perceivable, Operable, Understandable, and Robust.
+              Levels A, AA, and AAA — most regulations require AA.
+            </p>
+          </div>
+
+          <table class="wcag-table">
+            <thead>
+              <tr>
+                <th>Criterion</th>
+                <th>Level</th>
+                <th>Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>1.1.1</strong> Non-text Content</td><td><span class="badge a">A</span></td><td>All non-text content has a text alternative</td></tr>
+              <tr><td><strong>1.3.1</strong> Info and Relationships</td><td><span class="badge a">A</span></td><td>Structure conveyed visually is in the code</td></tr>
+              <tr><td><strong>1.3.5</strong> Identify Input Purpose</td><td><span class="badge aa">AA</span></td><td>Autocomplete attributes on personal data inputs</td></tr>
+              <tr><td><strong>1.4.1</strong> Use of Colour</td><td><span class="badge a">A</span></td><td>Colour not the sole means of conveying info</td></tr>
+              <tr><td><strong>1.4.3</strong> Contrast (Minimum)</td><td><span class="badge aa">AA</span></td><td>4.5:1 for normal text, 3:1 for large text</td></tr>
+              <tr><td><strong>1.4.4</strong> Resize Text</td><td><span class="badge aa">AA</span></td><td>Text resizable to 200% without loss of content</td></tr>
+              <tr><td><strong>1.4.10</strong> Reflow</td><td><span class="badge aa">AA</span></td><td>No horizontal scroll at 320px width</td></tr>
+              <tr><td><strong>1.4.11</strong> Non-text Contrast</td><td><span class="badge aa">AA</span></td><td>3:1 for UI components and graphics</td></tr>
+              <tr><td><strong>1.4.12</strong> Text Spacing</td><td><span class="badge aa">AA</span></td><td>No content loss when text spacing increased</td></tr>
+              <tr><td><strong>2.1.1</strong> Keyboard</td><td><span class="badge a">A</span></td><td>All functionality available by keyboard</td></tr>
+              <tr><td><strong>2.1.4</strong> Character Key Shortcuts</td><td><span class="badge a">A</span></td><td>Single-key shortcuts can be turned off or remapped</td></tr>
+              <tr><td><strong>2.4.1</strong> Bypass Blocks</td><td><span class="badge a">A</span></td><td>Skip links to bypass repeated navigation</td></tr>
+              <tr><td><strong>2.4.2</strong> Page Titled</td><td><span class="badge a">A</span></td><td>Every page has a descriptive &lt;title&gt;</td></tr>
+              <tr><td><strong>2.4.3</strong> Focus Order</td><td><span class="badge a">A</span></td><td>Focus order preserves meaning and operability</td></tr>
+              <tr><td><strong>2.4.4</strong> Link Purpose</td><td><span class="badge a">A</span></td><td>Link purpose clear from text or context</td></tr>
+              <tr><td><strong>2.4.7</strong> Focus Visible</td><td><span class="badge aa">AA</span></td><td>Keyboard focus indicator visible</td></tr>
+              <tr><td><strong>2.4.11</strong> Focus Appearance <span class="badge new">New 2.2</span></td><td><span class="badge aa">AA</span></td><td>Focus indicator has 3:1 contrast, minimum area</td></tr>
+              <tr><td><strong>2.5.3</strong> Label in Name</td><td><span class="badge a">A</span></td><td>Accessible name contains visible label text</td></tr>
+              <tr><td><strong>2.5.7</strong> Dragging Movements <span class="badge new">New 2.2</span></td><td><span class="badge aa">AA</span></td><td>All drag actions have a pointer alternative</td></tr>
+              <tr><td><strong>2.5.8</strong> Target Size <span class="badge new">New 2.2</span></td><td><span class="badge aa">AA</span></td><td>Minimum 24×24px target size</td></tr>
+              <tr><td><strong>3.1.1</strong> Language of Page</td><td><span class="badge a">A</span></td><td><code>lang</code> attribute on &lt;html&gt;</td></tr>
+              <tr><td><strong>3.3.1</strong> Error Identification</td><td><span class="badge a">A</span></td><td>Errors identified in text</td></tr>
+              <tr><td><strong>3.3.2</strong> Labels or Instructions</td><td><span class="badge a">A</span></td><td>Labels provided for user inputs</td></tr>
+              <tr><td><strong>3.3.7</strong> Redundant Entry <span class="badge new">New 2.2</span></td><td><span class="badge a">A</span></td><td>Don't ask for the same info twice in a process</td></tr>
+              <tr><td><strong>4.1.1</strong> Parsing</td><td><span class="badge a">A</span></td><td>Valid HTML (obsolete in 2.2 — removed)</td></tr>
+              <tr><td><strong>4.1.2</strong> Name, Role, Value</td><td><span class="badge a">A</span></td><td>UI components expose name, role, state to AT</td></tr>
+              <tr><td><strong>4.1.3</strong> Status Messages</td><td><span class="badge aa">AA</span></td><td>Status messages programmatically determined</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <hr class="section-div" />
+
+        <!-- ── Testing ── -->
+        <section class="section" id="testing">
+          <div class="section-header">
+            <p class="section-tag">Reference</p>
+            <h2>Testing Checklist</h2>
+            <p class="section-intro">
+              A good accessibility test combines automated scanning (catches ~30–40% of issues) with manual keyboard and screen reader testing.
+            </p>
+          </div>
+
+          <div class="callout info">
+            <span class="callout-icon">ℹ</span>
+            <div class="callout-body">
+              <strong>Automated scanning with a11ytest.ai</strong> catches contrast failures, missing alt text, unlabelled inputs, ARIA misuse, and more in seconds.
+            </div>
+          </div>
+
+          <div class="subsection">
+            <h3>Manual testing steps</h3>
+            <table class="wcag-table">
+              <thead><tr><th>#</th><th>Test</th><th>What to check</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>Keyboard only</td><td>Tab through every interactive element. Is focus always visible? Can you reach and operate everything?</td></tr>
+                <tr><td>2</td><td>Screen reader (NVDA/VoiceOver)</td><td>Navigate by headings, landmarks, links. Do all images, buttons, and forms make sense?</td></tr>
+                <tr><td>3</td><td>200% zoom</td><td>Zoom to 200% in browser. Does content reflow? Does anything overlap or disappear? (Optional: use <a href="https://chromewebstore.google.com/detail/visionswitch/hlnonhodhmnljggnccgpldpapilcboba" target="_blank" rel="noopener">VisionSwitch</a> for additional vision-mode testing.)</td></tr>
+                <tr><td>4</td><td>1.5× text spacing</td><td>Apply <a href="https://www.html5accessibility.com/tests/tsbookmarklet.html" target="_blank" rel="noopener">Text Spacing Bookmarklet</a>. Check nothing breaks. (Optional: use <a href="https://chromewebstore.google.com/detail/visionswitch/hlnnonhodhmnljggnccgpldpapilcboba" target="_blank" rel="noopener">VisionSwitch</a> for additional vision-mode testing.)</td></tr>
+                <tr><td>5</td><td>High contrast mode</td><td>Enable Windows High Contrast / macOS Increase Contrast. Custom colours should not break content. (Optional: use <a href="https://chromewebstore.google.com/detail/visionswitch/hlnnonhodhmnljggnccgpldpapilcboba" target="_blank" rel="noopener">VisionSwitch</a> for additional contrast/color-vision testing.)</td></tr>
+                <tr><td>6</td><td>Mobile + switch</td><td>Test with iOS Switch Control or Android Switch Access.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ── CTA ── -->
+        <div style="background:linear-gradient(135deg,#e8eeff,#f0f3ff);border:1px solid #c7d3f5;border-radius:16px;padding:2rem;text-align:center;margin-top:2rem;">
+          <h2 style="font-size:1.375rem;font-weight:600;color:#0B1220;margin-bottom:.5rem;">Scan your site for accessibility issues</h2>
+          <p style="font-size:15px;color:#111827;margin-bottom:1.25rem;">a11ytest.ai catches WCAG failures, generates fix suggestions, and integrates with your CI/CD pipeline.</p>
+          <a href="/signup" style="display:inline-block;background:var(--accent);color:#fff;padding:11px 28px;border-radius:8px;font-weight:600;font-size:15px;text-decoration:none;">Get started →</a>
+        </div>
+
+      </main>
+    </div>
+
+    <footer>
+      <p>
+        <a href="https://a11ytest.ai">a11ytest.ai</a> · Free accessibility resource ·
+        <a href="https://www.w3.org/WAI/WCAG22/quickref/" target="_blank" rel="noopener">WCAG 2.2 Quick Ref</a> ·
+        <a href="https://www.w3.org/WAI/ARIA/apg/" target="_blank" rel="noopener">ARIA Authoring Practices</a>
+      </p>
+    </footer>
+
+    <script>
+      hljs.highlightAll();
+
+      // Copy code
+      function copyCode(btn) {
+        const code = btn.closest('.code-block').querySelector('code');
+        navigator.clipboard.writeText(code.innerText).then(() => {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+      }
+
+      // Quick hints
+      function askQuestion(q) {
+        document.getElementById('ai-input').value = q;
+        triggerAsk();
+      }
+
+      // AI Ask
+      async function triggerAsk() {
+        const input = document.getElementById('ai-input');
+        const question = input.value.trim();
+        if (!question) return;
+
+        const btn = document.getElementById('ai-btn');
+        const content = document.getElementById('ai-btn-content');
+        btn.disabled = true;
+        content.textContent = '';
+        content.innerHTML = '<div class="spinner"></div>';
+
+        try {
+          const res = await fetch('/api/a11y-ask', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question })
+          });
+
+          if (!res.ok) throw new Error('API error');
+          const data = await res.json();
+          showAnswer(question, data.answer);
+        } catch (err) {
+          showAnswer(question, 'Sorry, the AI is unavailable right now. Browse the reference below for answers.');
+        } finally {
+          btn.disabled = false;
+          content.textContent = 'Ask A11y AI';
+        }
+      }
+
+      function showAnswer(question, answer) {
+        const container = document.getElementById('ai-result');
+        container.innerHTML = `
+          <div class="ai-result-inner">
+            <div class="ai-result-header">
+              <span><span class="ai-badge">A11y AI</span> &nbsp; "${escHtml(question)}"</span>
+              <button class="ai-close" onclick="document.getElementById('ai-result').innerHTML=''" aria-label="Close answer">×</button>
+            </div>
+            <div class="ai-result-body" id="ai-answer-body"></div>
+          </div>
+        `;
+
+        document.getElementById('ai-answer-body').innerHTML = renderAnswer(answer);
+        hljs.highlightAll();
+        container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+
+      function renderAnswer(text) {
+        return text
+          .replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang, code) =>
+            `<pre><code class="language-${lang||'html'}">${escHtml(code.trim())}</code></pre>`
+          )
+          .replace(/`([^`]+)`/g, '<code>$1</code>')
+          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\n\n/g, '</p><p>')
+          .replace(/^/, '<p>')
+          .replace(/$/, '</p>');
+      }
+
+      function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+
+      document.getElementById('ai-btn').addEventListener('click', triggerAsk);
+      document.getElementById('ai-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') triggerAsk();
+      });
+
+      // Sidebar active link on scroll
+      const sections = document.querySelectorAll('section[id]');
+      const sidebarLinks = document.querySelectorAll('.sidebar-link');
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(e => {
+          if (e.isIntersecting) {
+            sidebarLinks.forEach(l => l.classList.remove('active'));
+            const active = document.querySelector(`.sidebar-link[href="#${e.target.id}"]`);
+            if (active) active.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-60px 0px -60% 0px' });
+
+      sections.forEach(s => observer.observe(s));
+    </script>
+  </body>
+</html>
+
