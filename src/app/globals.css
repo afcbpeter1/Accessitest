@@ -526,10 +526,18 @@ html[data-grayscale="true"] {
 
 .a11y-resource-host .layout,
 .a11y-resource-host .content,
-.a11y-resource-host .hero,
+.a11y-resource-host .hero {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Keep ask + result the original readable width; do not stretch to full hero (was overriding template 680px). */
 .a11y-resource-host .ai-ask-wrap,
 .a11y-resource-host #ai-result {
   min-width: 0;
-  max-width: 100%;
+  width: 100%;
+  max-width: min(680px, 100%);
+  margin-left: auto;
+  margin-right: auto;
 }
 

@@ -282,7 +282,7 @@
       .code-header {
         display: flex; align-items: center; justify-content: space-between;
         background: #252530; padding: .5rem 1rem;
-        font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8888a0;
+        font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #c9cdd8;
       }
       .code-label { display: flex; align-items: center; gap: 8px; }
       .code-dot { width: 8px; height: 8px; border-radius: 50%; }
@@ -291,11 +291,11 @@
       .code-dot.js { background: #f0db4f; }
       .code-dot.jsx { background: #61dafb; }
       .copy-btn {
-        background: none; border: 1px solid #3a3a50; color: #8888a0;
+        background: none; border: 1px solid #4b4b5c; color: #c9cdd8;
         padding: 3px 10px; border-radius: 4px; font-family: 'JetBrains Mono', monospace;
         font-size: 11px; cursor: pointer; transition: all .15s;
       }
-      .copy-btn:hover { background: #3a3a50; color: #c0c0d0; }
+      .copy-btn:hover { background: #3a3a50; color: #e8eaf0; }
       .copy-btn.copied { border-color: #22c55e; color: #22c55e; }
       .code-block pre { margin: 0; border-radius: 0; overflow-x: hidden; }
       .code-block pre code.hljs {
@@ -306,6 +306,10 @@
         white-space: pre-wrap !important;  /* no horizontal scrolling */
         overflow-wrap: anywhere !important;
         word-break: break-word !important;
+      }
+      /* WCAG AAA color-contrast-enhanced: github-dark .hljs-comment (#8b949e) on #0d1117 ≈6.15:1 */
+      .code-block pre code.hljs .hljs-comment {
+        color: #a8b4bd !important;
       }
 
       /* Callout */
@@ -324,11 +328,20 @@
       .wcag-table th { background: var(--surface); padding: .6rem .9rem; text-align: left; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); border-bottom: 1px solid var(--border); }
       .wcag-table td { padding: .65rem .9rem; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text-2); overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
       .wcag-table tr:hover td { background: var(--surface); }
+      /* Links in body copy: not distinguished by colour alone (WCAG link-in-text-block). */
+      .wcag-table td a {
+        color: var(--accent);
+        font-weight: 700;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      .wcag-table td a:hover { text-decoration-thickness: 2px; }
       .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: .3px; }
       .badge.a { background: #dbeafe; color: #1e40af; }
       .badge.aa { background: var(--accent-light); color: var(--accent); }
       .badge.aaa { background: #ede9fe; color: #5b21b6; }
-      .badge.new { background: #dcfce7; color: #166534; }
+      /* AAA enhanced contrast vs prior #166534 on #dcfce7 (~6.5:1) */
+      .badge.new { background: #bbf7d0; color: #052e16; }
 
       /* Divider */
       hr.section-div { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
@@ -422,9 +435,9 @@
       </ul>
     </nav>
 
-    <!-- Hero -->
-    <header class="hero" role="banner">
-      <h1>The Complete <span>A11y</span> Reference</h1>
+    <!-- Hero: section (not banner) — document has one <main> in content; avoids nested landmarks in host page -->
+    <section class="hero" aria-labelledby="a11y-hero-heading">
+      <h1 id="a11y-hero-heading">The Complete <span>A11y</span> Reference</h1>
       <p>
         Every accessibility pattern, code example, and WCAG criterion in one place. Ask any question and get an instant
         answer with working code.
@@ -461,7 +474,7 @@
       </div>
 
       <div id="ai-result" aria-live="polite" aria-atomic="true"></div>
-    </header>
+    </section>
 
     <!-- Quick nav tags -->
     <nav class="quick-tags" aria-label="Jump to topic">

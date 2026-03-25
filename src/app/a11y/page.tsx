@@ -223,7 +223,7 @@ export default function A11yResourcePage() {
   }, [templateBody])
 
   return (
-    <main className="a11y-resource-host w-full min-w-0 max-w-full overflow-x-hidden">
+    <div className="a11y-resource-host w-full min-w-0 max-w-full overflow-x-hidden">
       {templateCss ? <style>{templateCss}</style> : null}
       {templateError ? (
         <div style={{ padding: 16 }}>
@@ -232,7 +232,7 @@ export default function A11yResourcePage() {
         </div>
       ) : null}
       <div suppressHydrationWarning dangerouslySetInnerHTML={{ __html: templateBody }} />
-    </main>
+    </div>
   )
 }
 

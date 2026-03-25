@@ -643,7 +643,7 @@ ${item.failure_summary || 'N/A'}
 **Status:** ${item.status}
 
 ---
-*Generated from AccessiTest Product Backlog*
+*Generated from A11ytest.ai Product Backlog*
     `.trim()
   }
 
