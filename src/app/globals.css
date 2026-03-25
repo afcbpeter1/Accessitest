@@ -24,6 +24,30 @@
     word-wrap: normal;
     overflow-wrap: normal;
   }
+
+  /* Consistent hover/focus transitions for button-like controls */
+  :where(button, [role="button"], a) {
+    transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform, filter;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* Give all button-like elements a predictable hover, even when a page forgets a hover:* class */
+  :where(button, [role="button"]):not(:disabled):hover,
+  :where(a[class*="bg-"], a[class*="border"], a[class*="ring-"]):hover {
+    filter: brightness(0.97);
+  }
+
+  :where(button, [role="button"]):not(:disabled):active,
+  :where(a[class*="bg-"], a[class*="border"], a[class*="ring-"]):active {
+    filter: brightness(0.93);
+  }
+}
+
+/* Keep top nav hover colors exact (no global brightness filter). */
+.tooling-topnav a:hover,
+.tooling-topnav a:active {
+  filter: none !important;
 }
 
 @layer components {
@@ -105,6 +129,12 @@
     background-color: var(--text-primary) !important;
     color: var(--bg-primary) !important;
   }
+
+  /* Avoid brightness filters fighting forced colors */
+  button,
+  a {
+    filter: none !important;
+  }
   
   /* Improve link contrast */
   a {
@@ -153,6 +183,11 @@
 .high-contrast-mode .btn-secondary:hover {
   background-color: var(--text-primary) !important;
   color: var(--bg-primary) !important;
+}
+
+.high-contrast-mode button,
+.high-contrast-mode a {
+  filter: none !important;
 }
 
 .high-contrast-mode a {
@@ -438,4 +473,63 @@ html[data-grayscale="true"] {
 }
 
 /* (Theme toggle styles intentionally removed to keep UI consistent.) */
+
+/*
+ * /a11y embeds static HTML + its own <style>. Global rules below (tables, headings)
+ * were clipping/overflowing that page on mobile. Scope resets to the host only.
+ */
+.a11y-resource-host {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.a11y-resource-host *,
+.a11y-resource-host *::before,
+.a11y-resource-host *::after {
+  box-sizing: border-box;
+}
+
+/* Undo global `table { display:block; white-space:nowrap }` inside the reference */
+.a11y-resource-host table {
+  display: table;
+  white-space: normal;
+  overflow-x: visible;
+}
+
+.a11y-resource-host th,
+.a11y-resource-host td {
+  white-space: normal;
+}
+
+/* Let long titles and copy wrap (global h1/h2 set overflow-wrap: normal) */
+.a11y-resource-host h1,
+.a11y-resource-host h2,
+.a11y-resource-host h3,
+.a11y-resource-host h4 {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+/* Flex row must not force page wider than viewport (input min-content) */
+.a11y-resource-host .ai-ask-box {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.a11y-resource-host #ai-input {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.a11y-resource-host .layout,
+.a11y-resource-host .content,
+.a11y-resource-host .hero,
+.a11y-resource-host .ai-ask-wrap,
+.a11y-resource-host #ai-result {
+  min-width: 0;
+  max-width: 100%;
+}
 

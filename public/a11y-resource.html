@@ -63,6 +63,17 @@
         color: var(--text);
         background: var(--bg);
         -webkit-font-smoothing: antialiased;
+        overflow-x: hidden; /* mobile: prevent sideways scroll */
+      }
+
+      /* Defensive: ensure the template can fill the viewport in embedded contexts */
+      .topnav,
+      .hero,
+      .quick-tags,
+      .layout,
+      footer {
+        width: 100%;
+        max-width: 100%;
       }
 
       a { color: var(--accent); text-decoration: none; }
@@ -94,7 +105,13 @@
       .topnav-links a { color: var(--text-2); text-decoration: none; padding: 6px 10px; border-radius: 8px; font-weight: 700; }
       .topnav-links a:hover { color: var(--text); text-decoration: none; background: var(--accent-light); }
       .topnav-cta { background: var(--accent); color: #ffffff !important; padding: 7px 16px; border-radius: var(--radius); font-weight: 800; font-size: 13px; text-decoration: none; }
-      .topnav-cta:hover { background: #081a33; text-decoration: none !important; }
+      /* Ensure CTA hover overrides the generic link hover above (avoid white text on light hover). */
+      .topnav-links a.topnav-cta:hover,
+      .topnav-links a.topnav-cta:focus-visible {
+        background: #081a33 !important;
+        color: #ffffff !important;
+        text-decoration: none !important;
+      }
 
       /* Hero */
       .hero {
@@ -104,7 +121,17 @@
         text-align: center;
       }
       .hero-tag { display: inline-block; background: var(--accent-light); color: var(--accent); font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 100px; letter-spacing: .5px; margin-bottom: 1.25rem; text-transform: uppercase; }
-      .hero h1, .hero h2 { font-size: clamp(2rem, 5vw, 3.25rem); font-weight: 600; letter-spacing: -.5px; line-height: 1.15; color: #fff; margin-bottom: .75rem; }
+      .hero h1, .hero h2 {
+        font-size: clamp(1.5rem, 6.5vw, 3.25rem);
+        font-weight: 600;
+        letter-spacing: -.5px;
+        line-height: 1.15;
+        color: #fff;
+        margin-bottom: .75rem;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        max-width: 100%;
+      }
       .hero h1 span, .hero h2 span { color: var(--accent-mid); }
       .hero p { font-size: 1.125rem; color: rgba(255,255,255,.92); max-width: 600px; margin: 0 auto 2rem; }
 
@@ -112,6 +139,8 @@
       .ai-ask-wrap { max-width: 680px; margin: 0 auto; }
       .ai-ask-box {
         display: flex; gap: 8px;
+        min-width: 0;
+        max-width: 100%;
         background: #fff; border: 1.5px solid var(--border-strong);
         border-radius: var(--radius-lg); padding: 8px;
         box-shadow: var(--shadow);
@@ -119,7 +148,10 @@
       }
       .ai-ask-box:focus-within { border-color: var(--accent-mid); box-shadow: 0 0 0 3px rgba(79,116,212,.15); }
       #ai-input {
-        flex: 1; border: none; background: transparent; font-family: inherit;
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 100%;
+        border: none; background: transparent; font-family: inherit;
         font-size: 15px; color: var(--text); padding: 4px 8px; outline: none;
       }
       #ai-input::placeholder { color: var(--text-3); }
@@ -214,7 +246,7 @@
       .qtag:hover { background: var(--accent-light); border-color: var(--accent-mid); color: var(--accent); text-decoration: none; }
 
       /* Layout */
-      .layout { display: grid; grid-template-columns: var(--nav-w) 1fr; min-height: calc(100vh - 200px); max-width: 1300px; margin: 0 auto; }
+      .layout { display: grid; grid-template-columns: var(--nav-w) 1fr; min-height: calc(100vh - 200px); width: 100%; max-width: 1300px; margin: 0 auto; }
 
       /* Sidebar */
       .sidebar {
@@ -235,7 +267,7 @@
       .sidebar-link.active { background: var(--accent-light); color: var(--accent); font-weight: 500; }
 
       /* Content */
-      .content { padding: 2.5rem 3rem; max-width: 840px; }
+      .content { padding: 2.5rem 3rem; width: 100%; max-width: 840px; }
       .section { margin-bottom: 4rem; padding-top: 1rem; }
       .section-header { margin-bottom: 1.5rem; }
       .section-tag { font-size: 11px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: var(--accent); margin-bottom: .4rem; }
@@ -265,8 +297,16 @@
       }
       .copy-btn:hover { background: #3a3a50; color: #c0c0d0; }
       .copy-btn.copied { border-color: #22c55e; color: #22c55e; }
-      .code-block pre { margin: 0; border-radius: 0; }
-      .code-block pre code.hljs { padding: 1.25rem !important; font-size: 13.5px !important; font-family: 'JetBrains Mono', monospace !important; line-height: 1.6 !important; }
+      .code-block pre { margin: 0; border-radius: 0; overflow-x: hidden; }
+      .code-block pre code.hljs {
+        padding: 1.25rem !important;
+        font-size: 13.5px !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        line-height: 1.6 !important;
+        white-space: pre-wrap !important;  /* no horizontal scrolling */
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+      }
 
       /* Callout */
       .callout { display: flex; gap: 12px; padding: 1rem 1.25rem; border-radius: var(--radius); margin: 1rem 0; }
@@ -280,9 +320,9 @@
       .callout-body code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: rgba(0,0,0,.07); padding: 1px 4px; border-radius: 3px; }
 
       /* WCAG Table */
-      .wcag-table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 1rem 0; }
+      .wcag-table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 1rem 0; table-layout: fixed; }
       .wcag-table th { background: var(--surface); padding: .6rem .9rem; text-align: left; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); border-bottom: 1px solid var(--border); }
-      .wcag-table td { padding: .65rem .9rem; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text-2); }
+      .wcag-table td { padding: .65rem .9rem; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text-2); overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
       .wcag-table tr:hover td { background: var(--surface); }
       .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; letter-spacing: .3px; }
       .badge.a { background: #dbeafe; color: #1e40af; }
@@ -310,11 +350,47 @@
       @media (max-width: 900px) {
         .layout { grid-template-columns: 1fr; }
         .sidebar { display: none; }
-        .content { padding: 1.5rem; }
+        /* Let content fill the screen; avoid narrow center column on mobile. */
+        .content { padding: 1.5rem; max-width: 100%; }
+        /* Stack ask row on narrow tablets so nothing forces horizontal width */
+        .ai-ask-box { flex-direction: column; align-items: stretch; }
+        #ai-btn { width: 100%; justify-content: center; }
       }
       @media (max-width: 640px) {
-        .topnav-links { display: none; }
+        .topnav { padding: 0 1rem; height: auto; min-height: 60px; gap: 10px; flex-wrap: wrap; justify-content: space-between; }
+        .topnav-logo { flex: 0 0 auto; }
+        .topnav-links {
+          display: flex;
+          width: 100%;
+          justify-content: center;
+          flex-wrap: wrap;
+          gap: 10px;
+          overflow: visible;
+          padding: 8px 0 12px;
+        }
+        .topnav-links a { white-space: nowrap; }
         .hero { padding: 2.5rem 1.25rem 2rem; }
+
+        /* Make the ask UI actually fit mobile */
+        .ai-ask-wrap { max-width: 100%; }
+        .ai-ask-box { flex-direction: column; align-items: stretch; }
+        #ai-input { width: 100%; padding: 10px 10px; }
+        #ai-btn { width: 100%; justify-content: center; }
+
+        /* Quick tags: wrap (no sideways scrolling) */
+        .quick-tags {
+          justify-content: center;
+          flex-wrap: wrap;
+          overflow: visible;
+          padding: 1rem 1rem;
+        }
+        .qtag { flex: 0 0 auto; }
+
+        /* Content spacing and long lines */
+        .layout { max-width: 100%; }
+        .content { padding: 1.25rem 1rem; max-width: 100%; }
+        .section { margin-bottom: 3rem; }
+        .section h2 { font-size: 1.4rem; }
       }
 
       /* Loading spinner */

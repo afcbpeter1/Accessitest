@@ -27,7 +27,7 @@ export default function ToolingTopNav() {
     <nav
       role="navigation"
       aria-label="Site navigation"
-      className="sticky top-0 z-[100] h-[60px] border-b border-gray-200 bg-white/95 backdrop-blur-xl"
+      className="tooling-topnav sticky top-0 z-[100] h-[60px] border-b border-gray-200 bg-white/95 backdrop-blur-xl"
     >
       <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/home" className="flex items-center gap-2" aria-label="a11ytest.ai home">

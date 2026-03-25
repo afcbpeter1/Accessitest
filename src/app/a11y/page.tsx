@@ -223,7 +223,7 @@ export default function A11yResourcePage() {
   }, [templateBody])
 
   return (
-    <main>
+    <main className="a11y-resource-host w-full min-w-0 max-w-full overflow-x-hidden">
       {templateCss ? <style>{templateCss}</style> : null}
       {templateError ? (
         <div style={{ padding: 16 }}>
