@@ -3,6 +3,7 @@ import { ClaudeAPI } from '@/lib/claude-api'
 
 export async function POST(request: NextRequest) {
   try {
+    const QUESTION_MAX_CHARS = 240
     const body = await request.json()
     const question = String(body?.question || '').trim()
 
@@ -14,9 +15,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Keep prompts bounded so you don't accidentally burn tokens.
-    if (question.length > 2000) {
+    if (question.length > QUESTION_MAX_CHARS) {
       return NextResponse.json(
-        { success: false, error: 'Question is too long.' },
+        { success: false, error: `Question is too long (max ${QUESTION_MAX_CHARS} characters).` },
         { status: 400 }
       )
     }

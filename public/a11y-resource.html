@@ -369,6 +369,7 @@
             placeholder="e.g. How do I make a modal dialog accessible?"
             autocomplete="off"
             aria-label="Ask an accessibility question"
+            maxlength="240"
           />
           <button id="ai-btn" aria-label="Ask question" type="button">
             <span id="ai-btn-content">Ask A11y AI</span>
@@ -1618,8 +1619,8 @@ tabs.forEach(tab =&gt; tab.addEventListener('click', () =&gt; activateTab(tab)))
                 <tr><td>1</td><td>Keyboard only</td><td>Tab through every interactive element. Is focus always visible? Can you reach and operate everything?</td></tr>
                 <tr><td>2</td><td>Screen reader (NVDA/VoiceOver)</td><td>Navigate by headings, landmarks, links. Do all images, buttons, and forms make sense?</td></tr>
                 <tr><td>3</td><td>200% zoom</td><td>Zoom to 200% in browser. Does content reflow? Does anything overlap or disappear? (Optional: use <a href="https://chromewebstore.google.com/detail/visionswitch/hlnonhodhmnljggnccgpldpapilcboba" target="_blank" rel="noopener">VisionSwitch</a> for additional vision-mode testing.)</td></tr>
-                <tr><td>4</td><td>1.5× text spacing</td><td>Apply <a href="https://www.html5accessibility.com/tests/tsbookmarklet.html" target="_blank" rel="noopener">Text Spacing Bookmarklet</a>. Check nothing breaks. (Optional: use <a href="https://chromewebstore.google.com/detail/visionswitch/hlnnonhodhmnljggnccgpldpapilcboba" target="_blank" rel="noopener">VisionSwitch</a> for additional vision-mode testing.)</td></tr>
-                <tr><td>5</td><td>High contrast mode</td><td>Enable Windows High Contrast / macOS Increase Contrast. Custom colours should not break content. (Optional: use <a href="https://chromewebstore.google.com/detail/visionswitch/hlnnonhodhmnljggnccgpldpapilcboba" target="_blank" rel="noopener">VisionSwitch</a> for additional contrast/color-vision testing.)</td></tr>
+                <tr><td>4</td><td>1.5× text spacing</td><td>Apply <a href="https://www.html5accessibility.com/tests/tsbookmarklet.html" target="_blank" rel="noopener">Text Spacing Bookmarklet</a>. Check nothing breaks. (Optional: use <a href="https://chromewebstore.google.com/detail/visionswitch/hlnonhodhmnljggnccgpldpapilcboba" target="_blank" rel="noopener">VisionSwitch</a> for additional vision-mode testing.)</td></tr>
+                <tr><td>5</td><td>High contrast mode</td><td>Enable Windows High Contrast / macOS Increase Contrast. Custom colours should not break content. (Optional: use <a href="https://chromewebstore.google.com/detail/visionswitch/hlnonhodhmnljggnccgpldpapilcboba" target="_blank" rel="noopener">VisionSwitch</a> for additional contrast/color-vision testing.)</td></tr>
                 <tr><td>6</td><td>Mobile + switch</td><td>Test with iOS Switch Control or Android Switch Access.</td></tr>
               </tbody>
             </table>

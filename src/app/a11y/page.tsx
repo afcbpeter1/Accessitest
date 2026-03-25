@@ -34,6 +34,7 @@ export default function A11yResourcePage() {
   const [templateCss, setTemplateCss] = useState<string>('')
   const [templateBody, setTemplateBody] = useState<string>('')
   const [templateError, setTemplateError] = useState<string | null>(null)
+  const QUESTION_MAX_CHARS = 240
 
   useEffect(() => {
     let cancelled = false
@@ -97,6 +98,22 @@ export default function A11yResourcePage() {
     const btnContent = document.getElementById('ai-btn-content') as HTMLElement | null
     const result = document.getElementById('ai-result') as HTMLElement | null
 
+    if (input) {
+      input.maxLength = QUESTION_MAX_CHARS
+      input.setAttribute('maxlength', String(QUESTION_MAX_CHARS))
+      input.setAttribute('aria-describedby', 'ai-char-hint')
+
+      const hint = document.createElement('div')
+      hint.id = 'ai-char-hint'
+      hint.style.cssText = 'margin-top:8px;font-size:12px;color:rgba(255,255,255,.95);text-align:center;'
+      hint.textContent = `Limit: ${QUESTION_MAX_CHARS} characters.`
+
+      // Try to place hint under the input box in the hero.
+      const wrap = input.closest('.ai-ask-wrap')
+      const existing = document.getElementById('ai-char-hint')
+      if (!existing && wrap) wrap.appendChild(hint)
+    }
+
     function escHtml(str: string) {
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     }
@@ -140,6 +157,13 @@ export default function A11yResourcePage() {
     async function triggerAsk(questionOverride?: string) {
       const question = (questionOverride ?? input?.value ?? '').trim()
       if (!question || !btn || !btnContent) return
+      if (question.length > QUESTION_MAX_CHARS) {
+        showAnswer(
+          question.slice(0, QUESTION_MAX_CHARS),
+          `Please keep questions under ${QUESTION_MAX_CHARS} characters.`
+        )
+        return
+      }
 
       btn.disabled = true
       btnContent.innerHTML = '<div class="spinner"></div>'

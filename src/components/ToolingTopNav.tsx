@@ -15,7 +15,13 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 export default function ToolingTopNav() {
-  const pathname = usePathname() || ''
+  const rawPathname = usePathname() || ''
+  const pathname = rawPathname !== '/' ? rawPathname.replace(/\/+$/, '') : rawPathname
+  const visibleItems = NAV_ITEMS.filter((item) => {
+    if (item.cta) return true
+    const href = item.href !== '/' ? item.href.replace(/\/+$/, '') : item.href
+    return href !== pathname
+  })
 
   return (
     <nav
@@ -33,7 +39,7 @@ export default function ToolingTopNav() {
         </Link>
 
         <ul className="hidden items-center gap-2 sm:flex" role="list" aria-label="Top navigation">
-          {NAV_ITEMS.map((item) => {
+          {visibleItems.map((item) => {
             const isActive = !item.cta && pathname === item.href
             if (item.cta) {
               return (
