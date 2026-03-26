@@ -56,6 +56,13 @@ steps:
       HTTP_CODE=$(echo "$RESP" | tail -n1)
       echo "$RESP" | sed '$d' > scan-result.json
       echo "--- Scan result (HTTP $(echo $HTTP_CODE)) ---"
+      # Always print the CI report URL on both pass/fail, so the run is easy to find.
+      python3 -c "
+      import json
+      d = json.load(open('scan-result.json'))
+      print('Overall passed:', d.get('passed'))
+      print('Report URL:', d.get('reportUrl') or (d.get('results', [{}]) or [{}])[0].get('reportUrl', ''))
+      "
       # Avoid dumping the full JSON in logs (it can be hard to copy clean URLs from).
       # The detailed per-page report URLs are printed in the next step.
       if [ "$HTTP_CODE" != "200" ]; then
