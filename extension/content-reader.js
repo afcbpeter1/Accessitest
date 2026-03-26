@@ -142,6 +142,7 @@
 
   function speak(text) {
     if (!text) return;
+    text = normalizeSpeechText(text);
     var now = Date.now();
     if (text === lastSpoken && now - lastSpokenAt < 600) return;
     lastSpoken = text;
@@ -183,6 +184,11 @@
         // if (!fallbackUsed) speakLocal(text);
       }
     });
+  }
+
+  function normalizeSpeechText(text) {
+    if (!text || typeof text !== 'string') return text;
+    return text.replace(/\ba11y\b/gi, 'ay eleven why');
   }
 
   function onFocusIn(event) {
@@ -319,6 +325,10 @@
   }
 
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
+    if (msg.type === 'GET_FOCUS_READER_STATUS') {
+      sendResponse({ ok: true, enabled: !!enabled });
+      return;
+    }
     if (msg.type === 'START_FOCUS_READER') {
       start();
       sendResponse({ ok: true, enabled: true });

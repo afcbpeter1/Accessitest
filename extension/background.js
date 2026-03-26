@@ -10,6 +10,27 @@ var extensionAuthToken = null;
 var extensionAppBaseUrl = 'https://a11ytest.ai';
 var readerTtsCache = new Map();
 
+function isReaderSupportedUrl(url) {
+  return !!(url && !url.startsWith('chrome://') && !url.startsWith('chrome-extension://') && !url.startsWith('edge://'));
+}
+
+function stopReaderInTab(tabId, callback) {
+  chrome.scripting.executeScript({ target: { tabId: tabId }, files: ['content-reader.js'] }, function () {
+    if (chrome.runtime.lastError) {
+      if (callback) callback(false);
+      return;
+    }
+    chrome.tabs.sendMessage(tabId, { type: 'STOP_FOCUS_READER' }, function (response) {
+      if (chrome.runtime.lastError) {
+        if (callback) callback(false);
+        return;
+      }
+      focusReaderEnabledByTab[tabId] = !!(response && response.enabled);
+      if (callback) callback(true);
+    });
+  });
+}
+
 function injectAndRunScan(tabId, tags, callback) {
   // Inject axe and content script (axe first so it's in scope); avoids page CSP blocking CDN
   chrome.scripting.executeScript({ target: { tabId: tabId }, files: ['axe.min.js', 'content-scan.js'] }, function () {
@@ -109,13 +130,52 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   if (msg.type === 'GET_FOCUS_READER_STATE') {
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
       var tab = tabs[0];
-      sendResponse({ enabled: !!(tab && tab.id && focusReaderEnabledByTab[tab.id]) });
+      if (!tab || !tab.id || !isReaderSupportedUrl(tab.url || '')) {
+        sendResponse({ enabled: false });
+        return;
+      }
+      // Ask the tab directly (survives service-worker restarts) then sync cache.
+      chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content-reader.js'] }, function () {
+        if (chrome.runtime.lastError) {
+          sendResponse({ enabled: !!focusReaderEnabledByTab[tab.id] });
+          return;
+        }
+        chrome.tabs.sendMessage(tab.id, { type: 'GET_FOCUS_READER_STATUS' }, function (response) {
+          if (chrome.runtime.lastError) {
+            sendResponse({ enabled: !!focusReaderEnabledByTab[tab.id] });
+            return;
+          }
+          var currentEnabled = !!(response && response.enabled);
+          focusReaderEnabledByTab[tab.id] = currentEnabled;
+          sendResponse({ enabled: currentEnabled });
+        });
+      });
     });
     return true;
   }
 
   if (msg.type === 'SET_FOCUS_READER') {
     var enabled = !!msg.enabled;
+    if (!enabled) {
+      // Turning off should stop reader everywhere, not just current tab.
+      var tabIds = Object.keys(focusReaderEnabledByTab)
+        .map(function (id) { return Number(id); })
+        .filter(function (id) { return !!focusReaderEnabledByTab[id]; });
+      if (!tabIds.length) {
+        sendResponse({ enabled: false });
+        return true;
+      }
+      var pending = tabIds.length;
+      tabIds.forEach(function (tabId) {
+        stopReaderInTab(tabId, function () {
+          focusReaderEnabledByTab[tabId] = false;
+          pending -= 1;
+          if (pending === 0) sendResponse({ enabled: false });
+        });
+      });
+      return true;
+    }
+
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
       var tab = tabs[0];
       if (!tab || !tab.id) {
@@ -123,7 +183,7 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
         return;
       }
       var tabUrl = tab.url;
-      if (!tabUrl || tabUrl.startsWith('chrome://') || tabUrl.startsWith('chrome-extension://') || tabUrl.startsWith('edge://')) {
+      if (!isReaderSupportedUrl(tabUrl)) {
         sendResponse({ enabled: false, error: 'Cannot run reader on this page' });
         return;
       }

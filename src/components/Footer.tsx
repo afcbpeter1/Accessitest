@@ -69,7 +69,7 @@ export default function Footer() {
           <p className="text-center text-gray-400">
             &copy; {new Date().getFullYear()} A11ytest.ai. All rights reserved.
           </p>
-          <p className="text-center text-gray-200 text-xs mt-2">
+          <p className="mt-2 text-center text-sm font-semibold text-white">
             A11YTEST.AI LTD · Company no. 17070504
           </p>
         </div>
