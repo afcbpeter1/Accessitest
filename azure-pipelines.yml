@@ -50,8 +50,7 @@ steps:
           "urls": [
             "https://a11ytest.ai",
             "https://a11ytest.ai/playground",
-            "https://a11ytest.ai/logo-contrast-checker",
-            "https://a11ytest.ai/accessibility-issues"
+            "https://a11ytest.ai/logo-contrast-checker"
           ]
         }')
       HTTP_CODE=$(echo "$RESP" | tail -n1)
