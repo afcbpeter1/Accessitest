@@ -15,6 +15,22 @@ import { ClaudeAPI } from '@/lib/claude-api'
 import { ensureRuleLevelLearnedSuggestionAtScanTime, isNoOpOrInvalidCodeExample } from '@/lib/runtime-learned-suggestion'
 import { AccessibilityScanner } from '@/lib/accessibility-scanner'
 
+function deriveWcag22Level(issue: any): 'A' | 'AA' | 'AAA' {
+  const tags = Array.isArray(issue?.tags) ? issue.tags : []
+  const lowered = tags.map((t: any) => String(t).toLowerCase())
+  if (lowered.some((t: string) => t.includes('aaa'))) return 'AAA'
+  if (lowered.some((t: string) => t.includes('aa'))) return 'AA'
+
+  const direct = issue?.wcag22Level || issue?.wcagCriterion || issue?.wcag_level
+  if (typeof direct === 'string') {
+    const n = direct.toLowerCase()
+    if (n.includes('aaa')) return 'AAA'
+    if (n.includes('aa')) return 'AA'
+  }
+
+  return 'A'
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Require authentication
@@ -170,7 +186,7 @@ export async function POST(request: NextRequest) {
               ruleName: issue.description || issue.id,
               description: issue.description || 'Accessibility issue detected',
               impact: issue.impact || 'moderate',
-              wcag22Level: 'A', // Default to A, could be enhanced to detect actual level
+              wcag22Level: deriveWcag22Level(issue),
               help: issue.help || 'Please review and fix this accessibility issue',
               helpUrl: issue.helpUrl || 'https://www.w3.org/WAI/WCAG21/quickref/',
               totalOccurrences: issue.nodes?.length || 1,

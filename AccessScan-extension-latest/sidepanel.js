@@ -234,8 +234,8 @@
           iframe.contentWindow.postMessage({
             type: 'ACCESSSCAN_SHOW_RESULTS',
             url: payload.url || '',
-            issues: payload.issues || [],
-            summary: payload.summary || {},
+            issues: Array.isArray(data.issues) ? data.issues : payload.issues || [],
+            summary: data.summary || payload.summary || {},
             backlogAdded: added,
             backlogAddedDetail: backlogDetail,
             reportUrl: reportUrl || null,

@@ -17,6 +17,22 @@ import { getStandardTagsFromAxeTags } from '@/lib/standard-tags'
 import { ClaudeAPI } from '@/lib/claude-api'
 import { ensureRuleLevelLearnedSuggestionAtScanTime, isNoOpOrInvalidCodeExample } from '@/lib/runtime-learned-suggestion'
 
+function deriveWcag22Level(issue: any): 'A' | 'AA' | 'AAA' {
+  const tags = Array.isArray(issue?.tags) ? issue.tags : []
+  const lowered = tags.map((t: any) => String(t).toLowerCase())
+  if (lowered.some((t: string) => t.includes('aaa'))) return 'AAA'
+  if (lowered.some((t: string) => t.includes('aa'))) return 'AA'
+
+  const direct = issue?.wcag22Level || issue?.wcagCriterion || issue?.wcag_level
+  if (typeof direct === 'string') {
+    const n = direct.toLowerCase()
+    if (n.includes('aaa')) return 'AAA'
+    if (n.includes('aa')) return 'AA'
+  }
+
+  return 'A'
+}
+
 // Auto-create backlog items for unique issues (legacy function)
 async function autoCreateBacklogItems(userId: string, scanResults: any[], scanId: string, scanType: string) {
   const addedItems = []
@@ -525,7 +541,7 @@ export async function POST(request: NextRequest) {
                       ruleName: issue.id,
                       description: issue.description || 'Accessibility issue detected',
                       impact: issue.impact || 'moderate',
-                      wcag22Level: 'A',
+                      wcag22Level: deriveWcag22Level(issue),
                       help: issue.help || 'Please review and fix this accessibility issue',
                       helpUrl: issue.helpUrl || 'https://www.w3.org/WAI/WCAG21/quickref/',
                       totalOccurrences: issue.nodes?.length || 1,

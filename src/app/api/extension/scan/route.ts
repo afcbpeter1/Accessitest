@@ -7,6 +7,7 @@ import { autoCreateBacklogItemsWithHistoryId } from '@/lib/backlog-from-scan'
 import { addScanResultsToProductBacklog } from '@/lib/product-backlog-from-scan'
 import { AccessibilityScanner } from '@/lib/accessibility-scanner'
 import type { AccessibilityIssue } from '@/lib/accessibility-scanner'
+import { ScanService, ScanOptions } from '@/lib/scan-service'
 import { isValidUrl } from '@/lib/url-utils'
 import { screenshotService } from '@/lib/screenshot-service'
 import { CloudinaryService } from '@/lib/cloudinary-service'
@@ -36,6 +37,22 @@ function pruneChargedMultiScanIds(now: number) {
       chargedMultiScanIds.delete(key)
     }
   }
+}
+
+function deriveWcag22Level(issue: any): 'A' | 'AA' | 'AAA' {
+  const tags = Array.isArray(issue?.tags) ? issue.tags : []
+  const lowered = tags.map((t: any) => String(t).toLowerCase())
+  if (lowered.some((t: string) => t.includes('aaa'))) return 'AAA'
+  if (lowered.some((t: string) => t.includes('aa'))) return 'AA'
+
+  const direct = issue?.wcag22Level || issue?.wcagCriterion || issue?.wcag_level
+  if (typeof direct === 'string') {
+    const n = direct.toLowerCase()
+    if (n.includes('aaa')) return 'AAA'
+    if (n.includes('aa')) return 'AA'
+  }
+
+  return 'A'
 }
 
 export async function OPTIONS() {
@@ -69,11 +86,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const totalIssues = Number(summary.total) || issues.length
-    const criticalIssues = Number(summary.critical) ?? issues.filter((i: any) => i.impact === 'critical').length
-    const seriousIssues = Number(summary.serious) ?? issues.filter((i: any) => i.impact === 'serious').length
-    const moderateIssues = Number(summary.moderate) ?? issues.filter((i: any) => i.impact === 'moderate').length
-    const minorIssues = Number(summary.minor) ?? issues.filter((i: any) => i.impact === 'minor').length
+    // Start with the client-side (in-tab) totals as a fallback.
+    // If we successfully run the server-side scan, we will override these.
+    let totalIssues = Number(summary.total) || issues.length
+    let criticalIssues = Number(summary.critical) ?? issues.filter((i: any) => i.impact === 'critical').length
+    let seriousIssues = Number(summary.serious) ?? issues.filter((i: any) => i.impact === 'serious').length
+    let moderateIssues = Number(summary.moderate) ?? issues.filter((i: any) => i.impact === 'moderate').length
+    let minorIssues = Number(summary.minor) ?? issues.filter((i: any) => i.impact === 'minor').length
 
     const now = Date.now()
     pruneChargedMultiScanIds(now)
@@ -94,11 +113,45 @@ export async function POST(request: NextRequest) {
       if (dedupeKey) chargedMultiScanIds.set(dedupeKey, now)
     }
 
+    // Run the authoritative server-side scan so the extension sees the same issues
+    // as the web app (including deep checks like content-readability).
+    let serverScanIssues: any[] = []
+    let serverSummary: any = null
+    const selectedTags: string[] | undefined =
+      Array.isArray(reqSelectedTags) && reqSelectedTags.length > 0 ? reqSelectedTags : undefined
+    try {
+      const scanService = new ScanService()
+      const scanResults = await scanService.startScan({
+        url,
+        includeSubdomains: false,
+        deepCrawl: false,
+        maxPages: 1,
+        scanType: 'full',
+        selectedTags
+      } satisfies ScanOptions)
+      const first = scanResults?.[0]
+      if (first?.issues && Array.isArray(first.issues)) {
+        serverScanIssues = first.issues
+        serverSummary = first.summary ?? null
+      }
+    } catch (serverScanErr) {
+      console.warn('Extension: server-side scan failed, falling back to client issues:', serverScanErr)
+    }
+
+    if (serverSummary) {
+      totalIssues = Number(serverSummary.total) || totalIssues
+      criticalIssues = Number(serverSummary.critical) ?? criticalIssues
+      seriousIssues = Number(serverSummary.serious) ?? seriousIssues
+      moderateIssues = Number(serverSummary.moderate) ?? moderateIssues
+      minorIssues = Number(serverSummary.minor) ?? minorIssues
+    }
+
     // Normalize issues and use learned suggestions (same as pipeline) + rule-based fallback; log for cron to update daily
     const scanner = new AccessibilityScanner()
     const claude = new ClaudeAPI()
     const inflightRuleLearns = new Map<string, Promise<any>>()
-    const normalizedIssues: AccessibilityIssue[] = issues.map((i: any) => ({
+    const issuesToUse: any[] = serverScanIssues.length > 0 ? serverScanIssues : issues
+    const normalizedIssues: AccessibilityIssue[] = issuesToUse.map((i: any) => ({
       id: i.id || 'unknown',
       impact: (i.impact === 'critical' || i.impact === 'serious' || i.impact === 'moderate' || i.impact === 'minor' ? i.impact : 'moderate') as AccessibilityIssue['impact'],
       tags: Array.isArray(i.tags) ? i.tags : [],
@@ -175,7 +228,7 @@ export async function POST(request: NextRequest) {
           ruleName: issue.id,
           description: issue.description || 'Accessibility issue detected',
           impact: issue.impact || 'moderate',
-          wcag22Level: 'A',
+          wcag22Level: deriveWcag22Level(issue),
           help: issue.help || 'Please review and fix this accessibility issue',
           helpUrl: issue.helpUrl || 'https://www.w3.org/WAI/WCAG21/quickref/',
           totalOccurrences: issue.nodes?.length || 1,
@@ -300,6 +353,8 @@ export async function POST(request: NextRequest) {
         scanHistoryId,
         reportUrl,
         remediationReport,
+        issues: normalizedIssues,
+        summary: complianceSummary,
         // Backwards/forwards compatible payload:
         // - extension UI expects `backlogAdded` as a number
         // - and `backlogAddedDetail` as an object

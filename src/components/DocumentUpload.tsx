@@ -1959,13 +1959,11 @@ export default function DocumentUpload({ onScanComplete }: DocumentUploadProps) 
                                     {/* Show duplicate indicator if this is a grouped issue */}
                                     {issue.occurrences && issue.occurrences > 1 && (
                                       <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded border border-purple-200 flex items-center gap-1" title={`This issue appears ${issue.occurrences} times in the document`}>
-                                        <span>Duplicate</span>
                                         <span>Duplicate ({issue.occurrences}x)</span>
                                       </span>
                                     )}
                                     {issue.elementType === 'multiple' && (
                                       <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded border border-purple-200 flex items-center gap-1" title="This is a grouped duplicate issue">
-                                        <span>Duplicate</span>
                                         <span>Grouped Duplicate</span>
                                       </span>
                                     )}

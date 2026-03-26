@@ -964,7 +964,6 @@ ${item.failure_summary || 'N/A'}
                                         {/* Show duplicate indicator if this issue appears multiple times */}
                                         {item.total_occurrences && item.total_occurrences > 1 && (
                                           <span className="px-2 py-1 text-xs bg-purple-100 text-purple-800 rounded-full border border-purple-200 inline-flex items-center gap-1 whitespace-nowrap" title={`This issue appears ${item.total_occurrences} times`}>
-                                            <span>Duplicate</span>
                                             <span>Duplicate ({item.total_occurrences}x)</span>
                                           </span>
                                         )}
