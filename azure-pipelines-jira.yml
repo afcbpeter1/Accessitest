@@ -15,7 +15,7 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  - group: a11ytest-secrets   # ← Library group containing A11YTEST_API_KEY
+  - group: a11ytest-secretsJira   # ← Library group containing A11YTEST_API_KEY
   - name: nodeVersion
     value: '18.x'
 
