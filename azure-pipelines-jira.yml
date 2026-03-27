@@ -1,4 +1,4 @@
-# Azure DevOps pipeline for A11ytest.ai (Jira variant)
+# Azure DevOps pipeline for A11ytest.ai
 trigger:
   branches:
     include:
@@ -48,9 +48,8 @@ steps:
         -H "Content-Type: application/json" \
         -d '{
           "urls": [
-            "https://a11ytest.ai/accessibility-issues",
-            "https://a11ytest.ai/playground",
-            "https://a11ytest.ai/logo-contrast-checker"
+            "https://a11ytest.ai",
+            "https://a11ytest.ai/accessibility-issues"
           ]
         }')
       HTTP_CODE=$(echo "$RESP" | tail -n1)
@@ -151,4 +150,3 @@ steps:
         exit 1
       fi
     displayName: 'Check accessibility scan result'
-
