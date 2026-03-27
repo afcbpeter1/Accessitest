@@ -106,7 +106,7 @@ export default function SettingsPage() {
     apiToken: '',
     projectKey: '',
     issueType: 'Bug',
-    autoSyncEnabled: false
+    autoSyncEnabled: true
   })
   const [jiraProjects, setJiraProjects] = useState<any[]>([])
   const [jiraIssueTypes, setJiraIssueTypes] = useState<any[]>([])
@@ -371,7 +371,7 @@ export default function SettingsPage() {
           apiToken: '', // Never load token from DB for security
           projectKey: data.integration.projectKey || '',
           issueType: data.integration.issueType || 'Bug',
-          autoSyncEnabled: data.integration.autoSyncEnabled ?? false
+          autoSyncEnabled: data.integration.autoSyncEnabled ?? true
         })
         
         // Always show credentials step so user can see all fields
@@ -393,7 +393,7 @@ export default function SettingsPage() {
             apiToken: '',
             projectKey: '',
             issueType: 'Bug',
-            autoSyncEnabled: false
+            autoSyncEnabled: true
           })
           setJiraStep('credentials')
         }
@@ -510,6 +510,60 @@ export default function SettingsPage() {
     }
   }
 
+  const handleJiraAutoSyncToggle = async (enabled: boolean) => {
+    setJiraForm(prev => ({ ...prev, autoSyncEnabled: enabled }))
+
+    // For new integrations, persist during the normal Save flow.
+    if (!jiraIntegration) return
+
+    setSaving(true)
+    setMessage(null)
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      const jiraUrl = jiraForm.jiraUrl || jiraIntegration.jiraUrl
+      const email = jiraForm.email || jiraIntegration.email
+      const projectKey = jiraForm.projectKey || jiraIntegration.projectKey
+      const issueType = jiraForm.issueType || jiraIntegration.issueType || 'Bug'
+
+      if (!jiraUrl || !email || !projectKey) {
+        setMessage({ type: 'error', text: 'Please complete Jira URL, email, and project before enabling auto-sync.' })
+        return
+      }
+
+      const saveData: any = {
+        jiraUrl,
+        email,
+        projectKey,
+        issueType,
+        autoSyncEnabled: enabled
+      }
+
+      const response = await fetch('/api/jira/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(saveData)
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        setMessage({ type: 'success', text: `Jira auto-sync ${enabled ? 'enabled' : 'disabled'}.` })
+        await loadJiraIntegration()
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to update Jira auto-sync setting' })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to update Jira auto-sync setting' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleJiraDisconnect = async () => {
     setSaving(true)
     setMessage(null)
@@ -533,7 +587,7 @@ export default function SettingsPage() {
           apiToken: '',
           projectKey: '',
           issueType: 'Bug',
-          autoSyncEnabled: false
+          autoSyncEnabled: true
         })
         setJiraStep('credentials')
       } else {
@@ -1760,6 +1814,24 @@ export default function SettingsPage() {
                           )}
                         </div>
                       )}
+                      <div className="rounded-md border border-gray-200 bg-white px-3 py-2">
+                        <label className="flex items-start gap-3">
+                          <input
+                            id="settings-jira-auto-sync"
+                            type="checkbox"
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            checked={jiraForm.autoSyncEnabled}
+                            onChange={(e) => handleJiraAutoSyncToggle(e.target.checked)}
+                            disabled={saving}
+                          />
+                          <span>
+                            <span className="block text-sm font-medium text-gray-900">Enable auto-sync for Jira tickets</span>
+                            <span className="block text-xs text-gray-700">
+                              Required for CI pipeline Jira posting.
+                            </span>
+                          </span>
+                        </label>
+                      </div>
 
                       <div className="flex space-x-3">
                         {!jiraIntegration && (

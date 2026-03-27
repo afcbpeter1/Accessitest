@@ -16,6 +16,22 @@ export default function LoginPage() {
 
   // Check for logout message and clear any stale/expired token so "session expired" doesn’t show again
   useEffect(() => {
+    const url = new URL(window.location.href)
+    const emailParam = url.searchParams.get('email')
+    const hadPasswordParam = url.searchParams.has('password')
+    const hadEmailParam = url.searchParams.has('email')
+
+    // Never keep credentials or PII in the login URL.
+    if (hadEmailParam || hadPasswordParam) {
+      if (emailParam) setEmail(emailParam)
+      url.searchParams.delete('email')
+      url.searchParams.delete('password')
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+    }
+    if (hadPasswordParam) {
+      setError('For security, password query parameters are blocked. Please enter your password in the form.')
+    }
+
     const message = sessionStorage.getItem('loginMessage')
     if (message) {
       setLogoutMessage(message)

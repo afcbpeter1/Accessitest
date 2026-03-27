@@ -111,6 +111,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
 
     const { jiraUrl, email, apiToken, projectKey, issueType, autoSyncEnabled, teamId } = body
+    const resolvedAutoSyncEnabled = autoSyncEnabled ?? true
 
     // If teamId provided, check permissions
     if (teamId) {
@@ -219,7 +220,7 @@ export async function POST(request: NextRequest) {
               project_key = $4, issue_type = $5, auto_sync_enabled = $6,
               is_active = true, updated_at = NOW()
           WHERE team_id = $7`,
-          [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false, teamId]
+          [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', resolvedAutoSyncEnabled, teamId]
         )
       } else {
         await query(
@@ -228,7 +229,7 @@ export async function POST(request: NextRequest) {
               project_key = $4, issue_type = $5, auto_sync_enabled = $6,
               is_active = true, updated_at = NOW()
           WHERE user_id = $7 AND team_id IS NULL`,
-          [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false, user.userId]
+          [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', resolvedAutoSyncEnabled, user.userId]
         )
       }
     } else {
@@ -237,7 +238,7 @@ export async function POST(request: NextRequest) {
         `INSERT INTO jira_integrations 
         (user_id, team_id, jira_url, jira_email, encrypted_api_token, project_key, issue_type, auto_sync_enabled, is_active)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
-        [user.userId, teamId || null, jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false]
+        [user.userId, teamId || null, jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', resolvedAutoSyncEnabled]
       )
     }
 
@@ -262,13 +263,13 @@ export async function POST(request: NextRequest) {
               `UPDATE jira_integrations SET jira_url = $1, jira_email = $2, encrypted_api_token = $3,
                 project_key = $4, issue_type = $5, auto_sync_enabled = $6, is_active = true, updated_at = NOW()
                WHERE team_id = $7`,
-              [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false, tid]
+              [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', resolvedAutoSyncEnabled, tid]
             )
           } else {
             await query(
               `INSERT INTO jira_integrations (user_id, team_id, jira_url, jira_email, encrypted_api_token, project_key, issue_type, auto_sync_enabled, is_active)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
-              [user.userId, tid, jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', autoSyncEnabled ?? false]
+              [user.userId, tid, jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', resolvedAutoSyncEnabled]
             )
           }
         }
