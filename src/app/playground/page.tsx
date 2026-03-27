@@ -396,7 +396,7 @@ export default function AccessibilityPlayground() {
   const getImpactColor = (impact: string) => {
     switch (impact) {
       case 'critical': return 'text-red-800 bg-red-50 border-red-200'
-      case 'serious': return 'text-orange-800 bg-orange-50 border-orange-200'
+      case 'serious': return 'text-amber-950 bg-white border-amber-700'
       case 'moderate': return 'text-yellow-800 bg-yellow-50 border-yellow-200'
       case 'minor': return 'text-blue-800 bg-blue-50 border-blue-200'
       default: return 'text-gray-800 bg-gray-50 border-gray-200'
@@ -470,7 +470,7 @@ export default function AccessibilityPlayground() {
                             <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full border border-purple-200">
                               WCAG 2.2 {issue.wcagLevel}
                             </span>
-                            <div className="flex items-center space-x-1 text-gray-500">
+                            <div className="flex items-center space-x-1 text-gray-700">
                               {getCategoryIcon(issue.category)}
                               <span className="text-xs capitalize">{issue.category}</span>
                             </div>

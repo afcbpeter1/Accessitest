@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function TermsOfServicePage() {
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <main className="min-h-screen bg-gray-50 py-12">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <article className="rounded-lg border border-gray-200 bg-white p-8 md:p-12">
           <h1 className="mb-2 text-3xl font-bold text-gray-900">Terms of Service</h1>
@@ -15,7 +15,7 @@ export default function TermsOfServicePage() {
 
           <div className="space-y-6 text-gray-700">
             <section><h2 className="text-xl font-semibold text-gray-900">1. About Us</h2><p>A11ytest.ai is operated by A11YTEST.AI LTD, registered in England and Wales (Company No. 17070504), registered address: [YOUR REGISTERED ADDRESS]. Contact: hello@a11ytest.ai.</p></section>
-            <section><h2 className="text-xl font-semibold text-gray-900">2. Agreement to Terms</h2><p>By accessing or using A11ytest.ai (&quot;Service&quot;), you agree to be bound by these Terms of Service. If you do not agree, do not use the Service.</p><p>These Terms, together with our Privacy Policy and Cookie Policy, form the entire agreement between you and us regarding the Service.</p></section>
+            <section><h2 className="text-xl font-semibold text-gray-900">2. Agreement to Terms</h2><p>By using A11ytest.ai (&quot;Service&quot;), you agree to these Terms of Service. If you do not agree, please do not use the Service.</p><p>These Terms, our Privacy Policy, and our Cookie Policy are the full agreement for this Service.</p></section>
             <section><h2 className="text-xl font-semibold text-gray-900">3. Description of Service</h2><ul className="list-disc pl-6"><li>Automated accessibility scanning for PDF documents and websites</li><li>WCAG 2.2 and Section 508 compliance testing</li><li>AI-powered remediation suggestions</li><li>Scan history, reporting, and product backlog integration</li></ul></section>
             <section><h2 className="text-xl font-semibold text-gray-900">4. Account Requirements</h2><ul className="list-disc pl-6"><li>You must be at least 18 years old to create an account</li><li>You must provide accurate and complete information</li><li>You are responsible for account/password security and all activity under your account</li><li>Notify us immediately of unauthorized use at hello@a11ytest.ai</li></ul></section>
             <section><h2 className="text-xl font-semibold text-gray-900">5. Payment Terms</h2><p>All payments are processed securely through Stripe (PCI DSS Level 1). We do not store payment card details.</p><p className="font-medium">Credits</p><ul className="list-disc pl-6"><li>Added immediately after successful payment</li><li>Do not expire</li><li>Each scan consumes 1 credit</li><li>Generally non-refundable except where required by law</li></ul><p className="font-medium">Subscriptions</p><ul className="list-disc pl-6"><li>Billed monthly or annually</li><li>Auto-renew unless cancelled</li><li>Cancel anytime; effective end of billing period</li></ul><p className="font-medium">Consumers: 14-day cancellation right</p><p>If you are a consumer, you may cancel within 14 days under the Consumer Contracts Regulations 2013. If you used the Service in that period, refund may be reduced pro-rata.</p><p className="font-medium">Refunds</p><p>Contact hello@a11ytest.ai.</p></section>
@@ -32,6 +32,6 @@ export default function TermsOfServicePage() {
           </div>
         </article>
       </div>
-    </div>
+    </main>
   )
 }

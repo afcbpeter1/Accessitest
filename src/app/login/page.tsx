@@ -90,7 +90,7 @@ export default function LoginPage() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
+    <main className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -101,9 +101,9 @@ export default function LoginPage() {
               className="h-12 w-auto object-contain" 
             />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+          <h1 className="mt-6 text-3xl font-bold text-gray-900">
             Sign in
-          </h2>
+          </h1>
           <p className="mt-2 text-sm text-gray-600">
             Access your accessibility testing dashboard
           </p>
@@ -149,6 +149,7 @@ export default function LoginPage() {
                   type="button"
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5 text-gray-400" />
@@ -207,6 +208,6 @@ export default function LoginPage() {
         </form>
 
       </div>
-    </div>
+    </main>
   )
 }

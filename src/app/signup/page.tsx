@@ -228,7 +228,7 @@ function SignupPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -239,9 +239,9 @@ function SignupPageContent() {
               className="h-12 w-auto object-contain" 
             />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+          <h1 className="mt-6 text-3xl font-bold text-gray-900">
             Create your account
-          </h2>
+          </h1>
           <p className="mt-2 text-sm text-gray-600">
             Start testing accessibility compliance today
           </p>
@@ -322,6 +322,7 @@ function SignupPageContent() {
                   type="button"
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5 text-gray-400" />
@@ -363,6 +364,7 @@ function SignupPageContent() {
                   type="button"
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
                 >
                   {showConfirmPassword ? (
                     <EyeOff className="h-5 w-5 text-gray-400" />
@@ -408,7 +410,7 @@ function SignupPageContent() {
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-900 hover:bg-blue-950 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Creating account...' : 'Create account'}
             </button>
@@ -418,7 +420,7 @@ function SignupPageContent() {
           <div className="text-center">
             <div className="text-sm">
               <span className="text-gray-600">Already have an account? </span>
-              <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+              <Link href="/login" className="font-medium text-blue-900 hover:text-blue-950">
                 Sign in
               </Link>
             </div>
@@ -463,7 +465,7 @@ function SignupPageContent() {
               <button
                 type="submit"
                 disabled={isLoading || verificationCode.length !== 6}
-                className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-900 hover:bg-blue-950 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Verifying...' : 'Verify Email'}
               </button>
@@ -474,7 +476,7 @@ function SignupPageContent() {
                 type="button"
                 onClick={handleResendCode}
                 disabled={isLoading}
-                className="text-sm text-blue-600 hover:text-blue-500 disabled:opacity-50"
+                className="text-sm text-blue-900 hover:text-blue-950 disabled:opacity-50"
               >
                 Didn't receive the code? Resend
               </button>
@@ -494,8 +496,8 @@ function SignupPageContent() {
 
         {/* Benefits */}
         <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-          <h3 className="text-sm font-medium text-blue-900 mb-2">What you get:</h3>
-          <ul className="text-xs text-blue-700 space-y-1">
+          <p className="text-sm font-medium text-blue-900 mb-2">What you get:</p>
+          <ul className="text-xs text-blue-900 space-y-1">
             <li>• 3 free scans to start testing</li>
             <li>• Section 508 compliance testing</li>
             <li>• WCAG 2.2 accessibility testing</li>
@@ -504,7 +506,7 @@ function SignupPageContent() {
           </ul>
         </div>
       </div>
-    </div>
+    </main>
   )
 }
 

@@ -120,7 +120,7 @@ function WcagTable({ rows }: { rows: { id: string; level: 'A' | 'AA' | 'AAA'; su
     AAA: { bg: '#ede9fe', color: '#5b21b6' },
   }
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, margin: '1rem 0' }}>
+    <table tabIndex={0} aria-label="WCAG criteria summary table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, margin: '1rem 0' }}>
       <thead>
         <tr>
           {['Criterion', 'Level', 'Summary'].map(h => (
@@ -551,7 +551,7 @@ export default function A11yPage() {
             <section className="a11y-section" id="aria-roles" data-section="aria-roles">
               <SectionTag>Foundations</SectionTag>
               <SectionHeading>ARIA Roles</SectionHeading>
-              <SectionIntro>When native HTML doesn't cover a pattern, ARIA roles let you communicate the purpose of custom components to assistive technology.</SectionIntro>
+              <SectionIntro>Use ARIA roles only when native HTML cannot express the pattern. ARIA helps screen readers understand custom components.</SectionIntro>
               <Callout type="warn"><strong>First rule of ARIA:</strong> don't use ARIA when native HTML works. Adding role="button" to a div still requires you to manually handle keyboard events, focus, and state.</Callout>
               <CodeBlock lang="html">{`<!-- Widget roles -->
 <div role="button">        <!-- interactive button -->
@@ -612,7 +612,7 @@ btn.addEventListener('click', () => {
               <SectionHeading>Keyboard Navigation</SectionHeading>
               <SectionIntro>All functionality must be operable by keyboard alone. WCAG 2.1.1 (Level A) requires no mouse dependency.</SectionIntro>
               <SubHeading>Standard keyboard conventions</SubHeading>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, margin: '1rem 0' }}>
+              <table tabIndex={0} aria-label="Keyboard navigation key actions table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, margin: '1rem 0' }}>
                 <thead>
                   <tr>{['Key', 'Expected action'].map(h => <th key={h} style={{ background: '#f3f2ee', padding: '.6rem .9rem', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '.5px', color: '#4a4a52', borderBottom: '1px solid #e0dfd9' }}>{h}</th>)}</tr>
                 </thead>
@@ -828,7 +828,7 @@ menu.addEventListener('keydown', (e) => {
               <SectionTag>Content</SectionTag>
               <SectionHeading>Colour & Contrast</SectionHeading>
               <SectionIntro>Roughly 300 million people have colour vision deficiency. WCAG contrast requirements ensure text is readable for users with low vision or on poor screens.</SectionIntro>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, margin: '1rem 0' }}>
+              <table tabIndex={0} aria-label="Colour contrast requirements table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, margin: '1rem 0' }}>
                 <thead><tr>{['Content type', 'Level AA', 'Level AAA'].map(h => <th key={h} style={{ background: '#f3f2ee', padding: '.6rem .9rem', textAlign: 'left', fontWeight: 600, fontSize: 12, textTransform: 'uppercase', letterSpacing: '.5px', color: '#4a4a52', borderBottom: '1px solid #e0dfd9' }}>{h}</th>)}</tr></thead>
                 <tbody>
                   {[

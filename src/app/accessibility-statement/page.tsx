@@ -7,14 +7,14 @@ export const metadata: Metadata = {
 
 export default function AccessibilityStatementPage() {
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <main className="min-h-screen bg-gray-50 py-12">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <article className="rounded-lg border border-gray-200 bg-white p-8 md:p-12">
           <h1 className="mb-2 text-3xl font-bold text-gray-900">Accessibility Statement</h1>
           <p className="mb-8 text-sm text-gray-600">A11YTEST.AI LTD | Last updated: March 2026</p>
 
           <div className="space-y-6 text-gray-700">
-            <section><h2 className="text-xl font-semibold text-gray-900">1. Our Commitment</h2><p>A11ytest.ai is committed to ensuring digital accessibility for people with disabilities and continuously improving user experience for everyone.</p></section>
+            <section><h2 className="text-xl font-semibold text-gray-900">1. Our Commitment</h2><p>A11ytest.ai works to make our service accessible for people with disabilities. We keep improving the experience for all users.</p></section>
             <section><h2 className="text-xl font-semibold text-gray-900">2. Conformance Status</h2><p>A11ytest.ai is partially conformant with WCAG 2.2 Level AA.</p></section>
             <section>
               <h2 className="text-xl font-semibold text-gray-900">3. Accessibility Features</h2>
@@ -36,6 +36,6 @@ export default function AccessibilityStatementPage() {
           </div>
         </article>
       </div>
-    </div>
+    </main>
   )
 }

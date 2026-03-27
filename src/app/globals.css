@@ -213,6 +213,15 @@ p, div {
   hyphens: auto;
 }
 
+/* Home page copy should wrap naturally without inserted hyphenation. */
+.home-readable-text p,
+.home-readable-text div {
+  hyphens: none;
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
 /* Avoid per-letter wrapping for inline labels/buttons/headings */
 span, h1, h2, h3, h4, h5, h6, button, a {
   overflow-wrap: normal;

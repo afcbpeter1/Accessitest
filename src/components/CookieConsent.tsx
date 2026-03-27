@@ -112,7 +112,7 @@ export default function CookieConsent() {
                     <p className="text-xs text-gray-500 mt-3">
                       <Link 
                         href="/cookie-policy" 
-                        className="text-blue-600 hover:text-blue-800 underline"
+                        className="text-blue-800 hover:text-blue-900 underline"
                       >
                         Learn more about our cookie policy
                       </Link>
@@ -132,7 +132,7 @@ export default function CookieConsent() {
                 </button>
                 <button
                   onClick={handleAccept}
-                  className="px-6 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  className="px-6 py-2.5 text-sm font-medium text-white bg-blue-900 rounded-lg hover:bg-blue-950 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-900 focus:ring-offset-2"
                   aria-label="Accept all cookies"
                 >
                   Accept All

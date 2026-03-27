@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function CookiePolicyPage() {
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <main className="min-h-screen bg-gray-50 py-12">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <article className="rounded-lg border border-gray-200 bg-white p-8 md:p-12">
           <h1 className="mb-2 text-3xl font-bold text-gray-900">Cookie Policy</h1>
@@ -19,7 +19,7 @@ export default function CookiePolicyPage() {
             <section>
               <h2 className="text-xl font-semibold text-gray-900">3. Cookies We Set</h2>
               <div className="overflow-x-auto">
-                <table className="mt-3 w-full border-collapse text-sm">
+                <table tabIndex={0} aria-label="Cookie policy cookies table" className="mt-3 w-full border-collapse text-sm">
                   <thead><tr><th className="border-b bg-gray-50 p-2 text-left">Cookie name</th><th className="border-b bg-gray-50 p-2 text-left">Type</th><th className="border-b bg-gray-50 p-2 text-left">Duration</th><th className="border-b bg-gray-50 p-2 text-left">Purpose</th></tr></thead>
                   <tbody>
                     <tr><td className="border-b p-2">session_token</td><td className="border-b p-2">Essential</td><td className="border-b p-2">Session</td><td className="border-b p-2">Maintains login session</td></tr>
@@ -41,6 +41,6 @@ export default function CookiePolicyPage() {
           </div>
         </article>
       </div>
-    </div>
+    </main>
   )
 }

@@ -461,7 +461,7 @@ export default function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <main id="main-content" className="pt-20 bg-gradient-to-br from-[#06B6D4] to-[#0B1220] text-white" role="main">
+      <main id="main-content" className="home-readable-text pt-20 bg-gradient-to-br from-[#06B6D4] to-[#0B1220] text-white" role="main">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-5xl font-bold mb-4">
             A11y Test Accessibility Testing Platform, WCAG Checker & Color Contrast Checker
@@ -577,22 +577,22 @@ export default function HomePage() {
             <div className="text-center">
               <div className="text-4xl font-bold text-[#0B1220] mb-2">Section 508</div>
               <div className="text-gray-600">Compliance Testing</div>
-              <p className="text-sm text-gray-500 mt-2">Complete federal compliance testing coverage</p>
+              <p className="text-sm text-gray-700 mt-2">Complete federal compliance testing coverage</p>
             </div>
             <div className="text-center">
               <div className="text-4xl font-bold text-[#0B1220] mb-2">1</div>
               <div className="text-gray-600">File Format Supported</div>
-              <p className="text-sm text-gray-500 mt-2">PDF documents</p>
+              <p className="text-sm text-gray-700 mt-2">PDF documents</p>
             </div>
             <div className="text-center">
               <div className="text-4xl font-bold text-[#0B1220] mb-2">WCAG 2.2</div>
               <div className="text-gray-600">Accessibility Standards</div>
-              <p className="text-sm text-gray-500 mt-2">Latest web accessibility guidelines</p>
+              <p className="text-sm text-gray-700 mt-2">Latest web accessibility guidelines</p>
             </div>
             <div className="text-center">
               <div className="text-4xl font-bold text-[#0B1220] mb-2">AI</div>
               <div className="text-gray-600">Powered Analysis</div>
-              <p className="text-sm text-gray-500 mt-2">Intelligent issue detection and recommendations</p>
+              <p className="text-sm text-gray-700 mt-2">Intelligent issue detection and recommendations</p>
             </div>
           </div>
         </div>
@@ -677,7 +677,7 @@ export default function HomePage() {
                         )}
                       </button>
                       
-                      <p className="text-sm text-gray-500 text-center">
+                      <p className="text-sm text-gray-700 text-center">
                         This will scan your homepage for accessibility issues
                       </p>
                     </div>

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPolicyPage() {
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <main className="min-h-screen bg-gray-50 py-12">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <article className="rounded-lg border border-gray-200 bg-white p-8 md:p-12">
           <h1 className="mb-2 text-3xl font-bold text-gray-900">Privacy Policy</h1>
@@ -37,7 +37,7 @@ export default function PrivacyPolicyPage() {
                 collect, why, and the legal basis we rely on.
               </p>
               <div className="overflow-x-auto">
-                <table className="mt-3 w-full border-collapse text-sm">
+                <table tabIndex={0} aria-label="Privacy policy data collection table" className="mt-3 w-full border-collapse text-sm">
                   <thead>
                     <tr>
                       <th className="border-b border-gray-200 bg-gray-50 p-2 text-left">Data type</th>
@@ -71,7 +71,7 @@ export default function PrivacyPolicyPage() {
 
             <section>
               <h2 className="text-xl font-semibold text-gray-900">4. International Data Transfers</h2>
-              <p>Some of our third-party processors are based outside the UK. We ensure appropriate safeguards are in place for all international transfers:</p>
+              <p>Some processors are outside the UK. We use safeguards for all international transfers:</p>
               <ul className="list-disc pl-6">
                 <li>Stripe (USA): Covered by the UK-US Data Bridge adequacy decision. See stripe.com/privacy.</li>
                 <li>Adobe PDF Services (USA): Governed by Adobe&apos;s Data Processing Agreement and Standard Contractual Clauses. PDFs are processed temporarily and not retained. See adobe.com/privacy.html.</li>
@@ -120,7 +120,7 @@ export default function PrivacyPolicyPage() {
           </div>
         </article>
       </div>
-    </div>
+    </main>
   )
 }
 
