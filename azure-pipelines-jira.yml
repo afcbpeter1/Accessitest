@@ -18,6 +18,8 @@ variables:
   - group: a11ytest-secrets   # ← Library group containing A11YTEST_API_KEY
   - name: nodeVersion
     value: '18.x'
+  - name: ciUserId
+    value: ''
 
 steps:
   - task: NodeTool@0
@@ -83,8 +85,12 @@ steps:
               # CI issue objects don't include url themselves.
               issue['url'] = page_url
               issues.append(issue)
+      payload = { 'issues': issues }
+      ci_user_id = '$(ciUserId)'.strip()
+      if ci_user_id:
+          payload['userId'] = ci_user_id
       with open('backlog-issues.json','w') as f:
-          json.dump({ 'userId': '8a9b6d94-b39c-4384-98ce-d889ce118363', 'issues': issues }, f)
+          json.dump(payload, f)
       print(f'Extracted {len(issues)} issues for backlog add')
       "
       RESP=$(curl -s -w "\n%{http_code}" -X POST https://a11ytest.ai/api/ci/backlog-add \

@@ -48,7 +48,14 @@ steps:
         -H "Content-Type: application/json" \
         -d '{
           "urls": [
-            "http://a11ytest.ai/accessibility-issues"
+            "https://a11ytest.ai",
+            "https://a11ytest.ai/playground",
+            "https://a11ytest.ai/logo-contrast-checker",
+            "https://a11ytest.ai/a11y",
+            "https://a11ytest.ai/privacy-policy",
+            "https://a11ytest.ai/terms-of-service",
+            "https://a11ytest.ai/cookie-policy",
+            "https://a11ytest.ai/accessibility-statement",
 
           ]
         }')
