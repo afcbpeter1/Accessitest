@@ -1,4 +1,4 @@
-# Azure DevOps Jira pipeline for A11ytest.ai
+# Azure DevOps pipeline for A11ytest.ai (Jira variant)
 trigger:
   branches:
     include:
@@ -15,11 +15,9 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  - group: a11ytest-secrets   # contains A11YTEST_API_KEY
+  - group: a11ytest-secrets   # ← Library group containing A11YTEST_API_KEY
   - name: nodeVersion
     value: '18.x'
-  - name: ciUserId
-    value: '8a9b6d94-b39c-4384-98ce-d889ce118363'
 
 steps:
   - task: NodeTool@0
@@ -41,6 +39,8 @@ steps:
     env:
       CI: true
 
+  # ── Accessibility scanning ──────────────────────────────────────────────────
+
   - script: |
       set -e
       RESP=$(curl -s -w "\n%{http_code}" -X POST https://a11ytest.ai/api/ci/scan \
@@ -55,18 +55,22 @@ steps:
             "https://a11ytest.ai/privacy-policy",
             "https://a11ytest.ai/terms-of-service",
             "https://a11ytest.ai/cookie-policy",
-            "https://a11ytest.ai/accessibility-statement"
+            "https://a11ytest.ai/accessibility-statement",
+
           ]
         }')
       HTTP_CODE=$(echo "$RESP" | tail -n1)
       echo "$RESP" | sed '$d' > scan-result.json
       echo "--- Scan result (HTTP $(echo $HTTP_CODE)) ---"
+      # Always print the CI report URL on both pass/fail, so the run is easy to find.
       python3 -c "
       import json
       d = json.load(open('scan-result.json'))
       print('Overall passed:', d.get('passed'))
       print('Report URL:', d.get('reportUrl') or (d.get('results', [{}]) or [{}])[0].get('reportUrl', ''))
       "
+      # Avoid dumping the full JSON in logs (it can be hard to copy clean URLs from).
+      # The detailed per-page report URLs are printed in the next step.
       if [ "$HTTP_CODE" != "200" ]; then
         echo "##vso[task.logissue type=error]Accessibility scan API returned HTTP $HTTP_CODE"
         exit 1
@@ -75,6 +79,7 @@ steps:
 
   - script: |
       set -e
+      # Extract all issues across all scanned pages
       python3 -c "
       import json
       d = json.load(open('scan-result.json'))
@@ -82,10 +87,12 @@ steps:
       for r in d.get('results', []) or []:
           page_url = r.get('url', '') or ''
           for issue in (r.get('issues', []) or []):
+              # Attach the page URL so backend can compute domain + de-dup key.
+              # CI issue objects don't include url themselves.
               issue['url'] = page_url
               issues.append(issue)
       with open('backlog-issues.json','w') as f:
-          json.dump({ 'userId': '$(ciUserId)', 'issues': issues }, f)
+          json.dump({ 'userId': '8a9b6d94-b39c-4384-98ce-d889ce118363', 'issues': issues }, f)
       print(f'Extracted {len(issues)} issues for backlog add')
       "
       RESP=$(curl -s -w "\n%{http_code}" -X POST https://a11ytest.ai/api/ci/backlog-add \
@@ -130,6 +137,7 @@ steps:
       set -e
       PASSED=$(python3 -c "import json; d=json.load(open('scan-result.json')); print(d.get('passed', False))")
       echo "Overall passed: $PASSED"
+      # Print each page result and its report URL (proper link, not encoded JSON)
       python3 -c "
       import json
       d = json.load(open('scan-result.json'))
