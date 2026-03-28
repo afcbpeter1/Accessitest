@@ -46,6 +46,13 @@ export default function RootLayout({
           data-key="aWiU18FD0RD4XBrDgOBg6Q"
           async
         ></script>
+        {/* Apollo.io website tracker — paste location equivalent to before </head> */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'function initApollo(){var n=Math.random().toString(36).substring(7),o=document.createElement("script");o.src="https://assets.apollo.io/micro/website-tracker/tracker.iife.js?nocache="+n,o.async=!0,o.defer=!0,o.onload=function(){window.trackingFunctions.onLoad({appId:"69b90093d40a1300217d55e9"})},document.head.appendChild(o)}initApollo();',
+          }}
+        />
       </head>
       <body className="bg-gray-50 min-h-screen overflow-x-hidden">
         <AuthProvider>
