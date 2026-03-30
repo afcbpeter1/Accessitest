@@ -5,6 +5,7 @@
  */
 
 const BASE = process.env.API_BASE_URL || 'http://localhost:3000'
+let runtimeAuthToken: string | null = process.env.PEN_TEST_AUTH_TOKEN || null
 
 type Result = { name: string; ok: boolean; expected: string; actual: string }
 
@@ -42,6 +43,51 @@ function assert(
   actual: string
 ): void {
   results.push(condition ? pass(name, expected) : fail(name, expected, actual))
+}
+
+function getAuthHeaders(): Record<string, string> {
+  return runtimeAuthToken ? { Authorization: `Bearer ${runtimeAuthToken}` } : {}
+}
+
+async function authenticateForPenTests(): Promise<void> {
+  if (runtimeAuthToken) {
+    assert('Auth setup: using provided PEN_TEST_AUTH_TOKEN', true, 'token available', 'token available')
+    return
+  }
+
+  const email = process.env.PEN_TEST_EMAIL
+  const password = process.env.PEN_TEST_PASSWORD
+  if (!email || !password) {
+    assert(
+      'Auth setup: skipped (set PEN_TEST_AUTH_TOKEN or PEN_TEST_EMAIL/PEN_TEST_PASSWORD)',
+      true,
+      'skipped',
+      'skipped'
+    )
+    return
+  }
+
+  const login = await fetchJson(`${BASE}/api/auth`, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'login',
+      email,
+      password
+    })
+  })
+
+  const body = login.body as { success?: boolean; token?: string; error?: string }
+  if (login.status === 200 && body?.success && typeof body?.token === 'string' && body.token.length > 10) {
+    runtimeAuthToken = body.token
+    assert('Auth setup: login succeeded for authenticated pen tests', true, '200 with token', '200 with token')
+  } else {
+    assert(
+      'Auth setup: login failed (authenticated tests will be skipped)',
+      false,
+      '200 with token',
+      `${login.status} ${String(body?.error || 'no token')}`
+    )
+  }
 }
 
 // --- CI Scan API (POST /api/ci/scan) ---
@@ -265,16 +311,126 @@ async function testApiKeysAuth(): Promise<void> {
   )
 }
 
+// --- Issues board update hardening (requires auth token) ---
+async function testIssuesBoardUpdateSqliGuard(): Promise<void> {
+  const token = runtimeAuthToken
+  if (!token) {
+    // Explicitly mark as pass/skip when auth token is unavailable.
+    assert(
+      'Issues board PUT SQLi guard: skipped (set PEN_TEST_AUTH_TOKEN to run)',
+      true,
+      'skipped',
+      'skipped'
+    )
+    return
+  }
+
+  const headers = { Authorization: `Bearer ${token}` }
+  const url = `${BASE}/api/issues-board`
+
+  // Attempt to inject SQL through an update field key. Should be rejected before query execution.
+  const sqliKeyAttempt = await fetchJson(url, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({
+      issueId: '11111111-1111-1111-1111-111111111111',
+      updates: {
+        "status = 'resolved', priority = 'critical' --": 'open'
+      }
+    })
+  })
+  assert(
+    'Issues board PUT: SQL-like field name is rejected (no 500)',
+    sqliKeyAttempt.status === 400 || sqliKeyAttempt.status === 404,
+    '400 or 404',
+    String(sqliKeyAttempt.status)
+  )
+
+  // Attempt to smuggle SQL tokens in a normal value should stay parameterized and not crash.
+  const sqliValueAttempt = await fetchJson(url, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({
+      issueId: '11111111-1111-1111-1111-111111111111',
+      updates: {
+        description: "'; DROP TABLE issues; --"
+      }
+    })
+  })
+  assert(
+    'Issues board PUT: SQL-like value is handled safely (no 500)',
+    sqliValueAttempt.status === 400 || sqliValueAttempt.status === 404,
+    '400 or 404',
+    String(sqliValueAttempt.status)
+  )
+}
+
+// --- Authenticated endpoint checks ---
+async function testAuthenticatedEndpoints(): Promise<void> {
+  if (!runtimeAuthToken) {
+    assert(
+      'Authenticated checks: skipped (no auth token available)',
+      true,
+      'skipped',
+      'skipped'
+    )
+    return
+  }
+
+  const headers = getAuthHeaders()
+
+  const userRes = await fetchJson(`${BASE}/api/user`, {
+    method: 'GET',
+    headers
+  })
+  assert(
+    'Authenticated GET /api/user returns 200',
+    userRes.status === 200,
+    '200',
+    String(userRes.status)
+  )
+
+  const apiKeysRes = await fetchJson(`${BASE}/api/api-keys`, {
+    method: 'GET',
+    headers
+  })
+  assert(
+    'Authenticated GET /api/api-keys is not 401',
+    apiKeysRes.status !== 401,
+    'not 401',
+    String(apiKeysRes.status)
+  )
+}
+
+// --- Support purge endpoint hardening ---
+async function testPurgeEmailInputValidation(): Promise<void> {
+  const url = `${BASE}/api/account/purge-email`
+  const badSecret = await fetchJson(url, {
+    method: 'POST',
+    body: JSON.stringify({ email: "victim@example.com' OR 1=1 --", purgeSecret: 'bad-secret' })
+  })
+  assert(
+    'Purge email: invalid purge secret rejected',
+    badSecret.status === 403 || badSecret.status === 501,
+    '403 or 501',
+    String(badSecret.status)
+  )
+}
+
 async function runAll(): Promise<void> {
   console.log('API security pen tests')
   console.log('Base URL:', BASE)
   console.log('')
 
+  await authenticateForPenTests()
   await testCiScanMethod()
   await testCiScanAuth()
   await testCiScanInputValidation()
   await testReports()
   await testApiKeysAuth()
+  await testAuthenticatedEndpoints()
+  await testIssuesBoardUpdateSqliGuard()
+  await testPurgeEmailInputValidation()
 
   const passed = results.filter((r) => r.ok).length
   const failed = results.filter((r) => !r.ok)

@@ -10,6 +10,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { queryOne } from '@/lib/database'
 import pool from '@/lib/database'
 
+function isSafeIdentifier(value: string): boolean {
+  return /^[a-z_][a-z0-9_]*$/i.test(value)
+}
+
+function quoteIdentifier(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`
+}
+
 export async function POST(request: NextRequest) {
   const secret = process.env.PURGE_USER_SECRET?.trim()
   if (!secret) {
@@ -62,13 +70,16 @@ export async function POST(request: NextRequest) {
       for (const row of tablesWithUserId.rows) {
         const tableName = row.table_name
         if (tableName === 'users') continue
+        if (!isSafeIdentifier(tableName)) {
+          throw new Error(`Unsafe table name encountered: ${tableName}`)
+        }
         if (tableName === 'organization_members') {
           await client.query(
             `DELETE FROM organization_members WHERE user_id = $1 OR invited_by = $1`,
             [userId]
           )
         } else {
-          await client.query(`DELETE FROM ${tableName} WHERE user_id = $1`, [userId])
+          await client.query(`DELETE FROM ${quoteIdentifier(tableName)} WHERE user_id = $1`, [userId])
         }
       }
 
@@ -82,8 +93,11 @@ export async function POST(request: NextRequest) {
 
       for (const row of fkTables.rows) {
         if (tablesWithUserId.rows.some((r: { table_name: string }) => r.table_name === row.table_name)) continue
+        if (!isSafeIdentifier(row.table_name) || !isSafeIdentifier(row.column_name)) {
+          throw new Error(`Unsafe foreign key reference encountered: ${row.table_name}.${row.column_name}`)
+        }
         await client.query(
-          `DELETE FROM ${row.table_name} WHERE ${row.column_name} = $1`,
+          `DELETE FROM ${quoteIdentifier(row.table_name)} WHERE ${quoteIdentifier(row.column_name)} = $1`,
           [userId]
         )
       }

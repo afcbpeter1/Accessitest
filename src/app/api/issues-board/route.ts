@@ -3,6 +3,28 @@ import pool from '@/lib/database'
 import { getAuthenticatedUser } from '@/lib/auth-middleware'
 import { IssuesBoardDataService } from '@/lib/issues-board-data-service'
 
+const ALLOWED_ISSUE_UPDATE_FIELDS = new Set([
+  'status',
+  'priority',
+  'rank',
+  'assignee_id',
+  'assignee',
+  'notes',
+  'labels',
+  'standard_tags',
+  'story_points',
+  'remaining_points',
+  'description',
+  'wcag_level',
+  'impact',
+  'help_url',
+  'page_url',
+  'element_html',
+  'element_selector',
+  'failure_summary',
+  'screenshot_url',
+])
+
 // GET /api/issues-board - Get all issues with filtering and pagination
 export async function GET(request: NextRequest) {
   try {
@@ -171,18 +193,47 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { issueId, updates } = body
+    const { issueId, updates } = body ?? {}
+    if (!issueId || typeof issueId !== 'string') {
+      return NextResponse.json({ error: 'Issue ID required' }, { status: 400 })
+    }
+    if (!updates || typeof updates !== 'object' || Array.isArray(updates)) {
+      return NextResponse.json({ error: 'Valid updates object required' }, { status: 400 })
+    }
 
-    const setClause = Object.keys(updates)
-      .map((key, index) => `${key} = $${index + 2}`)
+    const entries = Object.entries(updates).filter(([key]) => ALLOWED_ISSUE_UPDATE_FIELDS.has(key))
+    if (entries.length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
+    const setClause = entries
+      .map(([key], index) => `${key} = $${index + 3}`)
       .join(', ')
+    const values = [issueId, ...entries.map(([, value]) => value)]
 
-    const values = [issueId, ...Object.values(updates)]
+    // Ensure the issue is owned by the user (their scan) or linked to them via user_issues.
+    // Do this before UPDATE to prevent unauthorized edits and avoid relying on non-existent columns.
+    const ownership = await pool.query(
+      `SELECT i.id
+       FROM issues i
+       LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
+       WHERE i.id = $1
+         AND (
+           sh.user_id = $2
+           OR EXISTS (
+             SELECT 1 FROM user_issues ui WHERE ui.issue_id = i.id AND ui.user_id = $2
+           )
+         )`,
+      [issueId, user.userId]
+    )
+    if (ownership.rows.length === 0) {
+      return NextResponse.json({ error: 'Issue not found' }, { status: 404 })
+    }
 
     const result = await pool.query(
       `UPDATE issues SET ${setClause}, updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $1 AND user_id = $2 RETURNING *`,
-      [issueId, user.userId, ...values.slice(1)]
+       WHERE id = $1 RETURNING *`,
+      values
     )
 
     if (result.rows.length === 0) {

@@ -5,6 +5,14 @@ import pool from '@/lib/database'
 import { getStripe } from '@/lib/stripe-config'
 import { sendAccountDeletedEmail } from '@/lib/subscription-email-service'
 
+function isSafeIdentifier(value: string): boolean {
+  return /^[a-z_][a-z0-9_]*$/i.test(value)
+}
+
+function quoteIdentifier(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`
+}
+
 // Delete user account and all associated data
 export async function DELETE(request: NextRequest) {
   const client = await pool.connect()
@@ -65,6 +73,9 @@ export async function DELETE(request: NextRequest) {
         if (tableName === 'users') {
           continue
         }
+        if (!isSafeIdentifier(tableName)) {
+          throw new Error(`Unsafe table name encountered: ${tableName}`)
+        }
         
         try {
           // Special handling for organization_members - also delete where user is the inviter
@@ -74,8 +85,8 @@ export async function DELETE(request: NextRequest) {
               [user.userId]
             )
           } else {
-            const result = await client.query(
-              `DELETE FROM ${tableName} WHERE user_id = $1`,
+            await client.query(
+              `DELETE FROM ${quoteIdentifier(tableName)} WHERE user_id = $1`,
               [user.userId]
             )
 
@@ -119,6 +130,9 @@ export async function DELETE(request: NextRequest) {
       for (const fkRow of tablesReferencingUsers.rows) {
         const tableName = fkRow.table_name
         const columnName = fkRow.column_name
+        if (!isSafeIdentifier(tableName) || !isSafeIdentifier(columnName)) {
+          throw new Error(`Unsafe foreign key reference encountered: ${tableName}.${columnName}`)
+        }
         
         // Skip if we already deleted from this table
         if (tablesWithUserId.rows.some(row => row.table_name === tableName)) {
@@ -126,8 +140,8 @@ export async function DELETE(request: NextRequest) {
         }
         
         try {
-          const result = await client.query(
-            `DELETE FROM ${tableName} WHERE ${columnName} = $1`,
+          await client.query(
+            `DELETE FROM ${quoteIdentifier(tableName)} WHERE ${quoteIdentifier(columnName)} = $1`,
             [user.userId]
           )
 
