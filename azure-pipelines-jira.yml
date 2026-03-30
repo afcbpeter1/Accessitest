@@ -18,6 +18,8 @@ variables:
   - group: a11ytest-secretsJira   # ← Library group containing A11YTEST_API_KEY
   - name: nodeVersion
     value: '18.x'
+  - name: backlogUserId
+    value: '$(A11YTEST_BACKLOG_USER_ID)'
 
 steps:
   - task: NodeTool@0
@@ -75,6 +77,7 @@ steps:
       # Extract all issues across all scanned pages
       python3 -c "
       import json
+      import os
       d = json.load(open('scan-result.json'))
       issues = []
       for r in d.get('results', []) or []:
@@ -84,8 +87,11 @@ steps:
               # CI issue objects don't include url themselves.
               issue['url'] = page_url
               issues.append(issue)
+      user_id = os.environ.get('BACKLOG_USER_ID', '').strip()
+      if not user_id:
+          raise SystemExit('Missing BACKLOG_USER_ID environment variable')
       with open('backlog-issues.json','w') as f:
-          json.dump({ 'userId': '41ac80ed-cf89-443b-847d-98453edb3cc6', 'issues': issues }, f)
+          json.dump({ 'userId': user_id, 'issues': issues }, f)
       print(f'Extracted {len(issues)} issues for backlog add')
       "
       RESP=$(curl -s -w "\n%{http_code}" -X POST https://a11ytest.ai/api/ci/backlog-add \
@@ -101,6 +107,8 @@ steps:
         exit 1
       fi
     displayName: 'Add CI scan issues to product backlog'
+    env:
+      BACKLOG_USER_ID: $(backlogUserId)
 
   - script: |
       set -e

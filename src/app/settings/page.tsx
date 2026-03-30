@@ -262,6 +262,12 @@ export default function SettingsPage() {
     setMessage({ type: 'success', text: 'API key copied to clipboard' })
   }
 
+  const maskIdentifier = (value?: string | null) => {
+    if (!value) return '—'
+    if (value.length <= 10) return `${value.slice(0, 2)}…${value.slice(-2)}`
+    return `${value.slice(0, 8)}…${value.slice(-6)}`
+  }
+
   const handleDeleteApiKey = async (id: string) => {
     if (!confirm('Delete this API key? Any CI pipelines using it will stop working.')) return
     setDeletingKeyId(id)
@@ -2411,7 +2417,7 @@ export default function SettingsPage() {
                       </p>
                     </div>
 
-                    <p className="text-sm font-medium text-gray-900">Example Pipelines snippet</p>
+                    <p className="text-sm font-medium text-gray-900">Example Pipelines snippet (azure-pipelines.yml)</p>
                     <pre className="bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto text-xs">
 {`- script: |
     set -e
@@ -2447,10 +2453,16 @@ export default function SettingsPage() {
     set -e
 
     # Extract all issues from scan-result.json
-    python3 -c "import json; d=json.load(open('scan-result.json')); issues=[]; 
+    python3 -c "import json, os
+d=json.load(open('scan-result.json')); issues=[]
 for r in d.get('results', []) or []:
-  issues.extend(r.get('issues', []) or []);
-json.dump(issues, open('backlog-issues.json','w'))"
+  page_url = r.get('url','') or ''
+  for issue in (r.get('issues', []) or []):
+    issue['url'] = page_url
+    issues.append(issue)
+uid=os.environ.get('BACKLOG_USER_ID','').strip()
+if not uid: raise SystemExit('Missing BACKLOG_USER_ID')
+json.dump({'userId': uid, 'issues': issues}, open('backlog-issues.json','w'))"
 
     # Add to product backlog (de-duplicated)
     RESP=$(curl -s -w "\\n%{http_code}" -X POST https://a11ytest.ai/api/ci/backlog-add \\
@@ -2465,7 +2477,28 @@ json.dump(issues, open('backlog-issues.json','w'))"
       echo "##vso[task.logissue type=error]Backlog add returned HTTP $HTTP_CODE"
       exit 1
     fi
-  displayName: 'Add scan issues to product backlog (optional)'`}
+  displayName: 'Add scan issues to product backlog (optional)'
+  env:
+    BACKLOG_USER_ID: $(A11YTEST_BACKLOG_USER_ID)`}
+                    </pre>
+
+                    <p className="text-sm font-medium text-gray-900 mt-4">Jira variant (azure-pipelines-jira.yml)</p>
+                    <pre className="bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto text-xs">
+{`- script: |
+    set -e
+    # Reuses backlog-issues.json created above
+    RESP=$(curl -s -w "\\n%{http_code}" -X POST https://a11ytest.ai/api/ci/jira-add \\
+      -H "Authorization: Bearer $(A11YTEST_API_KEY)" \\
+      -H "Content-Type: application/json" \\
+      -d @backlog-issues.json)
+    HTTP_CODE=$(echo "$RESP" | tail -n1)
+    BODY=$(echo "$RESP" | sed '$d')
+    echo "$BODY" > jira-add-result.json
+    if [ "$HTTP_CODE" != "200" ]; then
+      echo "##vso[task.logissue type=error]Jira add returned HTTP $HTTP_CODE"
+      exit 1
+    fi
+  displayName: 'Add CI scan issues to Jira backlog'`}
                     </pre>
 
                     <p className="text-xs text-gray-700">
@@ -2524,7 +2557,7 @@ json.dump(issues, open('backlog-issues.json','w'))"
                         </div>
                         <div className="flex items-center gap-4">
                           <span className="text-xs text-gray-400 whitespace-nowrap">
-                            ID: {k.user_id ?? '—'}
+                            ID: {maskIdentifier(k.user_id)}
                           </span>
                           {k.user_id && (
                             <button
