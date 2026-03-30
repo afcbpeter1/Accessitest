@@ -26,6 +26,18 @@ function toBase64(uint8: Uint8Array): string {
   return Buffer.from(uint8).toString('base64')
 }
 
+function truncateTextForTts(input: string, maxChars: number): string {
+  if (!input || typeof input !== 'string') return ''
+  const s = input.trim()
+  if (s.length <= maxChars) return s
+  const cut = s.slice(0, maxChars)
+  const lastSpace = cut.lastIndexOf(' ')
+  const withoutTrailingSpace = lastSpace > 0 ? cut.slice(0, lastSpace) : cut
+  // Keep within limit even after adding suffix.
+  const candidate = withoutTrailingSpace.trim() + '...'
+  return candidate.length > maxChars ? candidate.slice(0, maxChars) : candidate
+}
+
 export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, { status: 204, headers: getCorsHeaders(request) })
 }
@@ -40,8 +52,13 @@ export async function POST(request: NextRequest) {
     if (!text) {
       return NextResponse.json({ success: false, error: 'Missing text' }, { status: 400, headers })
     }
-    if (text.length > 240) {
-      return NextResponse.json({ success: false, error: 'Text too long' }, { status: 400, headers })
+
+    // Safety net: the TTS provider has a hard max input length.
+    // We truncate instead of failing so the reader never goes silent.
+    const MAX_TTS_CHARS = 240
+    const safeText = truncateTextForTts(text, MAX_TTS_CHARS)
+    if (!safeText) {
+      return NextResponse.json({ success: false, error: 'Missing text' }, { status: 400, headers })
     }
 
     const creditInfo = await getUserCredits(user.userId)
@@ -68,7 +85,7 @@ export async function POST(request: NextRequest) {
         'Accept': 'audio/mpeg'
       },
       body: JSON.stringify({
-        text,
+        text: safeText,
         model_id: 'eleven_multilingual_v2',
         voice_settings: {
           stability: 0.6,

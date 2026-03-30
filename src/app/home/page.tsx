@@ -514,6 +514,56 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Browser Extensions Section */}
+        <section className="py-16 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">Browser Extensions</h2>
+              <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+                Install tools that help you test accessibility directly in the browser.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-xl font-semibold text-gray-900">VisionSwitch</h3>
+                <p className="text-gray-600 mt-3">
+                  Simulates color vision deficiencies (protanopia, deuteranopia, tritanopia) so you can quickly
+                  check whether your UI works for people with different types of color blindness.
+                </p>
+                <a
+                  href="https://chromewebstore.google.com/detail/visionswitch/hlnonhodhmnljggnccgpldpapilcboba"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-6 inline-flex items-center px-6 py-3 bg-[#0B1220] text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+                  aria-label="Install VisionSwitch from Chrome Web Store"
+                >
+                  Add to Chrome
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </a>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-xl font-semibold text-gray-900">a11ytest.ai Extension</h3>
+                <p className="text-gray-600 mt-3">
+                  Scan the current page for accessibility issues, review severity-based results, and save findings
+                  to your a11ytest.ai backlog for team remediation.
+                </p>
+                <a
+                  href="https://chromewebstore.google.com/detail/a11ytestai/dicoickopoalelhooinmdjbamfilomad"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-6 inline-flex items-center px-6 py-3 bg-[#0B1220] text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+                  aria-label="Install a11ytest.ai extension from Chrome Web Store"
+                >
+                  Add to Chrome
+                  <ExternalLink className="ml-2 h-4 w-4" />
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
       {/* Why We're Different Section */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
