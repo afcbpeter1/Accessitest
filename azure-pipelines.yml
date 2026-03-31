@@ -57,8 +57,7 @@ steps:
             "https://a11ytest.ai/privacy-policy",
             "https://a11ytest.ai/terms-of-service",
             "https://a11ytest.ai/cookie-policy",
-            "https://a11ytest.ai/accessibility-statement",
-
+            "https://a11ytest.ai/accessibility-statement"
           ]
         }')
       HTTP_CODE=$(echo "$RESP" | tail -n1)
