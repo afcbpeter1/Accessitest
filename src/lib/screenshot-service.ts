@@ -152,6 +152,12 @@ export class ScreenshotService {
     selectors: string[] = [],
     options: { fullPage?: boolean; viewport?: boolean } = { fullPage: true, viewport: true }
   ): Promise<ScreenshotResult> {
+    // Allow disabling screenshots entirely (CI cost control / privacy / stability).
+    // When disabled, return an empty result so callers can proceed without images.
+    if (process.env.DISABLE_SCREENSHOTS === 'true') {
+      return {}
+    }
+
     await this.initialize()
     
     if (!this.browser) {

@@ -259,9 +259,13 @@ function NewScanContent() {
         } else {
           pages = decoded.split(',').map(p => p.trim()).filter(Boolean)
         }
-        pages = pages.map(page => {
-          return page.startsWith('http') ? page : `https://${page}`
-        })
+        pages = pages
+          .map((page) => {
+            // Strip hash fragments (anchors) so reruns don't reintroduce "#content" pseudo-pages.
+            const withoutHash = page.split('#')[0]
+            return withoutHash.startsWith('http') ? withoutHash : `https://${withoutHash}`
+          })
+          .filter(Boolean)
         setDiscoveredPages(pages.map((pageUrl, index) => ({
           url: pageUrl,
           title: `Page ${index + 1}`,

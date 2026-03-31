@@ -496,10 +496,13 @@ export class ScanService {
               const normalizedLinkUrl = this.normalizeUrl(absoluteUrl);
               const linkUrlObj = new URL(absoluteUrl);
               const isSameDocumentWithHash = linkUrlObj.hash.length > 1 && normalizedLinkUrl === currentNormalized;
+              const isSpaHashRoute =
+                linkUrlObj.hash.startsWith('#/') || linkUrlObj.hash.startsWith('#!');
               
-              // SPA / hash routes (e.g. #/inbox, #/sentitems): same document, different hash. Add to discovered list but don't re-visit.
+              // Same-document anchors (e.g. #content) should not become separate "pages".
+              // Keep SPA hash routes (e.g. #/inbox, #!/sentitems) in the discovered list but don't re-visit them.
               if (isSameDocumentWithHash) {
-                if (!discoveredUrls.includes(absoluteUrl)) {
+                if (isSpaHashRoute && !discoveredUrls.includes(absoluteUrl)) {
                   discoveredUrls.push(absoluteUrl);
                 }
                 continue;
