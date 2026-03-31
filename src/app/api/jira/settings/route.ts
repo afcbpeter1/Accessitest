@@ -44,14 +44,28 @@ export async function GET(request: NextRequest) {
         )
       }
 
+      // Schema note: jira_integrations enforces UNIQUE(user_id) and user_id is NOT NULL.
+      // So we store credentials once per user (personal integration) and keep per-team overrides on teams table.
+      const teamOverrides = await queryOne(
+        `SELECT jira_project_key, jira_issue_type
+         FROM teams
+         WHERE id = $1`,
+        [teamId]
+      )
+
       integration = await queryOne(
         `SELECT 
           id, user_id, team_id, jira_url, jira_email, project_key, issue_type,
           auto_sync_enabled, is_active, last_verified_at, created_at, updated_at
         FROM jira_integrations 
-        WHERE team_id = $1 AND is_active = true`,
-        [teamId]
+        WHERE user_id = $1 AND team_id IS NULL AND is_active = true`,
+        [user.userId]
       )
+
+      if (integration && teamOverrides) {
+        if (teamOverrides.jira_project_key) integration.project_key = teamOverrides.jira_project_key
+        if (teamOverrides.jira_issue_type) integration.issue_type = teamOverrides.jira_issue_type
+      }
     } else {
       // Get personal integration
       integration = await queryOne(
@@ -141,18 +155,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if integration already exists
-    let existing
-    if (teamId) {
-      existing = await queryOne(
-        'SELECT id, encrypted_api_token FROM jira_integrations WHERE team_id = $1',
-        [teamId]
-      )
-    } else {
-      existing = await queryOne(
-        'SELECT id, encrypted_api_token FROM jira_integrations WHERE user_id = $1 AND team_id IS NULL',
-        [user.userId]
-      )
-    }
+    // Store credentials once per user (team_id IS NULL)
+    const existing = await queryOne(
+      'SELECT id, encrypted_api_token FROM jira_integrations WHERE user_id = $1 AND team_id IS NULL',
+      [user.userId]
+    )
 
     // Validate required fields - apiToken only required for new integrations
     if (!jiraUrl || !email || !projectKey) {
@@ -213,67 +220,34 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       // Update existing integration - ensure is_active is set to true
-      if (teamId) {
-        await query(
-          `UPDATE jira_integrations 
-          SET jira_url = $1, jira_email = $2, encrypted_api_token = $3,
-              project_key = $4, issue_type = $5, auto_sync_enabled = $6,
-              is_active = true, updated_at = NOW()
-          WHERE team_id = $7`,
-          [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', resolvedAutoSyncEnabled, teamId]
-        )
-      } else {
-        await query(
-          `UPDATE jira_integrations 
-          SET jira_url = $1, jira_email = $2, encrypted_api_token = $3,
-              project_key = $4, issue_type = $5, auto_sync_enabled = $6,
-              is_active = true, updated_at = NOW()
-          WHERE user_id = $7 AND team_id IS NULL`,
-          [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', resolvedAutoSyncEnabled, user.userId]
-        )
-      }
+      await query(
+        `UPDATE jira_integrations 
+         SET jira_url = $1, jira_email = $2, encrypted_api_token = $3,
+             project_key = $4, issue_type = $5, auto_sync_enabled = $6,
+             is_active = true, updated_at = NOW()
+         WHERE user_id = $7 AND team_id IS NULL`,
+        [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', resolvedAutoSyncEnabled, user.userId]
+      )
     } else {
       // Create new integration - set is_active to true
       await query(
         `INSERT INTO jira_integrations 
         (user_id, team_id, jira_url, jira_email, encrypted_api_token, project_key, issue_type, auto_sync_enabled, is_active)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
-        [user.userId, teamId || null, jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', resolvedAutoSyncEnabled]
+        [user.userId, null, jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', resolvedAutoSyncEnabled]
       )
     }
 
-    // When admin/owner saves a personal integration, treat it as the organization's: apply to all teams so all members see it
-    if (!teamId) {
-      const orgAsAdmin = await queryOne(
-        `SELECT organization_id FROM organization_members
-         WHERE user_id = $1 AND role IN ('owner', 'admin') AND is_active = true
-         LIMIT 1`,
-        [user.userId]
+    // If this save is in a team context, store per-team overrides on teams table.
+    if (teamId) {
+      await query(
+        `UPDATE teams
+         SET jira_project_key = $1,
+             jira_issue_type = $2,
+             updated_at = NOW()
+         WHERE id = $3`,
+        [projectKey, issueType || 'Bug', teamId]
       )
-      if (orgAsAdmin?.organization_id) {
-        const teams = await queryMany(
-          `SELECT id FROM teams WHERE organization_id = $1`,
-          [orgAsAdmin.organization_id]
-        )
-        for (const row of teams) {
-          const tid = row.id
-          const teamExisting = await queryOne('SELECT id FROM jira_integrations WHERE team_id = $1', [tid])
-          if (teamExisting) {
-            await query(
-              `UPDATE jira_integrations SET jira_url = $1, jira_email = $2, encrypted_api_token = $3,
-                project_key = $4, issue_type = $5, auto_sync_enabled = $6, is_active = true, updated_at = NOW()
-               WHERE team_id = $7`,
-              [jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', resolvedAutoSyncEnabled, tid]
-            )
-          } else {
-            await query(
-              `INSERT INTO jira_integrations (user_id, team_id, jira_url, jira_email, encrypted_api_token, project_key, issue_type, auto_sync_enabled, is_active)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)`,
-              [user.userId, tid, jiraUrl, email, encryptedToken, projectKey, issueType || 'Bug', resolvedAutoSyncEnabled]
-            )
-          }
-        }
-      }
     }
 
     return NextResponse.json({

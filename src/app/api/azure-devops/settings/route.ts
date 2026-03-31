@@ -44,14 +44,29 @@ export async function GET(request: NextRequest) {
         )
       }
 
+      // Schema note: azure_devops_integrations enforces UNIQUE(user_id) and user_id is NOT NULL.
+      // So we store credentials once per user (personal integration) and keep per-team overrides on teams table.
+      const teamOverrides = await queryOne(
+        `SELECT azure_devops_project, azure_devops_work_item_type
+         FROM teams
+         WHERE id = $1`,
+        [teamId]
+      )
+
       integration = await queryOne(
         `SELECT 
           id, user_id, team_id, organization, project, work_item_type, area_path, iteration_path,
           auto_sync_enabled, is_active, last_verified_at, created_at, updated_at
         FROM azure_devops_integrations 
-        WHERE team_id = $1 AND is_active = true`,
-        [teamId]
+        WHERE user_id = $1 AND team_id IS NULL AND is_active = true`,
+        [user.userId]
       )
+
+      // Apply team overrides if present
+      if (integration && teamOverrides) {
+        if (teamOverrides.azure_devops_project) integration.project = teamOverrides.azure_devops_project
+        if (teamOverrides.azure_devops_work_item_type) integration.work_item_type = teamOverrides.azure_devops_work_item_type
+      }
     } else {
       // Get personal integration
       integration = await queryOne(
@@ -142,17 +157,11 @@ export async function POST(request: NextRequest) {
 
     // Check if integration already exists
     let existing
-    if (teamId) {
-      existing = await queryOne(
-        'SELECT id, encrypted_pat FROM azure_devops_integrations WHERE team_id = $1',
-        [teamId]
-      )
-    } else {
-      existing = await queryOne(
-        'SELECT id, encrypted_pat FROM azure_devops_integrations WHERE user_id = $1 AND team_id IS NULL',
-        [user.userId]
-      )
-    }
+    // Store credentials once per user (team_id IS NULL)
+    existing = await queryOne(
+      'SELECT id, encrypted_pat FROM azure_devops_integrations WHERE user_id = $1 AND team_id IS NULL',
+      [user.userId]
+    )
 
     // Validate required fields - pat only required for new integrations
     if (!organization || !project) {
@@ -197,43 +206,23 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       // Update existing integration - ensure is_active is set to true
-      if (teamId) {
-        await query(
-          `UPDATE azure_devops_integrations 
-          SET organization = $1, project = $2, encrypted_pat = $3,
-              work_item_type = $4, area_path = $5, iteration_path = $6, auto_sync_enabled = $7,
-              is_active = true, updated_at = NOW()
-          WHERE team_id = $8`,
-          [
-            organization, 
-            project, 
-            encryptedPat, 
-            workItemType || 'Bug', 
-            areaPath || null, 
-            iterationPath || null, 
-            autoSyncEnabled ?? false, 
-            teamId
-          ]
-        )
-      } else {
-        await query(
-          `UPDATE azure_devops_integrations 
-          SET organization = $1, project = $2, encrypted_pat = $3,
-              work_item_type = $4, area_path = $5, iteration_path = $6, auto_sync_enabled = $7,
-              is_active = true, updated_at = NOW()
-          WHERE user_id = $8 AND team_id IS NULL`,
-          [
-            organization, 
-            project, 
-            encryptedPat, 
-            workItemType || 'Bug', 
-            areaPath || null, 
-            iterationPath || null, 
-            autoSyncEnabled ?? false, 
-            user.userId
-          ]
-        )
-      }
+      await query(
+        `UPDATE azure_devops_integrations 
+         SET organization = $1, project = $2, encrypted_pat = $3,
+             work_item_type = $4, area_path = $5, iteration_path = $6, auto_sync_enabled = $7,
+             is_active = true, updated_at = NOW()
+         WHERE user_id = $8 AND team_id IS NULL`,
+        [
+          organization,
+          project,
+          encryptedPat,
+          workItemType || 'Bug',
+          areaPath || null,
+          iterationPath || null,
+          autoSyncEnabled ?? false,
+          user.userId
+        ]
+      )
     } else {
       // Create new integration - set is_active to true
       await query(
@@ -241,51 +230,29 @@ export async function POST(request: NextRequest) {
         (user_id, team_id, organization, project, encrypted_pat, work_item_type, area_path, iteration_path, auto_sync_enabled, is_active)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)`,
         [
-          user.userId, 
-          teamId || null,
-          organization, 
-          project, 
-          encryptedPat, 
-          workItemType || 'Bug', 
-          areaPath || null, 
-          iterationPath || null, 
+          user.userId,
+          null,
+          organization,
+          project,
+          encryptedPat,
+          workItemType || 'Bug',
+          areaPath || null,
+          iterationPath || null,
           autoSyncEnabled ?? false
         ]
       )
     }
 
-    // When admin/owner saves a personal integration, treat it as the organization's: apply to all teams so all members see it
-    if (!teamId) {
-      const orgAsAdmin = await queryOne(
-        `SELECT organization_id FROM organization_members
-         WHERE user_id = $1 AND role IN ('owner', 'admin') AND is_active = true
-         LIMIT 1`,
-        [user.userId]
+    // If this save is in a team context, store per-team overrides on teams table.
+    if (teamId) {
+      await query(
+        `UPDATE teams
+         SET azure_devops_project = $1,
+             azure_devops_work_item_type = $2,
+             updated_at = NOW()
+         WHERE id = $3`,
+        [project, workItemType || 'Bug', teamId]
       )
-      if (orgAsAdmin?.organization_id) {
-        const teams = await queryMany(
-          `SELECT id FROM teams WHERE organization_id = $1`,
-          [orgAsAdmin.organization_id]
-        )
-        for (const row of teams) {
-          const tid = row.id
-          const teamExisting = await queryOne('SELECT id FROM azure_devops_integrations WHERE team_id = $1', [tid])
-          if (teamExisting) {
-            await query(
-              `UPDATE azure_devops_integrations SET organization = $1, project = $2, encrypted_pat = $3,
-                work_item_type = $4, area_path = $5, iteration_path = $6, auto_sync_enabled = $7, is_active = true, updated_at = NOW()
-               WHERE team_id = $8`,
-              [organization, project, encryptedPat, workItemType || 'Bug', areaPath || null, iterationPath || null, autoSyncEnabled ?? false, tid]
-            )
-          } else {
-            await query(
-              `INSERT INTO azure_devops_integrations (user_id, team_id, organization, project, encrypted_pat, work_item_type, area_path, iteration_path, auto_sync_enabled, is_active)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)`,
-              [user.userId, tid, organization, project, encryptedPat, workItemType || 'Bug', areaPath || null, iterationPath || null, autoSyncEnabled ?? false]
-            )
-          }
-        }
-      }
     }
 
     return NextResponse.json({

@@ -57,6 +57,7 @@ export class AzureDevOpsClient {
   private organization: string
   private pat: string
   private baseUrl: string
+  private baseUrlFallback: string
   private authHeader: string
 
   constructor(credentials: AzureDevOpsCredentials) {
@@ -77,6 +78,7 @@ export class AzureDevOpsClient {
     this.organization = orgName
     this.pat = decryptTokenFromStorage(credentials.encryptedPat)
     this.baseUrl = `https://dev.azure.com/${this.organization}`
+    this.baseUrlFallback = `https://${this.organization}.visualstudio.com`
     
     // Azure DevOps uses Basic Auth with PAT
     // Format: base64(pat:pat) or base64(:pat) - both work
@@ -91,17 +93,21 @@ export class AzureDevOpsClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`
-    
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Authorization': this.authHeader,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    })
+    const doFetch = async (baseUrl: string) => {
+      const url = `${baseUrl}${endpoint}`
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          'Authorization': this.authHeader,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          ...options.headers,
+        }
+      })
+      return { url, response }
+    }
+
+    let { url, response } = await doFetch(this.baseUrl)
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -136,6 +142,20 @@ export class AzureDevOpsClient {
       } catch {
         errorMessage = errorText || errorMessage
         console.error('❌ Azure DevOps API Error (non-JSON):', errorText.substring(0, 500))
+      }
+
+      // Some Azure DevOps orgs only resolve correctly via *.visualstudio.com.
+      // If we get a 404-ish "resource cannot be found", retry once with the fallback base URL.
+      if (
+        response.status === 404 &&
+        this.baseUrlFallback &&
+        /resource cannot be found/i.test(errorMessage)
+      ) {
+        console.warn(`⚠️ Azure DevOps returned 404 for ${this.baseUrl}. Retrying with ${this.baseUrlFallback}...`)
+        ;({ url, response } = await doFetch(this.baseUrlFallback))
+        if (response.ok) {
+          return response.json()
+        }
       }
 
       throw new Error(errorMessage)

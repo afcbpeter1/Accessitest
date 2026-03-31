@@ -152,10 +152,15 @@ export async function getIssueContext(issueId: string): Promise<{
   teamId?: string
   organizationId?: string
 } | null> {
-  const issue = await queryOne(
-    `SELECT team_id, organization_id FROM issues WHERE id = $1`,
-    [issueId]
-  )
+  const raw = String(issueId)
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw)
+  const isIssueKeyLike = /^[0-9a-f]{16}$/i.test(raw) || raw.startsWith('issue_') || raw.startsWith('iso_compliance_issue_')
+
+  const issue = isUuid
+    ? await queryOne(`SELECT team_id, organization_id FROM issues WHERE id = $1`, [raw])
+    : isIssueKeyLike
+      ? await queryOne(`SELECT team_id, organization_id FROM issues WHERE issue_key = $1`, [raw])
+      : null
   
   if (!issue) {
     return null

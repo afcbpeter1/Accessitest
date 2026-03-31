@@ -26,6 +26,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const issueIdRaw = String(issueId)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(issueIdRaw)
+    const isIssueKeyLike =
+      /^[0-9a-f]{16}$/i.test(issueIdRaw) ||
+      issueIdRaw.startsWith('issue_') ||
+      issueIdRaw.startsWith('iso_compliance_issue_')
+
+    let issueUuid = issueIdRaw
+    if (!isUuid) {
+      if (isIssueKeyLike) {
+        const resolved = await queryOne(`SELECT id FROM issues WHERE issue_key = $1 LIMIT 1`, [issueIdRaw])
+        if (!resolved?.id) {
+          return NextResponse.json(
+            { success: false, error: `No issue found for issue_key "${issueIdRaw}".` },
+            { status: 404 }
+          )
+        }
+        issueUuid = resolved.id
+      } else {
+        return NextResponse.json(
+          { success: false, error: `issueId must be a UUID (issues.id) or an issue_key. Received: "${issueIdRaw}"` },
+          { status: 400 }
+        )
+      }
+    }
+
     // Prefer the current user's assigned team (Members tab) for which ADO backlog to use, so tickets go to the right team's backlog
     const userAssignedTeam = await queryOne(
       `SELECT om.team_id, om.organization_id
@@ -42,15 +68,15 @@ export async function POST(request: NextRequest) {
     let contextTeamId: string | undefined = userTeamId
     let contextOrgId: string | undefined = userOrgId
     if (!userTeamId) {
-      const issueContext = await getIssueContext(issueId)
+      const issueContext = await getIssueContext(issueUuid)
       contextTeamId = issueContext?.teamId
       contextOrgId = issueContext?.organizationId
     } else {
-      const issueContext = await getIssueContext(issueId)
+      const issueContext = await getIssueContext(issueUuid)
       if (!issueContext?.teamId) {
         await query(
           `UPDATE issues SET team_id = $1, organization_id = $2 WHERE id = $3`,
-          [userTeamId, userOrgId, issueId]
+          [userTeamId, userOrgId, issueUuid]
         )
       }
     }
@@ -96,12 +122,12 @@ export async function POST(request: NextRequest) {
       FROM azure_devops_work_item_mappings 
       WHERE issue_id = $1 
       LIMIT 1`,
-      [issueId]
+      [issueUuid]
     )
 
     if (existingMapping) {
       // Verify the work item still exists in Azure DevOps before returning it
-      console.log(`Found existing mapping for issue ${issueId} -> work item ${existingMapping.work_item_id}, verifying it exists...`)
+      console.log(`Found existing mapping for issue ${issueUuid} -> work item ${existingMapping.work_item_id}, verifying it exists...`)
       try {
         const tempClient = new AzureDevOpsClient({
           organization: integration.organization,
@@ -121,6 +147,8 @@ export async function POST(request: NextRequest) {
             id: existingMapping.work_item_id,
             url: existingMapping.work_item_url
           },
+          project: projectForCheck,
+          workItemType: workItemTypeToUse,
           existing: true,
           message: 'Issue already has an Azure DevOps work item'
         })
@@ -133,13 +161,13 @@ export async function POST(request: NextRequest) {
         try {
           await query(
             `DELETE FROM azure_devops_work_item_mappings WHERE issue_id = $1`,
-            [issueId]
+            [issueUuid]
           )
           await query(
             `UPDATE issues SET azure_devops_synced = false, azure_devops_work_item_id = NULL WHERE id = $1`,
-            [issueId]
+            [issueUuid]
           )
-          console.log(`✅ Deleted stale mapping for issue ${issueId}, will create new work item`)
+          console.log(`✅ Deleted stale mapping for issue ${issueUuid}, will create new work item`)
         } catch (deleteError) {
           console.error(`Failed to delete stale mapping:`, deleteError)
           // Continue anyway - we'll try to create a new work item
@@ -147,7 +175,7 @@ export async function POST(request: NextRequest) {
         // Continue to create a new work item below
       }
     } else {
-      console.log(`No existing mapping found for issue ${issueId}, will create new work item`)
+      console.log(`No existing mapping found for issue ${issueUuid}, will create new work item`)
     }
 
     // Get issue details with scan results for full remediation data (LEFT JOIN so we still get the issue if scan is missing/deleted)
@@ -159,7 +187,7 @@ export async function POST(request: NextRequest) {
       FROM issues i
       LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
       WHERE i.id = $1`,
-      [issueId]
+      [issueUuid]
     )
 
     if (!issue) {
@@ -172,10 +200,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const affectedPages: string[] = (() => {
+      const raw = (issue as any).affected_pages
+      if (Array.isArray(raw)) return raw.filter((p: any) => typeof p === 'string')
+      if (typeof raw === 'string') {
+        try {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed)) return parsed.filter((p: any) => typeof p === 'string')
+        } catch {
+          // ignore parse errors and fall back to empty
+        }
+      }
+      return []
+    })()
+
     // Check if this is a document scan
     const isDocumentScan = issue.scan_type === 'document' || 
                           issue.file_name !== null ||
-                          (issue.affected_pages && issue.affected_pages.some((p: string) => typeof p === 'string' && p.startsWith('Document:')))
+                          (affectedPages.length > 0 && affectedPages.some((p: string) => p.startsWith('Document:')))
 
     // Extract remediation data from scan_results (same logic as sync service)
     let remediationItem = null
@@ -238,8 +280,8 @@ export async function POST(request: NextRequest) {
       }
 
       // For document scans, create offending elements from available data
-      if (issue.affected_pages && issue.affected_pages.length > 0) {
-        offendingElements = issue.affected_pages.map((page: string, index: number) => ({
+      if (affectedPages.length > 0) {
+        offendingElements = affectedPages.map((page: string, index: number) => ({
           html: issue.description || '',
           target: [issue.rule_name || ''],
           failureSummary: issue.description || '',
@@ -361,10 +403,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Azure DevOps client
-    const client = new AzureDevOpsClient({
-      organization: integration.organization,
-      encryptedPat: integration.encrypted_pat
-    })
+    let client: AzureDevOpsClient
+    try {
+      client = new AzureDevOpsClient({
+        organization: integration.organization,
+        encryptedPat: integration.encrypted_pat
+      })
+    } catch (clientError) {
+      const msg = clientError instanceof Error ? clientError.message : 'Failed to create Azure DevOps client'
+      if (/Failed to decrypt token/i.test(msg)) {
+        return NextResponse.json({ success: false, error: msg }, { status: 400 })
+      }
+      throw clientError
+    }
 
     // Map issue to Azure DevOps format
     const issueData = {
@@ -375,7 +426,7 @@ export async function POST(request: NextRequest) {
       priority: issue.priority,
       wcag_level: issue.wcag_level,
       total_occurrences: issue.total_occurrences,
-      affected_pages: issue.affected_pages || [],
+      affected_pages: affectedPages,
       help_url: issue.help_url,
       help_text: issue.help_text,
       notes: issue.notes,
@@ -410,12 +461,12 @@ export async function POST(request: NextRequest) {
     // Double-check for existing mapping right before creating (prevent race condition)
     const finalCheck = await queryOne(
       `SELECT work_item_id FROM azure_devops_work_item_mappings WHERE issue_id = $1 LIMIT 1`,
-      [issueId]
+      [issueUuid]
     )
     
     if (finalCheck) {
       // Another request created a work item between our check and now
-      console.log(`⚠️ Race condition detected: mapping found for issue ${issueId} -> ${finalCheck.work_item_id}, verifying...`)
+      console.log(`⚠️ Race condition detected: mapping found for issue ${issueUuid} -> ${finalCheck.work_item_id}, verifying...`)
       try {
         const tempClient = new AzureDevOpsClient({
           organization: integration.organization,
@@ -430,13 +481,15 @@ export async function POST(request: NextRequest) {
             id: finalCheck.work_item_id,
             url: workItemUrl
           },
+          project: projectToUse,
+          workItemType: workItemTypeToUse,
           existing: true,
           message: 'Issue already has an Azure DevOps work item (created by another request)'
         })
       } catch (verifyError) {
         // Work item doesn't exist, delete stale mapping and continue
         console.log(`❌ Stale mapping found, deleting and continuing...`)
-        await query(`DELETE FROM azure_devops_work_item_mappings WHERE issue_id = $1`, [issueId])
+        await query(`DELETE FROM azure_devops_work_item_mappings WHERE issue_id = $1`, [issueUuid])
       }
     }
 
@@ -501,7 +554,7 @@ export async function POST(request: NextRequest) {
           const errorMessage = retryError instanceof Error ? retryError.message : 'Failed to create Azure DevOps work item'
           await query(
             `UPDATE issues SET azure_devops_sync_error = $1 WHERE id = $2`,
-            [errorMessage, issueId]
+            [errorMessage, issueUuid]
           )
           return NextResponse.json(
             {
@@ -518,12 +571,12 @@ export async function POST(request: NextRequest) {
 
     // Store mapping in database FIRST (before screenshots) so we have a record even if screenshots fail
     try {
-      console.log(`Storing Azure DevOps mapping for issue ${issueId} -> work item ${createdWorkItem.id}`)
+      console.log(`Storing Azure DevOps mapping for issue ${issueUuid} -> work item ${createdWorkItem.id}`)
       
       // Check one more time if a mapping was created by another request
       const lastCheck = await queryOne(
         `SELECT work_item_id FROM azure_devops_work_item_mappings WHERE issue_id = $1 LIMIT 1`,
-        [issueId]
+        [issueUuid]
       )
       
       if (lastCheck && lastCheck.work_item_id !== createdWorkItem.id) {
@@ -531,7 +584,7 @@ export async function POST(request: NextRequest) {
         console.log(`⚠️ Race condition: Another work item ${lastCheck.work_item_id} was created, returning existing one`)
         const existingMapping = await queryOne(
           `SELECT * FROM azure_devops_work_item_mappings WHERE issue_id = $1 LIMIT 1`,
-          [issueId]
+          [issueUuid]
         )
         if (existingMapping) {
           return NextResponse.json({
@@ -549,7 +602,7 @@ export async function POST(request: NextRequest) {
       // Delete any existing mappings for this issue_id first (prevent duplicates)
       await query(
         `DELETE FROM azure_devops_work_item_mappings WHERE issue_id = $1`,
-        [issueId]
+        [issueUuid]
       )
       
       // Insert new mapping
@@ -557,7 +610,7 @@ export async function POST(request: NextRequest) {
         `INSERT INTO azure_devops_work_item_mappings 
         (issue_id, work_item_id, work_item_url)
         VALUES ($1, $2, $3)`,
-        [issueId, createdWorkItem.id, workItemUrl]
+        [issueUuid, createdWorkItem.id, workItemUrl]
       )
 
       // Update issue flags
@@ -565,12 +618,12 @@ export async function POST(request: NextRequest) {
         `UPDATE issues 
         SET azure_devops_synced = true, azure_devops_work_item_id = $1, azure_devops_sync_error = NULL 
         WHERE id = $2`,
-        [createdWorkItem.id, issueId]
+        [createdWorkItem.id, issueUuid]
       )
-      console.log(`✅ Successfully stored mapping for issue ${issueId}`)
+      console.log(`✅ Successfully stored mapping for issue ${issueUuid}`)
     } catch (dbError) {
       // Log but don't fail - work item is already created in Azure DevOps
-      console.error(`❌ Failed to store Azure DevOps mapping in database for issue ${issueId}:`, dbError)
+      console.error(`❌ Failed to store Azure DevOps mapping in database for issue ${issueUuid}:`, dbError)
     }
 
     // Screenshots are linked directly in the description via Cloudinary URLs
@@ -585,6 +638,8 @@ export async function POST(request: NextRequest) {
         id: createdWorkItem.id,
         url: workItemUrl
       },
+      project: projectToUse,
+      workItemType: workItemTypeToUse,
       existing: false
     })
   } catch (error) {
@@ -619,6 +674,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const issueIdRaw = String(issueId)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(issueIdRaw)
+    const isIssueKeyLike =
+      /^[0-9a-f]{16}$/i.test(issueIdRaw) ||
+      issueIdRaw.startsWith('issue_') ||
+      issueIdRaw.startsWith('iso_compliance_issue_')
+    let issueUuid = issueIdRaw
+    if (!isUuid && isIssueKeyLike) {
+      const resolved = await queryOne(`SELECT id FROM issues WHERE issue_key = $1 LIMIT 1`, [issueIdRaw])
+      if (resolved?.id) issueUuid = resolved.id
+    }
+
     // Check if issue has an Azure DevOps work item
     const mapping = await queryOne(
       `SELECT awm.work_item_id, awm.work_item_url, i.azure_devops_synced
@@ -626,7 +693,7 @@ export async function GET(request: NextRequest) {
       JOIN issues i ON awm.issue_id = i.id
       WHERE awm.issue_id = $1
       LIMIT 1`,
-      [issueId]
+      [issueUuid]
     )
 
     if (mapping) {

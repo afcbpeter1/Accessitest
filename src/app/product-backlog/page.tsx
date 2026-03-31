@@ -255,10 +255,11 @@ export default function ProductBacklog() {
 
       const data = await response.json()
       if (data.success) {
+        const location = data.project ? ` (${data.project})` : ''
         if (data.existing) {
-          showToast(`Already synced to Azure DevOps: Work Item #${data.workItem.id}`, 'success')
+          showToast(`Already synced to Azure DevOps${location}: Work Item #${data.workItem.id}`, 'success')
         } else {
-          showToast(`Successfully added to Azure DevOps: Work Item #${data.workItem.id}`, 'success')
+          showToast(`Successfully added to Azure DevOps${location}: Work Item #${data.workItem.id}`, 'success')
         }
         // Refresh backlog to show updated status
         fetchBacklogItems()

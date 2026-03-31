@@ -26,8 +26,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const issueIdRaw = String(issueId)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(issueIdRaw)
+    const isIssueKeyLike =
+      /^[0-9a-f]{16}$/i.test(issueIdRaw) ||
+      issueIdRaw.startsWith('issue_') ||
+      issueIdRaw.startsWith('iso_compliance_issue_')
+    let issueUuid = issueIdRaw
+    if (!isUuid) {
+      if (isIssueKeyLike) {
+        const resolved = await queryOne(`SELECT id FROM issues WHERE issue_key = $1 LIMIT 1`, [issueIdRaw])
+        if (!resolved?.id) {
+          return NextResponse.json(
+            { success: false, error: `No issue found for issue_key "${issueIdRaw}".` },
+            { status: 404 }
+          )
+        }
+        issueUuid = resolved.id
+      } else {
+        return NextResponse.json(
+          { success: false, error: `issueId must be a UUID (issues.id) or an issue_key. Received: "${issueIdRaw}"` },
+          { status: 400 }
+        )
+      }
+    }
+
     // Get issue context (team/organization)
-    let issueContext = await getIssueContext(issueId)
+    let issueContext = await getIssueContext(issueUuid)
     
     // If teamId is provided, update the issue's team_id first
     if (teamId) {
@@ -46,7 +71,7 @@ export async function POST(request: NextRequest) {
           `UPDATE issues 
            SET team_id = $1, organization_id = $2 
            WHERE id = $3`,
-          [teamId, team.organization_id, issueId]
+          [teamId, team.organization_id, issueUuid]
         )
         // Update context for this request
         issueContext = {
@@ -75,7 +100,7 @@ export async function POST(request: NextRequest) {
           `UPDATE issues 
            SET team_id = $1, organization_id = $2 
            WHERE id = $3`,
-          [userTeam.team_id, userTeam.organization_id, issueId]
+          [userTeam.team_id, userTeam.organization_id, issueUuid]
         )
         // Update context for this request
         issueContext = {
@@ -103,16 +128,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Decide which project/issueType we should use for THIS request
+    // (team settings override integration defaults)
+    let projectKeyToUse = integration.project_key
+    let issueTypeToUse = integration.issue_type
+    if (issueContext?.teamId) {
+      const team = await queryOne(
+        `SELECT jira_project_key, jira_issue_type FROM teams WHERE id = $1`,
+        [issueContext.teamId]
+      )
+      if (team?.jira_project_key) {
+        projectKeyToUse = team.jira_project_key
+        console.log(`✅ Using team's Jira project: ${team.jira_project_key} for team ${issueContext.teamId}`)
+      }
+      if (team?.jira_issue_type) {
+        issueTypeToUse = team.jira_issue_type
+      }
+    }
+
     // Check if issue already has a Jira ticket (duplication prevention)
     // Also verify the ticket still exists in Jira
-    const existingMapping = await queryOne(
+    let existingMapping = await queryOne(
       `SELECT jtm.*, i.jira_ticket_key 
       FROM jira_ticket_mappings jtm
       JOIN issues i ON jtm.issue_id = i.id
       WHERE jtm.issue_id = $1
       LIMIT 1`,
-      [issueId]
+      [issueUuid]
     )
+
+    if (existingMapping) {
+      // If the existing ticket is in a different Jira project than the team we are creating for,
+      // do not treat it as "already synced" — create a new ticket in the correct project.
+      if (projectKeyToUse && existingMapping.jira_ticket_key && typeof existingMapping.jira_ticket_key === 'string') {
+        const prefix = `${String(projectKeyToUse).trim()}-`
+        if (prefix !== '-' && !existingMapping.jira_ticket_key.startsWith(prefix)) {
+          existingMapping = null
+        }
+      }
+    }
 
     if (existingMapping) {
       // Verify the ticket still exists in Jira before returning it
@@ -138,19 +192,31 @@ export async function POST(request: NextRequest) {
           message: 'Issue already has a Jira ticket'
         })
       } catch (verifyError) {
+        const errorMsg = verifyError instanceof Error ? verifyError.message : 'Unknown error'
+
+        // If we can't decrypt the token, do NOT delete mappings; user must reconnect integration / fix key.
+        if (/Failed to decrypt token/i.test(errorMsg)) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: errorMsg
+            },
+            { status: 400 }
+          )
+        }
+
         // Ticket doesn't exist in Jira anymore (deleted or not found)
         // Delete the stale mapping and continue to create a new one
-        const errorMsg = verifyError instanceof Error ? verifyError.message : 'Unknown error'
         console.log(`Ticket verification failed: ${errorMsg}, deleting stale mapping and creating new ticket`)
         
         try {
           await query(
             `DELETE FROM jira_ticket_mappings WHERE issue_id = $1`,
-            [issueId]
+            [issueUuid]
           )
           await query(
             `UPDATE issues SET jira_synced = false, jira_ticket_key = NULL WHERE id = $1`,
-            [issueId]
+            [issueUuid]
           )
 
         } catch (deleteError) {
@@ -172,7 +238,7 @@ export async function POST(request: NextRequest) {
       FROM issues i
       LEFT JOIN scan_history sh ON i.first_seen_scan_id = sh.id
       WHERE i.id = $1`,
-      [issueId]
+      [issueUuid]
     )
 
     if (!issue) {
@@ -185,10 +251,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const affectedPages: string[] = (() => {
+      const raw = (issue as any).affected_pages
+      if (Array.isArray(raw)) return raw.filter((p: any) => typeof p === 'string')
+      if (typeof raw === 'string') {
+        try {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed)) return parsed.filter((p: any) => typeof p === 'string')
+        } catch {
+          // ignore parse errors and fall back to empty
+        }
+      }
+      return []
+    })()
+
     // Check if this is a document scan
     const isDocumentScan = issue.scan_type === 'document' || 
                           issue.file_name !== null ||
-                          (issue.affected_pages && issue.affected_pages.some((p: string) => typeof p === 'string' && p.startsWith('Document:')))
+                          (affectedPages.length > 0 && affectedPages.some((p: string) => p.startsWith('Document:')))
 
     // Extract remediation data from scan_results
     let remediationItem = null
@@ -208,8 +288,8 @@ export async function POST(request: NextRequest) {
       }
 
       // For document scans, create offending elements from available data
-      if (issue.affected_pages && issue.affected_pages.length > 0) {
-        offendingElements = issue.affected_pages.map((page: string, index: number) => ({
+      if (affectedPages.length > 0) {
+        offendingElements = affectedPages.map((page: string, index: number) => ({
           html: issue.description || '',
           target: [issue.rule_name || ''],
           failureSummary: issue.description || '',
@@ -337,27 +417,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Create Jira client
-    const client = new JiraClient({
-      jiraUrl: integration.jira_url,
-      email: integration.jira_email,
-      encryptedApiToken: integration.encrypted_api_token
-    })
-
-    // Check if team has an assigned project and issue type (overrides integration settings)
-    let projectKeyToUse = integration.project_key
-    let issueTypeToUse = integration.issue_type
-    if (issueContext?.teamId) {
-      const team = await queryOne(
-        `SELECT jira_project_key, jira_issue_type FROM teams WHERE id = $1`,
-        [issueContext.teamId]
-      )
-      if (team?.jira_project_key) {
-        projectKeyToUse = team.jira_project_key
-        console.log(`✅ Using team's Jira project: ${team.jira_project_key} for team ${issueContext.teamId}`)
+    let client: JiraClient
+    try {
+      client = new JiraClient({
+        jiraUrl: integration.jira_url,
+        email: integration.jira_email,
+        encryptedApiToken: integration.encrypted_api_token
+      })
+    } catch (clientError) {
+      const msg = clientError instanceof Error ? clientError.message : 'Failed to create Jira client'
+      if (/Failed to decrypt token/i.test(msg)) {
+        return NextResponse.json({ success: false, error: msg }, { status: 400 })
       }
-      if (team?.jira_issue_type) {
-        issueTypeToUse = team.jira_issue_type
-      }
+      throw clientError
     }
 
     // Map issue to Jira format with full remediation data
@@ -371,7 +443,7 @@ export async function POST(request: NextRequest) {
         priority: issue.priority,
         wcag_level: issue.wcag_level,
         total_occurrences: issue.total_occurrences,
-        affected_pages: issue.affected_pages || [],
+        affected_pages: affectedPages,
         help_url: issue.help_url,
         help_text: issue.help_text,
         notes: issue.notes,
@@ -387,7 +459,7 @@ export async function POST(request: NextRequest) {
     // Double-check for existing mapping right before creating (prevent race condition)
     const finalCheck = await queryOne(
       `SELECT jira_ticket_key FROM jira_ticket_mappings WHERE issue_id = $1 LIMIT 1`,
-      [issueId]
+      [issueUuid]
     )
     
     if (finalCheck) {
@@ -414,7 +486,7 @@ export async function POST(request: NextRequest) {
       } catch (verifyError) {
         // Ticket doesn't exist, delete stale mapping and continue
 
-        await query(`DELETE FROM jira_ticket_mappings WHERE issue_id = $1`, [issueId])
+        await query(`DELETE FROM jira_ticket_mappings WHERE issue_id = $1`, [issueUuid])
       }
     }
 
@@ -429,7 +501,7 @@ export async function POST(request: NextRequest) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to create Jira ticket'
       await query(
         `UPDATE issues SET jira_sync_error = $1 WHERE id = $2`,
-        [errorMessage, issueId]
+        [errorMessage, issueUuid]
       )
 
       return NextResponse.json(
@@ -451,7 +523,7 @@ export async function POST(request: NextRequest) {
       // Check one more time if a mapping was created by another request
       const lastCheck = await queryOne(
         `SELECT jira_ticket_key FROM jira_ticket_mappings WHERE issue_id = $1 LIMIT 1`,
-        [issueId]
+        [issueUuid]
       )
       
       if (lastCheck && lastCheck.jira_ticket_key !== createdTicket.key) {
@@ -486,7 +558,7 @@ export async function POST(request: NextRequest) {
       // The constraint allows multiple tickets per issue, but we only want one
       await query(
         `DELETE FROM jira_ticket_mappings WHERE issue_id = $1`,
-        [issueId]
+        [issueUuid]
       )
       
       // Insert new mapping
@@ -494,7 +566,7 @@ export async function POST(request: NextRequest) {
         `INSERT INTO jira_ticket_mappings 
         (issue_id, jira_ticket_key, jira_ticket_id, jira_url)
         VALUES ($1, $2, $3, $4)`,
-        [issueId, createdTicket.key, createdTicket.id, ticketUrl]
+        [issueUuid, createdTicket.key, createdTicket.id, ticketUrl]
       )
 
       // Update issue flags
@@ -502,7 +574,7 @@ export async function POST(request: NextRequest) {
         `UPDATE issues 
         SET jira_synced = true, jira_ticket_key = $1, jira_sync_error = NULL 
         WHERE id = $2`,
-        [createdTicket.key, issueId]
+        [createdTicket.key, issueUuid]
       )
 
     } catch (dbError) {
@@ -556,6 +628,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const issueIdRaw = String(issueId)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(issueIdRaw)
+    const isIssueKeyLike =
+      /^[0-9a-f]{16}$/i.test(issueIdRaw) ||
+      issueIdRaw.startsWith('issue_') ||
+      issueIdRaw.startsWith('iso_compliance_issue_')
+    let issueUuid = issueIdRaw
+    if (!isUuid && isIssueKeyLike) {
+      const resolved = await queryOne(`SELECT id FROM issues WHERE issue_key = $1 LIMIT 1`, [issueIdRaw])
+      if (resolved?.id) issueUuid = resolved.id
+    }
+
     // Check if issue has a Jira ticket
     const mapping = await queryOne(
       `SELECT jtm.jira_ticket_key, jtm.jira_url, i.jira_synced
@@ -563,7 +647,7 @@ export async function GET(request: NextRequest) {
       JOIN issues i ON jtm.issue_id = i.id
       WHERE jtm.issue_id = $1
       LIMIT 1`,
-      [issueId]
+      [issueUuid]
     )
 
     if (mapping) {
