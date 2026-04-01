@@ -470,27 +470,6 @@ Affected URLs: ${affectedUrls.join(', ')}`
                 Visual Context
               </h4>
               
-              {/* Website Screenshot */}
-              {screenshots.viewport && (
-                <div className="mb-4">
-                  <div className="text-xs text-gray-600 mb-2">Website Screenshot:</div>
-                  <div className="border border-gray-200 rounded overflow-hidden max-w-full relative">
-                    <img 
-                      src={screenshots.viewport}
-                      alt={`Screenshot of ${affectedUrls[0]}`}
-                      className="w-full h-auto max-h-40 sm:max-h-48 md:max-h-56 object-cover cursor-pointer hover:opacity-90 transition-all duration-1000 ease-out rounded"
-                      style={{
-                        opacity: screenshotFadeIn ? 1 : 0,
-                        filter: screenshotFadeIn ? 'blur(0px)' : 'blur(10px)',
-                        transform: screenshotFadeIn ? 'scale(1)' : 'scale(0.98)',
-                      }}
-                      onClick={() => window.open(screenshots.viewport, '_blank')}
-                    />
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">Click to view full size</div>
-                </div>
-              )}
-              
               {/* Element Screenshots */}
               {issueElementScreenshots.length > 0 && (
                 <div>

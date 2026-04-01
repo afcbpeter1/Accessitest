@@ -99,9 +99,8 @@ export async function POST(request: NextRequest) {
     if (!integration) {
       return jsonError("No Jira integration is configured for this organization/user.", 'JIRA_NOT_CONFIGURED', 404)
     }
-    if (integration.auto_sync_enabled === false) {
-      return jsonError('Jira integration is configured but auto-sync is disabled.', 'JIRA_AUTO_SYNC_DISABLED', 403)
-    }
+    // CI automation should be able to add tickets whenever Jira is configured.
+    // Treat auto-sync as enabled by default (historical behavior).
 
     const client = new JiraClient({
       jiraUrl: integration.jira_url,

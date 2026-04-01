@@ -372,58 +372,6 @@ export default function IssueDetailModal({ issue, isOpen, onClose, onUpdate }: I
                     )
                   })()}
 
-                  {/* Visual Evidence */}
-                  {issue.scan_data?.screenshots && (issue.scan_data.screenshots.viewport || issue.scan_data.screenshots.fullPage || (issue.scan_data.screenshots.elements && Array.isArray(issue.scan_data.screenshots.elements))) && (
-                    <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-3">Visual Evidence</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {(issue.scan_data.screenshots.viewport || issue.scan_data.screenshots.fullPage) && (
-                          <div className="border border-gray-200 rounded-lg overflow-hidden">
-                            <div className="p-3 bg-gray-100 text-sm font-medium text-gray-900">
-                              🌐 Website Screenshot
-                            </div>
-                            <img 
-                              src={issue.scan_data.screenshots.viewport || issue.scan_data.screenshots.fullPage}
-                              alt="Website screenshot"
-                              className="w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
-                              onClick={() => window.open(issue.scan_data.screenshots.viewport || issue.scan_data.screenshots.fullPage, '_blank')}
-                            />
-                          </div>
-                        )}
-                        {issue.scan_data.screenshots.elements && issue.scan_data.screenshots.elements.length > 0 && (
-                          <div className="space-y-2">
-                            <h5 className="text-sm font-medium text-gray-900 mb-2">🎯 Affected Elements:</h5>
-                            {issue.scan_data.screenshots.elements.slice(0, 4).map((element: any, index: number) => (
-                              <div key={index} className="border border-gray-200 rounded-lg overflow-hidden">
-                                <div className="p-2 bg-gray-100 text-xs text-gray-900 font-mono">
-                                  {element.selector}
-                                </div>
-                                <img 
-                                  src={element.screenshot}
-                                  alt={`Screenshot of ${element.selector}`}
-                                  className="w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
-                                  onClick={() => window.open(element.screenshot, '_blank')}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Visual Evidence - Fallback when no screenshots */}
-                  {(!issue.scan_data?.screenshots || (!issue.scan_data.screenshots.viewport && (!issue.scan_data.screenshots.elements || issue.scan_data.screenshots.elements.length === 0))) && (
-                    <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                      <h4 className="font-semibold text-gray-900 mb-3">Visual Evidence</h4>
-                      <div className="text-center py-8">
-                        <div className="text-gray-500 mb-2">📷</div>
-                        <p className="text-gray-500">No screenshots available for this issue</p>
-                        <p className="text-gray-400 text-sm mt-1">Screenshots may not have been captured during the scan</p>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Resources */}
                   {issue.scan_data?.help_url && (
                     <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">

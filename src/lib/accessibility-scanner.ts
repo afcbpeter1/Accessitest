@@ -395,77 +395,22 @@ export class AccessibilityScanner {
         })
       }, { timeoutMs: 20000, quietMs: 1500 })
 
-      // Add redaction masks before taking the full/viewport "page reference" screenshots.
-      // We mask common sensitive fields (inputs/passwords) so the reference screenshot is safer.
-      await page.evaluate(() => {
-        const existing = document.getElementById('__accessscan_mask_layer')
-        if (existing) existing.remove()
-
-        const layer = document.createElement('div')
-        layer.id = '__accessscan_mask_layer'
-        layer.setAttribute('aria-hidden', 'true')
-        layer.style.position = 'absolute'
-        layer.style.left = '0'
-        layer.style.top = '0'
-        layer.style.width = '100%'
-        layer.style.height = '100%'
-        layer.style.zIndex = '2147483647'
-        layer.style.pointerEvents = 'none'
-
-        const selectors = ['input', 'textarea', 'select', 'input[type="password"]']
-        const els = Array.from(document.querySelectorAll(selectors.join(','))).slice(0, 40) as HTMLElement[]
-
-        for (const el of els) {
-          const rect = el.getBoundingClientRect()
-          const style = window.getComputedStyle(el)
-          if (!rect || rect.width <= 0 || rect.height <= 0) continue
-          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') continue
-
-          const left = rect.left + window.scrollX
-          const top = rect.top + window.scrollY
-
-          const box = document.createElement('div')
-          box.style.position = 'absolute'
-          box.style.left = `${left}px`
-          box.style.top = `${top}px`
-          box.style.width = `${rect.width}px`
-          box.style.height = `${rect.height}px`
-          box.style.background = 'rgba(0,0,0,0.85)'
-          box.style.borderRadius = '2px'
-
-          layer.appendChild(box)
-        }
-
-        const host = document.body || document.documentElement
-        host.appendChild(layer)
-      })
-
-      await page.waitForTimeout(150)
-
-      const fullPageScreenshot = await page.screenshot({
-        fullPage: true,
-        encoding: 'base64',
-        quality: 80,
-        type: 'jpeg'
-      }) as string;
-      const viewportScreenshot = await page.screenshot({
-        fullPage: false,
-        encoding: 'base64',
-        quality: 80,
-        type: 'jpeg'
-      }) as string;
-
-      // Remove masks so affected element screenshots are not overly obscured.
-      await page.evaluate(() => {
-        const existing = document.getElementById('__accessscan_mask_layer')
-        if (existing) existing.remove()
-      })
-
       const elementScreenshots: Array<{ selector: string; issueId: string; severity: string; screenshot: string; boundingBox: any }> = [];
-      for (const issue of issues.slice(0, 5)) {
+      const MAX_ELEMENT_SCREENSHOTS = 20;
+      const seenSelectors = new Set<string>();
+      const impactRank: Record<string, number> = { critical: 0, serious: 1, moderate: 2, minor: 3 };
+      const issuesSorted = [...(issues || [])].sort((a, b) => {
+        const ra = impactRank[a.impact] ?? 9;
+        const rb = impactRank[b.impact] ?? 9;
+        return ra - rb;
+      });
+
+      for (const issue of issuesSorted) {
+        if (elementScreenshots.length >= MAX_ELEMENT_SCREENSHOTS) break;
         for (const node of issue.nodes || []) {
+          if (elementScreenshots.length >= MAX_ELEMENT_SCREENSHOTS) break;
           const selector = node.target?.[0];
-          if (!selector) continue;
+          if (!selector || seenSelectors.has(selector)) continue;
           try {
             const element = await page.$(selector);
             if (!element) continue;
@@ -478,7 +423,10 @@ export class AccessibilityScanner {
             });
             if (!isVisible) continue;
             const elementScreenshot = await element.screenshot({ encoding: 'base64', quality: 80, type: 'jpeg' }) as string;
+            seenSelectors.add(selector);
             elementScreenshots.push({ selector, issueId: issue.id, severity: issue.impact, screenshot: elementScreenshot, boundingBox });
+            // We only need one representative screenshot per selector.
+            break;
           } catch {
             // skip element
           }
@@ -487,22 +435,18 @@ export class AccessibilityScanner {
       const timestamp = Date.now();
       const scanId = `scan_${timestamp}`;
       const uploadPromises: Promise<any>[] = [];
-      if (fullPageScreenshot) uploadPromises.push(CloudinaryService.uploadBase64Image(fullPageScreenshot, 'a11ytest/screenshots', { public_id: `${scanId}_fullpage` }));
-      if (viewportScreenshot) uploadPromises.push(CloudinaryService.uploadBase64Image(viewportScreenshot, 'a11ytest/screenshots', { public_id: `${scanId}_viewport` }));
       for (let i = 0; i < elementScreenshots.length; i++) {
         uploadPromises.push(CloudinaryService.uploadBase64Image(elementScreenshots[i].screenshot, 'a11ytest/screenshots', { public_id: `${scanId}_element_${i}` }));
       }
       const uploadResults = await Promise.all(uploadPromises);
-      const fullPageUrl = uploadResults[0]?.secure_url ?? undefined;
-      const viewportUrl = uploadResults[1]?.secure_url ?? undefined;
       const elements = elementScreenshots.map((el, i) => ({
         selector: el.selector,
         issueId: el.issueId,
         severity: el.severity,
-        screenshot: (uploadResults[2 + i]?.secure_url ?? '') as string,
+        screenshot: (uploadResults[i]?.secure_url ?? '') as string,
         boundingBox: el.boundingBox
       }));
-      return { fullPage: fullPageUrl, viewport: viewportUrl, elements };
+      return { elements };
     } catch (err) {
       console.error('❌ Screenshot capture failed:', err);
       return undefined;

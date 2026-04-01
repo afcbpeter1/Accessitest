@@ -176,7 +176,8 @@ export async function autoSyncIssuesToAzureDevOps(
             remediationItem = issue.scan_results.remediationReport.find((r: any) => 
               r.ruleName === issue.rule_name || 
               r.ruleName === issue.rule_id ||
-              r.issueId === issue.id
+              r.issueId === issue.rule_name ||
+              r.issueId === issue.rule_id
             )
 
             if (!remediationItem && issue.description) {
@@ -255,8 +256,17 @@ export async function autoSyncIssuesToAzureDevOps(
           }
 
           // Get screenshots from scan results (web scans only)
-          if (issue.scan_results?.results?.[0]?.screenshots) {
-            screenshots = issue.scan_results.results[0].screenshots
+          const scanScreenshots =
+            issue.scan_results?.results?.[0]?.screenshots ||
+            issue.scan_results?.[0]?.screenshots ||
+            null
+          if (scanScreenshots) {
+            const ruleId = String(issue.rule_name || issue.rule_id || '').trim()
+            const els = Array.isArray(scanScreenshots?.elements) ? scanScreenshots.elements : []
+            screenshots = {
+              ...scanScreenshots,
+              elements: ruleId ? els.filter((e: any) => e && e.issueId === ruleId) : els
+            }
           }
         }
 

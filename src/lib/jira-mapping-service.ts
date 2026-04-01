@@ -106,36 +106,52 @@ function buildDescription(issue: LocalIssue): any {
     })
   }
 
-  // Main description
+  // Match ADO-style "Bug Ticket Details" structure so Jira/ADO stay consistent.
+  // 📋 Issue Summary
+  addHeading('📋 Issue Summary')
+  if (issue.impact) addParagraph(`Impact: ${String(issue.impact).toUpperCase()}`)
+  if (issue.wcag_level) addParagraph(`WCAG Level: ${issue.wcag_level}`)
+  if (typeof issue.total_occurrences === 'number' && issue.total_occurrences > 0) {
+    addParagraph(`Occurrences: ${issue.total_occurrences}`)
+  }
+  if (issue.affected_pages && issue.affected_pages.length > 0) {
+    addParagraph(`Affected Pages: ${issue.affected_pages.length}`)
+  }
+
+  // 🚨 Problem Description
   if (issue.description && issue.description.trim().length > 0) {
-    addHeading('Issue Description')
+    addHeading('🚨 Problem Description')
     addParagraph(issue.description)
   }
-
-  // Impact and WCAG level
-  if (issue.impact || issue.wcag_level) {
-    addHeading('Accessibility Details')
-    const impactInfo: string[] = []
-    if (issue.impact) {
-      impactInfo.push(`Impact: ${issue.impact}`)
-    }
-    if (issue.wcag_level) {
-      impactInfo.push(`WCAG Level: ${issue.wcag_level}`)
-    }
-    if (impactInfo.length > 0) {
-      addParagraph(impactInfo.join(' | '))
-    }
+  if (issue.help_text && issue.help_text.trim().length > 0) {
+    addParagraph(issue.help_text)
   }
 
-  // Affected pages
+  // ✅ Implementation Steps
+  addHeading('✅ Implementation Steps')
+  const isDocumentScanSteps = issue.offendingElements?.some((e: any) => e.pageNumber !== undefined)
+  const steps = isDocumentScanSteps
+    ? [
+        'Review the affected sections/pages listed below',
+        'Apply the recommended fixes to the document',
+        'Update the document structure or content as needed',
+        'Verify accessibility improvements using document accessibility checkers',
+        'Re-scan the document to confirm the issue is resolved'
+      ]
+    : [
+        'Review the affected elements listed below',
+        'Apply the fixes provided in the code examples',
+        'Test the changes using browser developer tools',
+        `Verify the fix meets WCAG ${issue.wcag_level || 'AA'} standards`,
+        'Test with screen readers and accessibility tools',
+        'Re-scan the page to confirm the issue is resolved'
+      ]
+  addBulletList(steps)
+
+  // Affected pages (keep explicit list, like ADO tickets)
   if (issue.affected_pages && issue.affected_pages.length > 0) {
     addHeading('Affected Pages')
     addBulletList(issue.affected_pages)
-  }
-
-  // Total occurrences
-  if (issue.total_occurrences !== undefined && issue.total_occurrences > 0) {
-    addParagraph(`Total Occurrences: ${issue.total_occurrences}`)
   }
 
   // Help URL and text
@@ -170,9 +186,9 @@ function buildDescription(issue: LocalIssue): any {
     addParagraph(issue.notes)
   }
 
-  // Offending Elements
+  // 🔍 Offending Elements
   if (issue.offendingElements && issue.offendingElements.length > 0) {
-    addHeading('Offending Elements')
+    addHeading('🔍 Offending Elements')
     
     const isDocumentScan = issue.offendingElements.some((e: any) => e.pageNumber !== undefined)
     
@@ -245,38 +261,9 @@ function buildDescription(issue: LocalIssue): any {
     })
   }
 
-  // Implementation Steps (different for document vs web scans)
-  if (issue.offendingElements && issue.offendingElements.length > 0) {
-    addHeading('Implementation Steps')
-    const isDocumentScan = issue.offendingElements.some((e: any) => e.pageNumber !== undefined)
-    
-    if (isDocumentScan) {
-      // Document-specific steps
-      const steps = [
-        'Review the affected sections/pages listed below',
-        'Apply the recommended fixes to the document',
-        'Update the document structure or content as needed',
-        'Verify accessibility improvements using document accessibility checkers',
-        'Re-scan the document to confirm the issue is resolved'
-      ]
-      addBulletList(steps)
-    } else {
-      // Web scan steps
-      const steps = [
-        'Review the affected elements listed below',
-        'Apply the CSS fixes provided in the code examples',
-        'Test the changes using browser developer tools',
-        'Verify color contrast meets WCAG standards',
-        'Test with screen readers and accessibility tools',
-        'Re-scan the page to confirm the issue is resolved'
-      ]
-      addBulletList(steps)
-    }
-  }
-
-  // AI-Generated Suggested Fix
+  // 🔧 AI-Generated Suggested Fix
   if (issue.suggestions && issue.suggestions.length > 0) {
-    addHeading('AI-Generated Suggested Fix')
+    addHeading('🔧 AI-Generated Suggested Fix')
     
     issue.suggestions.forEach((suggestion, index) => {
       if (suggestion.description) {
@@ -307,7 +294,7 @@ function buildDescription(issue: LocalIssue): any {
 
   // Visual Evidence - add links to Cloudinary screenshots
   if (issue.screenshots || (issue.offendingElements && issue.offendingElements.some(e => e.screenshot))) {
-    addHeading('Visual Evidence')
+    addHeading('📸 Visual Evidence')
     
     // Add links to screenshots stored in Cloudinary
     if (issue.screenshots) {

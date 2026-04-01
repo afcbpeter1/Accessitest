@@ -307,8 +307,15 @@ export async function GET(request: NextRequest) {
             affected_pages: issue.affected_pages,
             help_url: issue.help_url,
             help_text: issue.help_text,
-            // Add screenshots from the original scan - results is an array, screenshots are in results[0].screenshots
-            screenshots: issue.scan_results?.results?.[0]?.screenshots || null
+            // Add screenshots from the original scan.
+            // scan_history.scan_results has had multiple shapes over time:
+            // - Array of per-page results: [{ url, issues, screenshots, ... }]
+            // - Object that contains { results: [...] }
+            // We support both so backlog "Visual Evidence" stays populated for older/newer scans.
+            screenshots:
+              issue.scan_results?.results?.[0]?.screenshots ||
+              issue.scan_results?.[0]?.screenshots ||
+              null
           }
         })()
       }

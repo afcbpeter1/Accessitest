@@ -97,13 +97,15 @@ export async function autoSyncIssuesToJira(
           issueContext?.organization_id
         )
 
-        if (!integration || !integration.auto_sync_enabled) {
-          // No integration or auto-sync disabled - skip
+        // Treat auto-sync as enabled by default (historical behavior).
+        // If an integration exists, we proceed.
+        if (!integration) {
+          // No integration - skip
           skipped++
           results.push({
             issueId,
             success: false,
-            error: 'Jira auto-sync not enabled'
+            error: 'Jira integration not configured'
           })
           continue
         }
@@ -213,19 +215,26 @@ export async function autoSyncIssuesToJira(
             }))
           }
         } else {
-          // For web scans, extract from remediationReport
-          if (issue.scan_results?.remediationReport) {
+          // For web scans, extract from remediationReport when present,
+          // but ALWAYS fall back to raw scan_results.results so every rule can be ticketed with full detail.
+          let scanResults: any = issue.scan_results
+          if (typeof scanResults === 'string') {
+            try { scanResults = JSON.parse(scanResults) } catch { scanResults = null }
+          }
+
+          if (scanResults?.remediationReport) {
             // Try multiple matching strategies to find the remediation item
             // Strategy 1: Exact rule name match
-            remediationItem = issue.scan_results.remediationReport.find((r: any) => 
+            remediationItem = scanResults.remediationReport.find((r: any) => 
               r.ruleName === issue.rule_name || 
               r.ruleName === issue.rule_id ||
-              r.issueId === issue.id
+              r.issueId === issue.rule_name ||
+              r.issueId === issue.rule_id
             )
 
             // Strategy 2: Description match (case insensitive)
             if (!remediationItem && issue.description) {
-              remediationItem = issue.scan_results.remediationReport.find((r: any) => 
+              remediationItem = scanResults.remediationReport.find((r: any) => 
                 r.description && r.description.toLowerCase().trim() === issue.description.toLowerCase().trim()
               )
             }
@@ -233,7 +242,7 @@ export async function autoSyncIssuesToJira(
             // Strategy 3: Partial description match
             if (!remediationItem && issue.description) {
               const descWords = issue.description.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3)
-              remediationItem = issue.scan_results.remediationReport.find((r: any) => 
+              remediationItem = scanResults.remediationReport.find((r: any) => 
                 r.description && descWords.some((word: string) => r.description.toLowerCase().includes(word))
               )
             }
@@ -251,7 +260,7 @@ export async function autoSyncIssuesToJira(
               
               const patterns = ruleIdPatterns[issue.rule_name as keyof typeof ruleIdPatterns] || []
               if (patterns.length > 0) {
-                remediationItem = issue.scan_results.remediationReport.find((r: any) => 
+                remediationItem = scanResults.remediationReport.find((r: any) => 
                   patterns.some(pattern => 
                     r.ruleName?.toLowerCase().includes(pattern) ||
                     r.description?.toLowerCase().includes(pattern)
@@ -263,74 +272,76 @@ export async function autoSyncIssuesToJira(
             if (remediationItem) {
               offendingElements = remediationItem.offendingElements || []
               suggestions = remediationItem.suggestions || []
-            } else {
-              // Fallback: Extract from scan_results.results if remediationReport doesn't match
-              // This handles cases where remediationReport structure is different
-              if (issue.scan_results?.results) {
-                for (const result of issue.scan_results.results) {
-                  if (result.issues) {
-                    for (const scanIssue of result.issues) {
-                      // Match by rule ID, rule name, or description (with fuzzy matching)
-                      const ruleMatches = scanIssue.id === issue.rule_name || 
-                                         scanIssue.id === issue.rule_id ||
-                                         scanIssue.ruleId === issue.rule_name ||
-                                         scanIssue.ruleId === issue.rule_id
-                      const descMatches = scanIssue.description && issue.description &&
-                                         (scanIssue.description.toLowerCase().trim() === issue.description.toLowerCase().trim() ||
-                                          scanIssue.description.toLowerCase().includes(issue.description.toLowerCase().substring(0, 20)) ||
-                                          issue.description.toLowerCase().includes(scanIssue.description.toLowerCase().substring(0, 20)))
-                      
-                      if (ruleMatches || descMatches) {
-                        // Extract offending elements from nodes
-                        if (scanIssue.nodes && scanIssue.nodes.length > 0) {
-                          offendingElements = scanIssue.nodes.map((node: any) => ({
-                            html: node.html || `<${node.target?.[0] || 'element'}>`,
-                            target: node.target || [],
-                            failureSummary: node.failureSummary || scanIssue.description || issue.description,
-                            impact: scanIssue.impact || issue.impact || 'moderate',
-                            url: result.url || issue.scan_url || issue.affected_pages?.[0] || '',
-                            screenshot: node.screenshot,
-                            boundingBox: node.boundingBox
-                          }))
-                        }
-                        
-                        // Extract suggestions if available
-                        if (scanIssue.suggestions && scanIssue.suggestions.length > 0) {
-                          suggestions = scanIssue.suggestions.map((s: any) => ({
-                            type: 'fix',
-                            description: s.description || s.text || s.whatWillBeFixed || '',
-                            codeExample: s.codeExample || s.code || '',
-                            priority: s.priority || 'medium'
-                          }))
-                        }
-                        
-                        // If we found matching issue, break
-                        if (offendingElements.length > 0 || suggestions.length > 0) {
-                          break
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-              
-              // Last resort: If we still don't have offending elements but have notes, 
-              // create a basic offending element from the issue data
-              if (offendingElements.length === 0 && issue.notes) {
-                offendingElements = [{
-                  html: issue.notes.split(':')[1]?.trim() || issue.description || '',
-                  target: [issue.rule_name || ''],
-                  failureSummary: issue.notes,
-                  impact: issue.impact || 'moderate',
-                  url: issue.affected_pages?.[0] || issue.scan_url || ''
-                }]
-              }
             }
           }
 
+          // Fallback: Extract from scan_results.results even when remediationReport is missing.
+          if (offendingElements.length === 0 && scanResults?.results) {
+            for (const result of scanResults.results) {
+              if (!result?.issues) continue
+              for (const scanIssue of result.issues) {
+                const ruleMatches = scanIssue.id === issue.rule_name || 
+                                   scanIssue.id === issue.rule_id ||
+                                   scanIssue.ruleId === issue.rule_name ||
+                                   scanIssue.ruleId === issue.rule_id
+                const descMatches = scanIssue.description && issue.description &&
+                                   (scanIssue.description.toLowerCase().trim() === issue.description.toLowerCase().trim() ||
+                                    scanIssue.description.toLowerCase().includes(issue.description.toLowerCase().substring(0, 20)) ||
+                                    issue.description.toLowerCase().includes(scanIssue.description.toLowerCase().substring(0, 20)))
+
+                if (!ruleMatches && !descMatches) continue
+
+                if (scanIssue.nodes && scanIssue.nodes.length > 0) {
+                  offendingElements = scanIssue.nodes.map((node: any) => ({
+                    html: node.html || `<${node.target?.[0] || 'element'}>`,
+                    target: node.target || [],
+                    failureSummary: node.failureSummary || scanIssue.description || issue.description,
+                    impact: scanIssue.impact || issue.impact || 'moderate',
+                    url: result.url || issue.scan_url || issue.affected_pages?.[0] || '',
+                    screenshot: node.screenshot,
+                    boundingBox: node.boundingBox
+                  }))
+                }
+
+                if (suggestions.length === 0 && scanIssue.suggestions && scanIssue.suggestions.length > 0) {
+                  suggestions = scanIssue.suggestions.map((s: any) => ({
+                    type: 'fix',
+                    description: s.description || s.text || s.whatWillBeFixed || '',
+                    codeExample: s.codeExample || s.code || '',
+                    priority: s.priority || 'medium'
+                  }))
+                }
+
+                if (offendingElements.length > 0 || suggestions.length > 0) break
+              }
+              if (offendingElements.length > 0 || suggestions.length > 0) break
+            }
+          }
+
+          // Last resort: If we still don't have offending elements but have notes, create a basic offending element.
+          if (offendingElements.length === 0 && issue.notes) {
+            offendingElements = [{
+              html: issue.notes.split(':')[1]?.trim() || issue.description || '',
+              target: [issue.rule_name || ''],
+              failureSummary: issue.notes,
+              impact: issue.impact || 'moderate',
+              url: issue.affected_pages?.[0] || issue.scan_url || ''
+            }]
+          }
+
           // Get screenshots from scan results (web scans only)
-          if (issue.scan_results?.results?.[0]?.screenshots) {
-            screenshots = issue.scan_results.results[0].screenshots
+          const scanScreenshots =
+            scanResults?.results?.[0]?.screenshots ||
+            scanResults?.[0]?.screenshots ||
+            null
+          if (scanScreenshots) {
+            const ruleId = String(issue.rule_name || issue.rule_id || '').trim()
+            const els = Array.isArray(scanScreenshots?.elements) ? scanScreenshots.elements : []
+            screenshots = {
+              ...scanScreenshots,
+              // Only include element screenshots for *this* issue/rule.
+              elements: ruleId ? els.filter((e: any) => e && e.issueId === ruleId) : els
+            }
           }
         }
 
