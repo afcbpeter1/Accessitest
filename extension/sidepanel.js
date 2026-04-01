@@ -14,6 +14,14 @@
   var focusReaderAllowed = false;
   var focusReaderLoggedIn = false;
 
+  // If the side panel is closed/unloaded, ensure the reader is turned off.
+  // The reader runs as a content script in the page tab, so it must be explicitly stopped.
+  try {
+    window.addEventListener('beforeunload', function () {
+      setFocusReader(false, true);
+    });
+  } catch (e) {}
+
   function getIframe() {
     return document.getElementById(IFRAME_ID);
   }
