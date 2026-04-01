@@ -536,7 +536,7 @@ export default function HomePage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-6 inline-flex items-center px-6 py-3 bg-[#0B1220] text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
-                  aria-label="Install VisionSwitch from Chrome Web Store"
+                  aria-label="Add to Chrome — VisionSwitch (Chrome Web Store)"
                 >
                   Add to Chrome
                   <ExternalLink className="ml-2 h-4 w-4" />
@@ -554,7 +554,7 @@ export default function HomePage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="mt-6 inline-flex items-center px-6 py-3 bg-[#0B1220] text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
-                  aria-label="Install a11ytest.ai extension from Chrome Web Store"
+                  aria-label="Add to Chrome — a11ytest.ai Extension (Chrome Web Store)"
                 >
                   Add to Chrome
                   <ExternalLink className="ml-2 h-4 w-4" />

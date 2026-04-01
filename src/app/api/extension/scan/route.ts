@@ -13,6 +13,7 @@ import { screenshotService } from '@/lib/screenshot-service'
 import { CloudinaryService } from '@/lib/cloudinary-service'
 import { ClaudeAPI } from '@/lib/claude-api'
 import { ensureRuleLevelLearnedSuggestionAtScanTime, isNoOpOrInvalidCodeExample } from '@/lib/runtime-learned-suggestion'
+import { getStandardTagsFromAxeTags } from '@/lib/standard-tags'
 import {
   getLearnedSuggestion,
   logPipelineSuggestion,
@@ -229,6 +230,7 @@ export async function POST(request: NextRequest) {
           description: issue.description || 'Accessibility issue detected',
           impact: issue.impact || 'moderate',
           wcag22Level: deriveWcag22Level(issue),
+          standardTags: getStandardTagsFromAxeTags(issue.tags),
           help: issue.help || 'Please review and fix this accessibility issue',
           helpUrl: issue.helpUrl || 'https://www.w3.org/WAI/WCAG21/quickref/',
           totalOccurrences: issue.nodes?.length || 1,

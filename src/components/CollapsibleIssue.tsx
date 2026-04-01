@@ -15,6 +15,7 @@ import {
   FileText,
   Sparkles
 } from 'lucide-react'
+import { STANDARD_DISPLAY_NAMES } from '@/lib/standard-tags'
 // import AddToBacklogButton from './AddToBacklogButton'
 // import { useToast } from './Toast'
 
@@ -154,6 +155,7 @@ interface CollapsibleIssueProps {
   description: string
   impact: 'critical' | 'serious' | 'moderate' | 'minor'
   wcag22Level: string
+  standardTags?: string[]
   help: string
   helpUrl: string
   totalOccurrences: number
@@ -232,13 +234,13 @@ export default function CollapsibleIssue({
   description,
   impact,
   wcag22Level,
+  standardTags,
   help,
   helpUrl,
   totalOccurrences,
   affectedUrls,
   offendingElements,
   suggestions,
-  priority,
   screenshots,
   savedAIResponses,
   scanId,
@@ -250,16 +252,27 @@ export default function CollapsibleIssue({
   const [screenshotFadeIn, setScreenshotFadeIn] = useState(false)
   // const { showToast, ToastContainer } = useToast()
 
+  const standardChips = (standardTags || []).filter((t) =>
+    t === 'best-practice' ||
+    t === 'section508' ||
+    t === 'EN-301-549' ||
+    t === 'ACT' ||
+    t === 'TTv5' ||
+    t === 'RGAAv4'
+  )
+
+  const issueElementScreenshots = (screenshots?.elements || []).filter((el) => el.issueId === issueId)
+
   // Trigger fade-in animation when screenshots are available
   useEffect(() => {
-    if (screenshots && (screenshots.viewport || (screenshots.elements && screenshots.elements.length > 0))) {
+    if (screenshots && (screenshots.viewport || issueElementScreenshots.length > 0)) {
       // Small delay to ensure smooth animation
       const timer = setTimeout(() => {
         setScreenshotFadeIn(true)
       }, 100)
       return () => clearTimeout(timer)
     }
-  }, [screenshots])
+  }, [screenshots, issueElementScreenshots.length])
 
   const handleCopy = async () => {
     const issueText = `Issue: ${ruleName}
@@ -310,9 +323,14 @@ Affected URLs: ${affectedUrls.join(', ')}`
                 <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full border border-purple-200 flex-shrink-0">
                   WCAG 2 {formatWcagLevel(wcag22Level)}
                 </span>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full border flex-shrink-0 ${getPriorityColor(priority || 'medium')} bg-opacity-10`}>
-                  {(priority || 'medium').toUpperCase()} PRIORITY
-                </span>
+                {standardChips.map((tag) => (
+                  <span
+                    key={tag}
+                    className="px-2 py-1 text-xs font-medium bg-slate-100 text-slate-800 rounded-full border border-slate-200 flex-shrink-0"
+                  >
+                    {STANDARD_DISPLAY_NAMES[tag as keyof typeof STANDARD_DISPLAY_NAMES] ?? tag}
+                  </span>
+                ))}
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-700">
                 <span className="flex items-center gap-1 flex-shrink-0">
@@ -474,11 +492,11 @@ Affected URLs: ${affectedUrls.join(', ')}`
               )}
               
               {/* Element Screenshots */}
-              {screenshots?.elements && (screenshots.elements || []).length > 0 && (
+              {issueElementScreenshots.length > 0 && (
                 <div>
                   <div className="text-xs text-gray-600 mb-2">Affected Elements:</div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {screenshots.elements.map((element, index) => (
+                    {issueElementScreenshots.map((element, index) => (
                       <div 
                         key={index} 
                         className={`border border-gray-200 rounded overflow-hidden transition-all duration-700 ease-out ${

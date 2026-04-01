@@ -9,6 +9,8 @@
   var activeAudioSource = null;
   var audioContext = null;
   var speakRequestCounter = 0;
+  var activeUtterance = null;
+  var fallbackTimer = null;
 
   function getRole(el) {
     var explicitRole = el.getAttribute('role');
@@ -103,6 +105,32 @@
     }
   }
 
+  function stopActiveSpeech() {
+    if (fallbackTimer) {
+      clearTimeout(fallbackTimer);
+      fallbackTimer = null;
+    }
+    if (window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+    }
+    activeUtterance = null;
+  }
+
+  function speakLocal(text) {
+    try {
+      if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
+      stopActiveSpeech();
+      var u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.0;
+      u.pitch = 1.0;
+      u.volume = 1.0;
+      activeUtterance = u;
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
   function base64ToArrayBuffer(base64) {
     var binary = atob(base64);
     var len = binary.length;
@@ -160,39 +188,40 @@
     lastSpokenAt = now;
 
     stopActiveAudio();
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    stopActiveSpeech();
 
     var requestId = ++speakRequestCounter;
     var fallbackUsed = false;
-    // Fallback voice disabled by request.
-    // var fallbackTimer = setTimeout(function () {
-    //   if (!enabled || requestId !== speakRequestCounter) return;
-    //   fallbackUsed = true;
-    //   speakLocal(text);
-    // }, 5000);
+    // If ElevenLabs is slow or fails, fall back to local TTS so the reader never goes silent.
+    fallbackTimer = setTimeout(function () {
+      if (!enabled || requestId !== speakRequestCounter) return;
+      fallbackUsed = true;
+      speakLocal(text);
+    }, 5000);
 
     chrome.runtime.sendMessage({ type: 'GENERATE_READER_TTS', text: text }, function (response) {
-      // if (fallbackTimer) clearTimeout(fallbackTimer);
       if (!enabled || requestId !== speakRequestCounter) return;
       if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.lastError) {
         try { console.warn('Reader TTS runtime error:', chrome.runtime.lastError.message); } catch (e) {}
-        // if (!fallbackUsed) speakLocal(text);
+        if (!fallbackUsed) speakLocal(text);
         return;
       }
       if (!response || !response.ok || !response.audioBase64) {
         try { console.warn('Reader TTS fallback reason:', response && response.error ? response.error : 'unknown'); } catch (e) {}
-        // if (!fallbackUsed) speakLocal(text);
+        if (!fallbackUsed) speakLocal(text);
         return;
       }
       try {
-        if (fallbackUsed && window.speechSynthesis) {
-          window.speechSynthesis.cancel();
+        if (fallbackTimer) {
+          clearTimeout(fallbackTimer);
+          fallbackTimer = null;
         }
+        if (fallbackUsed) stopActiveSpeech();
         playElevenLabsAudio(response.audioBase64, function () {
-          // if (!fallbackUsed) speakLocal(text);
+          if (!fallbackUsed) speakLocal(text);
         });
       } catch (e) {
-        // if (!fallbackUsed) speakLocal(text);
+        if (!fallbackUsed) speakLocal(text);
       }
     });
   }
@@ -332,7 +361,7 @@
       pendingTabAnnounce = null;
     }
     stopActiveAudio();
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    stopActiveSpeech();
   }
 
   chrome.runtime.onMessage.addListener(function (msg, _sender, sendResponse) {
