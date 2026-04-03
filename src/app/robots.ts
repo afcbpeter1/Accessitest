@@ -10,7 +10,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: [
         '/',
         '/home',
-        '/pricing',
         '/privacy-policy',
         '/terms-of-service',
         '/cookie-policy',
@@ -18,7 +17,7 @@ export default function robots(): MetadataRoute.Robots {
         '/accessibility-issues',
         '/logo-contrast-checker',
         '/playground',
-        '/extension',
+        '/a11y',
       ],
       disallow: [
         '/api',
@@ -35,6 +34,8 @@ export default function robots(): MetadataRoute.Robots {
         '/forgot-password',
         '/login',
         '/signup',
+        '/pricing',
+        '/extension',
       ],
     },
     sitemap: `${baseUrl}/sitemap.xml`,

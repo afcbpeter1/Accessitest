@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useScreenReaderAnnounce } from '../../hooks/useScreenReaderAnnounce'
+import Link from 'next/link'
 import Footer from '../../components/Footer'
 import ToolingTopNav from '@/components/ToolingTopNav'
 
@@ -262,10 +263,25 @@ export default function LogoContrastChecker() {
 
       <main className="px-4 sm:px-6 lg:px-8 py-8" role="main">
         <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold mb-2 text-gray-900">CONTRAST CHECKER</h1>
-            <p className="text-gray-600">Professional accessibility testing for your logo</p>
+          {/* Header + SEO intro */}
+          <div className="text-center mb-10 max-w-3xl mx-auto">
+            <h1 className="text-4xl font-bold mb-3 text-gray-900 tracking-tight">
+              Logo contrast checker
+            </h1>
+            <p className="text-lg text-gray-700 font-medium">
+              Professional accessibility testing for your logo and brand colours
+            </p>
+            <p className="mt-5 text-left sm:text-center text-gray-600 text-base leading-relaxed">
+              This free <strong className="font-semibold text-gray-800">logo contrast checker</strong> helps
+              you verify <strong className="font-semibold text-gray-800">WCAG 2.2 colour contrast</strong>{' '}
+              between a foreground and background hex value—so you can design{' '}
+              <strong className="font-semibold text-gray-800">accessible branding</strong> for websites,
+              apps, slide decks, and PDFs. Upload a PNG, JPEG, GIF, or WebP to extract dominant colours from
+              your artwork, or enter colours manually for a fast{' '}
+              <strong className="font-semibold text-gray-800">contrast ratio</strong> check against AA, AAA,
+              and large-text thresholds used for <abbr title="Section 508 of the Rehabilitation Act">Section 508</abbr>{' '}
+              and EN 301 549 procurement.
+            </p>
           </div>
 
         {/* Main Interface - Like the contrast checker */}
@@ -572,6 +588,139 @@ export default function LogoContrastChecker() {
             </div>
           </div>
         )}
+
+        {/* SEO: explanatory content & FAQ */}
+        <div className="mt-16 pt-12 border-t border-gray-200 space-y-14 text-gray-700">
+          <section aria-labelledby="what-it-does-heading">
+            <h2 id="what-it-does-heading" className="text-2xl font-bold text-gray-900 mb-4">
+              What this logo contrast checker does
+            </h2>
+            <div className="space-y-4 text-base leading-relaxed">
+              <p>
+                The tool measures <strong className="text-gray-900">relative luminance</strong> between two
+                colours and reports a <strong className="text-gray-900">contrast ratio</strong> (for example
+                4.5:1 or 7:1). That number is how designers and auditors decide if text—or graphical
+                essential information—meets <strong className="text-gray-900">WCAG contrast</strong> for
+                normal text, large text, and stricter AAA goals.
+              </p>
+              <p>
+                When you <strong className="text-gray-900">upload a logo</strong>, the server analyses the
+                image and returns a palette of hex values from your file. You pick which colour acts as{' '}
+                <strong className="text-gray-900">foreground</strong> and which as{' '}
+                <strong className="text-gray-900">background</strong>, then compare them to see pass/fail
+                badges for AA, AAA, and large-text rules. You can also skip the upload and paste hex codes
+                directly—useful for <strong className="text-gray-900">brand guidelines</strong>, favicons, app
+                icons, and social assets.
+              </p>
+            </div>
+          </section>
+
+          <section aria-labelledby="why-matters-heading">
+            <h2 id="why-matters-heading" className="text-2xl font-bold text-gray-900 mb-4">
+              Why logo and brand colour contrast matters for accessibility
+            </h2>
+            <div className="space-y-4 text-base leading-relaxed">
+              <p>
+                Poor contrast affects people with low vision, colour vision deficiency, and anyone using a
+                screen in bright light. For <strong className="text-gray-900">logos on websites</strong>, email
+                signatures, and documents, insufficient contrast can make your mark hard to recognise or read
+                when it sits on tinted headers, photography, or coloured cards.
+              </p>
+              <p>
+                <strong className="text-gray-900">WCAG 1.4.3 Contrast (Minimum)</strong> sets minimum ratios
+                (typically 4.5:1 for normal text and 3:1 for large text).{' '}
+                <strong className="text-gray-900">WCAG 1.4.6 Contrast (Enhanced)</strong> pushes to 7:1 for
+                normal text (AAA). For <strong className="text-gray-900">user interface components</strong> and{' '}
+                <strong className="text-gray-900">graphical objects</strong>,{' '}
+                <strong className="text-gray-900">WCAG 1.4.11 Non-text Contrast</strong> expects at least 3:1
+                against adjacent colours in many cases. This checker focuses on the colour pair you select so
+                you can iterate toward inclusive <strong className="text-gray-900">brand accessibility</strong>.
+              </p>
+            </div>
+          </section>
+
+          <section aria-labelledby="how-to-heading">
+            <h2 id="how-to-heading" className="text-2xl font-bold text-gray-900 mb-4">
+              How to use this WCAG contrast tool
+            </h2>
+            <ol className="list-decimal pl-5 space-y-3 text-base leading-relaxed">
+              <li>
+                <strong className="text-gray-900">Upload</strong> your logo (or leave upload empty and type
+                hex values on the right).
+              </li>
+              <li>
+                If you uploaded, <strong className="text-gray-900">click two colours</strong> from the palette
+                to set foreground (F) and background (B), or edit the hex fields directly.
+              </li>
+              <li>
+                Read the <strong className="text-gray-900">ratio</strong> and AA / AAA / large-text labels, and
+                use the sample text blocks to preview how the pair feels at body and display sizes.
+              </li>
+              <li>
+                Adjust colours in your design system until the combination meets your target level—then lock
+                those values in your <strong className="text-gray-900">accessibility documentation</strong>.
+              </li>
+            </ol>
+          </section>
+
+          <section aria-labelledby="faq-heading" className="pb-4">
+            <h2 id="faq-heading" className="text-2xl font-bold text-gray-900 mb-6">
+              Frequently asked questions
+            </h2>
+            <div className="space-y-3">
+              <details className="group border border-gray-200 rounded-lg bg-gray-50 px-4 py-3 open:bg-white open:shadow-sm">
+                <summary className="cursor-pointer font-semibold text-gray-900 list-none flex items-center justify-between gap-2">
+                  What is a good contrast ratio for WCAG AA?
+                  <span className="text-gray-400 text-sm group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <p className="mt-3 text-base leading-relaxed text-gray-700 border-t border-gray-100 pt-3">
+                  For normal-sized text, <strong className="text-gray-900">4.5:1</strong> is the usual AA
+                  minimum. Large text (roughly 18pt+ or 14pt+ bold) can qualify at{' '}
+                  <strong className="text-gray-900">3:1</strong> under AA. AAA requires higher ratios (7:1 for
+                  normal text in typical cases).
+                </p>
+              </details>
+              <details className="group border border-gray-200 rounded-lg bg-gray-50 px-4 py-3 open:bg-white open:shadow-sm">
+                <summary className="cursor-pointer font-semibold text-gray-900 list-none flex items-center justify-between gap-2">
+                  Can I test contrast without uploading a logo?
+                  <span className="text-gray-400 text-sm group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <p className="mt-3 text-base leading-relaxed text-gray-700 border-t border-gray-100 pt-3">
+                  Yes. Enter any two <strong className="text-gray-900">hex colour codes</strong> in the
+                  foreground and background fields to run a{' '}
+                  <strong className="text-gray-900">colour contrast calculator</strong> check—no image required.
+                </p>
+              </details>
+              <details className="group border border-gray-200 rounded-lg bg-gray-50 px-4 py-3 open:bg-white open:shadow-sm">
+                <summary className="cursor-pointer font-semibold text-gray-900 list-none flex items-center justify-between gap-2">
+                  Is this a full website accessibility audit?
+                  <span className="text-gray-400 text-sm group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <p className="mt-3 text-base leading-relaxed text-gray-700 border-t border-gray-100 pt-3">
+                  No. This page tests <strong className="text-gray-900">one pair of colours</strong> at a time.
+                  Full audits cover markup, keyboard access, forms, PDF structure, and more. For automated site
+                  scans and document testing, explore the{' '}
+                  <Link href="/home" className="text-[#0B1220] font-semibold underline underline-offset-2 hover:no-underline">
+                    a11ytest.ai platform
+                  </Link>{' '}
+                  or the{' '}
+                  <Link href="/playground" className="text-[#0B1220] font-semibold underline underline-offset-2 hover:no-underline">
+                    playground
+                  </Link>
+                  .
+                </p>
+              </details>
+            </div>
+          </section>
+
+          <p className="text-sm text-gray-500 border-t border-gray-100 pt-8">
+            Related: <Link href="/home" className="text-[#0B1220] font-medium underline underline-offset-2">accessibility testing platform</Link>
+            {' · '}
+            <Link href="/accessibility-issues" className="text-[#0B1220] font-medium underline underline-offset-2">WCAG issues explained</Link>
+            {' · '}
+            <Link href="/a11y" className="text-[#0B1220] font-medium underline underline-offset-2">A11y resources</Link>
+          </p>
+        </div>
         </div>
       </main>
       <Footer />

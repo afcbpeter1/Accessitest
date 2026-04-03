@@ -40,7 +40,15 @@ const EXTENDED_RULE_TAGS: Record<string, string[]> = {
   'landmark-wrong-role': ['wcag2aa', 'wcag21aa'],
   'landmark-multiple-no-name': ['wcag2aa', 'wcag21aa'],
   'form-structure': ['wcag2a', 'wcag21a'],
-  'ad-container-accessibility': ['wcag2a', 'wcag21a']
+  'ad-container-accessibility': ['wcag2a', 'wcag21a'],
+  'skip-link-missing': ['wcag2a', 'wcag21a'],
+  'skip-link-broken': ['wcag2a', 'wcag21a'],
+  'iframe-missing-title': ['wcag2a', 'wcag21a'],
+  'duplicate-id': ['wcag2a', 'wcag21a'],
+  'focusable-in-aria-hidden': ['wcag2a', 'wcag21a'],
+  'form-group-no-fieldset': ['wcag2a', 'wcag21a'],
+  'form-fieldset-no-legend': ['wcag2a', 'wcag21a'],
+  'interactive-non-semantic': ['wcag2a', 'wcag21a']
 };
 
 function toIssue(
@@ -62,6 +70,337 @@ function toIssue(
     helpUrl: 'https://www.w3.org/WAI/WCAG21/Understanding/',
     nodes: [{ ...emptyNode(html, [selector], failureSummary, impact) }]
   };
+}
+
+/**
+ * Skip link (behavioural): first Tab stop should be a skip link; activating it should move focus to main content.
+ * Runs before other keyboard checks so Tab order is untouched. Complements axe rule `skip-link` (DOM-only).
+ */
+export async function runSkipLinkBehaviourChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.keyboard.press('Tab');
+
+    const first = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || el === document.body) return null;
+      const text = (el.innerText || '').trim();
+      const href = el.getAttribute('href') || '';
+      const isSkip =
+        /skip/i.test(text) ||
+        /skip to/i.test(text) ||
+        /skip/i.test(href) ||
+        (href.startsWith('#') && /main|content|primary|article/i.test(href));
+      return {
+        tag: el.tagName.toLowerCase(),
+        href,
+        text: text.slice(0, 120),
+        isSkip,
+        isLink: el.tagName === 'A'
+      };
+    });
+
+    if (!first) {
+      issues.push(
+        toIssue(
+          'skip-link-missing',
+          'serious',
+          'Could not determine first keyboard focus (no element received focus after Tab).',
+          'Ensure the page has a visible focus order starting with a skip link, or focusable content.',
+          '',
+          'body',
+          'No focused element after first Tab.'
+        )
+      );
+      return issues;
+    }
+
+    if (!first.isLink || !first.isSkip) {
+      issues.push(
+        toIssue(
+          'skip-link-missing',
+          'serious',
+          'First focusable element is not a skip-to-content link.',
+          'Add a "Skip to main content" link as the first focusable control (visually hidden until focused is OK). Link to #main or your main region id.',
+          first.text || first.href,
+          'body',
+          'WCAG 2.4.1 Bypass Blocks — keyboard users should reach primary content quickly.'
+        )
+      );
+      return issues;
+    }
+
+    await page.keyboard.press('Enter');
+    await new Promise(r => setTimeout(r, 150));
+
+    const landedOnMain = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el) return false;
+      if (el.tagName === 'MAIN' || el.getAttribute('role') === 'main') return true;
+      const id = (el.id || '').toLowerCase();
+      if (id === 'main' || id === 'content' || id === 'main-content') return true;
+      const mainEl = document.querySelector('main, [role="main"]');
+      return !!(mainEl && mainEl.contains(el));
+    });
+
+    if (!landedOnMain) {
+      issues.push(
+        toIssue(
+          'skip-link-broken',
+          'serious',
+          'Skip link exists but activating it does not move focus to the primary content region.',
+          'Point the href at an id on <main> or a wrapper; add tabindex="-1" on that target so focus moves (browser requirement for in-page links).',
+          `<a href="${first.href}">`,
+          first.href || 'a[href^="#"]',
+          'Enter on skip link did not land focus inside main content.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (skip link behaviour) failed:', err);
+  }
+
+  return issues;
+}
+
+/** Iframes: require a non-generic title (axe flags frame-title; this catches empty/generic). */
+export async function runIframeTitleChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      const GENERIC = new Set([
+        'advertisement',
+        'banner',
+        'frame',
+        'iframe',
+        'untitled',
+        '',
+        'ad',
+        'sponsor'
+      ]);
+      return Array.from(document.querySelectorAll('iframe')).map((el) => {
+        const title = (el.getAttribute('title') || '').trim().toLowerCase();
+        const bad = !title || GENERIC.has(title);
+        if (!bad) return null;
+        const html = (el as HTMLElement).outerHTML.substring(0, 200);
+        const sel = (el as HTMLElement).id ? `#${(el as HTMLElement).id}` : 'iframe';
+        return { html, sel, title: el.getAttribute('title') };
+      }).filter(Boolean) as Array<{ html: string; sel: string; title: string | null }>;
+    });
+
+    for (const f of findings) {
+      issues.push(
+        toIssue(
+          'iframe-missing-title',
+          'serious',
+          `iframe has no meaningful title attribute (current: ${f.title === null || f.title === '' ? 'missing' : `"${f.title}"`}).`,
+          'Add title="…" describing the embedded content (e.g. the ad or widget purpose) so screen readers can identify the frame.',
+          f.html,
+          f.sel,
+          'iframe needs a descriptive title for screen reader users.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (iframe titles) failed:', err);
+  }
+
+  return issues;
+}
+
+export async function runDuplicateIdChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const dupes = await page.evaluate(() => {
+      const counts: Record<string, number> = {};
+      document.querySelectorAll('[id]').forEach((el) => {
+        const id = (el as HTMLElement).id;
+        if (id) counts[id] = (counts[id] || 0) + 1;
+      });
+      return Object.entries(counts)
+        .filter(([, n]) => n > 1)
+        .map(([id, count]) => ({ id, count }));
+    });
+
+    for (const { id, count } of dupes.slice(0, 20)) {
+      issues.push(
+        toIssue(
+          'duplicate-id',
+          'serious',
+          `ID "${id}" appears ${count} times on this page.`,
+          'IDs must be unique. Duplicates break aria-labelledby, aria-describedby, and in-page links.',
+          '',
+          `[id="${id}"]`,
+          `Duplicate id="${id}" breaks accessibility APIs.`
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (duplicate id) failed:', err);
+  }
+
+  return issues;
+}
+
+export async function runFocusableInAriaHiddenChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      const focusable =
+        'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+      const out: Array<{ html: string; sel: string }> = [];
+      document.querySelectorAll('[aria-hidden="true"]').forEach((container) => {
+        container.querySelectorAll(focusable).forEach((el) => {
+          const t = parseInt((el as HTMLElement).getAttribute('tabindex') || '0', 10);
+          if (t < 0) return;
+          const e = el as HTMLElement;
+          out.push({
+            html: e.outerHTML.substring(0, 200),
+            sel: e.id ? `#${e.id}` : e.tagName.toLowerCase()
+          });
+        });
+      });
+      return out.slice(0, 15);
+    });
+
+    for (const f of findings) {
+      issues.push(
+        toIssue(
+          'focusable-in-aria-hidden',
+          'critical',
+          'Focusable element is inside aria-hidden="true" (hidden from AT but still in tab order).',
+          'Remove aria-hidden from the ancestor, hide content differently, or use tabindex="-1" on children and remove from tab order.',
+          f.html,
+          f.sel,
+          'WCAG 4.1.2 — focusable content must not be exposed inconsistently.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (focusable in aria-hidden) failed:', err);
+  }
+
+  return issues;
+}
+
+export async function runRadioCheckboxFieldsetChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      type Row = { name: string; type: 'fieldset' | 'legend'; html: string; sel: string; summary: string };
+      const out: Row[] = [];
+      const groups: Record<string, HTMLInputElement[]> = {};
+      document.querySelectorAll('input[type="radio"], input[type="checkbox"]').forEach((el) => {
+        const input = el as HTMLInputElement;
+        const name = input.getAttribute('name') || '__unnamed__';
+        if (!groups[name]) groups[name] = [];
+        groups[name].push(input);
+      });
+
+      Object.entries(groups).forEach(([name, els]) => {
+        if (els.length <= 1) return;
+        const fieldset = els[0].closest('fieldset');
+        if (!fieldset) {
+          out.push({
+            name,
+            type: 'fieldset',
+            html: els[0].outerHTML.substring(0, 120),
+            sel: els[0].id ? `#${els[0].id}` : `input[name="${name}"]`,
+            summary: `Grouped inputs "${name}" are not wrapped in a fieldset.`
+          });
+          return;
+        }
+        if (!fieldset.querySelector('legend')) {
+          out.push({
+            name,
+            type: 'legend',
+            html: fieldset.outerHTML.substring(0, 200),
+            sel: fieldset.id ? `#${fieldset.id}` : 'fieldset',
+            summary: `Fieldset for group "${name}" has no legend.`
+          });
+        }
+      });
+      return out;
+    });
+
+    for (const f of findings) {
+      if (f.type === 'fieldset') {
+        issues.push(
+          toIssue(
+            'form-group-no-fieldset',
+            'serious',
+            f.summary,
+            'Wrap related radio or checkbox inputs in <fieldset><legend>Group label</legend>...</fieldset>.',
+            f.html,
+            f.sel,
+            'Groups of radios/checkboxes need a programmatic group label.'
+          )
+        );
+      } else {
+        issues.push(
+          toIssue(
+            'form-fieldset-no-legend',
+            'serious',
+            f.summary,
+            'Add <legend> as the first child of <fieldset> describing the group.',
+            f.html,
+            f.sel,
+            'Fieldset requires a legend for the group accessible name.'
+          )
+        );
+      }
+    }
+  } catch (err) {
+    console.warn('Extended check (fieldset groups) failed:', err);
+  }
+
+  return issues;
+}
+
+export async function runInteractiveNonSemanticChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      const out: Array<{ html: string; sel: string }> = [];
+      document.querySelectorAll('div[onclick], span[onclick]').forEach((el) => {
+        const role = el.getAttribute('role');
+        const tabindex = el.getAttribute('tabindex');
+        if (!role || !tabindex) {
+          const e = el as HTMLElement;
+          out.push({
+            html: e.outerHTML.substring(0, 200),
+            sel: e.id ? `#${e.id}` : e.tagName.toLowerCase()
+          });
+        }
+      });
+      return out.slice(0, 10);
+    });
+
+    for (const f of findings) {
+      issues.push(
+        toIssue(
+          'interactive-non-semantic',
+          'serious',
+          'Clickable div/span uses onclick without full keyboard semantics (role + tabindex + handlers).',
+          'Prefer <button> or <a>; if you must use a div, add role="button", tabindex="0", and Enter/Space handlers.',
+          f.html,
+          f.sel,
+          'Native buttons and links are keyboard accessible by default.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (interactive non-semantic) failed:', err);
+  }
+
+  return issues;
 }
 
 /**
@@ -661,7 +1000,24 @@ export async function runContentReadabilityChecks(page: any): Promise<Accessibil
  * All detection is rule-based or Puppeteer simulation; AI is used only for remediation.
  */
 export async function runExtendedAccessibilityChecks(page: any): Promise<AccessibilityIssue[]> {
-  const [focusTrap, keyboardNav, errorMsg, altQuality, readability, ariaSemantic, landmarkCorrect, formStructure, adContainer] = await Promise.all([
+  const skipLink = await runSkipLinkBehaviourChecks(page);
+
+  const [
+    focusTrap,
+    keyboardNav,
+    errorMsg,
+    altQuality,
+    readability,
+    ariaSemantic,
+    landmarkCorrect,
+    formStructure,
+    adContainer,
+    iframeTitles,
+    duplicateIds,
+    ariaHiddenFocusable,
+    fieldsetGroups,
+    interactiveNonSemantic
+  ] = await Promise.all([
     runFocusTrapChecks(page),
     runKeyboardNavChecks(page),
     runErrorMessageClarityChecks(page),
@@ -670,12 +1026,35 @@ export async function runExtendedAccessibilityChecks(page: any): Promise<Accessi
     runAriaSemanticContentChecks(page),
     runLandmarkCorrectnessChecks(page),
     runFormStructureChecks(page),
-    runAdContainerAccessibilityChecks(page)
+    runAdContainerAccessibilityChecks(page),
+    runIframeTitleChecks(page),
+    runDuplicateIdChecks(page),
+    runFocusableInAriaHiddenChecks(page),
+    runRadioCheckboxFieldsetChecks(page),
+    runInteractiveNonSemanticChecks(page)
   ]);
 
-  const all = [...focusTrap, ...keyboardNav, ...errorMsg, ...altQuality, ...readability, ...ariaSemantic, ...landmarkCorrect, ...formStructure, ...adContainer];
+  const all = [
+    ...skipLink,
+    ...focusTrap,
+    ...keyboardNav,
+    ...errorMsg,
+    ...altQuality,
+    ...readability,
+    ...ariaSemantic,
+    ...landmarkCorrect,
+    ...formStructure,
+    ...adContainer,
+    ...iframeTitles,
+    ...duplicateIds,
+    ...ariaHiddenFocusable,
+    ...fieldsetGroups,
+    ...interactiveNonSemantic
+  ];
   if (all.length > 0) {
-    console.log(`✅ Extended checks: ${focusTrap.length} focus trap, ${keyboardNav.length} keyboard, ${errorMsg.length} error msg, ${altQuality.length} alt quality, ${readability.length} readability, ${ariaSemantic.length} ARIA semantic, ${landmarkCorrect.length} landmark, ${formStructure.length} form structure, ${adContainer.length} ad container`);
+    console.log(
+      `✅ Extended checks: ${skipLink.length} skip link, ${focusTrap.length} focus trap, ${keyboardNav.length} keyboard, ${errorMsg.length} error msg, ${altQuality.length} alt quality, ${readability.length} readability, ${ariaSemantic.length} ARIA semantic, ${landmarkCorrect.length} landmark, ${formStructure.length} form structure, ${adContainer.length} ad container, ${iframeTitles.length} iframe title, ${duplicateIds.length} duplicate id, ${ariaHiddenFocusable.length} aria-hidden focusable, ${fieldsetGroups.length} fieldset, ${interactiveNonSemantic.length} non-semantic interactive`
+    );
   }
   return all;
 }

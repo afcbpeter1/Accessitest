@@ -665,6 +665,54 @@ export class AccessibilityScanner {
         description: 'Ad or sponsor areas must have alt text and descriptive link text',
         wcag22Level: 'A',
         help: 'Add alt to images and descriptive link text in ad/sponsor containers'
+      },
+      'skip-link-missing': {
+        name: 'Skip Link (Keyboard)',
+        description: 'First focusable control should be a skip link to main content',
+        wcag22Level: 'A',
+        help: 'Provide Skip to main content as the first tab stop; complements static skip-link checks'
+      },
+      'skip-link-broken': {
+        name: 'Skip Link Target',
+        description: 'Skip link must move focus to the main content region',
+        wcag22Level: 'A',
+        help: 'Use href="#id" on <main id="…"> or tabindex="-1" on the target'
+      },
+      'iframe-missing-title': {
+        name: 'iframe Title',
+        description: 'Embedded frames need a descriptive title attribute',
+        wcag22Level: 'A',
+        help: 'Add title="…" describing the frame purpose (ads, widgets, media)'
+      },
+      'duplicate-id': {
+        name: 'Duplicate ID',
+        description: 'Element ids must be unique within the page',
+        wcag22Level: 'A',
+        help: 'Fix duplicate id attributes used by labels and ARIA references'
+      },
+      'focusable-in-aria-hidden': {
+        name: 'Focusable in aria-hidden',
+        description: 'Do not leave focusable elements inside aria-hidden containers',
+        wcag22Level: 'A',
+        help: 'Remove aria-hidden or take interactive content out of the hidden subtree'
+      },
+      'form-group-no-fieldset': {
+        name: 'Grouped inputs fieldset',
+        description: 'Radio and checkbox groups should use fieldset and legend',
+        wcag22Level: 'A',
+        help: 'Wrap related radios/checkboxes in fieldset with legend'
+      },
+      'form-fieldset-no-legend': {
+        name: 'Fieldset legend',
+        description: 'Fieldset elements need a legend',
+        wcag22Level: 'A',
+        help: 'Add legend as first child of fieldset'
+      },
+      'interactive-non-semantic': {
+        name: 'Semantic Interactive Element',
+        description: 'Use native buttons or links instead of clickable divs/spans',
+        wcag22Level: 'A',
+        help: 'Replace div[onclick] with button or full keyboard widget semantics'
       }
     };
 
@@ -1473,6 +1521,33 @@ ${safeOpenTag}Header text</th>`
   <img src="ad.png" alt="Promotion: 20% off until Friday" />
   <a href="...">View offer details</a>
 </div>`;
+      case 'skip-link-missing':
+      case 'skip-link-broken':
+        return `<!-- First tab stop: skip link; target must receive focus -->
+<a href="#main" class="skip-link">Skip to main content</a>
+<main id="main" tabindex="-1">...</main>`;
+      case 'iframe-missing-title':
+        return `<!-- Describe embedded content for screen readers -->
+<iframe title="Advertisement: Summer sale" src="..."></iframe>`;
+      case 'duplicate-id':
+        return `<!-- Use unique ids; fix the second occurrence -->
+<div id="section-intro">...</div>`;
+      case 'focusable-in-aria-hidden':
+        return `<!-- Do not hide interactive content from AT while leaving it focusable -->
+<div> <!-- remove aria-hidden or move buttons out -->
+  <button type="button">Visible action</button>
+</div>`;
+      case 'form-group-no-fieldset':
+      case 'form-fieldset-no-legend':
+        return `<!-- Group radios with fieldset + legend -->
+<fieldset>
+  <legend>Delivery option</legend>
+  <label><input type="radio" name="delivery" value="std" /> Standard</label>
+  <label><input type="radio" name="delivery" value="exp" /> Express</label>
+</fieldset>`;
+      case 'interactive-non-semantic':
+        return `<!-- Prefer native button -->
+<button type="button">Continue</button>`;
       default:
         return `<!-- Fix the accessibility issue in this element -->
 ${html}`;

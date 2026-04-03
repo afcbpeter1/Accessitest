@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Check, CreditCard, Zap, Shield, FileText, Globe, Layers, Image, MessageSquare, Keyboard } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import { STRIPE_PRICE_IDS } from '@/lib/stripe-config'
@@ -26,9 +27,17 @@ interface CreditPackage {
 }
 
 export default function Pricing() {
-  const { user, isLoading } = useAuth()
+  const router = useRouter()
+  const { user, isLoading, isAuthenticated } = useAuth()
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
   const [selectedCredits, setSelectedCredits] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isLoading) return
+    if (!isAuthenticated) {
+      router.replace(`/login?redirect=${encodeURIComponent('/pricing')}`)
+    }
+  }, [isLoading, isAuthenticated, router])
 
   const subscriptionPlans: PricingPlan[] = [
     {
@@ -253,6 +262,15 @@ export default function Pricing() {
       console.error('Error creating checkout session:', error)
       alert('An error occurred. Please try again.')
     }
+  }
+
+  if (isLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 gap-3" role="status" aria-live="polite">
+        <div className="h-9 w-9 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" aria-hidden />
+        <p className="text-sm text-gray-600">Loading…</p>
+      </div>
+    )
   }
 
   return (
