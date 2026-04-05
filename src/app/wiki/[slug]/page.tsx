@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getWikiPageBySlug } from '@/lib/wiki/wiki-db'
+import { getWikiPageBySlug, getWikiTagsForPageSlug } from '@/lib/wiki/wiki-db'
+import { formatPublicWikiEditorName } from '@/lib/wiki/public-editor-name'
 import WikiContent from '@/components/wiki/WikiContent'
 import WikiFlagButton from '@/components/wiki/WikiFlagButton'
 
@@ -20,19 +21,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-function editorLabel(page: NonNullable<Awaited<ReturnType<typeof getWikiPageBySlug>>>) {
-  const fn = page.editor_first_name?.trim()
-  const ln = page.editor_last_name?.trim()
-  if (fn || ln) return [fn, ln].filter(Boolean).join(' ')
-  if (page.editor_email) return page.editor_email
-  return 'Unknown editor'
-}
-
 export default async function WikiArticlePage({ params }: Props) {
   const page = await getWikiPageBySlug(params.slug)
   if (!page) {
     notFound()
   }
+
+  const wikiTags = await getWikiTagsForPageSlug(page.slug)
 
   const hasContent = !!(page.content && page.content.replace(/<[^>]+>/g, '').trim())
 
@@ -54,9 +49,23 @@ export default async function WikiArticlePage({ params }: Props) {
       </div>
 
       <div className="px-4 py-4">
-        <h1 className="font-serif text-[1.85em] leading-tight border-b border-[#a2a9b1] pb-2 mb-4">
+        <h1 className="font-serif text-[1.85em] leading-tight border-b border-[#a2a9b1] pb-2 mb-2">
           {page.title}
         </h1>
+
+        {wikiTags.length > 0 && (
+          <p className="mb-4 flex flex-wrap gap-1.5 font-sans text-[13px]">
+            {wikiTags.map((t) => (
+              <Link
+                key={t.slug}
+                href={`/wiki/tag/${encodeURIComponent(t.slug)}`}
+                className="rounded-sm border border-[#a2c4e0] bg-[#eaf3fb] px-2 py-0.5 text-[#0645ad] no-underline hover:bg-[#cee0f2] hover:underline"
+              >
+                {t.label}
+              </Link>
+            ))}
+          </p>
+        )}
 
         {page.is_stub && (
           <div className="border border-[#fc3] bg-[#fef6e7] px-3 py-2 text-sm text-[#202122] mb-4">
@@ -95,7 +104,7 @@ export default async function WikiArticlePage({ params }: Props) {
                   timeStyle: 'short',
                 })
               : '—'}
-            {page.edited_at && <> · {editorLabel(page)}</>}
+            {page.edited_at && <> · {formatPublicWikiEditorName(page, 'Unknown editor')}</>}
           </p>
           <WikiFlagButton revisionId={page.current_revision_id} />
         </div>

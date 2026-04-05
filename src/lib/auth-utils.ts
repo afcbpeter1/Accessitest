@@ -153,6 +153,7 @@ export function showLogoutNotification(message: string) {
 
 // Check if user is authenticated
 export function isAuthenticated(): boolean {
+  if (typeof window === 'undefined') return false
   const token = localStorage.getItem('accessToken')
   const user = localStorage.getItem('user')
   
@@ -186,6 +187,7 @@ export function isAuthenticated(): boolean {
 
 // Get current user info
 export function getCurrentUser(): any {
+  if (typeof window === 'undefined') return null
   try {
     const userStr = localStorage.getItem('user')
     return userStr ? JSON.parse(userStr) : null

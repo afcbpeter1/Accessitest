@@ -35,7 +35,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'weekly',
       priority: 0.65,
     }))
-    return [...staticEntries, ...wikiEntries]
+    let tagEntries: MetadataRoute.Sitemap = []
+    try {
+      const tagRows = (await queryMany('SELECT slug FROM wiki_tags ORDER BY slug ASC', [])) as { slug: string }[]
+      tagEntries = tagRows.map((r) => ({
+        url: `${baseUrl}/wiki/tag/${encodeURIComponent(r.slug)}`,
+        lastModified,
+        changeFrequency: 'weekly',
+        priority: 0.55,
+      }))
+    } catch {
+      /* wiki_tags may not exist until migration */
+    }
+    return [...staticEntries, ...wikiEntries, ...tagEntries]
   } catch {
     return staticEntries
   }

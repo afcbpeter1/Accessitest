@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getWikiPageBySlug } from '@/lib/wiki/wiki-db'
+import { getWikiPageBySlug, getWikiTagsForPageSlug } from '@/lib/wiki/wiki-db'
 import WikiAuthGate from '@/components/WikiAuthGate'
 import WikiEditorForm from '@/components/wiki/WikiEditorForm'
 
@@ -11,6 +11,8 @@ export default async function WikiEditPage({ params }: Props) {
   if (!page) {
     notFound()
   }
+
+  const tagRows = await getWikiTagsForPageSlug(page.slug)
 
   const path = `/wiki/${page.slug}/edit`
 
@@ -32,6 +34,7 @@ export default async function WikiEditPage({ params }: Props) {
           initialTitle={page.title}
           initialContent={page.content || '<p></p>'}
           initialWcag={page.wcag_criterion || ''}
+          initialTagRows={tagRows}
           pageLocked={page.is_locked}
         />
       </div>

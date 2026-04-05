@@ -11,6 +11,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/accessibility-issues', label: 'Issues Demo' },
   { href: '/logo-contrast-checker', label: 'Logo Checker' },
   { href: '/playground', label: 'Playground' },
+  { href: '/wiki', label: 'Wiki' },
   { href: '/signup', label: 'Get started →', cta: true }
 ]
 

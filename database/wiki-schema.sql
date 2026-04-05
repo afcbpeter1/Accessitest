@@ -53,3 +53,5 @@ CREATE TABLE IF NOT EXISTS wiki_flags (
 CREATE INDEX IF NOT EXISTS idx_wiki_pages_slug ON wiki_pages(slug);
 CREATE INDEX IF NOT EXISTS idx_wiki_pages_wcag ON wiki_pages(wcag_criterion);
 CREATE INDEX IF NOT EXISTS idx_wiki_revisions_page ON wiki_revisions(page_id, edited_at DESC);
+
+-- Tags (article topics): run wiki-tags-migration.sql after this file.

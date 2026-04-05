@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import WikiTiptapEditor from '@/components/wiki/WikiTiptapEditor'
 import { authenticatedFetch } from '@/lib/auth-utils'
 import { normalizeWikiSlug, isValidWikiSlug } from '@/lib/wiki/slug'
+import WikiCategoryTagFields from '@/components/wiki/WikiCategoryTagFields'
+import { mergeTagsForSave } from '@/lib/wiki/wiki-category-tags'
 
 export default function WikiNewForm() {
   const router = useRouter()
@@ -12,8 +13,10 @@ export default function WikiNewForm() {
   const [slug, setSlug] = useState('')
   const [slugTouched, setSlugTouched] = useState(false)
   const [wcag, setWcag] = useState('')
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [extraTags, setExtraTags] = useState('')
   const [editSummary, setEditSummary] = useState('')
-  const [html, setHtml] = useState('<p></p>')
+  const [markdownBody, setMarkdownBody] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -31,15 +34,21 @@ export default function WikiNewForm() {
       setError('Use a URL slug with lowercase letters, numbers, and hyphens only (e.g. missing-form-label).')
       return
     }
+    if (!markdownBody.trim()) {
+      setError('Add Markdown content for the article.')
+      return
+    }
     setSaving(true)
     try {
       const res = await authenticatedFetch(`/api/wiki/${encodeURIComponent(finalSlug)}`, {
         method: 'POST',
         body: JSON.stringify({
           title: title.trim(),
-          content: html,
+          content: markdownBody,
+          contentFormat: 'markdown',
           editSummary: editSummary.trim() || 'Created page',
           wcagCriterion: wcag.trim() || null,
+          tags: mergeTagsForSave(selectedCategories, extraTags),
         }),
       })
       const data = await res.json()
@@ -101,9 +110,34 @@ export default function WikiNewForm() {
         />
       </div>
 
-      <div>
-        <span className="block text-sm font-medium text-[#202122] mb-1">Article</span>
-        <WikiTiptapEditor initialHtml="<p></p>" onChange={setHtml} />
+      <WikiCategoryTagFields
+        idPrefix="wiki-new"
+        selectedSlugs={selectedCategories}
+        onToggleSlug={(s) =>
+          setSelectedCategories((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]))
+        }
+        extraTags={extraTags}
+        onChangeExtraTags={setExtraTags}
+      />
+
+      <div className="rounded-sm border border-[#a2a9b1] bg-[#f8f9fa] p-3">
+        <label htmlFor="wiki-new-md" className="block text-sm font-medium text-[#202122] mb-1">
+          Article (Markdown)
+        </label>
+        <textarea
+          id="wiki-new-md"
+          value={markdownBody}
+          onChange={(e) => setMarkdownBody(e.target.value)}
+          rows={18}
+          placeholder={
+            '## Section title\n\n' +
+            'Mention HTML elements in backticks: `<div>`, `<button>`, or they are auto-escaped.\n\n' +
+            'A line starting with # becomes a heading — use inline code for a hash: write `#` not a raw # at the start of a line.\n\n' +
+            '- List item\n\n[Link text](https://example.com)'
+          }
+          className="w-full border border-[#a2a9b1] rounded-sm px-3 py-2 text-[15px] font-mono leading-relaxed bg-white"
+          spellCheck
+        />
       </div>
 
       <div>

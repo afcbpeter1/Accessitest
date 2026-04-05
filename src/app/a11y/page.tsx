@@ -395,6 +395,7 @@ export default function A11yPage() {
               <li role="listitem"><a className="rounded-lg px-3 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2 text-gray-900 hover:bg-sky-50 hover:text-[#0B1220]" href="/accessibility-issues">Issues Demo</a></li>
               <li role="listitem"><a className="rounded-lg px-3 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2 text-gray-900 hover:bg-sky-50 hover:text-[#0B1220]" href="/logo-contrast-checker">Logo Checker</a></li>
               <li role="listitem"><a className="rounded-lg px-3 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2 text-gray-900 hover:bg-sky-50 hover:text-[#0B1220]" href="/playground">Playground</a></li>
+              <li role="listitem"><a className="rounded-lg px-3 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2 text-gray-900 hover:bg-sky-50 hover:text-[#0B1220]" href="/wiki">Wiki</a></li>
               <li role="listitem"><a className="rounded-lg bg-[#0B1220] px-4 py-2 text-sm font-extrabold text-white hover:bg-[#081a33] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#06B6D4] focus-visible:ring-offset-2" href="/signup">Get started →</a></li>
             </ul>
             <div className="sm:hidden">

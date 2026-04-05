@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getWikiPageBySlug, listWikiRevisionsForSlug } from '@/lib/wiki/wiki-db'
+import { formatPublicWikiEditorName } from '@/lib/wiki/public-editor-name'
 
 type Props = { params: { slug: string } }
 
@@ -9,13 +10,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const page = await getWikiPageBySlug(params.slug)
   if (!page) return { title: 'Not found' }
   return { title: `Revision history: ${page.title}` }
-}
-
-function editorName(r: { editor_first_name: string | null; editor_last_name: string | null }) {
-  const fn = r.editor_first_name?.trim()
-  const ln = r.editor_last_name?.trim()
-  if (fn || ln) return [fn, ln].filter(Boolean).join(' ')
-  return 'Editor'
 }
 
 export default async function WikiHistoryPage({ params }: Props) {
@@ -61,7 +55,7 @@ export default async function WikiHistoryPage({ params }: Props) {
                   timeStyle: 'short',
                 })}
                 <span className="text-[#72777d]"> · </span>
-                {editorName(r)}
+                {formatPublicWikiEditorName(r, 'Editor')}
               </div>
               {r.edit_summary && <div className="text-[#54595d] text-sm mt-1">{r.edit_summary}</div>}
               {typeof r.char_delta === 'number' && (
