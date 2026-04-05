@@ -2,11 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { queryOne, query } from '@/lib/database'
-import { getUserCredits, activateUnlimitedCredits } from '@/lib/credit-service'
+import { getUserCredits } from '@/lib/credit-service'
 import { VPNDetector } from '@/lib/vpn-detector'
 import { EmailService } from '@/lib/email-service'
-import { acceptInvitation } from '@/lib/organization-service'
-
 // Database user interface
 interface User {
   id: string
@@ -351,49 +349,3 @@ async function handleRegister(email: string, password: string, name: string, com
     )
   }
 }
-
-// Verify JWT token
-export function verifyToken(token: string) {
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any
-    return decoded
-  } catch (error) {
-    return null
-  }
-}
-
-// Get user by email
-export async function getUserByEmail(email: string) {
-  try {
-    return await queryOne(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    )
-  } catch (error) {
-    console.error('Error getting user by email:', error)
-    return null
-  }
-}
-
-// Update user plan
-export async function updateUserPlan(email: string, plan: string) {
-  try {
-    const result = await query(
-      'UPDATE users SET plan_type = $1 WHERE email = $2',
-      [plan, email]
-    )
-
-    if (plan === 'complete_access') {
-      const u = await queryOne('SELECT id FROM users WHERE email = $1', [email])
-      if (u?.id) {
-        await activateUnlimitedCredits(u.id)
-      }
-    }
-
-    return (result.rowCount ?? 0) > 0
-  } catch (error) {
-    console.error('Error updating user plan:', error)
-    return false
-  }
-}
-

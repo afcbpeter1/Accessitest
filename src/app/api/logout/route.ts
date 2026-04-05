@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken } from '@/app/api/auth/route'
+import { verifyToken } from '@/lib/auth-middleware'
 import { query } from '@/lib/database'
 
 export async function POST(request: NextRequest) {

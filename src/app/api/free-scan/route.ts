@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getLaunchOptionsForServerAsync } from '@/lib/puppeteer-config'
+import { stubWikiPagesFromViolations } from '@/lib/wiki/stubFromRule'
 
 // Lazy load puppeteer based on platform (ESM-compatible)
 let puppeteer: any = null;
@@ -242,6 +243,14 @@ export async function POST(request: NextRequest) {
         console.warn('Failed to capture screenshots:', screenshotError)
         // Continue without screenshots
       }
+
+      void stubWikiPagesFromViolations(
+        results.violations.map((v: { id: string; description?: string; tags?: string[] }) => ({
+          id: v.id,
+          description: v.description,
+          tags: v.tags,
+        }))
+      )
 
       // Return limited results (no AI enhancements, basic issue info)
       return NextResponse.json({

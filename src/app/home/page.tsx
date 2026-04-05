@@ -14,7 +14,8 @@ import {
   ExternalLink,
   Code,
   X,
-  Contrast
+  Contrast,
+  BookOpen
 } from 'lucide-react'
 import Link from 'next/link'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
@@ -510,6 +511,13 @@ export default function HomePage() {
             >
               Logo Contrast Checker
               <Contrast className="ml-2 h-5 w-5" />
+            </Link>
+            <Link 
+              href="/wiki" 
+              className="bg-[#0B1220] text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-gray-800 transition-colors flex items-center justify-center"
+            >
+              Accessibility Wiki
+              <BookOpen className="ml-2 h-5 w-5" />
             </Link>
           </div>
         </div>
@@ -1573,7 +1581,7 @@ export default function HomePage() {
                       ) : null
                     })()}
                     
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div className="flex flex-wrap gap-1">
                         {issue.tags.slice(0, 3).map((tag) => (
                           <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
@@ -1582,17 +1590,25 @@ export default function HomePage() {
                         ))}
                       </div>
                       
-                      {issue.helpUrl && (
-                        <a
-                          href={issue.helpUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
+                      <div className="flex flex-wrap items-center gap-3 justify-end">
+                        <Link
+                          href={`/wiki/${encodeURIComponent(issue.id)}`}
+                          className="text-blue-600 hover:text-blue-800 text-sm"
                         >
-                          Learn more
-                          <ExternalLink className="h-3 w-3 ml-1" />
-                        </a>
-                      )}
+                          Community wiki
+                        </Link>
+                        {issue.helpUrl && (
+                          <a
+                            href={issue.helpUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
+                          >
+                            Learn more
+                            <ExternalLink className="h-3 w-3 ml-1" />
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}

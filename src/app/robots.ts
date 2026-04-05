@@ -18,6 +18,7 @@ export default function robots(): MetadataRoute.Robots {
         '/logo-contrast-checker',
         '/playground',
         '/a11y',
+        '/wiki',
       ],
       disallow: [
         '/api',
