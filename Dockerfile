@@ -64,6 +64,16 @@ RUN pip3 install --break-system-packages --no-cache-dir -r /tmp/requirements.txt
 # Copy application files
 COPY . .
 
+# Next.js inlines NEXT_PUBLIC_* into the browser bundle at `next build` time.
+# Docker build does not inherit your host/dashboard env unless passed as build args,
+# so without these, the live site can have the vars at runtime while the client JS still has empty values.
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
+ARG NEXT_PUBLIC_BASE_URL
+ARG NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
+ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+
 # Build the application
 RUN npm run build:next
 
@@ -71,5 +81,9 @@ RUN npm run build:next
 EXPOSE 3000
 
 # Start the application
-CMD ["node", "server.js"]
+# Build at runtime when env vars are available, then start
+CMD NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID \
+    NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL \
+    NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
+    npm run build:next && node server.js
 
