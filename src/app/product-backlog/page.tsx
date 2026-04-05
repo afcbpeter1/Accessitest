@@ -811,7 +811,9 @@ ${item.failure_summary || 'N/A'}
             <div className="mb-6 sm:mb-8">
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Product Backlog</h1>
               <p className="mt-2 text-sm sm:text-base text-gray-600">
-                Manage accessibility issues from your scans and organize them into sprints.
+                Manage accessibility issues from your scans and organize them into sprints. The backlog
+                deduplicates by rule, element selector, and page URL, so the number of items here can be
+                lower than the total issues shown in a scan—that is expected, not a missing sync.
               </p>
             </div>
 

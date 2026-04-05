@@ -14,6 +14,8 @@ const ALT_REDUNDANT_PREFIX = ['image of', 'picture of', 'photo of', 'graphic of'
 const ERROR_TOO_SHORT_LEN = 4;
 const ERROR_GENERIC_ONLY = ['invalid', 'error', 'required', 'incorrect', 'wrong'];
 
+const DOCUMENT_TITLE_PLACEHOLDER = /^(untitled|loading|document|new tab|home|page|\.\.\.)$/i;
+
 function emptyNode(html: string, target: string[], failureSummary: string, impact: string) {
   return {
     html,
@@ -48,7 +50,17 @@ const EXTENDED_RULE_TAGS: Record<string, string[]> = {
   'focusable-in-aria-hidden': ['wcag2a', 'wcag21a'],
   'form-group-no-fieldset': ['wcag2a', 'wcag21a'],
   'form-fieldset-no-legend': ['wcag2a', 'wcag21a'],
-  'interactive-non-semantic': ['wcag2a', 'wcag21a']
+  'interactive-non-semantic': ['wcag2a', 'wcag21a'],
+  'link-text-generic': ['wcag2a', 'wcag21a'],
+  'button-accessible-name': ['wcag2a', 'wcag21a'],
+  'document-title-quality': ['wcag2a', 'wcag21a'],
+  'video-missing-captions': ['wcag2a', 'wcag21a', 'wcag22aa'],
+  'target-blank-unsafe': ['wcag2a', 'wcag21a'],
+  'autofocus-attribute': ['wcag2a', 'wcag21a'],
+  'scrollable-region-keyboard': ['wcag2a', 'wcag21a'],
+  'heading-structure-policy': ['wcag2a', 'wcag21a'],
+  'table-missing-headers': ['wcag2a', 'wcag21a'],
+  'landmark-aside-unnamed': ['wcag2aa', 'wcag21aa']
 };
 
 function toIssue(
@@ -995,6 +1007,526 @@ export async function runContentReadabilityChecks(page: any): Promise<Accessibil
   return issues;
 }
 
+/** Sitewide link text: empty, generic, or non-descriptive (complements axe `link-name` and ad-container checks). */
+export async function runGlobalLinkTextChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      const GENERIC_LINK =
+        /^(click here|here|read more|more|link|ad|continue|details|learn more)$/i;
+
+      function effectiveLinkName(a: HTMLAnchorElement): string {
+        const aria = (a.getAttribute('aria-label') || '').trim();
+        if (aria) return aria;
+        const lb = a.getAttribute('aria-labelledby');
+        if (lb) {
+          const text = lb
+            .split(/\s+/)
+            .map((id) => document.getElementById(id))
+            .filter(Boolean)
+            .map((el) => (el!.textContent || '').trim())
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+          if (text) return text;
+        }
+        let text = (a.textContent || '').trim();
+        const img = a.querySelector('img');
+        if (img) {
+          const alt = (img.getAttribute('alt') || '').trim();
+          if (alt && (!text || text.length < 2)) return alt;
+        }
+        return text;
+      }
+
+      const out: Array<{ html: string; sel: string; name: string; reason: string }> = [];
+      document.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((a) => {
+        if (out.length >= 25) return;
+        const href = (a.getAttribute('href') || '').trim();
+        if (/^javascript:/i.test(href)) return;
+        const name = effectiveLinkName(a);
+        const lower = name.toLowerCase();
+        if (!name || name.length < 2) {
+          out.push({
+            html: a.outerHTML.substring(0, 320),
+            sel: a.id ? `#${a.id}` : 'a[href]',
+            name: name || '(empty)',
+            reason: 'empty'
+          });
+          return;
+        }
+        if (GENERIC_LINK.test(lower.replace(/[.…]+$/g, '').trim())) {
+          out.push({
+            html: a.outerHTML.substring(0, 320),
+            sel: a.id ? `#${a.id}` : 'a[href]',
+            name,
+            reason: 'generic'
+          });
+        }
+      });
+      return out;
+    });
+
+    for (const f of findings) {
+      issues.push(
+        toIssue(
+          'link-text-generic',
+          f.reason === 'empty' ? 'serious' : 'moderate',
+          f.reason === 'empty'
+            ? `Link has no discernible name: "${f.name}".`
+            : `Link text is not descriptive: "${f.name}".`,
+          'Use visible text or aria-label that describes the destination; avoid "click here", "read more", or empty links (WCAG 2.4.4).',
+          f.html,
+          f.sel,
+          f.reason === 'empty' ? 'Link has no accessible name.' : 'Generic or non-descriptive link text.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (global link text) failed:', err);
+  }
+
+  return issues;
+}
+
+/** Buttons and role=button without an accessible name (complements axe `button-name`). */
+export async function runUnlabeledButtonChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      function nameFor(el: Element): string {
+        const aria = (el.getAttribute('aria-label') || '').trim();
+        if (aria) return aria;
+        const lb = el.getAttribute('aria-labelledby');
+        if (lb) {
+          const text = lb
+            .split(/\s+/)
+            .map((id) => document.getElementById(id))
+            .filter(Boolean)
+            .map((e) => (e!.textContent || '').trim())
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+          if (text) return text;
+        }
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'input') {
+          const t = (el as HTMLInputElement).type;
+          if (t === 'submit' || t === 'button' || t === 'reset') {
+            return ((el as HTMLInputElement).value || '').trim();
+          }
+        }
+        if (tag === 'button') {
+          let text = (el.textContent || '').trim();
+          const img = el.querySelector('img[alt]');
+          if (img) {
+            const alt = (img.getAttribute('alt') || '').trim();
+            if (alt && (!text || text.length < 2)) return alt;
+          }
+          return text;
+        }
+        if ((el as HTMLElement).getAttribute('role') === 'button') {
+          let text = (el.textContent || '').trim();
+          const img = el.querySelector('img[alt]');
+          if (img) {
+            const alt = (img.getAttribute('alt') || '').trim();
+            if (alt && (!text || text.length < 2)) return alt;
+          }
+          return text;
+        }
+        return '';
+      }
+
+      const out: Array<{ html: string; sel: string }> = [];
+      document.querySelectorAll('button:not([disabled]), [role="button"]:not([aria-disabled="true"])').forEach((el) => {
+        if (out.length >= 20) return;
+        if (nameFor(el)) return;
+        const e = el as HTMLElement;
+        out.push({
+          html: e.outerHTML.substring(0, 320),
+          sel: e.id ? `#${e.id}` : e.tagName.toLowerCase()
+        });
+      });
+      return out;
+    });
+
+    for (const f of findings) {
+      issues.push(
+        toIssue(
+          'button-accessible-name',
+          'serious',
+          'Button has no accessible name (visible text, aria-label, aria-labelledby, or img alt).',
+          'Add visible text, aria-label, or aria-labelledby so assistive technologies can announce the control (WCAG 4.1.2).',
+          f.html,
+          f.sel,
+          'Interactive button has no accessible name.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (button accessible name) failed:', err);
+  }
+
+  return issues;
+}
+
+export async function runDocumentTitleChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const title = (await page.title()).trim();
+    if (!title) {
+      issues.push(
+        toIssue(
+          'document-title-quality',
+          'serious',
+          'Document has no <title> or title is empty.',
+          'Set a unique, descriptive <title> in the document head (WCAG 2.4.2).',
+          '',
+          'title',
+          'Missing page title.'
+        )
+      );
+      return issues;
+    }
+    if (title.length < 4) {
+      issues.push(
+        toIssue(
+          'document-title-quality',
+          'moderate',
+          `Page title is very short (${title.length} characters): "${title}".`,
+          'Use a title that describes the page purpose and site context.',
+          '',
+          'title',
+          'Title may be too short to be descriptive.'
+        )
+      );
+    } else if (DOCUMENT_TITLE_PLACEHOLDER.test(title)) {
+      issues.push(
+        toIssue(
+          'document-title-quality',
+          'serious',
+          `Page title looks like a placeholder: "${title}".`,
+          'Replace with a real title that describes the page (WCAG 2.4.2).',
+          '',
+          'title',
+          'Placeholder or generic document title.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (document title) failed:', err);
+  }
+
+  return issues;
+}
+
+export async function runVideoCaptionChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      const out: Array<{ html: string; sel: string }> = [];
+      document.querySelectorAll('video').forEach((v, i) => {
+        const el = v as HTMLVideoElement;
+        let hasTextTrack = false;
+        el.querySelectorAll('track').forEach((t) => {
+          const k = (t.getAttribute('kind') || '').toLowerCase();
+          if (k === 'captions' || k === 'subtitles') hasTextTrack = true;
+        });
+        if (hasTextTrack) return;
+        const sel = el.id ? `#${el.id}` : `video:nth-of-type(${i + 1})`;
+        out.push({ html: el.outerHTML.substring(0, 400), sel });
+      });
+      return out.slice(0, 10);
+    });
+
+    for (const f of findings) {
+      issues.push(
+        toIssue(
+          'video-missing-captions',
+          'serious',
+          'Video has no captions or subtitles track.',
+          'Add <track kind="captions"> or provide a described alternative; prerecorded video needs captions for WCAG 1.2.2.',
+          f.html,
+          f.sel,
+          'No captions/subtitles track on video element.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (video captions) failed:', err);
+  }
+
+  return issues;
+}
+
+export async function runTargetBlankNoopenerChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      const out: Array<{ html: string; sel: string }> = [];
+      document.querySelectorAll('a[target="_blank"], a[target="_blank" i]').forEach((a) => {
+        if (out.length >= 25) return;
+        const rel = (a.getAttribute('rel') || '').toLowerCase();
+        const hasNoopener = /\bnoopener\b/.test(rel) || /\bnoreferrer\b/.test(rel);
+        if (hasNoopener) return;
+        const e = a as HTMLElement;
+        out.push({
+          html: e.outerHTML.substring(0, 320),
+          sel: e.id ? `#${e.id}` : 'a[target="_blank"]'
+        });
+      });
+      return out;
+    });
+
+    for (const f of findings) {
+      issues.push(
+        toIssue(
+          'target-blank-unsafe',
+          'moderate',
+          'Link opens in a new tab but omits rel="noopener" (or noreferrer).',
+          'Add rel="noopener noreferrer" to avoid tab-nabbing and improve predictable behaviour (WCAG 3.2.5 related best practice).',
+          f.html,
+          f.sel,
+          'target="_blank" without noopener/noreferrer.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (target blank) failed:', err);
+  }
+
+  return issues;
+}
+
+export async function runAutofocusChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      const out: Array<{ html: string; sel: string }> = [];
+      document.querySelectorAll('[autofocus]').forEach((el) => {
+        if (out.length >= 15) return;
+        const e = el as HTMLElement;
+        out.push({
+          html: e.outerHTML.substring(0, 320),
+          sel: e.id ? `#${e.id}` : e.tagName.toLowerCase()
+        });
+      });
+      return out;
+    });
+
+    for (const f of findings) {
+      issues.push(
+        toIssue(
+          'autofocus-attribute',
+          'moderate',
+          'Element uses the autofocus attribute, which can disorient keyboard and screen reader users.',
+          'Avoid autofocus on page load; let users reach the first field in natural order or use a skip link.',
+          f.html,
+          f.sel,
+          'autofocus may skip navigation context.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (autofocus) failed:', err);
+  }
+
+  return issues;
+}
+
+/** Scrollable overflow regions with no keyboard path (no tabindex=0 on container and no focusable descendants). */
+export async function runScrollableRegionKeyboardChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      const focusableSel =
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      const out: Array<{ html: string; sel: string }> = [];
+      const candidates = document.querySelectorAll(
+        'main, [role="main"], article, section, aside, nav, div, form'
+      );
+      candidates.forEach((el) => {
+        if (out.length >= 20) return;
+        const style = window.getComputedStyle(el);
+        const oy = style.overflowY;
+        const ox = style.overflowX;
+        const scrollable =
+          oy === 'auto' || oy === 'scroll' || ox === 'auto' || ox === 'scroll';
+        if (!scrollable) return;
+        const h = el as HTMLElement;
+        if (h.scrollHeight <= h.clientHeight + 2 && h.scrollWidth <= h.clientWidth + 2) return;
+        if (h.getAttribute('tabindex') === '0') return;
+        if (h.querySelector(focusableSel)) return;
+        const sel = h.id ? `#${h.id}` : h.tagName.toLowerCase();
+        out.push({ html: h.outerHTML.substring(0, 400), sel });
+      });
+      return out;
+    });
+
+    for (const f of findings) {
+      issues.push(
+        toIssue(
+          'scrollable-region-keyboard',
+          'moderate',
+          'Scrollable region has no keyboard focus path (no focusable content inside and container is not tabindex="0").',
+          'Add focusable controls inside the region or tabindex="0" on the scroll container so keyboard users can scroll (WCAG 2.1.1).',
+          f.html,
+          f.sel,
+          'Keyboard users may not be able to scroll this region.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (scrollable region) failed:', err);
+  }
+
+  return issues;
+}
+
+/** Policy: one h1 in main; prefer an h1 when headings exist (best practice; overlaps with heading-order in spirit). */
+export async function runHeadingStructurePolicyChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      const out: Array<{ kind: 'multi' | 'none'; html: string; sel: string; summary: string }> = [];
+      const main = document.querySelector('main, [role="main"]') || document.body;
+      const h1s = main.querySelectorAll('h1');
+      if (h1s.length > 1) {
+        const first = h1s[0] as HTMLElement;
+        out.push({
+          kind: 'multi',
+          html: first.outerHTML.substring(0, 200),
+          sel: first.id ? `#${first.id}` : 'h1',
+          summary: `Multiple h1 elements (${h1s.length}) in primary content.`
+        });
+      }
+      const anyHeading = main.querySelector('h1, h2, h3, h4, h5, h6');
+      if (anyHeading && !main.querySelector('h1')) {
+        const h = anyHeading as HTMLElement;
+        out.push({
+          kind: 'none',
+          html: h.outerHTML.substring(0, 200),
+          sel: h.id ? `#${h.id}` : h.tagName.toLowerCase(),
+          summary: 'Headings exist but there is no h1 in the main content region.'
+        });
+      }
+      return out;
+    });
+
+    for (const f of findings) {
+      issues.push(
+        toIssue(
+          'heading-structure-policy',
+          'moderate',
+          f.summary,
+          f.kind === 'multi'
+            ? 'Use a single h1 for the page topic; use h2–h6 for subsections (WCAG 1.3.1 / best practice).'
+            : 'Add one h1 describing the page; start the outline with h1 before h2.',
+          f.html,
+          f.sel,
+          f.summary
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (heading policy) failed:', err);
+  }
+
+  return issues;
+}
+
+/** Data tables should expose header cells. */
+export async function runDataTableHeaderChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      const out: Array<{ html: string; sel: string }> = [];
+      document.querySelectorAll('table').forEach((table, ti) => {
+        const rows = table.querySelectorAll('tr');
+        if (rows.length < 2) return;
+        const cells = table.querySelectorAll('td, th');
+        if (cells.length < 4) return;
+        if (table.querySelector('th, [role="columnheader"], [role="rowheader"]')) return;
+        const t = table as HTMLElement;
+        const sel = t.id ? `#${t.id}` : `table:nth-of-type(${ti + 1})`;
+        out.push({ html: t.outerHTML.substring(0, 500), sel });
+      });
+      return out.slice(0, 10);
+    });
+
+    for (const f of findings) {
+      issues.push(
+        toIssue(
+          'table-missing-headers',
+          'serious',
+          'Table has multiple rows/cells but no header cells (th or columnheader/rowheader role).',
+          'Use th with scope, or headers/id association, so screen readers can relate data to labels (WCAG 1.3.1).',
+          f.html,
+          f.sel,
+          'Data table missing header cells.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (table headers) failed:', err);
+  }
+
+  return issues;
+}
+
+/** Multiple complementary regions should be distinguished (extends landmark naming). */
+export async function runLandmarkAsideUnnamedChecks(page: any): Promise<AccessibilityIssue[]> {
+  const issues: AccessibilityIssue[] = [];
+
+  try {
+    const findings = await page.evaluate(() => {
+      const out: Array<{ html: string; sel: string }> = [];
+      const asides = Array.from(document.querySelectorAll('aside, [role="complementary"]'));
+      if (asides.length <= 1) return out;
+      asides.forEach((aside, i) => {
+        const a = aside as HTMLElement;
+        const hasName =
+          (a.getAttribute('aria-label') || '').trim() ||
+          (a.getAttribute('aria-labelledby') || '').trim();
+        if (hasName) return;
+        const sel = a.id ? `#${a.id}` : `aside:nth-of-type(${i + 1})`;
+        out.push({
+          html: a.outerHTML.substring(0, 400),
+          sel
+        });
+      });
+      return out.slice(0, 10);
+    });
+
+    for (const f of findings) {
+      issues.push(
+        toIssue(
+          'landmark-aside-unnamed',
+          'moderate',
+          'Multiple complementary (aside) landmarks; this one has no accessible name.',
+          'Add aria-label or aria-labelledby so users can tell sidebars apart (WCAG 1.3.1).',
+          f.html,
+          f.sel,
+          'Unnamed aside when multiple complementary regions exist.'
+        )
+      );
+    }
+  } catch (err) {
+    console.warn('Extended check (landmark aside) failed:', err);
+  }
+
+  return issues;
+}
+
 /**
  * Run all extended checks and return combined issues.
  * All detection is rule-based or Puppeteer simulation; AI is used only for remediation.
@@ -1016,7 +1548,17 @@ export async function runExtendedAccessibilityChecks(page: any): Promise<Accessi
     duplicateIds,
     ariaHiddenFocusable,
     fieldsetGroups,
-    interactiveNonSemantic
+    interactiveNonSemantic,
+    linkTextGlobal,
+    buttonNames,
+    docTitle,
+    videoCaps,
+    targetBlank,
+    autofocus,
+    scrollRegion,
+    headingPolicy,
+    tableHeaders,
+    asideUnnamed
   ] = await Promise.all([
     runFocusTrapChecks(page),
     runKeyboardNavChecks(page),
@@ -1031,7 +1573,17 @@ export async function runExtendedAccessibilityChecks(page: any): Promise<Accessi
     runDuplicateIdChecks(page),
     runFocusableInAriaHiddenChecks(page),
     runRadioCheckboxFieldsetChecks(page),
-    runInteractiveNonSemanticChecks(page)
+    runInteractiveNonSemanticChecks(page),
+    runGlobalLinkTextChecks(page),
+    runUnlabeledButtonChecks(page),
+    runDocumentTitleChecks(page),
+    runVideoCaptionChecks(page),
+    runTargetBlankNoopenerChecks(page),
+    runAutofocusChecks(page),
+    runScrollableRegionKeyboardChecks(page),
+    runHeadingStructurePolicyChecks(page),
+    runDataTableHeaderChecks(page),
+    runLandmarkAsideUnnamedChecks(page)
   ]);
 
   const all = [
@@ -1049,11 +1601,21 @@ export async function runExtendedAccessibilityChecks(page: any): Promise<Accessi
     ...duplicateIds,
     ...ariaHiddenFocusable,
     ...fieldsetGroups,
-    ...interactiveNonSemantic
+    ...interactiveNonSemantic,
+    ...linkTextGlobal,
+    ...buttonNames,
+    ...docTitle,
+    ...videoCaps,
+    ...targetBlank,
+    ...autofocus,
+    ...scrollRegion,
+    ...headingPolicy,
+    ...tableHeaders,
+    ...asideUnnamed
   ];
   if (all.length > 0) {
     console.log(
-      `✅ Extended checks: ${skipLink.length} skip link, ${focusTrap.length} focus trap, ${keyboardNav.length} keyboard, ${errorMsg.length} error msg, ${altQuality.length} alt quality, ${readability.length} readability, ${ariaSemantic.length} ARIA semantic, ${landmarkCorrect.length} landmark, ${formStructure.length} form structure, ${adContainer.length} ad container, ${iframeTitles.length} iframe title, ${duplicateIds.length} duplicate id, ${ariaHiddenFocusable.length} aria-hidden focusable, ${fieldsetGroups.length} fieldset, ${interactiveNonSemantic.length} non-semantic interactive`
+      `✅ Extended checks: ${skipLink.length} skip link, ${focusTrap.length} focus trap, ${keyboardNav.length} keyboard, ${errorMsg.length} error msg, ${altQuality.length} alt quality, ${readability.length} readability, ${ariaSemantic.length} ARIA semantic, ${landmarkCorrect.length} landmark, ${formStructure.length} form structure, ${adContainer.length} ad container, ${iframeTitles.length} iframe title, ${duplicateIds.length} duplicate id, ${ariaHiddenFocusable.length} aria-hidden focusable, ${fieldsetGroups.length} fieldset, ${interactiveNonSemantic.length} non-semantic interactive, ${linkTextGlobal.length} link text, ${buttonNames.length} button name, ${docTitle.length} doc title, ${videoCaps.length} video captions, ${targetBlank.length} target blank, ${autofocus.length} autofocus, ${scrollRegion.length} scroll region, ${headingPolicy.length} heading policy, ${tableHeaders.length} table headers, ${asideUnnamed.length} aside unnamed`
     );
   }
   return all;

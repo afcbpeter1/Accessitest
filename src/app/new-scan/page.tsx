@@ -1428,6 +1428,11 @@ function NewScanContent() {
                               .join(', ')}
                           </p>
                           <div className="text-xs">
+                            <p className="mb-2 text-blue-700/90">
+                              Scans run <strong>axe-core</strong> for the tags above, plus{' '}
+                              <strong>Accessitest extended checks</strong> (keyboard behaviour, landmarks, iframes,
+                              captions, document title, ad regions, scroll regions, and related heuristics).
+                            </p>
                             <p className="mb-1"><strong>Includes checks for:</strong></p>
                             <div className="flex gap-x-4 text-blue-600">
                               <div className="flex-1 space-y-1">
@@ -1437,23 +1442,19 @@ function NewScanContent() {
                                 </div>
                                 <div className="flex items-start">
                                   <span className="mr-1">•</span>
-                                  <span>Form labels</span>
+                                  <span>Form labels &amp; native form structure</span>
                                 </div>
                                 <div className="flex items-start">
                                   <span className="mr-1">•</span>
-                                  <span>Keyboard navigation</span>
+                                  <span>Keyboard navigation, skip links &amp; modal focus</span>
                                 </div>
                                 <div className="flex items-start">
                                   <span className="mr-1">•</span>
-                                  <span>Semantic HTML</span>
+                                  <span>Semantic HTML, landmarks &amp; regions</span>
                                 </div>
                                 <div className="flex items-start">
                                   <span className="mr-1">•</span>
-                                  <span>Table structure</span>
-                                </div>
-                                <div className="flex items-start">
-                                  <span className="mr-1">•</span>
-                                  <span>Heading structure</span>
+                                  <span>Table structure &amp; heading outline</span>
                                 </div>
                                 {selectedTags.includes('wcag2aaa') && (
                                   <>
@@ -1471,27 +1472,23 @@ function NewScanContent() {
                               <div className="flex-1 space-y-1">
                                 <div className="flex items-start">
                                   <span className="mr-1">•</span>
-                                  <span>Alt text</span>
+                                  <span>Alt text &amp; quality heuristics</span>
                                 </div>
                                 <div className="flex items-start">
                                   <span className="mr-1">•</span>
-                                  <span>ARIA attributes</span>
+                                  <span>ARIA attributes &amp; hidden-content issues</span>
                                 </div>
                                 <div className="flex items-start">
                                   <span className="mr-1">•</span>
-                                  <span>Button accessibility</span>
-                                </div>
-                                <div className="flex items-start">
-                                  <span className="mr-1">•</span>
-                                  <span>Focus indicators</span>
-                                </div>
-                                <div className="flex items-start">
-                                  <span className="mr-1">•</span>
-                                  <span>Link accessibility</span>
+                                  <span>Buttons, links, focus indicators &amp; new-tab safety</span>
                                 </div>
                                 <div className="flex items-start">
                                   <span className="mr-1">•</span>
                                   <span>Language attributes</span>
+                                </div>
+                                <div className="flex items-start">
+                                  <span className="mr-1">•</span>
+                                  <span>Document title &amp; embedded media (iframes, video captions)</span>
                                 </div>
                                 {selectedTags.includes('wcag2aaa') && (
                                   <>

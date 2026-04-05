@@ -1444,6 +1444,20 @@ export default function HomePage() {
                   </svg>
                 </a>
               </div>
+              <div className="flex justify-center mb-6">
+                <a
+                  href="https://fazier.com/launches/www.a11ytest.ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1220] rounded"
+                >
+                  <img
+                    src="https://fazier.com/api/v1//public/badges/launch_badges.svg?badge_type=launched&theme=neutral"
+                    width={120}
+                    alt="Fazier badge"
+                  />
+                </a>
+              </div>
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8">

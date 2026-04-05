@@ -713,6 +713,66 @@ export class AccessibilityScanner {
         description: 'Use native buttons or links instead of clickable divs/spans',
         wcag22Level: 'A',
         help: 'Replace div[onclick] with button or full keyboard widget semantics'
+      },
+      'link-text-generic': {
+        name: 'Link Text Quality',
+        description: 'Links should have descriptive text, not generic phrases',
+        wcag22Level: 'A',
+        help: 'Avoid "click here" and empty links; describe the destination (WCAG 2.4.4)'
+      },
+      'button-accessible-name': {
+        name: 'Button Accessible Name',
+        description: 'Buttons must have a programmatic name',
+        wcag22Level: 'A',
+        help: 'Add visible text, aria-label, or aria-labelledby (WCAG 4.1.2)'
+      },
+      'document-title-quality': {
+        name: 'Document Title Quality',
+        description: 'Page title should be descriptive, not empty or placeholder',
+        wcag22Level: 'A',
+        help: 'Set a meaningful <title> per page (WCAG 2.4.2)'
+      },
+      'video-missing-captions': {
+        name: 'Video Captions',
+        description: 'Prerecorded video should include captions',
+        wcag22Level: 'AA',
+        help: 'Provide captions track or equivalent (WCAG 1.2.2)'
+      },
+      'target-blank-unsafe': {
+        name: 'New Window Link Safety',
+        description: 'Links with target=_blank should include rel=noopener',
+        wcag22Level: 'A',
+        help: 'Add rel="noopener noreferrer" to avoid tab-nabbing'
+      },
+      'autofocus-attribute': {
+        name: 'Autofocus',
+        description: 'Avoid autofocus on page load where it disrupts navigation',
+        wcag22Level: 'A',
+        help: 'Let users discover context; prefer skip links over autofocus'
+      },
+      'scrollable-region-keyboard': {
+        name: 'Scrollable Region Keyboard',
+        description: 'Scrollable areas must be operable with keyboard',
+        wcag22Level: 'A',
+        help: 'Use tabindex="0" or focusable content inside scroll regions (WCAG 2.1.1)'
+      },
+      'heading-structure-policy': {
+        name: 'Heading Outline Policy',
+        description: 'Prefer a single h1 in main content and a logical outline',
+        wcag22Level: 'A',
+        help: 'One h1 for the page topic; avoid multiple h1 or missing h1 when headings exist'
+      },
+      'table-missing-headers': {
+        name: 'Table Headers',
+        description: 'Data tables need header cells or roles',
+        wcag22Level: 'A',
+        help: 'Use th, scope, or headers/id for data relationships (WCAG 1.3.1)'
+      },
+      'landmark-aside-unnamed': {
+        name: 'Complementary Landmark Names',
+        description: 'Multiple asides need distinct accessible names',
+        wcag22Level: 'AA',
+        help: 'Add aria-label or aria-labelledby when more than one complementary region exists'
       }
     };
 
@@ -1411,9 +1471,11 @@ ${html}`,
         const labelSuggestions = this.generateLabelSuggestions(html, target, failureSummary);
         return labelSuggestions.length > 0 ? labelSuggestions[0] : null;
       case 'link-name':
+      case 'link-text-generic':
         const linkSuggestions = this.generateLinkNameSuggestions(html, target, failureSummary);
         return linkSuggestions.length > 0 ? linkSuggestions[0] : null;
       case 'button-name':
+      case 'button-accessible-name':
         const buttonSuggestions = this.generateButtonNameSuggestions(html, target, failureSummary);
         return buttonSuggestions.length > 0 ? buttonSuggestions[0] : null;
       case 'form-field-multiple-labels':
@@ -1548,6 +1610,50 @@ ${safeOpenTag}Header text</th>`
       case 'interactive-non-semantic':
         return `<!-- Prefer native button -->
 <button type="button">Continue</button>`;
+      case 'link-text-generic':
+        return `<!-- Descriptive link text (WCAG 2.4.4) -->
+<a href="/annual-report">Read the 2024 annual report (PDF)</a>`;
+      case 'button-accessible-name':
+        return `<!-- Visible text or aria-label -->
+<button type="button" aria-label="Close dialog">×</button>`;
+      case 'document-title-quality':
+        return `<!-- Unique, descriptive title -->
+<title>Contact us — Example Company</title>`;
+      case 'video-missing-captions':
+        return `<!-- Captions for prerecorded video (WCAG 1.2.2) -->
+<video controls src="talk.mp4">
+  <track kind="captions" srclang="en" src="talk-en.vtt" label="English" default />
+</video>`;
+      case 'target-blank-unsafe':
+        return `<!-- Safe new-tab link -->
+<a href="https://example.com" target="_blank" rel="noopener noreferrer">Example (opens in new tab)</a>`;
+      case 'autofocus-attribute':
+        return `<!-- Avoid autofocus; use visible focus order or skip link -->
+<!-- <input autofocus /> -->
+<label for="q">Search</label><input id="q" type="search" />`;
+      case 'scrollable-region-keyboard':
+        return `<!-- Keyboard-scrollable region -->
+<div class="scroll-panel" tabindex="0" role="region" aria-label="Terms and conditions">
+  …long content…
+</div>`;
+      case 'heading-structure-policy':
+        return `<!-- One h1 per main content; then h2, h3… -->
+<main>
+  <h1>Services</h1>
+  <h2>Consulting</h2>
+  <p>…</p>
+</main>`;
+      case 'table-missing-headers':
+        return `<!-- Data table with headers -->
+<table>
+  <caption>Quarterly results</caption>
+  <thead><tr><th scope="col">Product</th><th scope="col">Sales</th></tr></thead>
+  <tbody><tr><td>A</td><td>100</td></tr></tbody>
+</table>`;
+      case 'landmark-aside-unnamed':
+        return `<!-- Name multiple complementary regions -->
+<aside aria-label="Related articles">…</aside>
+<aside aria-label="Newsletter signup">…</aside>`;
       default:
         return `<!-- Fix the accessibility issue in this element -->
 ${html}`;

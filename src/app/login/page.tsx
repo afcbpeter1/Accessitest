@@ -1,18 +1,59 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Shield, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import GoogleSignInButton from '@/components/GoogleSignInButton'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState('')
   const [logoutMessage, setLogoutMessage] = useState('')
   const router = useRouter()
+
+  const redirectAfterLogin = useCallback(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const rawRedirect = urlParams.get('redirect')
+    const redirectPath =
+      rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')
+        ? rawRedirect
+        : '/dashboard'
+    router.push(redirectPath)
+  }, [router])
+
+  const handleGoogleCredential = useCallback(
+    async (credential: string) => {
+      setGoogleLoading(true)
+      setError('')
+      try {
+        const response = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credential }),
+        })
+        const data = await response.json()
+        if (data.success) {
+          localStorage.setItem('accessToken', data.token)
+          localStorage.setItem('user', JSON.stringify(data.user))
+          const { tokenRefreshService } = await import('@/lib/token-refresh-service')
+          tokenRefreshService.resetInactivityTimer()
+          redirectAfterLogin()
+        } else {
+          setError(data.error || 'Google sign-in failed')
+        }
+      } catch {
+        setError('Network error. Please try again.')
+      } finally {
+        setGoogleLoading(false)
+      }
+    },
+    [redirectAfterLogin]
+  )
 
   // Check for logout message and clear any stale/expired token so "session expired" doesn’t show again
   useEffect(() => {
@@ -81,14 +122,7 @@ export default function LoginPage() {
         const { tokenRefreshService } = await import('@/lib/token-refresh-service')
         tokenRefreshService.resetInactivityTimer()
         
-        // Check for redirect parameter (allow only same-origin paths to prevent open redirect)
-        const urlParams = new URLSearchParams(window.location.search)
-        const rawRedirect = urlParams.get('redirect')
-        const redirectPath =
-          rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')
-            ? rawRedirect
-            : '/dashboard'
-        router.push(redirectPath)
+        redirectAfterLogin()
       } else {
         if (data.requiresVerification) {
           // Redirect to signup page for verification
@@ -200,11 +234,28 @@ export default function LoginPage() {
           <div>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || googleLoading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-900 hover:bg-blue-950 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-900 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
+          </div>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <div className="w-full border-t border-gray-200" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-white text-gray-500">Or continue with</span>
+            </div>
+          </div>
+
+          <div className={googleLoading ? 'opacity-60 pointer-events-none' : ''}>
+            {googleLoading ? (
+              <p className="text-center text-sm text-gray-600">Signing in with Google…</p>
+            ) : (
+              <GoogleSignInButton onCredential={handleGoogleCredential} disabled={isLoading || googleLoading} />
+            )}
           </div>
 
           {/* Links */}
