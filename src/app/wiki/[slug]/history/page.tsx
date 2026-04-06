@@ -4,12 +4,20 @@ import { notFound } from 'next/navigation'
 import { getWikiPageBySlug, listWikiRevisionsForSlug } from '@/lib/wiki/wiki-db'
 import { formatPublicWikiEditorName } from '@/lib/wiki/public-editor-name'
 
+const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'https://a11ytest.ai').replace(/\/$/, '')
+
 type Props = { params: { slug: string } }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const page = await getWikiPageBySlug(params.slug)
-  if (!page) return { title: 'Not found' }
-  return { title: `Revision history: ${page.title}` }
+  if (!page) return { title: 'Not found · Accessibility Wiki' }
+  const articlePath = `/wiki/${encodeURIComponent(page.slug)}`
+  return {
+    title: `Revision history: ${page.title} · Accessibility Wiki`,
+    description: `Revision history for “${page.title}” on the a11ytest.ai accessibility wiki. The article page is the canonical URL for this topic.`,
+    robots: { index: false, follow: true },
+    alternates: { canonical: `${baseUrl}${articlePath}` },
+  }
 }
 
 export default async function WikiHistoryPage({ params }: Props) {

@@ -2,8 +2,14 @@ import WikiAuthGate from '@/components/WikiAuthGate'
 import WikiNewForm from '@/components/wiki/WikiNewForm'
 import type { Metadata } from 'next'
 
+const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'https://a11ytest.ai').replace(/\/$/, '')
+
 export const metadata: Metadata = {
-  title: 'Create wiki page',
+  title: 'Create wiki article · Accessibility Wiki',
+  description:
+    'Create a new community article in the a11ytest.ai accessibility wiki. Sign in to contribute WCAG-focused content.',
+  robots: { index: false, follow: true },
+  alternates: { canonical: `${baseUrl}/wiki` },
 }
 
 export default function WikiNewPage() {

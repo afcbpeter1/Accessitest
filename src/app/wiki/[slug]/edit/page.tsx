@@ -1,10 +1,27 @@
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getWikiPageBySlug, getWikiTagsForPageSlug } from '@/lib/wiki/wiki-db'
 import WikiAuthGate from '@/components/WikiAuthGate'
 import WikiEditorForm from '@/components/wiki/WikiEditorForm'
 
+const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'https://a11ytest.ai').replace(/\/$/, '')
+
 type Props = { params: { slug: string } }
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const page = await getWikiPageBySlug(params.slug)
+  if (!page) {
+    return { title: 'Not found · Accessibility Wiki' }
+  }
+  const articlePath = `/wiki/${encodeURIComponent(page.slug)}`
+  return {
+    title: `Edit: ${page.title} · Accessibility Wiki`,
+    description: `Editor for the wiki article “${page.title}”. Read the public article at a11ytest.ai — this URL is for contributors only.`,
+    robots: { index: false, follow: true },
+    alternates: { canonical: `${baseUrl}${articlePath}` },
+  }
+}
 
 export default async function WikiEditPage({ params }: Props) {
   const page = await getWikiPageBySlug(params.slug)

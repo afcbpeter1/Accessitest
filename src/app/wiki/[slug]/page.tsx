@@ -6,6 +6,8 @@ import { formatPublicWikiEditorName } from '@/lib/wiki/public-editor-name'
 import WikiContent from '@/components/wiki/WikiContent'
 import WikiFlagButton from '@/components/wiki/WikiFlagButton'
 
+const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || 'https://a11ytest.ai').replace(/\/$/, '')
+
 type Props = { params: { slug: string } }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -13,11 +15,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!page) {
     return { title: 'Not found · Accessibility Wiki' }
   }
+  const path = `/wiki/${encodeURIComponent(page.slug)}`
+  const description = page.wcag_criterion
+    ? `WCAG ${page.wcag_criterion} — community accessibility article on a11ytest.ai: ${page.title}.`
+    : `Community accessibility article on a11ytest.ai: ${page.title}.`
   return {
     title: `${page.title} · Accessibility Wiki`,
-    description: page.wcag_criterion
-      ? `WCAG ${page.wcag_criterion} — community article on a11ytest.ai`
-      : 'Community accessibility article on a11ytest.ai',
+    description,
+    alternates: { canonical: `${baseUrl}${path}` },
   }
 }
 

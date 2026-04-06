@@ -65,6 +65,7 @@ export default function WikiAuthGate({ children, redirectPath }: WikiAuthGatePro
     return (
       <div className="min-h-[40vh] flex items-center justify-center">
         <div className="text-center">
+          <h1 className="sr-only">Wiki editor</h1>
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#0645ad] mx-auto mb-3" />
           <p className="text-sm text-gray-600">Checking your session…</p>
         </div>

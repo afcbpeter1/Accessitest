@@ -37,6 +37,8 @@ export default function robots(): MetadataRoute.Robots {
         '/signup',
         '/pricing',
         '/extension',
+        '/wiki/*/edit',
+        '/wiki/new',
       ],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
