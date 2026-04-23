@@ -29,6 +29,50 @@ function getPriorityColor(priority: string) {
   }
 }
 
+type ScrapedLink =
+  | { linkId: string; kind: 'url'; url: string; text: string }
+  | { linkId: string; kind: 'click'; selector: string; text: string; pageUrl?: string }
+
+/** One Set entry per checkbox; duplicate linkIds make every matching row toggle together. */
+function ensureUniqueLinkIds(links: ScrapedLink[]): ScrapedLink[] {
+  const used = new Set<string>()
+  return links.map((l, i) => {
+    let id = l.linkId?.trim() || `row-${i}`
+    let candidate = id
+    let n = 0
+    while (used.has(candidate)) {
+      n += 1
+      candidate = `${id}__${n}`
+    }
+    used.add(candidate)
+    if (candidate === l.linkId) return l
+    return { ...l, linkId: candidate }
+  })
+}
+
+function normalizeScrapedLink(raw: unknown): ScrapedLink | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  const text = String(o.text ?? '').trim()
+  if (o.kind === 'click' && typeof o.selector === 'string' && o.selector.trim() && typeof o.linkId === 'string') {
+    return {
+      linkId: o.linkId,
+      kind: 'click',
+      selector: o.selector.trim(),
+      text: text || o.selector.trim(),
+      pageUrl: typeof o.pageUrl === 'string' ? o.pageUrl : undefined
+    }
+  }
+  if (o.kind === 'url' && typeof o.url === 'string' && typeof o.linkId === 'string') {
+    const url = o.url
+    return { linkId: o.linkId, kind: 'url', url, text: text || url }
+  }
+  if (typeof o.url === 'string' && o.url) {
+    return { linkId: 'url:' + o.url, kind: 'url', url: o.url, text: text || o.url }
+  }
+  return null
+}
+
 /**
  * Chrome extension only: shown in the extension side panel iframe.
  * User logs in inside the iframe (app handles session/cookie). No tokens or secrets in extension code.
@@ -82,9 +126,10 @@ export default function ExtensionPage() {
   const [scanError, setScanError] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [currentTabUrl, setCurrentTabUrl] = useState<string | null>(null)
-  const [availableLinks, setAvailableLinks] = useState<Array<{ url: string; text: string }>>([])
-  const [selectedLinkUrls, setSelectedLinkUrls] = useState<Set<string>>(new Set())
+  const [availableLinks, setAvailableLinks] = useState<ScrapedLink[]>([])
+  const [selectedLinkIds, setSelectedLinkIds] = useState<Set<string>>(new Set())
   const [loadingLinks, setLoadingLinks] = useState(false)
+  const [manualUrlInput, setManualUrlInput] = useState('')
   const [isMultiScanning, setIsMultiScanning] = useState(false)
   const [multiScanPage, setMultiScanPage] = useState<{ current: number; total: number; url: string } | null>(null)
   const [issuesPageTab, setIssuesPageTab] = useState(0)
@@ -157,11 +202,18 @@ export default function ExtensionPage() {
           openPricingInNewWindow()
         }
         setIsScanning(false)
+        setIsMultiScanning(false)
+        setMultiScanPage(null)
       }
       if (event.data?.type === 'ACCESSSCAN_LINKS') {
-        const links = Array.isArray(event.data.links) ? event.data.links : []
+        const raw: unknown[] = Array.isArray(event.data.links) ? event.data.links : []
+        const links: ScrapedLink[] = ensureUniqueLinkIds(
+          raw
+            .map((item: unknown) => normalizeScrapedLink(item))
+            .filter((entry): entry is ScrapedLink => entry != null)
+        )
         setAvailableLinks(links)
-        setSelectedLinkUrls(new Set(links.map((l: any) => l.url)))
+        setSelectedLinkIds(new Set(links.map((entry) => entry.linkId)))
         setLoadingLinks(false)
       }
       if (event.data?.type === 'ACCESSSCAN_LINKS_ERROR') {
@@ -297,7 +349,7 @@ export default function ExtensionPage() {
     setScanError(null)
     setLoadingLinks(true)
     setAvailableLinks([])
-    setSelectedLinkUrls(new Set())
+    setSelectedLinkIds(new Set())
     try {
       if (window.parent !== window) {
         window.parent.postMessage({ type: 'ACCESSSCAN_GET_LINKS' }, '*')
@@ -311,21 +363,60 @@ export default function ExtensionPage() {
     }
   }
 
-  const toggleLinkSelected = (url: string) => {
-    setSelectedLinkUrls((prev) => {
+  const addManualPageUrl = () => {
+    const raw = manualUrlInput.trim()
+    if (!raw) {
+      setScanError('Enter a URL to add.')
+      return
+    }
+    let parsed: URL
+    try {
+      parsed = new URL(raw)
+    } catch {
+      setScanError('Enter a valid URL (include https://).')
+      return
+    }
+    if (!/^https?:$/.test(parsed.protocol)) {
+      setScanError('URL must start with http:// or https://')
+      return
+    }
+    const finalUrl = parsed.href
+    const linkId = `url:${finalUrl}`
+    setAvailableLinks((prev) => {
+      if (prev.some((l) => l.linkId === linkId)) {
+        return prev
+      }
+      return [...prev, { linkId, kind: 'url' as const, url: finalUrl, text: finalUrl }]
+    })
+    setSelectedLinkIds((prev) => {
       const next = new Set(prev)
-      if (next.has(url)) {
-        next.delete(url)
+      next.add(linkId)
+      return next
+    })
+    setManualUrlInput('')
+    setScanError(null)
+  }
+
+  const toggleLinkSelected = (linkId: string) => {
+    setSelectedLinkIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(linkId)) {
+        next.delete(linkId)
       } else {
-        next.add(url)
+        next.add(linkId)
       }
       return next
     })
   }
 
   const runMultiScan = () => {
-    const urls = Array.from(selectedLinkUrls)
-    if (!urls.length) {
+    const selected = availableLinks.filter((l) => selectedLinkIds.has(l.linkId))
+    const targets = selected.map((l) =>
+      l.kind === 'url'
+        ? { type: 'url' as const, url: l.url }
+        : { type: 'click' as const, selector: l.selector, label: l.text }
+    )
+    if (!targets.length) {
       setScanError('Select at least one page to scan.')
       return
     }
@@ -333,11 +424,19 @@ export default function ExtensionPage() {
     setScanResult(null)
     setMultiScanPageResults([])
     setIsMultiScanning(true)
-    setMultiScanPage({ current: 1, total: urls.length, url: urls[0] || '' })
+    const firstLabel =
+      targets[0].type === 'url' ? targets[0].url : `${targets[0].label ? targets[0].label + ' · ' : ''}${targets[0].selector}`
+    setMultiScanPage({ current: 1, total: targets.length, url: firstLabel })
     try {
       if (window.parent !== window) {
         window.parent.postMessage(
-          { type: 'ACCESSSCAN_RUN_MULTI_SCAN', urls, tags: getTags(), wcagLevel },
+          {
+            type: 'ACCESSSCAN_RUN_MULTI_SCAN',
+            targets,
+            selectedLinkIds: Array.from(selectedLinkIds),
+            tags: getTags(),
+            wcagLevel
+          },
           '*'
         )
       } else {
@@ -412,7 +511,7 @@ export default function ExtensionPage() {
           </div>
         )}
 
-        {/* Multi-page scan (no manual URL pasting; use links from current page) */}
+        {/* Multi-page scan */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 space-y-3">
           {isMultiScanning && multiScanPage && (
             <div className="rounded-lg border-2 border-primary-500 bg-primary-50 p-4">
@@ -429,16 +528,16 @@ export default function ExtensionPage() {
                 {multiScanPage.url || 'Loading…'}
               </p>
               <p className="mt-1 text-xs text-gray-600">
-                The tab opens each page in turn. We wait for the scan and AI suggestions to finish before moving to the next.
+                Each step either navigates to a URL or clicks a control on the current page. We wait for the scan and AI suggestions to finish before moving to the next.
               </p>
             </div>
           )}
           <h2 className="text-sm font-semibold text-gray-900">Scan multiple pages (same site)</h2>
           <p className="text-xs text-gray-600">
-            Click <strong>Find links on this page</strong>, tick the pages to scan, then <strong>Scan selected</strong>. The extension will open each page in the tab, run the scan (like &quot;Scan page&quot;), and save issues to your product backlog.
+            Click <strong>Find links on this page</strong>, tick the steps to run, then <strong>Scan selected</strong>. Real URLs open in the tab; Blazor/SPA nav that uses the same dummy route (for example a path containing <code className="text-[11px]">does-not-exist</code>) or inline <code className="text-[11px]">onclick</code> runs as <strong>same-tab clicks</strong> so the scanner does not rely on the address bar changing.
           </p>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-gray-700">Pages you can scan:</span>
+            <span className="text-xs text-gray-700">Discover from the active tab:</span>
             <button
               type="button"
               onClick={fetchLinks}
@@ -448,47 +547,85 @@ export default function ExtensionPage() {
               {loadingLinks ? 'Finding links…' : 'Find links on this page'}
             </button>
           </div>
+          {inExtension && (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <div className="flex-1 min-w-0">
+                <label htmlFor="manual-scan-url" className="block text-xs font-medium text-gray-700 mb-1">
+                  Add a page by full URL (optional)
+                </label>
+                <input
+                  id="manual-scan-url"
+                  type="url"
+                  value={manualUrlInput}
+                  onChange={(e) => setManualUrlInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addManualPageUrl()
+                    }
+                  }}
+                  disabled={isMultiScanning || isScanning}
+                  placeholder="https://yoursite.com/path"
+                  className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-primary-500 disabled:opacity-60"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={addManualPageUrl}
+                disabled={isMultiScanning || isScanning}
+                className="shrink-0 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 disabled:opacity-60"
+              >
+                Add URL
+              </button>
+            </div>
+          )}
           {availableLinks.length === 0 && !loadingLinks && (
             <p className="text-xs text-gray-500 italic">
-              No links loaded yet. Make sure the tab you want to scan is the active tab, then click &quot;Find links on this page&quot;.
+              No steps yet. Use <strong>Find links</strong> and/or <strong>Add URL</strong>. Keep the tab you want to scan active.
             </p>
           )}
           {availableLinks.length > 0 && (
             <>
               <p className="text-xs font-medium text-gray-700">
-                Scraped pages ({availableLinks.length}) — tick the ones to scan:
+                Found targets ({availableLinks.length}) — tick the ones to scan:
               </p>
               <div className="max-h-56 overflow-y-auto border border-gray-200 rounded-md divide-y divide-gray-100 bg-gray-50/50">
-                {availableLinks.map((link) => (
+                {availableLinks.map((link, linkIndex) => {
+                  const sub =
+                    link.kind === 'click'
+                      ? `Same tab · ${link.selector}`
+                      : link.url
+                  return (
                   <label
-                    key={link.url}
+                    key={`${link.linkId}#${linkIndex}`}
                     className="flex items-start gap-2 px-3 py-2 text-xs cursor-pointer hover:bg-gray-50"
                   >
                     <input
                       type="checkbox"
                       className="mt-0.5 h-4 w-4 shrink-0 text-primary-600 border-gray-300 rounded"
-                      checked={selectedLinkUrls.has(link.url)}
-                      onChange={() => toggleLinkSelected(link.url)}
+                      checked={selectedLinkIds.has(link.linkId)}
+                      onChange={() => toggleLinkSelected(link.linkId)}
                     />
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-gray-800 truncate" title={link.text}>
                         {link.text}
                       </div>
-                      <div className="text-[11px] text-gray-500 truncate" title={link.url}>
-                        {link.url}
+                      <div className="text-[11px] text-gray-500 truncate" title={sub}>
+                        {sub}
                       </div>
                     </div>
                   </label>
-                ))}
+                  )
+                })}
               </div>
               <div className="flex flex-col items-end gap-1">
                 <button
                   type="button"
                   onClick={runMultiScan}
-                  disabled={isMultiScanning || isScanning || selectedLinkUrls.size === 0}
+                  disabled={isMultiScanning || isScanning || selectedLinkIds.size === 0}
                   className="inline-flex items-center px-4 py-2.5 bg-blue-900 text-white text-xs font-medium rounded-md hover:bg-blue-950 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {isMultiScanning ? 'Scanning selected pages…' : `Scan selected (${selectedLinkUrls.size})`}
+                  {isMultiScanning ? 'Scanning selected pages…' : `Scan selected (${selectedLinkIds.size})`}
                 </button>
               </div>
             </>

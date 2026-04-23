@@ -6,6 +6,31 @@ chrome.action.onClicked.addListener(function (tab) {
 
 var multiScanPendingNext = null;
 
+function normalizeMultiScanSteps(msg) {
+  var out = [];
+  if (Array.isArray(msg.targets)) {
+    msg.targets.forEach(function (t) {
+      if (!t || typeof t !== 'object') return;
+      if (t.type === 'url' && typeof t.url === 'string' && /^https?:\/\//.test(t.url)) {
+        out.push({ type: 'url', url: t.url });
+      } else if (t.type === 'click' && typeof t.selector === 'string') {
+        var sel = t.selector.trim();
+        if (sel && sel.length <= 2000) {
+          out.push({ type: 'click', selector: sel, label: typeof t.label === 'string' ? t.label : '' });
+        }
+      }
+    });
+  }
+  if (!out.length && Array.isArray(msg.urls)) {
+    msg.urls.forEach(function (u) {
+      if (typeof u === 'string' && /^https?:\/\//.test(u)) {
+        out.push({ type: 'url', url: u });
+      }
+    });
+  }
+  return out;
+}
+
 function injectAndRunScan(tabId, tags, callback) {
   // Inject axe and content script (axe first so it's in scope); avoids page CSP blocking CDN
   chrome.scripting.executeScript({ target: { tabId: tabId }, files: ['axe.min.js', 'content-scan.js'] }, function () {
@@ -116,10 +141,13 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
   }
 
   if (msg.type === 'RUN_MULTI_SCAN') {
-    var urls = Array.isArray(msg.urls) ? msg.urls.filter(function (u) { return typeof u === 'string' && u && /^https?:\/\//.test(u); }) : [];
+    var steps = normalizeMultiScanSteps(msg);
     var tagsMulti = Array.isArray(msg.tags) ? msg.tags : [];
-    if (!urls.length) {
-      sendResponse({ error: 'No URLs to scan' });
+    if (!steps.length) {
+      sendResponse({
+        error:
+          'No pages or click targets to scan. Reload the extension (chrome://extensions), update the a11ytest.ai app, or use extension options to point the side panel at a build that includes the latest /extension page.'
+      });
       return true;
     }
 
@@ -133,42 +161,81 @@ chrome.runtime.onMessage.addListener(function (msg, sender, sendResponse) {
       var tabId = tab.id;
       var index = 0;
 
+      function stepLabel(step) {
+        if (step.type === 'url') return step.url;
+        return (step.label ? step.label + ' · ' : '') + step.selector;
+      }
+
+      function scheduleScan() {
+        var currentPage = index;
+        var totalPages = steps.length;
+        chrome.runtime.sendMessage({
+          type: 'MULTI_SCAN_PAGE_START',
+          currentPage: currentPage,
+          totalPages: totalPages,
+          url: stepLabel(steps[index - 1])
+        }).catch(function () {});
+
+        setTimeout(function () {
+          injectAndRunScan(tabId, tagsMulti, function () {
+            multiScanPendingNext = function () {
+              multiScanPendingNext = null;
+              runNext();
+            };
+          });
+        }, 4000);
+      }
+
       function runNext() {
-        if (index >= urls.length) {
-          sendResponse({ ok: true, scanned: urls.length });
+        if (index >= steps.length) {
+          sendResponse({ ok: true, scanned: steps.length });
           return;
         }
 
-        var targetUrl = urls[index];
+        var step = steps[index];
         index++;
 
-        chrome.tabs.update(tabId, { url: targetUrl }, function () {
-          if (chrome.runtime.lastError) {
-            runNext();
-            return;
+        if (step.type === 'url') {
+          chrome.tabs.update(tabId, { url: step.url }, function () {
+            if (chrome.runtime.lastError) {
+              runNext();
+              return;
+            }
+            scheduleScan();
+          });
+          return;
+        }
+
+        chrome.scripting.executeScript(
+          {
+            target: { tabId: tabId },
+            world: 'MAIN',
+            func: function (sel) {
+              try {
+                var el = document.querySelector(sel);
+                if (!el) return { ok: false, error: 'Element not found' };
+                el.scrollIntoView({ block: 'center', inline: 'nearest' });
+                el.click();
+                return { ok: true };
+              } catch (e) {
+                return { ok: false, error: e && e.message ? e.message : 'click failed' };
+              }
+            },
+            args: [step.selector]
+          },
+          function (results) {
+            if (chrome.runtime.lastError) {
+              runNext();
+              return;
+            }
+            var r = results && results[0] && results[0].result;
+            if (!r || !r.ok) {
+              runNext();
+              return;
+            }
+            scheduleScan();
           }
-
-          var currentPage = index;
-          var totalPages = urls.length;
-
-          chrome.runtime.sendMessage({
-            type: 'MULTI_SCAN_PAGE_START',
-            currentPage: currentPage,
-            totalPages: totalPages,
-            url: targetUrl
-          }).catch(function () {});
-
-          // Wait for page to render, then run axe. After axe completes we wait for the backend
-          // (AI suggestions, store, backlog) before moving to next page – see MULTI_SCAN_PAGE_SUBMIT_DONE.
-          setTimeout(function () {
-            injectAndRunScan(tabId, tagsMulti, function () {
-              multiScanPendingNext = function () {
-                multiScanPendingNext = null;
-                runNext();
-              };
-            });
-          }, 4000);
-        });
+        );
       }
 
       runNext();

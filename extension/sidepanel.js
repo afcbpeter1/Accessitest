@@ -13,6 +13,67 @@
   var focusReaderEnabled = false;
   var focusReaderAllowed = false;
   var focusReaderLoggedIn = false;
+  /** Last GET_LINKS payload; used to rebuild multi-scan steps if the iframe omits `targets` (e.g. older /extension bundle). */
+  var lastScrapedLinks = null;
+
+  function buildTargetsFromSelection(ids, cache) {
+    if (!ids || !ids.length || !cache || !cache.length) return [];
+    var idSet = new Set();
+    ids.forEach(function (id) {
+      if (id != null && id !== '') idSet.add(String(id));
+    });
+    var out = [];
+    for (var i = 0; i < cache.length; i++) {
+      var l = cache[i];
+      if (!l || l.linkId == null || !idSet.has(String(l.linkId))) continue;
+      if (l.kind === 'url' && typeof l.url === 'string' && /^https?:\/\//.test(l.url)) {
+        out.push({ type: 'url', url: l.url });
+      } else if (l.kind === 'click' && typeof l.selector === 'string' && l.selector.trim()) {
+        out.push({ type: 'click', selector: l.selector.trim(), label: typeof l.text === 'string' ? l.text : '' });
+      }
+    }
+    return out;
+  }
+
+  function parseLegacyClickOrdinal(url) {
+    if (typeof url !== 'string' || !url) return null;
+    try {
+      var hash = new URL(url).hash || '';
+      var m = hash.match(/^#accessscan-click-(\d+)$/);
+      if (!m) return null;
+      return Number(m[1]);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function buildTargetsFromLegacyUrls(urls, cache) {
+    if (!urls || !urls.length || !cache || !cache.length) return [];
+    var clickByOrdinal = new Map();
+    for (var i = 0; i < cache.length; i++) {
+      var l = cache[i];
+      if (!l || l.kind !== 'click' || typeof l.selector !== 'string' || !l.selector.trim()) continue;
+      var m = String(l.linkId || '').match(/^click:(\d+):/);
+      if (!m) continue;
+      clickByOrdinal.set(Number(m[1]), l);
+    }
+    var out = [];
+    for (var j = 0; j < urls.length; j++) {
+      var u = urls[j];
+      var ord = parseLegacyClickOrdinal(u);
+      if (ord == null || !clickByOrdinal.has(ord)) {
+        out.push({ type: 'url', url: u });
+        continue;
+      }
+      var clickLink = clickByOrdinal.get(ord);
+      out.push({
+        type: 'click',
+        selector: clickLink.selector.trim(),
+        label: typeof clickLink.text === 'string' ? clickLink.text : ''
+      });
+    }
+    return out;
+  }
 
   // If the side panel is closed/unloaded, ensure the reader is turned off.
   // The reader runs as a content script in the page tab, so it must be explicitly stopped.
@@ -67,6 +128,16 @@
     if (bar) bar.style.display = 'block';
     if (fill && totalPages > 0) fill.style.width = (currentPage / totalPages * 100) + '%';
     if (urlEl) { urlEl.textContent = url || ''; urlEl.style.display = url ? 'block' : 'none'; }
+  }
+
+  function multiScanOverlayLabel(targets) {
+    if (!targets || !targets.length) return '';
+    var t = targets[0];
+    if (!t || typeof t !== 'object') return '';
+    if (t.type === 'url' && t.url) return t.url;
+    if (t.type === 'click' && t.selector) return (t.label ? t.label + ' · ' : '') + t.selector;
+    if (typeof t === 'string') return t;
+    return '';
   }
 
   function hideScanOverlay() {
@@ -225,9 +296,10 @@
             error: (response && response.error) || 'Failed to get links from this page'
           }, '*');
         } else {
+          lastScrapedLinks = response.links || [];
           iframe.contentWindow.postMessage({
             type: 'ACCESSSCAN_LINKS',
-            links: response.links || []
+            links: lastScrapedLinks
           }, '*');
         }
       });
@@ -235,29 +307,59 @@
     }
 
     if (data.type === 'ACCESSSCAN_RUN_MULTI_SCAN') {
-      var urls = Array.isArray(data.urls) ? data.urls : [];
+      var targets = Array.isArray(data.targets) ? data.targets : [];
+      var urlsLegacy = Array.isArray(data.urls)
+        ? data.urls.filter(function (u) {
+            return typeof u === 'string' && /^https?:\/\//.test(u);
+          })
+        : [];
+      if (!targets.length && urlsLegacy.length && lastScrapedLinks && lastScrapedLinks.length) {
+        var rebuiltFromLegacy = buildTargetsFromLegacyUrls(urlsLegacy, lastScrapedLinks);
+        if (rebuiltFromLegacy.length) {
+          targets = rebuiltFromLegacy;
+          urlsLegacy = [];
+        }
+      }
+      if (!targets.length && lastScrapedLinks && lastScrapedLinks.length) {
+        if (Array.isArray(data.selectedLinkIds) && data.selectedLinkIds.length) {
+          targets = buildTargetsFromSelection(data.selectedLinkIds, lastScrapedLinks);
+        } else if (!('selectedLinkIds' in data) && !urlsLegacy.length) {
+          targets = buildTargetsFromSelection(
+            lastScrapedLinks
+              .map(function (l) {
+                return l && l.linkId;
+              })
+              .filter(Boolean),
+            lastScrapedLinks
+          );
+        }
+      }
       isMultiScan = true;
       currentMultiScanId = 'ms_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-      showScanOverlay(true, 1, urls.length, urls[0] || '');
+      var totalSteps = targets.length || urlsLegacy.length;
+      showScanOverlay(true, 1, totalSteps, multiScanOverlayLabel(targets.length ? targets : urlsLegacy));
       var tagsMulti = Array.isArray(data.tags) ? data.tags : [];
       lastScanTags = tagsMulti;
       lastWcagLevel = (data.wcagLevel === 'A' || data.wcagLevel === 'AAA') ? data.wcagLevel : 'AA';
-      chrome.runtime.sendMessage({ type: 'RUN_MULTI_SCAN', urls: urls, tags: tagsMulti }, function (response) {
-        if (response && response.error && iframe.contentWindow) {
-          iframe.contentWindow.postMessage({
-            type: 'ACCESSSCAN_SCAN_ERROR',
-            error: response.error
-          }, '*');
-          hideScanOverlay();
+      chrome.runtime.sendMessage(
+        { type: 'RUN_MULTI_SCAN', targets: targets, urls: urlsLegacy, tags: tagsMulti },
+        function (response) {
+          if (response && response.error && iframe.contentWindow) {
+            iframe.contentWindow.postMessage({
+              type: 'ACCESSSCAN_SCAN_ERROR',
+              error: response.error
+            }, '*');
+            hideScanOverlay();
+          }
+          if (response && response.ok === true && iframe.contentWindow) {
+            iframe.contentWindow.postMessage({
+              type: 'ACCESSSCAN_MULTI_SCAN_COMPLETE',
+              scanned: response.scanned || 0
+            }, '*');
+            hideScanOverlay();
+          }
         }
-        if (response && response.ok === true && iframe.contentWindow) {
-          iframe.contentWindow.postMessage({
-            type: 'ACCESSSCAN_MULTI_SCAN_COMPLETE',
-            scanned: response.scanned || 0
-          }, '*');
-          hideScanOverlay();
-        }
-      });
+      );
       return;
     }
 
