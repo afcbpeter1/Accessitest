@@ -62,7 +62,7 @@ def detect_language_with_ai(pdf_path, title=None):
             return 'en'
         client = anthropic.Anthropic(api_key=api_key)
         msg = client.messages.create(
-            model='claude-sonnet-4-20250514', max_tokens=10,
+            model='claude-sonnet-4-6', max_tokens=10,
             messages=[{'role': 'user', 'content':
                 f'Respond with ONLY the ISO 639-1 two-letter language code (e.g. en, fr, de):\n\nTitle: {title or ""}\n\n{sample[:800]}'}]
         )
@@ -327,7 +327,7 @@ def patch_fix_figure_alt_text(pdf, use_ai=False, pdf_path=None, document_title=N
                 if api_key:
                     client = anthropic.Anthropic(api_key=api_key)
                     msg = client.messages.create(
-                        model='claude-sonnet-4-20250514', max_tokens=1000,
+                        model='claude-sonnet-4-6', max_tokens=1000,
                         messages=[{'role': 'user', 'content':
                             f'PDF "{document_title or "Document"}" has {len(images)} figures.\n'
                             f'Images: {json.dumps(images)}\n'
@@ -735,7 +735,7 @@ def get_image_alt_text_from_claude(pdf_path, document_title=None):
                   f'{json.dumps(images, indent=2)}\n'
                   'Return JSON with keys as image index (1-based) and values as alt text under 125 chars.\n'
                   'JSON only.')
-        msg = client.messages.create(model='claude-sonnet-4-20250514', max_tokens=1500,
+        msg = client.messages.create(model='claude-sonnet-4-6', max_tokens=1500,
                                      messages=[{'role': 'user', 'content': prompt}])
         text = msg.content[0].text
         if '```' in text:
